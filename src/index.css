@@ -1,3 +1,4 @@
+/* Reset and base styles */
 html, body {
   margin: 0;
   padding: 0;
@@ -19,9 +20,9 @@ html, body {
 }
 
 .app {
+  height: 100vh;
   display: grid;
   grid-template-rows: auto 1fr;
-  height: 100vh;
 }
 
 header {
@@ -59,13 +60,13 @@ main {
 
 .section-header h2, .section-header h3 {
   margin: 0;
-  font-size: 1rem;
   font-weight: 500;
+  font-size: 1rem;
 }
 
 .content {
-  padding: 1rem;
   background-color: #2a2a2a;
+  padding: 1rem;
   border-radius: 0 0 4px 4px;
   overflow-y: auto;
   height: calc(100% - 40px);
@@ -118,221 +119,76 @@ main {
 .track-list {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
-
-.track-list > button {
-  padding: 0.5rem;
-  background-color: #44aa44;
-  border: none;
-  border-radius: 4px;
-  color: white;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.track-list > button:hover {
-  background-color: #55bb55;
-}
-
-.track-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem;
-  background-color: #3a3a3a;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.track-item:hover {
-  background-color: #4a4a4a;
-}
-
-.track-item.selected {
-  background-color: #5a5a5a;
-}
-
-.track-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.active-toggle {
-  background: none;
-  border: none;
-  color: #888888;
-  cursor: pointer;
-  padding: 0;
-  font-size: 1.2rem;
-  line-height: 1;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.active-toggle.active {
-  color: #44ff44;
-}
-
-.delete-button {
-  background: none;
-  border: none;
-  color: #ff4444;
-  cursor: pointer;
-  padding: 0;
-  font-size: 1.2rem;
-  line-height: 1;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.track-item:hover .delete-button {
-  opacity: 1;
-}
-
-.delete-button:hover {
-  color: #ff6666;
-}
-
-.tracks-section {
-  display: flex;
-  flex-direction: column;
-  background-color: #2a2a2a;
-  border-radius: 4px;
-  height: 100%;
-  overflow: hidden;
-}
-
-.tracks-section .content {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  background-color: #2a2a2a;
-  border-radius: 0 0 4px 4px;
-  overflow-y: auto;
-  height: 100%;
+  height: 100vh;
+  background: #1a1a1a;
+  color: #fff;
 }
 
 .track-form {
-  padding: 12px;
-  background-color: #2a2a2a;
+  padding: 16px;
+  background: #2a2a2a;
   border-bottom: 1px solid #3a3a3a;
   flex-shrink: 0;
 }
 
-.track-form form {
+.form-container {
   display: flex;
   flex-direction: column;
   gap: 8px;
   width: 100%;
+  max-width: 600px; /* Limit width for better readability */
+  margin: 0 auto; /* Center the form */
 }
 
-.track-input {
+.pattern-input {
   width: 100%;
-  padding: 8px 12px;
+  background: #1a1a1a;
   border: 1px solid #3a3a3a;
   border-radius: 4px;
+  color: #fff;
+  padding: 8px 12px;
   font-size: 14px;
-  background-color: #1a1a1a;
-  color: #ffffff;
-  min-height: 36px;
-  box-sizing: border-box;
+  height: 36px;
 }
 
-.track-input::placeholder {
-  color: #888;
-}
-
-.track-input:focus {
+.pattern-input:focus {
   outline: none;
   border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
 }
 
-.add-track-btn {
+.pattern-input::placeholder {
+  color: #666;
+}
+
+.add-button {
   width: 100%;
-  padding: 8px 16px;
-  background-color: #007bff;
-  color: white;
+  background: #007bff;
   border: none;
+  color: #fff;
+  padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
   height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
 }
 
-.add-track-btn:hover {
-  background-color: #0056b3;
+.add-button:hover:not(:disabled) {
+  background: #0056b3;
 }
 
-.add-track-btn:disabled {
-  background-color: #444;
+.add-button:disabled {
+  background: #2a2a2a;
   cursor: not-allowed;
-}
-
-.track-list-container {
-  flex: 1;
-  min-height: 0;
-  position: relative;
+  opacity: 0.5;
 }
 
 .track-list-content {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 12px;
+  flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.track-group {
-  margin-bottom: 16px;
-  border: 2px solid #3a3a3a;
-  border-radius: 6px;
-  background: rgba(42, 42, 42, 0.5);
-  transition: all 0.2s;
-}
-
-.track-group:last-child {
-  margin-bottom: 0;
-}
-
-.track-group.active {
-  border-color: #007bff;
-}
-
-.track-group-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  background: #2a2a2a;
-  border-bottom: 1px solid #3a3a3a;
-  border-radius: 4px 4px 0 0;
-}
-
-.track-group-content {
-  padding: 8px;
+  padding: 16px;
+  min-height: 0;
 }
 
 .track {
@@ -340,64 +196,72 @@ main {
   align-items: center;
   gap: 8px;
   padding: 8px;
-  background: #1a1a1a;
-  border-radius: 4px;
-  margin-bottom: 8px;
-  cursor: pointer;
+  margin: 4px 0;
+  background: #2a2a2a;
+  border: 2px solid;
+  border-radius: 6px;
   transition: all 0.2s;
+  user-select: none;
 }
 
-.track:last-child {
-  margin-bottom: 0;
+.track:hover {
+  background: #333;
 }
 
 .track.selected {
-  background: #2a2a2a;
-  border-color: #007bff;
+  border-color: #007bff !important;
+  box-shadow: 0 0 0 1px rgba(0, 123, 255, 0.2);
 }
 
-.track-handle {
-  cursor: grab;
-  color: #666;
-  user-select: none;
-  font-size: 16px;
-  line-height: 1;
+.track.active {
+  border-color: #44ff44 !important;
+  box-shadow: 0 0 0 1px rgba(68, 255, 68, 0.2);
 }
 
-.track-handle:active {
-  cursor: grabbing;
+.track.selected.active {
+  border-color: #007bff !important;
 }
 
-.track-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.track-name {
-  flex: 1;
-  font-size: 14px;
-  color: #fff;
-}
-
-.delete-button {
-  background: none;
-  border: none;
-  color: #666;
-  cursor: pointer;
-  font-size: 18px;
-  padding: 0;
-  width: 24px;
-  height: 24px;
+.drag-handle {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s;
+  padding: 4px;
+  color: #666;
+  cursor: grab;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
-.delete-button:hover {
-  color: #ff4444;
+.drag-handle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #999;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.drag-handle svg {
+  fill: currentColor;
+  opacity: 0.7;
+}
+
+.drag-handle:hover svg {
+  opacity: 1;
+}
+
+.track-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.track-name {
+  color: #fff;
+  font-size: 14px;
 }
 
 .active-toggle {
@@ -405,113 +269,45 @@ main {
   border: none;
   color: #666;
   cursor: pointer;
-  font-size: 12px;
-  padding: 0;
-  width: 20px;
-  height: 20px;
+  font-size: 16px;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s;
+  transition: all 0.2s;
+}
+
+.active-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #999;
 }
 
 .active-toggle.active {
   color: #44ff44;
+  text-shadow: 0 0 8px rgba(68, 255, 68, 0.4);
 }
 
-/* Track List Styles */
-.track-list {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow-y: auto;
-}
-
-.track-list-header {
-  padding: 10px;
-  border-bottom: 1px solid #2a2a2a;
-  display: flex;
-  gap: 8px;
-}
-
-.pattern-input {
-  flex: 1;
-  padding: 6px 10px;
-  border: 1px solid #3a3a3a;
-  border-radius: 4px;
-  background: #1a1a1a;
-  color: #fff;
-}
-
-.add-group-button {
-  padding: 6px 12px;
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  border-radius: 4px;
-  color: #fff;
-  cursor: pointer;
-}
-
-.add-group-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.track-list-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-}
-
-/* Track Form Styles */
-.track-form {
-  display: flex;
-  gap: 8px;
-  padding: 16px;
-  background-color: #2a2a2a;
-  border-bottom: 1px solid #3a3a3a;
-}
-
-.track-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #3a3a3a;
-  border-radius: 4px;
-  font-size: 14px;
-  background-color: #1a1a1a;
-  color: #ffffff;
-}
-
-.track-input::placeholder {
-  color: #888;
-}
-
-.track-input:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
-}
-
-.add-track-btn {
-  padding: 8px 16px;
-  background-color: #007bff;
-  color: white;
+.delete-button {
+  background: none;
   border: none;
-  border-radius: 4px;
+  color: #ff4444;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
-  min-width: 100px;
+  font-size: 16px;
+  padding: 4px 8px;
+  opacity: 0;
+  transition: all 0.2s;
+  border-radius: 4px;
 }
 
-.add-track-btn:hover {
-  background-color: #0056b3;
+.track:hover .delete-button,
+.track-group:hover .delete-button {
+  opacity: 1;
 }
 
-.add-track-btn:disabled {
-  background-color: #444;
-  cursor: not-allowed;
+.delete-button:hover {
+  background: rgba(255, 68, 68, 0.1);
 }
 
 /* Track Group Styles */
@@ -521,9 +317,23 @@ main {
   border-radius: 6px;
   background: rgba(42, 42, 42, 0.5);
   transition: all 0.2s;
+  cursor: pointer;
+}
+
+.track-group:hover {
+  background: rgba(42, 42, 42, 0.7);
+}
+
+.track-group.selected {
+  border-color: #007bff;
+  background: rgba(0, 123, 255, 0.1);
 }
 
 .track-group.active {
+  border-color: #44ff44;
+}
+
+.track-group.selected.active {
   border-color: #007bff;
 }
 
@@ -535,67 +345,107 @@ main {
   background: #2a2a2a;
   border-bottom: 1px solid #3a3a3a;
   border-radius: 4px 4px 0 0;
+  transition: all 0.2s;
 }
 
-.track-group-header .track-handle {
-  cursor: grab;
+.track-group.selected .track-group-header {
+  background: rgba(0, 123, 255, 0.1);
+}
+
+.track-group:hover .track-group-header {
+  background: #333;
+}
+
+.track-group.collapsed .track-group-header {
+  border-bottom: none;
+  border-radius: 4px;
+}
+
+.track-group-header .active-toggle {
+  background: none;
+  border: none;
   color: #666;
-  user-select: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
 
-.track-group-header .track-handle:active {
-  cursor: grabbing;
+.track-group-header .active-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #999;
 }
 
-.track-group-header .group-pattern {
-  flex: 1;
+.track-group-header .active-toggle.active {
+  color: #44ff44;
+  text-shadow: 0 0 8px rgba(68, 255, 68, 0.4);
+}
+
+.track-group-header .expand-button {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+
+.track-group-header .expand-button:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #999;
+}
+
+.group-name {
+  color: #fff;
   font-size: 14px;
+  flex: 1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.group-name:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.group-name-input {
+  flex: 1;
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  color: #fff;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+.group-name-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.group-pattern {
   color: #888;
+  font-size: 14px;
+  margin-left: auto;
 }
 
 .track-group-content {
   padding: 8px;
 }
 
-.track-group-content .track {
-  margin-bottom: 8px;
-  background: #1a1a1a;
-}
-
-.track-group-content .track:last-child {
-  margin-bottom: 0;
-}
-
-.track-group .delete-button {
-  background: none;
-  border: none;
-  color: #666;
-  cursor: pointer;
-  font-size: 18px;
-  padding: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s;
-}
-
-.track-group .delete-button:hover {
-  color: #ff4444;
-}
-
-.track-group.can-drop {
-  border-color: #44ff44;
-  background: rgba(68, 255, 68, 0.05);
-}
-
-.track-group.is-dragging-over {
-  border-style: dashed;
-  background: rgba(0, 123, 255, 0.05);
-}
-
-/* Behavior List */
 .behavior-list {
   display: flex;
   flex-direction: column;
@@ -914,74 +764,68 @@ button.disconnect {
   background: #3a3a3a;
 }
 
-/* Track Styles */
-.track {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* Track Zones */
+.tracks-zone,
+.groups-container {
+  margin-bottom: 16px;
+  background: rgba(42, 42, 42, 0.3);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.zone-header {
+  margin-bottom: 8px;
   padding: 8px;
   background: #2a2a2a;
   border-radius: 4px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
-.track:hover {
-  background: #333;
-}
-
-.track.selected {
-  border-color: #007bff;
-  background: #2c3b4a;
-}
-
-.track.active {
-  border-color: #44ff44;
-}
-
-.track-handle {
-  cursor: grab;
-  color: #666;
-  user-select: none;
+.zone-header h3 {
+  margin: 0;
   font-size: 16px;
-  line-height: 1;
-}
-
-.track-handle:active {
-  cursor: grabbing;
-}
-
-.track-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
-.track-name {
-  font-size: 14px;
+  font-weight: 500;
   color: #fff;
 }
 
-.active-toggle {
-  background: none;
-  border: none;
-  color: #666;
-  cursor: pointer;
-  padding: 0;
-  font-size: 16px;
-  line-height: 1;
-  width: 24px;
-  height: 24px;
+.groups-container {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.active-toggle.active {
-  color: #44ff44;
+.group-name {
+  font-size: 14px;
+  color: #fff;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.group-name:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.group-name-input {
+  font-size: 14px;
+  color: #fff;
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 2px 4px;
+  width: 120px;
+  outline: none;
+}
+
+.group-name-input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.group-pattern {
+  font-size: 12px;
+  color: #888;
+  margin-left: auto;
 }
 
 .track-list-container {

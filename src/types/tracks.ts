@@ -11,6 +11,7 @@ export interface Track {
 
 export interface TrackGroup {
   id: string;
+  name: string;
   pattern: string;     // e.g., "[1-4]" or "{1,3,5}"
   tracks: number[];    // resolved track IDs
   expanded: boolean;   // UI state for collapsible groups

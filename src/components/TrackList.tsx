@@ -1,115 +1,199 @@
-import React, { useState, memo } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd';
-import type { Track } from '../types/behaviors';
-import type { TrackGroup, TrackOrGroup } from '../types/tracks';
-import { parsePattern, isTrackGroup, isValidPattern } from '../types/tracks';
-import { TrackGroupComponent } from './TrackGroup';
+import React, { useState } from 'react';
+import type { Track, TrackGroup } from '../types/tracks';
 import { TrackComponent } from './Track';
-
-const DROPPABLE_ID = 'TRACKLIST';
+import { TrackGroupComponent } from './TrackGroup';
+import {
+  DndContext,
+  DragOverlay,
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent,
+  useSensors,
+  useSensor,
+  PointerSensor,
+  KeyboardSensor,
+  closestCenter,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { isValidPattern, parsePattern } from '../types/tracks';
+import type { UniqueIdentifier } from '@dnd-kit/core';
 
 interface TrackListProps {
   selectedTrack: Track | null;
   onSelectionChange: (track: Track | null) => void;
 }
 
-const DroppableContent = memo(({ 
-  provided, 
-  items, 
-  renderDraggableItem 
-}: { 
-  provided: DroppableProvided;
-  items: TrackOrGroup[];
-  renderDraggableItem: (item: TrackOrGroup, index: number) => React.ReactNode;
-}) => (
-  <div
-    ref={provided.innerRef}
-    {...provided.droppableProps}
-    className="track-list-content"
-    style={{ overflowY: 'auto' }}
-  >
-    {items.map((item, index) => renderDraggableItem(item, index))}
-    {provided.placeholder}
-  </div>
-));
-
-DroppableContent.displayName = 'DroppableContent';
-
-const DraggableItem = memo(({ 
-  item, 
-  index,
-  selectedTrack,
-  onSelectionChange,
-  onToggleExpand,
-  onToggleActive,
-  onDeleteGroup,
-  onToggleTrackActive,
-  onDeleteTrack,
-}: {
-  item: TrackOrGroup;
-  index: number;
-  selectedTrack: Track | null;
-  onSelectionChange: (track: Track | null) => void;
-  onToggleExpand: (groupId: string) => void;
-  onToggleActive: (groupId: string) => void;
-  onDeleteGroup: (groupId: string) => void;
-  onToggleTrackActive: (trackId: string) => void;
-  onDeleteTrack: (trackId: string) => void;
-}) => (
-  <Draggable draggableId={item.id} index={index}>
-    {(dragProvided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
-      <div
-        ref={dragProvided.innerRef}
-        {...dragProvided.draggableProps}
-        style={{
-          ...dragProvided.draggableProps.style,
-          opacity: snapshot.isDragging ? 0.8 : 1,
-        }}
-      >
-        {isTrackGroup(item) ? (
-          <TrackGroupComponent
-            group={item}
-            selectedTrack={selectedTrack}
-            onSelectionChange={onSelectionChange}
-            onToggleExpand={onToggleExpand}
-            onToggleActive={onToggleActive}
-            onDeleteGroup={onDeleteGroup}
-            dragHandleProps={dragProvided.dragHandleProps}
-          />
-        ) : (
-          <TrackComponent
-            track={item}
-            isSelected={selectedTrack?.id === item.id}
-            onSelect={onSelectionChange}
-            onToggleActive={onToggleTrackActive}
-            onDelete={onDeleteTrack}
-            dragHandleProps={dragProvided.dragHandleProps}
-          />
-        )}
-      </div>
-    )}
-  </Draggable>
-));
-
-DraggableItem.displayName = 'DraggableItem';
-
 export const TrackList: React.FC<TrackListProps> = ({ selectedTrack, onSelectionChange }) => {
-  const [items, setItems] = useState<TrackOrGroup[]>([]);
+  const [individualTracks, setIndividualTracks] = useState<Track[]>([]);
+  const [groups, setGroups] = useState<TrackGroup[]>([]);
   const [patternInput, setPatternInput] = useState('');
   const [nextGroupId, setNextGroupId] = useState(1);
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const [dragOverZoneId, setDragOverZoneId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const overId = over.id.toString();
+    const activeId = active.id.toString();
+    const activeData = active.data.current as { type: string; groupId?: string } | undefined;
+
+    // Set drag over zone
+    if (overId === 'individual-tracks' || overId.startsWith('group-')) {
+      setDragOverZoneId(overId);
+    } else {
+      // If dragging over a track, find its container
+      const trackGroup = groups.find(g => g.tracks.includes(parseInt(overId)));
+      if (trackGroup) {
+        setDragOverZoneId(trackGroup.id);
+      } else {
+        setDragOverZoneId('individual-tracks');
+      }
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+    setDragOverZoneId(null);
+    
+    if (!over) return;
+
+    const activeId = active.id.toString();
+    const overId = over.id.toString();
+    const activeData = active.data.current as { type: string; groupId?: string } | undefined;
+    const sourceGroupId = activeData?.groupId;
+
+    // Find target container
+    let targetContainerId = overId;
+    if (!overId.startsWith('group-') && overId !== 'individual-tracks') {
+      const trackGroup = groups.find(g => g.tracks.includes(parseInt(overId)));
+      targetContainerId = trackGroup ? trackGroup.id : 'individual-tracks';
+    }
+
+    if (sourceGroupId) {
+      // Moving from a group
+      const sourceGroup = groups.find(g => g.id === sourceGroupId);
+      if (!sourceGroup) return;
+
+      const trackId = parseInt(activeId);
+
+      if (targetContainerId === 'individual-tracks') {
+        // Moving to individual tracks
+        const newTrack: Track = {
+          id: activeId,
+          name: `Track ${activeId}`,
+          position: { x: 0, y: 0, z: 0 },
+          aedPosition: { azimuth: 0, elevation: 0, distance: 1 },
+          behaviors: [],
+          active: sourceGroup.active
+        };
+        
+        setIndividualTracks([...individualTracks, newTrack]);
+        
+        // Remove from source group and ensure tracks are sorted
+        const remainingTracks = sourceGroup.tracks.filter(t => t !== trackId).sort((a, b) => a - b);
+        const updatedSourceGroup = {
+          ...sourceGroup,
+          tracks: remainingTracks,
+          pattern: `{${remainingTracks.join(',')}}`
+        };
+        
+        if (updatedSourceGroup.tracks.length === 0) {
+          setGroups(groups.filter(g => g.id !== sourceGroup.id));
+        } else {
+          setGroups(groups.map(g => g.id === sourceGroup.id ? updatedSourceGroup : g));
+        }
+      } else if (targetContainerId.startsWith('group-')) {
+        // Moving to another group
+        const targetGroup = groups.find(g => g.id === targetContainerId);
+        if (targetGroup && targetGroup.id !== sourceGroup.id) {
+          // Add to target group and ensure tracks are sorted
+          const newTargetTracks = [...targetGroup.tracks, trackId].sort((a, b) => a - b);
+          const updatedTargetGroup = {
+            ...targetGroup,
+            tracks: newTargetTracks,
+            pattern: `{${newTargetTracks.join(',')}}`
+          };
+          
+          // Remove from source group and ensure tracks are sorted
+          const remainingTracks = sourceGroup.tracks.filter(t => t !== trackId).sort((a, b) => a - b);
+          const updatedSourceGroup = {
+            ...sourceGroup,
+            tracks: remainingTracks,
+            pattern: `{${remainingTracks.join(',')}}`
+          };
+          
+          let updatedGroups = groups.map(g => {
+            if (g.id === targetGroup.id) return updatedTargetGroup;
+            if (g.id === sourceGroup.id) return updatedSourceGroup;
+            return g;
+          });
+          
+          if (updatedSourceGroup.tracks.length === 0) {
+            updatedGroups = updatedGroups.filter(g => g.id !== sourceGroup.id);
+          }
+          
+          setGroups(updatedGroups);
+        }
+      }
+    } else {
+      // Moving from individual tracks
+      const sourceTrack = individualTracks.find(t => t.id === activeId);
+      
+      if (sourceTrack) {
+        if (targetContainerId === 'individual-tracks') {
+          // Reordering within individual tracks
+          const oldIndex = individualTracks.findIndex(t => t.id === activeId);
+          const newIndex = individualTracks.findIndex(t => t.id === overId);
+          if (oldIndex !== -1 && newIndex !== -1) {
+            setIndividualTracks(arrayMove(individualTracks, oldIndex, newIndex));
+          }
+        } else if (targetContainerId.startsWith('group-')) {
+          // Moving to a group
+          const targetGroup = groups.find(g => g.id === targetContainerId);
+          if (targetGroup) {
+            const trackId = parseInt(sourceTrack.id);
+            if (!targetGroup.tracks.includes(trackId)) {
+              // Add to group and ensure tracks are sorted
+              const newTracks = [...targetGroup.tracks, trackId].sort((a, b) => a - b);
+              const updatedGroup = {
+                ...targetGroup,
+                tracks: newTracks,
+                pattern: `{${newTracks.join(',')}}`
+              };
+              setGroups(groups.map(g => g.id === targetContainerId ? updatedGroup : g));
+              setIndividualTracks(individualTracks.filter(t => t.id !== activeId));
+            }
+          }
+        }
+      }
+    }
+  };
 
   const isTrackExists = (trackId: number): boolean => {
-    // Check individual tracks
-    const individualTrackExists = items.some(
-      item => !isTrackGroup(item) && item.id === trackId.toString()
+    return (
+      individualTracks.some(t => t.id === trackId.toString()) ||
+      groups.some(g => g.tracks.includes(trackId))
     );
-
-    // Check tracks within groups
-    const groupTrackExists = items.some(
-      item => isTrackGroup(item) && item.tracks.includes(trackId)
-    );
-
-    return individualTrackExists || groupTrackExists;
   };
 
   const handleAdd = () => {
@@ -121,7 +205,6 @@ export const TrackList: React.FC<TrackListProps> = ({ selectedTrack, onSelection
     const pattern = parsePattern(patternInput);
     if (!pattern) return;
 
-    // Check for duplicate tracks
     const duplicateTracks = pattern.values.filter(trackId => isTrackExists(trackId));
     if (duplicateTracks.length > 0) {
       alert(`Cannot add duplicate tracks: ${duplicateTracks.join(', ')}`);
@@ -131,234 +214,285 @@ export const TrackList: React.FC<TrackListProps> = ({ selectedTrack, onSelection
     if (pattern.values.length === 1 && !patternInput.includes('[') && !patternInput.includes('{')) {
       // Single track
       const newTrack: Track = {
-        id: `${pattern.values[0]}`,
+        id: pattern.values[0].toString(),
         name: `Track ${pattern.values[0]}`,
         position: { x: 0, y: 0, z: 0 },
         aedPosition: { azimuth: 0, elevation: 0, distance: 1 },
         behaviors: [],
-        active: true
+        active: false
       };
-      setItems([...items, newTrack]);
+      setIndividualTracks([...individualTracks, newTrack]);
     } else {
-      // Group of tracks
+      // Group of tracks - ensure tracks are sorted
+      const sortedTracks = [...pattern.values].sort((a, b) => a - b);
+      const groupId = `group-${nextGroupId}`;
       const newGroup: TrackGroup = {
-        id: `group-${nextGroupId}`,
-        pattern: patternInput,
-        tracks: pattern.values,
+        id: groupId,
+        name: `Group ${nextGroupId}`,
+        pattern: `{${sortedTracks.join(',')}}`,
+        tracks: sortedTracks,
         expanded: true,
-        active: true,
-        behaviors: [],
+        active: false,
+        behaviors: []
       };
-      setItems([...items, newGroup]);
+      setGroups([...groups, newGroup]);
       setNextGroupId(nextGroupId + 1);
     }
 
     setPatternInput('');
   };
 
+  const handleUpdateGroupName = (groupId: string, newName: string) => {
+    setGroups(groups.map(group =>
+      group.id === groupId ? { ...group, name: newName } : group
+    ));
+  };
+
+  const handleUpdateGroup = (groupId: string, updatedGroup: TrackGroup) => {
+    const oldGroup = groups.find(g => g.id === groupId);
+    if (oldGroup) {
+      // Find tracks that were removed
+      const removedTrackIds = oldGroup.tracks
+        .filter(t => !updatedGroup.tracks.includes(t))
+        .map(t => t.toString());
+      
+      // Remove those tracks from individual tracks if they exist there
+      if (removedTrackIds.length > 0) {
+        setIndividualTracks(individualTracks.filter(track => !removedTrackIds.includes(track.id)));
+        
+        // Clear selection if a removed track was selected
+        if (selectedTrack && removedTrackIds.includes(selectedTrack.id)) {
+          onSelectionChange(null);
+        }
+      }
+    }
+    
+    // Update the group
+    if (updatedGroup.tracks.length === 0) {
+      // Remove empty group
+      setGroups(groups.filter(g => g.id !== groupId));
+      // Clear group selection if this group was selected
+      if (selectedGroupId === groupId) {
+        setSelectedGroupId(null);
+      }
+    } else {
+      setGroups(groups.map(g => g.id === groupId ? updatedGroup : g));
+    }
+  };
+
   const handleToggleTrackActive = (trackId: string) => {
-    setItems(items.map(item => 
-      !isTrackGroup(item) && item.id === trackId
-        ? { ...item, active: !item.active }
-        : item
+    setIndividualTracks(individualTracks.map(track =>
+      track.id === trackId ? { ...track, active: !track.active } : track
     ));
   };
 
   const handleDeleteTrack = (trackId: string) => {
-    setItems(items.filter(item => isTrackGroup(item) || item.id !== trackId));
-  };
-
-  const handleToggleExpand = (groupId: string) => {
-    setItems(items.map(item => 
-      isTrackGroup(item) && item.id === groupId
-        ? { ...item, expanded: !item.expanded }
-        : item
-    ));
-  };
-
-  const handleToggleActive = (groupId: string) => {
-    setItems(items.map(item => 
-      isTrackGroup(item) && item.id === groupId
-        ? { ...item, active: !item.active }
-        : item
-    ));
+    console.log('Deleting track:', trackId);
+    // Delete from individual tracks
+    setIndividualTracks(individualTracks.filter(t => t.id !== trackId));
+    
+    // Also check and delete from any groups
+    const updatedGroups = groups.map(group => {
+      const trackIdNum = parseInt(trackId);
+      if (group.tracks.includes(trackIdNum)) {
+        const updatedTracks = group.tracks.filter(t => t !== trackIdNum);
+        if (updatedTracks.length === 0) {
+          return null; // Mark group for deletion
+        }
+        return {
+          ...group,
+          tracks: updatedTracks,
+          pattern: `{${updatedTracks.join(',')}}`
+        };
+      }
+      return group;
+    }).filter((group): group is TrackGroup => group !== null);
+    
+    setGroups(updatedGroups);
+    
+    // Clear selection if deleted track was selected
+    if (selectedTrack?.id === trackId) {
+      onSelectionChange(null);
+    }
   };
 
   const handleDeleteGroup = (groupId: string) => {
-    // When deleting a group, convert its tracks to individual tracks
-    const group = items.find(item => isTrackGroup(item) && item.id === groupId) as TrackGroup | undefined;
+    console.log('Deleting group:', groupId);
+    const group = groups.find(g => g.id === groupId);
     if (group) {
-      const individualTracks: Track[] = group.tracks.map(trackId => ({
-        id: trackId.toString(),
-        name: `Track ${trackId}`,
-        position: { x: 0, y: 0, z: 0 },
-        aedPosition: { azimuth: 0, elevation: 0, distance: 1 },
-        behaviors: [],
-        active: group.active
-      }));
+      // Remove all tracks from individual tracks that belong to this group
+      const trackIds = group.tracks.map(t => t.toString());
+      setIndividualTracks(individualTracks.filter(track => !trackIds.includes(track.id)));
       
-      setItems([
-        ...items.filter(item => !isTrackGroup(item) || item.id !== groupId),
-        ...individualTracks
-      ]);
+      // Remove the group
+      setGroups(groups.filter(g => g.id !== groupId));
+      
+      // Clear selection if any track in the deleted group was selected
+      if (selectedTrack && trackIds.includes(selectedTrack.id)) {
+        onSelectionChange(null);
+      }
+      
+      // Clear group selection if this group was selected
+      if (selectedGroupId === groupId) {
+        setSelectedGroupId(null);
+      }
     }
   };
 
-  const onDragEnd = (result: DropResult) => {
-    const { source, destination, draggableId } = result;
-    if (!destination) return;
-
-    // If dropping at the same spot, do nothing
-    if (
-      source.droppableId === destination.droppableId &&
-      source.index === destination.index
-    ) {
-      return;
-    }
-
-    // Handle dropping between different droppable areas
-    if (source.droppableId !== destination.droppableId) {
-      // If source is a group's internal droppable
-      if (source.droppableId.startsWith('group-')) {
-        const groupId = source.droppableId.replace('group-', '');
-        const group = items.find(item => isTrackGroup(item) && item.id === groupId) as TrackGroup;
-        if (group) {
-          const trackId = parseInt(draggableId);
-          // Remove track from group and create individual track
-          const updatedGroup = {
-            ...group,
-            tracks: group.tracks.filter(id => id !== trackId),
-            pattern: `{${group.tracks.filter(id => id !== trackId).join(',')}}`
-          };
-          
-          const newTrack: Track = {
-            id: trackId.toString(),
-            name: `Track ${trackId}`,
-            position: { x: 0, y: 0, z: 0 },
-            aedPosition: { azimuth: 0, elevation: 0, distance: 1 },
-            behaviors: [],
-            active: group.active
-          };
-
-          // If group becomes empty, remove it
-          const updatedItems = updatedGroup.tracks.length === 0
-            ? items.filter(item => !isTrackGroup(item) || item.id !== groupId)
-            : items.map(item => 
-                isTrackGroup(item) && item.id === groupId ? updatedGroup : item
-              );
-
-          // Insert the new track at the destination
-          updatedItems.splice(destination.index, 0, newTrack);
-          setItems(updatedItems);
-          return;
-        }
+  const handleToggleExpand = (groupId: string) => {
+    setGroups(groups.map(group => {
+      if (group.id === groupId) {
+        return {
+          ...group,
+          expanded: !group.expanded
+        };
       }
-      return;
-    }
-
-    // Handle reordering within the same droppable
-    if (source.droppableId === DROPPABLE_ID) {
-      const sourceItem = items[source.index];
-      const destinationIndex = destination.index;
-      
-      // Find if we're dropping near a group
-      const prevItem = destinationIndex > 0 ? items[destinationIndex - 1] : null;
-      const nextItem = destinationIndex < items.length ? items[destinationIndex] : null;
-      
-      // If source is not a group and we're dropping near a group
-      if (!isTrackGroup(sourceItem)) {
-        const trackId = parseInt(sourceItem.id);
-        
-        // Try to merge with previous group if it exists
-        if (prevItem && isTrackGroup(prevItem) && !prevItem.tracks.includes(trackId)) {
-          const updatedItems = items.filter((_, index) => index !== source.index);
-          const updatedGroup = {
-            ...prevItem,
-            tracks: [...prevItem.tracks, trackId].sort((a, b) => a - b),
-            pattern: `{${[...prevItem.tracks, trackId].sort((a, b) => a - b).join(',')}}`
-          };
-          const prevIndex = destinationIndex - 1;
-          updatedItems[prevIndex] = updatedGroup;
-          setItems(updatedItems);
-          return;
-        }
-        
-        // Try to merge with next group if it exists
-        if (nextItem && isTrackGroup(nextItem) && !nextItem.tracks.includes(trackId)) {
-          const updatedItems = items.filter((_, index) => index !== source.index);
-          const updatedGroup = {
-            ...nextItem,
-            tracks: [...nextItem.tracks, trackId].sort((a, b) => a - b),
-            pattern: `{${[...nextItem.tracks, trackId].sort((a, b) => a - b).join(',')}}`
-          };
-          updatedItems[destinationIndex] = updatedGroup;
-          setItems(updatedItems);
-          return;
-        }
-      }
-
-      // Default reordering behavior
-      const reorderedItems = Array.from(items);
-      const [removed] = reorderedItems.splice(source.index, 1);
-      reorderedItems.splice(destination.index, 0, removed);
-      setItems(reorderedItems);
-    }
+      return group;
+    }));
   };
 
-  const renderDraggableItem = (item: TrackOrGroup, index: number) => (
-    <DraggableItem
-      key={item.id}
-      item={item}
-      index={index}
-      selectedTrack={selectedTrack}
-      onSelectionChange={onSelectionChange}
-      onToggleExpand={handleToggleExpand}
-      onToggleActive={handleToggleActive}
-      onDeleteGroup={handleDeleteGroup}
-      onToggleTrackActive={handleToggleTrackActive}
-      onDeleteTrack={handleDeleteTrack}
-    />
-  );
+  const handleToggleActive = (groupId: string) => {
+    setGroups(groups.map(group =>
+      group.id === groupId ? { ...group, active: !group.active } : group
+    ));
+  };
+
+  const handleSelectGroup = (groupId: string) => {
+    setSelectedGroupId(groupId === selectedGroupId ? null : groupId);
+  };
 
   return (
     <div className="track-list">
       <div className="track-form">
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          if (isValidPattern(patternInput)) {
-            handleAdd();
-          }
-        }}>
+        <div className="form-container">
           <input
             type="text"
             value={patternInput}
             onChange={(e) => setPatternInput(e.target.value)}
-            placeholder="Enter track number or pattern (e.g., 1, [1-4], or {1,3,5})"
-            className="track-input"
+            placeholder="Enter track number or pattern (e.g., 1 or [1-4] or {1,3,5})"
+            className="pattern-input"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && isValidPattern(patternInput)) {
+                e.preventDefault();
+                handleAdd();
+              }
+            }}
           />
           <button 
-            type="submit"
+            onClick={handleAdd} 
+            className="add-button"
             disabled={!isValidPattern(patternInput)}
-            className="add-track-btn"
           >
             Add
           </button>
-        </form>
+        </div>
       </div>
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="track-list-container" style={{ overflowY: 'hidden' }}>
-          <Droppable droppableId={DROPPABLE_ID}>
-            {(dropProvided: DroppableProvided) => (
-              <DroppableContent
-                provided={dropProvided}
-                items={items}
-                renderDraggableItem={renderDraggableItem}
-              />
-            )}
-          </Droppable>
-        </div>
-      </DragDropContext>
+      <div className="track-list-content">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          {/* Individual Tracks Zone */}
+          <div 
+            className={`tracks-zone ${dragOverZoneId === 'individual-tracks' ? 'drop-target' : ''}`}
+            data-zone-id="individual-tracks"
+          >
+            <div className="zone-header">
+              <h3>Individual Tracks</h3>
+            </div>
+            <SortableContext
+              items={individualTracks.map(track => track.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {individualTracks.map((track) => (
+                <TrackComponent
+                  key={track.id}
+                  track={track}
+                  isSelected={selectedTrack?.id === track.id}
+                  onSelect={onSelectionChange}
+                  onToggleActive={handleToggleTrackActive}
+                  onDelete={handleDeleteTrack}
+                />
+              ))}
+            </SortableContext>
+          </div>
+
+          {/* Groups */}
+          <div className="groups-container">
+            <div className="zone-header">
+              <h3>Groups</h3>
+            </div>
+            <SortableContext
+              items={groups.map(group => group.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {groups.map((group) => (
+                <TrackGroupComponent
+                  key={group.id}
+                  group={group}
+                  selectedTrack={selectedTrack}
+                  onSelectionChange={onSelectionChange}
+                  onToggleActive={handleToggleActive}
+                  onDeleteGroup={handleDeleteGroup}
+                  onUpdateGroupName={handleUpdateGroupName}
+                  onUpdateGroup={handleUpdateGroup}
+                  onSelectGroup={handleSelectGroup}
+                  onToggleExpand={handleToggleExpand}
+                  isSelected={group.id === selectedGroupId}
+                  isDropTarget={dragOverZoneId === group.id}
+                />
+              ))}
+            </SortableContext>
+          </div>
+
+          <DragOverlay>
+            {activeId ? (
+              <div style={{ opacity: 0.8 }}>
+                {(() => {
+                  const activeTrack = individualTracks.find(t => t.id === activeId);
+                  const activeGroup = groups.find(g => g.id === activeId);
+
+                  if (activeTrack) {
+                    return (
+                      <TrackComponent
+                        track={activeTrack}
+                        isSelected={selectedTrack?.id === activeId}
+                        onSelect={onSelectionChange}
+                        onToggleActive={handleToggleTrackActive}
+                        onDelete={handleDeleteTrack}
+                      />
+                    );
+                  }
+
+                  if (activeGroup) {
+                    return (
+                      <TrackGroupComponent
+                        group={activeGroup}
+                        selectedTrack={selectedTrack}
+                        onSelectionChange={onSelectionChange}
+                        onToggleActive={handleToggleActive}
+                        onDeleteGroup={handleDeleteGroup}
+                        onUpdateGroupName={handleUpdateGroupName}
+                        onUpdateGroup={handleUpdateGroup}
+                        onSelectGroup={handleSelectGroup}
+                        onToggleExpand={handleToggleExpand}
+                        isSelected={activeId === selectedGroupId}
+                        isDropTarget={false}
+                      />
+                    );
+                  }
+
+                  return null;
+                })()}
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
     </div>
   );
 };

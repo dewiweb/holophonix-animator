@@ -1,12 +1,12 @@
 import React from 'react';
-import type { Track } from '../types/behaviors';
+import type { Track, BehaviorCategory } from '../types/behaviors';
 import { getBehaviorsByCategory, createBehavior } from '../behaviors/registry';
 
 interface BehaviorListProps {
   track: Track;
 }
 
-const CATEGORIES = ['1D', '2D', '3D'] as const;
+const CATEGORIES: BehaviorCategory[] = ['1D', '2D', '3D'];
 
 export const BehaviorList: React.FC<BehaviorListProps> = ({ track }) => {
   const handleAddBehavior = (type: string) => {

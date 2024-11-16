@@ -1,4 +1,4 @@
-import type { BehaviorType, Behavior, BehaviorParameter } from '../types/behaviors';
+import type { BehaviorType, Behavior, BehaviorParameter, BehaviorCategory } from '../types/behaviors';
 
 interface BehaviorDefinition {
   name: string;
@@ -42,207 +42,96 @@ const behaviors: Record<string, BehaviorDefinition> = {
     name: 'Random Walk',
     category: '1D',
     parameters: [
-      {
-        name: 'stepSize',
-        min: 0,
-        max: 10,
-        default: 1
-      },
-      {
-        name: 'interval',
-        min: 0.1,
-        max: 5,
-        default: 1
-      }
-    ]
-  },
-  'drift': {
-    name: 'Drift',
-    category: '1D',
-    parameters: [
-      {
-        name: 'speed',
-        min: -10,
-        max: 10,
-        default: 1
-      },
-      {
-        name: 'variation',
-        min: 0,
-        max: 1,
-        default: 0.1
-      }
-    ]
+      createParameter('speed', 0.1, 10, 1),
+      createParameter('range', 0, 100, 10),
+    ],
   },
 
   // 2D Behaviors
-  'circular': {
+  'circle': {
     name: 'Circular Motion',
     category: '2D',
     parameters: [
-      createParameter('radius', 0, 100, 10),
       createParameter('speed', 0.1, 10, 1),
-      createParameter('centerX', -100, 100, 0),
-      createParameter('centerY', -100, 100, 0),
+      createParameter('radius', 0, 100, 10),
+      createParameter('phase', 0, 360, 0),
     ],
   },
-  'figure8': {
-    name: 'Figure-8',
+  'lissajous': {
+    name: 'Lissajous Curve',
     category: '2D',
     parameters: [
-      {
-        name: 'size',
-        min: 0,
-        max: 100,
-        default: 10
-      },
-      {
-        name: 'speed',
-        min: -10,
-        max: 10,
-        default: 1
-      }
-    ]
+      createParameter('frequencyX', 0.1, 10, 1),
+      createParameter('frequencyY', 0.1, 10, 1),
+      createParameter('amplitude', 0, 100, 10),
+      createParameter('phase', 0, 360, 0),
+    ],
   },
   'random-2d': {
-    name: 'Random Walk 2D',
+    name: '2D Random Walk',
     category: '2D',
     parameters: [
-      {
-        name: 'stepSize',
-        min: 0,
-        max: 10,
-        default: 1
-      },
-      {
-        name: 'interval',
-        min: 0.1,
-        max: 5,
-        default: 1
-      }
-    ]
-  },
-  'spiral-2d': {
-    name: 'Spiral',
-    category: '2D',
-    parameters: [
-      {
-        name: 'startRadius',
-        min: 0,
-        max: 100,
-        default: 0
-      },
-      {
-        name: 'growth',
-        min: 0,
-        max: 10,
-        default: 1
-      },
-      {
-        name: 'speed',
-        min: -10,
-        max: 10,
-        default: 1
-      }
-    ]
+      createParameter('speed', 0.1, 10, 1),
+      createParameter('range', 0, 100, 10),
+    ],
   },
 
   // 3D Behaviors
-  'orbit': {
-    name: 'Orbit',
+  'sphere': {
+    name: 'Spherical Motion',
     category: '3D',
     parameters: [
-      createParameter('radius', 0, 100, 10),
       createParameter('speed', 0.1, 10, 1),
-      createParameter('tilt', -90, 90, 0),
-      createParameter('height', -100, 100, 0),
+      createParameter('radius', 0, 100, 10),
+      createParameter('elevation', -90, 90, 0),
     ],
   },
-  'spiral-3d': {
-    name: 'Helix',
+  'spiral': {
+    name: 'Spiral Motion',
     category: '3D',
     parameters: [
-      {
-        name: 'radius',
-        min: 0,
-        max: 100,
-        default: 10
-      },
-      {
-        name: 'height',
-        min: 0,
-        max: 100,
-        default: 10
-      },
-      {
-        name: 'speed',
-        min: -10,
-        max: 10,
-        default: 1
-      }
-    ]
+      createParameter('speed', 0.1, 10, 1),
+      createParameter('radius', 0, 100, 10),
+      createParameter('height', 0, 100, 10),
+      createParameter('turns', 1, 10, 3),
+    ],
   },
   'random-3d': {
-    name: 'Random Walk 3D',
+    name: '3D Random Walk',
     category: '3D',
     parameters: [
-      {
-        name: 'stepSize',
-        min: 0,
-        max: 10,
-        default: 1
-      },
-      {
-        name: 'interval',
-        min: 0.1,
-        max: 5,
-        default: 1
-      }
-    ]
-  }
+      createParameter('speed', 0.1, 10, 1),
+      createParameter('range', 0, 100, 10),
+    ],
+  },
 };
 
-export function getBehaviorDefinition(type: string): BehaviorDefinition | null {
+export const getBehaviorDefinition = (type: string): BehaviorDefinition | null => {
   return behaviors[type] || null;
-}
+};
 
-export function getBehaviorsByCategory(category: BehaviorCategory): BehaviorDefinition[] {
+export const getBehaviorsByCategory = (category: BehaviorCategory): BehaviorDefinition[] => {
   return Object.values(behaviors).filter(b => b.category === category);
-}
+};
 
-export function getAllBehaviors(): BehaviorDefinition[] {
+export const getAllBehaviors = (): BehaviorDefinition[] => {
   return Object.values(behaviors);
-}
+};
 
-export function createBehavior(type: string, id: string): Behavior | null {
+export const createBehavior = (type: string, id: string): Behavior | null => {
   const definition = getBehaviorDefinition(type);
   if (!definition) return null;
+
+  const defaultParameters: Record<string, number> = {};
+  definition.parameters.forEach(param => {
+    defaultParameters[param.name] = param.default;
+  });
 
   return {
     id,
     type,
     name: definition.name,
     active: true,
-    parameters: Object.fromEntries(
-      definition.parameters.map(p => [p.name, p.default])
-    ),
+    parameters: defaultParameters,
   };
-}
-
-export function createBehaviorNew(type: string): Behavior | null {
-  const definition = getBehaviorDefinition(type);
-  if (!definition) {
-    console.warn(`Unknown behavior type: ${type}`);
-    return null;
-  }
-
-  return {
-    id: `behavior-${Math.random().toString(36).substr(2, 9)}`,
-    type: definition.name,
-    name: definition.name,
-    active: true,
-    parameters: Object.fromEntries(
-      definition.parameters.map(p => [p.name, p.default])
-    ),
-  };
-}
+};

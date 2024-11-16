@@ -29,9 +29,10 @@ const config: ForgeConfig = {
         ],
       },
       devServer: {
-        liveReload: true,
+        liveReload: true
       },
-      port: 3000,
+      port: 3001,
+      loggerPort: 3002
     }),
   ],
 };
