@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Track } from '../types/tracks';
-import { DraggableProvidedDragHandleProps } from 'react-beautiful-dnd';
+import { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
 
 interface TrackComponentProps {
   track: Track;

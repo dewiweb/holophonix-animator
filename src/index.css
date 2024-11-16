@@ -118,7 +118,9 @@ main {
 .track-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 .track-list > button {
@@ -223,19 +225,11 @@ main {
   height: 100%;
 }
 
-.track-list {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-}
-
 .track-form {
   padding: 12px;
   background-color: #2a2a2a;
   border-bottom: 1px solid #3a3a3a;
-  width: 100%;
-  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .track-form form {
@@ -294,12 +288,135 @@ main {
   cursor: not-allowed;
 }
 
-.track-list-content {
+.track-list-container {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
+  position: relative;
+}
+
+.track-list-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   padding: 12px;
-  width: 100%;
-  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.track-group {
+  margin-bottom: 16px;
+  border: 2px solid #3a3a3a;
+  border-radius: 6px;
+  background: rgba(42, 42, 42, 0.5);
+  transition: all 0.2s;
+}
+
+.track-group:last-child {
+  margin-bottom: 0;
+}
+
+.track-group.active {
+  border-color: #007bff;
+}
+
+.track-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: #2a2a2a;
+  border-bottom: 1px solid #3a3a3a;
+  border-radius: 4px 4px 0 0;
+}
+
+.track-group-content {
+  padding: 8px;
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: #1a1a1a;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.track:last-child {
+  margin-bottom: 0;
+}
+
+.track.selected {
+  background: #2a2a2a;
+  border-color: #007bff;
+}
+
+.track-handle {
+  cursor: grab;
+  color: #666;
+  user-select: none;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.track-handle:active {
+  cursor: grabbing;
+}
+
+.track-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.track-name {
+  flex: 1;
+  font-size: 14px;
+  color: #fff;
+}
+
+.delete-button {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.delete-button:hover {
+  color: #ff4444;
+}
+
+.active-toggle {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.active-toggle.active {
+  color: #44ff44;
 }
 
 /* Track List Styles */
@@ -466,6 +583,16 @@ main {
 
 .track-group .delete-button:hover {
   color: #ff4444;
+}
+
+.track-group.can-drop {
+  border-color: #44ff44;
+  background: rgba(68, 255, 68, 0.05);
+}
+
+.track-group.is-dragging-over {
+  border-style: dashed;
+  background: rgba(0, 123, 255, 0.05);
 }
 
 /* Behavior List */
@@ -794,7 +921,6 @@ button.disconnect {
   gap: 8px;
   padding: 8px;
   background: #2a2a2a;
-  border: 1px solid #3a3a3a;
   border-radius: 4px;
   margin-bottom: 8px;
   cursor: pointer;
@@ -818,6 +944,8 @@ button.disconnect {
   cursor: grab;
   color: #666;
   user-select: none;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .track-handle:active {
@@ -844,9 +972,45 @@ button.disconnect {
   padding: 0;
   font-size: 16px;
   line-height: 1;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: color 0.2s;
 }
 
 .active-toggle.active {
   color: #44ff44;
+}
+
+.track-list-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.track-list-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  min-height: 100px;
+}
+
+/* Drag and drop styles */
+.track-list-content > * {
+  transition: background-color 0.2s ease;
+}
+
+.track-list-content > *:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.track-list-content > [data-rbd-draggable-context-id] {
+  margin-bottom: 8px;
+}
+
+.track-list-content > [data-rbd-draggable-context-id]:last-child {
+  margin-bottom: 0;
 }

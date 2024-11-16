@@ -1,7 +1,7 @@
 import React from 'react';
 import type { TrackGroup, Track } from '../types/tracks';
 import { Menu } from 'react-feather';
-import type { DraggableProvidedDragHandleProps } from 'react-beautiful-dnd';
+import { DraggableProvidedDragHandleProps, Droppable, Draggable } from '@hello-pangea/dnd';
 import { TrackComponent } from './Track';
 
 interface TrackGroupProps {
@@ -51,29 +51,55 @@ export const TrackGroupComponent: React.FC<TrackGroupProps> = ({
         </button>
       </div>
       
-      <div className="track-group-content">
-        {group.tracks.map((trackId) => {
-          const track: Track = {
-            id: trackId.toString(),
-            name: `Track ${trackId}`,
-            position: { x: 0, y: 0, z: 0 },
-            aedPosition: { azimuth: 0, elevation: 0, distance: 1 },
-            behaviors: [],
-            active: group.active
-          };
-          
-          return (
-            <TrackComponent
-              key={track.id}
-              track={track}
-              isSelected={selectedTrack?.id === track.id}
-              onSelect={onSelectionChange}
-              onToggleActive={handleTrackToggle}
-              onDelete={handleTrackDelete}
-            />
-          );
-        })}
-      </div>
+      <Droppable droppableId={`group-${group.id}`}>
+        {(provided) => (
+          <div 
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className="track-group-content"
+          >
+            {group.tracks.map((trackId, index) => {
+              const track: Track = {
+                id: trackId.toString(),
+                name: `Track ${trackId}`,
+                position: { x: 0, y: 0, z: 0 },
+                aedPosition: { azimuth: 0, elevation: 0, distance: 1 },
+                behaviors: [],
+                active: group.active
+              };
+              
+              return (
+                <Draggable
+                  key={track.id}
+                  draggableId={track.id}
+                  index={index}
+                >
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      style={{
+                        ...provided.draggableProps.style,
+                        opacity: snapshot.isDragging ? 0.8 : 1,
+                      }}
+                    >
+                      <TrackComponent
+                        track={track}
+                        isSelected={selectedTrack?.id === track.id}
+                        onSelect={onSelectionChange}
+                        onToggleActive={handleTrackToggle}
+                        onDelete={handleTrackDelete}
+                        dragHandleProps={provided.dragHandleProps}
+                      />
+                    </div>
+                  )}
+                </Draggable>
+              );
+            })}
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
     </div>
   );
 };
