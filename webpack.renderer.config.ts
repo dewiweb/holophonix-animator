@@ -5,7 +5,7 @@ import path from 'path';
 
 rules.push({
   test: /\.css$/,
-  use: ['style-loader', 'css-loader'],
+  use: [{ loader: 'style-loader' }, { loader: 'css-loader' }],
 });
 
 export const rendererConfig: Configuration = {
@@ -39,5 +39,6 @@ export const rendererConfig: Configuration = {
   devServer: {
     hot: true,
     liveReload: true,
+    port: 3005,
   },
 };

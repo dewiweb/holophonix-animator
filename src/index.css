@@ -74,45 +74,131 @@ main {
 
 /* OSC Connection */
 .osc-connection {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
 }
 
 .connection-status {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .status-indicator {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background-color: #ff4444;
+  transition: background-color 0.3s ease;
 }
 
 .status-indicator.connected {
   background-color: #44ff44;
 }
 
+.error-message {
+  background-color: rgba(255, 68, 68, 0.1);
+  border: 1px solid #ff4444;
+  color: #ff4444;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
 .connection-settings {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .setting {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.setting label {
+  flex: 0 0 120px;
+  color: #cccccc;
 }
 
 .setting input {
+  flex: 1;
   background-color: #3a3a3a;
   border: 1px solid #4a4a4a;
-  color: #ffffff;
-  padding: 0.25rem;
+  color: white;
+  padding: 0.5rem;
   border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.setting input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.osc-connection button {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.osc-connection button.connect {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.osc-connection button.disconnect {
+  background-color: #f44336;
+  color: white;
+}
+
+.osc-connection button.test-message {
+  margin-top: 1rem;
+  background-color: #2196F3;
+  color: white;
+}
+
+.osc-connection button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.osc-connection button:not(:disabled):hover {
+  filter: brightness(1.1);
+}
+
+.last-message {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+}
+
+.last-message h4 {
+  margin: 0 0 0.5rem 0;
+  color: #cccccc;
+}
+
+.last-message pre {
+  margin: 0;
+  padding: 0.5rem;
+  background-color: #2a2a2a;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: #4CAF50;
 }
 
 /* Track List */
@@ -857,4 +943,53 @@ button.disconnect {
 
 .track-list-content > [data-rbd-draggable-context-id]:last-child {
   margin-bottom: 0;
+}
+
+/* Error Modal Styles */
+.error-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.error-modal {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.error-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.error-modal-content p {
+  margin: 0;
+  color: #ff6b6b;
+}
+
+.error-modal-content button {
+  align-self: flex-end;
+  padding: 8px 16px;
+  background-color: #3a3a3a;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.error-modal-content button:hover {
+  background-color: #4a4a4a;
 }

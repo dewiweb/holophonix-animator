@@ -28,6 +28,22 @@ interface TrackListProps {
   onSelectionChange: (track: Track | null) => void;
 }
 
+interface ErrorModalProps {
+  message: string;
+  onClose: () => void;
+}
+
+const ErrorModal: React.FC<ErrorModalProps> = ({ message, onClose }) => (
+  <div className="error-modal-overlay" onClick={onClose}>
+    <div className="error-modal" onClick={e => e.stopPropagation()}>
+      <div className="error-modal-content">
+        <p>{message}</p>
+        <button onClick={onClose}>Close</button>
+      </div>
+    </div>
+  </div>
+);
+
 export const TrackList: React.FC<TrackListProps> = ({ selectedTrack, onSelectionChange }) => {
   const [individualTracks, setIndividualTracks] = useState<Track[]>([]);
   const [groups, setGroups] = useState<TrackGroup[]>([]);
@@ -36,6 +52,7 @@ export const TrackList: React.FC<TrackListProps> = ({ selectedTrack, onSelection
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [dragOverZoneId, setDragOverZoneId] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -198,7 +215,7 @@ export const TrackList: React.FC<TrackListProps> = ({ selectedTrack, onSelection
 
   const handleAdd = () => {
     if (!isValidPattern(patternInput)) {
-      alert('Invalid pattern. Use a number for single track (e.g., 1) or patterns ([1-4] or {1,3,5}) for groups.');
+      setErrorMessage('Invalid pattern. Use a number for single track (e.g., 1) or patterns ([1-4] or {1,3,5}) for groups.');
       return;
     }
 
@@ -207,7 +224,7 @@ export const TrackList: React.FC<TrackListProps> = ({ selectedTrack, onSelection
 
     const duplicateTracks = pattern.values.filter(trackId => isTrackExists(trackId));
     if (duplicateTracks.length > 0) {
-      alert(`Cannot add duplicate tracks: ${duplicateTracks.join(', ')}`);
+      setErrorMessage(`Cannot add duplicate tracks: ${duplicateTracks.join(', ')}`);
       return;
     }
 
@@ -363,6 +380,12 @@ export const TrackList: React.FC<TrackListProps> = ({ selectedTrack, onSelection
 
   return (
     <div className="track-list">
+      {errorMessage && (
+        <ErrorModal
+          message={errorMessage}
+          onClose={() => setErrorMessage(null)}
+        />
+      )}
       <div className="track-form">
         <div className="form-container">
           <input
