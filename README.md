@@ -174,19 +174,13 @@ Elevation = asin(Z / Distance)
   - [x] Individual track state management
   - [x] Group selection functionality
   - [x] Independent track toggling within groups
-- Drag and Drop System
-  - [x] Track reordering
-  - [x] Group reordering
-  - [x] Track-to-group merging
-  - [x] Group-to-track extraction
-  - [x] Visual drag feedback
-  - [x] Automatic group cleanup
-- Visual Design
-  - [x] Distinct color palettes for tracks and groups
-  - [x] Improved scrolling functionality
-  - [x] Enhanced visual feedback
-  - [x] Better form organization
-  - [x] Consistent styling system
+
+- OSC Communication
+  - [x] Basic UDP connection handling
+  - [x] Connection status management
+  - [x] Error handling and reporting
+  - [x] Test message sending/receiving
+  - [x] Track control message format (/track/{id}/{param})
 
 ### Implemented Features ✅
 - Modern React-based UI structure
@@ -218,6 +212,7 @@ Elevation = asin(Z / Distance)
   - [ ] Optimize performance for large lists
   - [ ] Add keyboard shortcuts for common actions
   - [ ] Implement multi-select functionality
+
 - Basic Behaviors
   - [x] Base behavior interface
   - [x] Behavior registry
@@ -225,20 +220,14 @@ Elevation = asin(Z / Distance)
   - [ ] Behavior controls (play/pause/stop)
   - [ ] Visual behavior preview
   - [ ] Real-time parameter adjustment
+
 - OSC Communication
-  - [ ] Client implementation
-  - [ ] Server implementation
-  - [ ] Message formatting
-  - [ ] Connection management
-  - [ ] Real-time position updates
+  - [ ] Message queuing system
+  - [ ] Rate limiting for messages
+  - [ ] Connection recovery
+  - [ ] Message validation and sanitization
+  - [ ] Batch message support
   - [ ] State synchronization
-- Testing and Optimization
-  - [ ] Unit test implementation
-  - [ ] Performance optimization
-  - [ ] Error boundary setup
-  - [ ] State management refinement
-  - [ ] Component rendering optimization
-  - [ ] Memory usage monitoring
 
 ### Pending Features 📋
 - Parameter System

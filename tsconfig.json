@@ -11,10 +11,17 @@
     "outDir": "dist",
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "jsx": "react",
+    "jsx": "react-jsx",
     "paths": {
-      "*": ["node_modules/*"]
-    }
+      "*": ["node_modules/*", "src/types/*"]
+    },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types"
+    ]
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*",
+    "src/types/**/*.d.ts"
+  ]
 }

@@ -5,22 +5,42 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 console.log('Preload script running');
 
-export type OSCConfig = {
-  localPort: number;
-  remotePort: number;
-  remoteAddress: string;
+// Helper function to forward events to the renderer
+const forwardEvent = (channel: string) => {
+  ipcRenderer.on(channel, (_, ...args) => {
+    console.log(`Preload: forwarding ${channel} event with args:`, args);
+    const handler = (window as any)._oscEventHandlers?.[channel];
+    if (handler) {
+      handler(...args);
+    }
+  });
 };
 
-// Expose protected methods that allow the renderer process to use
-// the ipcRenderer without exposing the entire object
+// Setup event handling
 contextBridge.exposeInMainWorld('electron', {
-  osc: {
-    connect: (config: OSCConfig) => ipcRenderer.invoke('osc:connect', config),
-    disconnect: () => ipcRenderer.invoke('osc:disconnect'),
-    sendMessage: (address: string, args: any[]) => ipcRenderer.invoke('osc:sendMessage', { address, args }),
-    onConnected: (callback: (config: OSCConfig) => void) => ipcRenderer.on('osc:connected', (event, config) => callback(config)),
-    onDisconnected: (callback: () => void) => ipcRenderer.on('osc:disconnected', () => callback()),
-    onError: (callback: (error: Error) => void) => ipcRenderer.on('osc:error', (event, error) => callback(error)),
-    onMessage: (callback: (message: any) => void) => ipcRenderer.on('osc:message', (event, message) => callback(message))
+  // IPC invoke functions
+  invoke: (channel: string, ...args: any[]) => {
+    console.log(`Preload: invoking ${channel} with args:`, args);
+    return ipcRenderer.invoke(channel, ...args);
+  },
+
+  // Event handling
+  on: (channel: string, callback: (...args: any[]) => void) => {
+    console.log(`Preload: registering handler for ${channel}`);
+    if (!(window as any)._oscEventHandlers) {
+      (window as any)._oscEventHandlers = {};
+    }
+    (window as any)._oscEventHandlers[channel] = callback;
+
+    // Ensure we're listening for this event
+    forwardEvent(channel);
+  },
+
+  removeAllListeners: (channel: string) => {
+    console.log(`Preload: removing all listeners for ${channel}`);
+    if ((window as any)._oscEventHandlers) {
+      delete (window as any)._oscEventHandlers[channel];
+    }
+    ipcRenderer.removeAllListeners(channel);
   }
 });
