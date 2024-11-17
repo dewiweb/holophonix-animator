@@ -1,6 +1,6 @@
 # Holophonix Track Motion Animator 🎵
 
-A cross-platform desktop application for creating and managing motion behaviors for Holophonix spatial audio tracks via OSC. Create complex spatial movements using absolute or relative coordinate changes in both AED (Azimuth, Elevation, Distance) and XYZ coordinate systems.
+A future (WIP) cross-platform desktop application for creating and managing motion behaviors for Holophonix spatial audio tracks via OSC. Create complex spatial movements using absolute or relative coordinate changes in both AED (Azimuth, Elevation, Distance) and XYZ coordinate systems.Developpement helped with windsurf ide (AI based).
 
 ## Features
 
