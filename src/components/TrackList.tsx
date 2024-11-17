@@ -378,40 +378,45 @@ export const TrackList: React.FC<TrackListProps> = ({ selectedTrack, onSelection
     setSelectedGroupId(groupId === selectedGroupId ? null : groupId);
   };
 
+  const handleBackgroundClick = (e: React.MouseEvent) => {
+    // Only unselect if clicking directly on the track-list-content or track-sections
+    if (
+      (e.target as HTMLElement).classList.contains('track-list-content') ||
+      (e.target as HTMLElement).classList.contains('track-sections') ||
+      (e.target as HTMLElement).classList.contains('track-section')
+    ) {
+      onSelectionChange(null);
+      setSelectedGroupId(null);
+    }
+  };
+
   return (
-    <div className="track-list">
-      {errorMessage && (
-        <ErrorModal
-          message={errorMessage}
-          onClose={() => setErrorMessage(null)}
-        />
-      )}
+    <div className="tracks-section">
       <div className="track-form">
-        <div className="form-container">
-          <input
-            type="text"
-            value={patternInput}
-            onChange={(e) => setPatternInput(e.target.value)}
-            placeholder="Enter track number or pattern (e.g., 1 or [1-4] or {1,3,5})"
-            className="pattern-input"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && isValidPattern(patternInput)) {
-                e.preventDefault();
-                handleAdd();
-              }
-            }}
-          />
-          <button 
-            onClick={handleAdd} 
-            className="add-button"
-            disabled={!isValidPattern(patternInput)}
-          >
-            Add
-          </button>
-        </div>
+        <input
+          type="text"
+          value={patternInput}
+          onChange={(e) => setPatternInput(e.target.value)}
+          placeholder="Enter track number or pattern"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && isValidPattern(patternInput)) {
+              handleAdd();
+            }
+          }}
+        />
+        <button 
+          onClick={handleAdd} 
+          className="add-button"
+          disabled={!isValidPattern(patternInput)}
+        >
+          Add
+        </button>
       </div>
 
-      <div className="track-list-content">
+      <div 
+        className="track-list-content"
+        onClick={handleBackgroundClick}
+      >
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -419,57 +424,55 @@ export const TrackList: React.FC<TrackListProps> = ({ selectedTrack, onSelection
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          {/* Individual Tracks Zone */}
-          <div 
-            className={`tracks-zone ${dragOverZoneId === 'individual-tracks' ? 'drop-target' : ''}`}
-            data-zone-id="individual-tracks"
-          >
-            <div className="zone-header">
-              <h3>Individual Tracks</h3>
-            </div>
-            <SortableContext
-              items={individualTracks.map(track => track.id)}
-              strategy={verticalListSortingStrategy}
+          <div className="track-sections">
+            {/* Individual Tracks */}
+            <div 
+              className={`track-section ${dragOverZoneId === 'individual-tracks' ? 'drop-target' : ''}`}
+              data-zone-id="individual-tracks"
             >
-              {individualTracks.map((track) => (
-                <TrackComponent
-                  key={track.id}
-                  track={track}
-                  isSelected={selectedTrack?.id === track.id}
-                  onSelect={onSelectionChange}
-                  onToggleActive={handleToggleTrackActive}
-                  onDelete={handleDeleteTrack}
-                />
-              ))}
-            </SortableContext>
-          </div>
+              <div className="section-label">Individual Tracks</div>
+              <SortableContext
+                items={individualTracks.map(track => track.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {individualTracks.map((track) => (
+                  <TrackComponent
+                    key={track.id}
+                    track={track}
+                    isSelected={selectedTrack?.id === track.id}
+                    onSelect={onSelectionChange}
+                    onToggleActive={handleToggleTrackActive}
+                    onDelete={handleDeleteTrack}
+                  />
+                ))}
+              </SortableContext>
+            </div>
 
-          {/* Groups */}
-          <div className="groups-container">
-            <div className="zone-header">
-              <h3>Groups</h3>
+            {/* Groups */}
+            <div className="track-section">
+              <div className="section-label">Groups</div>
+              <SortableContext
+                items={groups.map(group => group.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {groups.map((group) => (
+                  <TrackGroupComponent
+                    key={group.id}
+                    group={group}
+                    selectedTrack={selectedTrack}
+                    onSelectionChange={onSelectionChange}
+                    onToggleActive={handleToggleActive}
+                    onDeleteGroup={handleDeleteGroup}
+                    onUpdateGroupName={handleUpdateGroupName}
+                    onUpdateGroup={handleUpdateGroup}
+                    onSelectGroup={handleSelectGroup}
+                    onToggleExpand={handleToggleExpand}
+                    isSelected={group.id === selectedGroupId}
+                    isDropTarget={dragOverZoneId === group.id}
+                  />
+                ))}
+              </SortableContext>
             </div>
-            <SortableContext
-              items={groups.map(group => group.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              {groups.map((group) => (
-                <TrackGroupComponent
-                  key={group.id}
-                  group={group}
-                  selectedTrack={selectedTrack}
-                  onSelectionChange={onSelectionChange}
-                  onToggleActive={handleToggleActive}
-                  onDeleteGroup={handleDeleteGroup}
-                  onUpdateGroupName={handleUpdateGroupName}
-                  onUpdateGroup={handleUpdateGroup}
-                  onSelectGroup={handleSelectGroup}
-                  onToggleExpand={handleToggleExpand}
-                  isSelected={group.id === selectedGroupId}
-                  isDropTarget={dragOverZoneId === group.id}
-                />
-              ))}
-            </SortableContext>
           </div>
 
           <DragOverlay>
@@ -516,6 +519,10 @@ export const TrackList: React.FC<TrackListProps> = ({ selectedTrack, onSelection
           </DragOverlay>
         </DndContext>
       </div>
+
+      {errorMessage && (
+        <ErrorModal message={errorMessage} onClose={() => setErrorMessage('')} />
+      )}
     </div>
   );
 };

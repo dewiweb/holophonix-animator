@@ -2,11 +2,19 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { UDPPort } from 'osc';
 import EventEmitter from 'events';
 import { OSCAddressType, OSCUtils, TrackControlMessage } from '../types/osc';
+import { settingsManager } from './settings';
 
 interface OSCConfig {
   localPort: number;
   remotePort: number;
   remoteAddress: string;
+}
+
+interface QueuedMessage {
+  address: string;
+  args: any[];
+  timestamp: number;
+  priority: number;
 }
 
 class OSCManager extends EventEmitter {
@@ -16,10 +24,20 @@ class OSCManager extends EventEmitter {
   private isConnecting = false;
   private _isReady = false;
   private mainWindow: BrowserWindow | null = null;
+  
+  // Rate limiting and queuing
+  private messageQueue: QueuedMessage[] = [];
+  private lastMessageTime = 0;
+  private isProcessingQueue = false;
+  private queueProcessor: NodeJS.Timeout | null = null;
 
   private constructor() {
     super();
     this.setupEventForwarding();
+  }
+
+  private get minMessageInterval(): number {
+    return settingsManager.getSetting('oscRateLimit');
   }
 
   private setupEventForwarding() {
@@ -27,11 +45,13 @@ class OSCManager extends EventEmitter {
     this.on('connected', () => {
       console.log('OSCManager: Emitting connected event to renderer');
       this.mainWindow?.webContents.send('osc:connected');
+      this.startQueueProcessor();
     });
 
     this.on('disconnected', () => {
       console.log('OSCManager: Emitting disconnected event to renderer');
       this.mainWindow?.webContents.send('osc:disconnected');
+      this.stopQueueProcessor();
     });
 
     this.on('error', (error: Error) => {
@@ -42,6 +62,80 @@ class OSCManager extends EventEmitter {
     this.on('message', (message: any) => {
       console.log('OSCManager: Emitting message event to renderer:', message);
       this.mainWindow?.webContents.send('osc:message', message);
+    });
+
+    // Listen for settings changes
+    ipcMain.on('settings:save', () => {
+      if (this.queueProcessor) {
+        // Restart queue processor with new interval
+        this.startQueueProcessor();
+      }
+    });
+  }
+
+  private startQueueProcessor() {
+    if (this.queueProcessor) {
+      clearInterval(this.queueProcessor);
+    }
+    this.queueProcessor = setInterval(() => this.processQueue(), this.minMessageInterval);
+  }
+
+  private stopQueueProcessor() {
+    if (this.queueProcessor) {
+      clearInterval(this.queueProcessor);
+      this.queueProcessor = null;
+    }
+    this.messageQueue = [];
+    this.isProcessingQueue = false;
+  }
+
+  private async processQueue() {
+    if (!this._isReady || this.isProcessingQueue || this.messageQueue.length === 0) {
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    const now = Date.now();
+
+    try {
+      // Sort queue by priority (higher number = higher priority)
+      this.messageQueue.sort((a, b) => b.priority - a.priority);
+
+      // Process messages that respect the rate limit
+      while (this.messageQueue.length > 0 && now - this.lastMessageTime >= this.minMessageInterval) {
+        const message = this.messageQueue.shift();
+        if (!message) break;
+
+        await this.sendMessageImmediate(message.address, message.args);
+        this.lastMessageTime = Date.now();
+      }
+    } catch (error) {
+      console.error('Error processing message queue:', error);
+      this.emit('error', error instanceof Error ? error : new Error(String(error)));
+    } finally {
+      this.isProcessingQueue = false;
+    }
+  }
+
+  private async sendMessageImmediate(address: string, args: any[]) {
+    if (!this.udpPort || !this._isReady) {
+      throw new Error('Not connected');
+    }
+
+    try {
+      this.udpPort.send({ address, args });
+    } catch (error) {
+      console.error('Error sending OSC message:', error);
+      throw error;
+    }
+  }
+
+  private queueMessage(address: string, args: any[], priority = 0) {
+    this.messageQueue.push({
+      address,
+      args,
+      timestamp: Date.now(),
+      priority
     });
   }
 
@@ -58,7 +152,7 @@ class OSCManager extends EventEmitter {
 
   async connect(config: OSCConfig): Promise<void> {
     console.log('Attempting to connect with config:', config);
-    
+
     if (this.isConnecting) {
       console.log('Connection already in progress');
       throw new Error('Connection already in progress');
@@ -92,7 +186,7 @@ class OSCManager extends EventEmitter {
         }
 
         console.log('Setting up UDP port event handlers');
-        
+
         this.udpPort.on('ready', () => {
           console.log('UDP port ready event received');
           this._isReady = true;
@@ -126,6 +220,19 @@ class OSCManager extends EventEmitter {
   private handleMessage(oscMsg: any): void {
     try {
       console.log('Handling OSC message:', oscMsg);
+
+      // Handle query responses
+      if (oscMsg.address.startsWith('/track/')) {
+        const message = {
+          address: oscMsg.address,
+          args: oscMsg.args,
+          timestamp: Date.now()
+        };
+        this.emit('message', message);
+        return;
+      }
+
+      // Handle regular track control messages
       const parsed = OSCUtils.parseTrackAddress(oscMsg.address);
       if (!parsed) {
         console.warn('Invalid OSC address:', oscMsg.address);
@@ -148,7 +255,8 @@ class OSCManager extends EventEmitter {
         trackId,
         type,
         value: constrainedValue,
-        raw: value
+        raw: value,
+        timestamp: Date.now()
       };
 
       console.log('Emitting processed message:', message);
@@ -157,6 +265,68 @@ class OSCManager extends EventEmitter {
       console.error('Error handling OSC message:', error);
       this.emit('error', error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  async sendQuery(address: string): Promise<void> {
+    if (!this._isReady || !this.udpPort) {
+      console.error('Cannot send query: not connected');
+      throw new Error('Not connected');
+    }
+
+    try {
+      console.log('Queueing OSC query:', address);
+      // Queries get highest priority
+      this.queueMessage('/get', [address], 3);
+    } catch (error) {
+      console.error('Error queueing OSC query:', error);
+      throw error;
+    }
+  }
+
+  async testBidirectionalCommunication(): Promise<void> {
+    if (!this._isReady) {
+      throw new Error('Not connected');
+    }
+
+    console.log('Starting bidirectional communication test...');
+
+    // Test sending a position update
+    try {
+      await this.sendTrackControl(1, 'azim', 90);
+      console.log('Successfully sent position update');
+    } catch (error) {
+      console.error('Failed to send position update:', error);
+      throw error;
+    }
+
+    // Test querying a track's position
+    try {
+      await this.sendQuery('track/1/xyz');
+      console.log('Successfully sent position query');
+    } catch (error) {
+      console.error('Failed to send position query:', error);
+      throw error;
+    }
+
+    // Test sending a gain update
+    try {
+      await this.sendTrackControl(1, 'gain/value', 0);
+      console.log('Successfully sent gain update');
+    } catch (error) {
+      console.error('Failed to send gain update:', error);
+      throw error;
+    }
+
+    // Test querying track's gain
+    try {
+      await this.sendQuery('track/1/gain/value');
+      console.log('Successfully sent gain query');
+    } catch (error) {
+      console.error('Failed to send gain query:', error);
+      throw error;
+    }
+
+    console.log('All test messages sent successfully');
   }
 
   async disconnect(): Promise<void> {
@@ -181,17 +351,14 @@ class OSCManager extends EventEmitter {
     }
 
     try {
-      // Create a simple message with just the address and float value
       const address = OSCUtils.createTrackAddress(trackId, type);
-      console.log('Sending OSC message to:', address, 'with value:', value);
+      console.log('Queueing OSC message to:', address, 'with value:', value);
 
-      // Send using the built-in send method with minimal formatting
-      this.udpPort.send({
-        address,
-        args: [value]
-      });
+      // Queue the message with priority based on type
+      const priority = type === 'gain/value' || type === 'mute' ? 2 : 1;
+      this.queueMessage(address, [value], priority);
     } catch (error) {
-      console.error('Error sending OSC message:', error);
+      console.error('Error queueing OSC message:', error);
       throw error;
     }
   }
@@ -246,6 +413,32 @@ export function setupOSCHandlers(mainWindow: BrowserWindow): void {
       return { success: true };
     } catch (error) {
       console.error('Failed to send track control:', error);
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  // Handle OSC query
+  ipcMain.handle('osc:query', async (event, address: string) => {
+    try {
+      console.log('Received query request for address:', address);
+      await oscManager.sendQuery(address);
+      console.log('Query sent successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to send query:', error);
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  // Handle test request
+  ipcMain.handle('osc:test', async () => {
+    try {
+      console.log('Received test request');
+      await oscManager.testBidirectionalCommunication();
+      console.log('Test completed successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('Test failed:', error);
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });

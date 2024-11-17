@@ -167,6 +167,7 @@ export const TrackGroupComponent: React.FC<TrackGroupProps> = ({
 
   const handleTrackToggle = (trackId: string) => {
     setTrackStates(prev => ({
+
       ...prev,
       [trackId]: !prev[trackId]
     }));
@@ -242,7 +243,6 @@ export const TrackGroupComponent: React.FC<TrackGroupProps> = ({
             {group.name || defaultName}
           </div>
         )}
-        <span className="group-pattern">{group.pattern}</span>
         <button
           type="button"
           className="delete-button"

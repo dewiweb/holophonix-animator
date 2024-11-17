@@ -5,13 +5,17 @@ export type OSCAddressType =
   | 'dist'  // Distance from origin
   | 'x'     // X coordinate
   | 'y'     // Y coordinate
-  | 'z';    // Z coordinate
+  | 'z'     // Z coordinate
+  | 'gain/value' // Gain value in dB
+  | 'mute'  // Mute state
+  | 'color'; // Track color (RGBA)
 
 export interface TrackControlMessage {
   trackId: string;
   type: OSCAddressType;
   value: number;
   raw?: number;
+  timestamp?: number;
 }
 
 // Value ranges and constraints
@@ -39,6 +43,12 @@ export const OSC_CONSTRAINTS = {
     max: 100,  // Default max, can be configured
     unit: 'meters',
     wrap: false
+  },
+  gain: {
+    min: -60,
+    max: 12,
+    unit: 'dB',
+    wrap: false
   }
 } as const;
 
@@ -59,7 +69,7 @@ export class OSCUtils {
   }
 
   static isValidAddressType(type: string): type is OSCAddressType {
-    return ['azim', 'elev', 'dist', 'x', 'y', 'z'].includes(type);
+    return ['azim', 'elev', 'dist', 'x', 'y', 'z', 'gain/value', 'mute', 'color'].includes(type);
   }
 
   static constrainValue(value: number, type: OSCAddressType): number {
@@ -74,6 +84,9 @@ export class OSCUtils {
         break;
       case 'dist':
         constraints = OSC_CONSTRAINTS.distance;
+        break;
+      case 'gain/value':
+        constraints = OSC_CONSTRAINTS.gain;
         break;
       default:
         constraints = OSC_CONSTRAINTS.xyz;

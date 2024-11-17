@@ -1,0 +1,32 @@
+.settings-button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: transparent;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #666;
+}
+
+.settings-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.settings-page {
+  flex: 1;
+  overflow-y: auto;
+  background-color: #1a1a1a;
+  padding: 2rem;
+}

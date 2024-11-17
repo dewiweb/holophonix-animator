@@ -1,0 +1,98 @@
+.settings-container {
+  padding: 2rem;
+  color: #fff;
+}
+
+.settings-header {
+  margin-bottom: 2rem;
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #fff;
+}
+
+.settings-section {
+  background: #333;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.settings-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.2rem;
+  color: #fff;
+}
+
+.setting-item {
+  margin-bottom: 1.5rem;
+}
+
+.setting-item:last-child {
+  margin-bottom: 0;
+}
+
+.setting-item label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #fff;
+}
+
+.setting-input-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.setting-input-group input {
+  padding: 0.5rem;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #222;
+  color: #fff;
+  font-size: 1rem;
+  width: 120px;
+}
+
+.setting-input-group input:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+.setting-hint {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.setting-description {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.settings-actions {
+  margin-top: 2rem;
+}
+
+.save-button {
+  padding: 0.75rem 1.5rem;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.save-button:hover:not(:disabled) {
+  background: #1976D2;
+}
+
+.save-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

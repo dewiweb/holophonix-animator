@@ -1,6 +1,10 @@
 # Holophonix Track Motion Animator 🎵
 
-A future (WIP) cross-platform desktop application for creating and managing motion behaviors for Holophonix spatial audio tracks via OSC. Create complex spatial movements using absolute or relative coordinate changes in both AED (Azimuth, Elevation, Distance) and XYZ coordinate systems.Developpement helped with windsurf ide (AI based).
+A future (WIP) cross-platform desktop application for creating and managing motion behaviors for Holophonix spatial audio tracks via OSC. Create complex spatial movements using absolute or relative coordinate changes in both AED (Azimuth, Elevation, Distance) and XYZ coordinate systems. Development helped with windsurf ide (AI based).
+
+> 🚧 **Development Status**: This project is under active development. See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed progress, roadmap, and contribution guidelines.
+
+> 📡 **OSC Protocol**: For detailed information about the OSC communication protocol, message formats, and track control, see [OSC.md](OSC.md).
 
 ## Features
 
@@ -23,6 +27,27 @@ A future (WIP) cross-platform desktop application for creating and managing moti
   - 3D spiral
   - Random walk 3D
   - Composite movements
+
+### Track Groups 👥
+The application supports flexible track grouping for efficient control of multiple tracks:
+
+```
+# Range Groups
+[1-4]     # A single group controlling tracks 1, 2, 3, 4
+[2-10]    # A single group controlling tracks 2 through 10
+
+# Enumeration Groups
+{1,3,5}   # A single group controlling tracks 1, 3, and 5
+{1,5,10}  # A single group controlling tracks 1, 5, and 10
+```
+
+Group characteristics:
+- Appears as a single entry in the track list
+- All tracks in the group share the same behaviors
+- Behaviors are applied uniformly across the group
+- Position changes affect all tracks simultaneously
+- Groups can be enabled/disabled as a unit
+- Synchronized movement across grouped tracks
 
 ### Coordinate Systems 🌐
 - **AED (Azimuth, Elevation, Distance)**
@@ -91,258 +116,11 @@ Elevation = asin(Z / Distance)
   - Scaling options
 
 ### OSC Communication 📡
-- **Track Control Paths**
-  ```
-  # Individual absolute coordinates
-  /track/{id}/azim {value}  # Azimuth angle
-  /track/{id}/elev {value}  # Elevation angle
-  /track/{id}/dist {value}  # Distance from origin
-  /track/{id}/x {value}     # X coordinate
-  /track/{id}/y {value}     # Y coordinate
-  /track/{id}/z {value}     # Z coordinate
-
-  # Individual relative movements
-  /track/{id}/azim+ {delta}  # Relative change in azimuth
-  /track/{id}/elev+ {delta}  # Relative change in elevation
-  /track/{id}/dist+ {delta}  # Relative change in distance
-  /track/{id}/x+ {delta}     # Relative change in x
-  /track/{id}/y+ {delta}     # Relative change in y
-  /track/{id}/z+ {delta}     # Relative change in z
-
-  # Combined coordinates
-  /track/{id}/aed {azimuth} {elevation} {distance}  # All AED values
-  /track/{id}/xyz {x} {y} {z}                       # All XYZ values
-  /track/{id}/ae {azimuth} {elevation}              # Azimuth and elevation
-  /track/{id}/xy {x} {y}                            # X and Y coordinates
-  ```
-
-- **Pattern Matching** 🎯
-  OSC addresses support pattern matching for controlling multiple tracks:
-  ```
-  # Pattern matching characters
-  ? - matches any single character
-  * - matches any sequence of characters
-  [abc] - matches any character in the list
-  [!abc] - matches any character not in the list
-  {foo,bar} - matches either 'foo' or 'bar'
-
-  # Examples
-  /track/[1-4]/xyz 0 0 0     # Set position for tracks 1-4
-  /track/*/azim 90           # Set azimuth for all tracks
-  /track/[!0]/active 1       # Activate all tracks except 0
-  /track/{1,3,5}/dist 2      # Set distance for tracks 1, 3, and 5
-  ```
-
-- **Track Groups** 👥
-  The application uses pattern syntax to define and control track groups. Unlike individual track control, a track group is treated as a single entity:
-  ```
-  # Range Groups
-  [1-4]     # A single group controlling tracks 1, 2, 3, 4
-  [2-10]    # A single group controlling tracks 2 through 10
-
-  # Enumeration Groups
-  {1,3,5}   # A single group controlling tracks 1, 3, and 5
-  {1,5,10}  # A single group controlling tracks 1, 5, and 10
-  ```
-
-  Group characteristics:
-  - Appears as a single entry in the track list
-  - All tracks in the group share the same behaviors
-  - Behaviors are applied uniformly across the group
-  - Position changes affect all tracks simultaneously
-  - Groups can be enabled/disabled as a unit
-  - OSC messages are sent to all tracks in the group
-
-- **Connection Settings** ⚙️
-  - Default Input Port: 9000
-  - Default Output Port: 12000
-  - Default Host: localhost
-  - Protocol: UDP
-  - Message Format: OSC 1.0
-
-## Development Status 🚀
-
-### Recently Completed ✨
-- Track List Management
-  - [x] Track component implementation
-  - [x] Group component implementation
-  - [x] Selection system
-  - [x] Drag and drop organization
-  - [x] Pattern-based track creation
-  - [x] Group merging and splitting
-  - [x] Active/inactive states
-  - [x] Individual track state management
-  - [x] Group selection functionality
-  - [x] Independent track toggling within groups
-
-- OSC Communication
-  - [x] Basic UDP connection handling
-  - [x] Connection status management
-  - [x] Error handling and reporting
-  - [x] Test message sending/receiving
-  - [x] Track control message format (/track/{id}/{param})
-
-### Implemented Features ✅
-- Modern React-based UI structure
-  - Three-column layout design
-  - Component hierarchy setup
-  - Dark theme implementation
-  - Color-coded tracks and groups
-  - Responsive form layouts
-- Track and Group Management
-  - Individual and group selection
-  - Independent track states
-  - Collapsible groups
-  - Pattern-based creation
-  - Drag and drop organization
-- Behavior system foundation
-  - Base behavior interface
-  - Behavior registry
-  - Initial implementations (Linear, Sine, Circular, Orbit)
-- Pattern-based track grouping design
-  - Range patterns [1-n]
-  - Enumeration patterns {n,m,p}
-  - Group-based control concept
-
-### In Progress 🚧
-- Track List Refinements
-  - [ ] Fix group merging edge cases
-  - [ ] Improve drag and drop visual feedback
-  - [ ] Add group collapse/expand animations
-  - [ ] Optimize performance for large lists
-  - [ ] Add keyboard shortcuts for common actions
-  - [ ] Implement multi-select functionality
-
-- Basic Behaviors
-  - [x] Base behavior interface
-  - [x] Behavior registry
-  - [ ] Parameter validation
-  - [ ] Behavior controls (play/pause/stop)
-  - [ ] Visual behavior preview
-  - [ ] Real-time parameter adjustment
-
-- OSC Communication
-  - [ ] Message queuing system
-  - [ ] Rate limiting for messages
-  - [ ] Connection recovery
-  - [ ] Message validation and sanitization
-  - [ ] Batch message support
-  - [ ] State synchronization
-
-### Pending Features 📋
-- Parameter System
-  - Unit conversion
-  - Value constraints
-  - Real-time validation
-- Behavior Controls
-  - Progress visualization
-  - Time synchronization
-  - State persistence
-- Group Dynamics
-  - Leader/follower relationships
-  - Geometric formations
-  - Synchronized movements
-- Advanced Features
-  - Track filtering and search
-  - Batch operations
-  - Custom behavior creation
-  - Multi-select operations
-
-## Next Steps 🎯
-
-### Behavior System Enhancement 🔄
-1. **Core Implementations**
-   - Complete base behaviors (Linear, Sine)
-   - Add 2D behaviors (Circular, Figure-8)
-   - Add 3D behaviors (Orbit, Spiral)
-   - Implement parameter validation
-
-2. **Parameter System**
-   - Value range constraints
-   - Unit conversion handling
-   - Real-time validation
-   - Default value management
-
-3. **Behavior Control**
-   - Play/Pause/Stop functionality
-   - Progress tracking
-   - Time synchronization
-   - State persistence
-
-### Track Management 👥
-1. **Group Features**
-   - Drag and drop organization
-   - Collapsible group view
-   - Group state management
-   - Pattern-based selection
-
-2. **Track Controls**
-   - Position monitoring
-   - State visualization
-   - Quick actions
-   - Batch operations
-
-### System Stability 🛠️
-1. **Error Handling**
-   - OSC connection recovery
-   - Invalid parameter detection
-   - State inconsistency resolution
-   - Error logging and reporting
-
-2. **Performance**
-   - Behavior calculation optimization
-   - Message batching
-   - UI responsiveness
-   - Memory management
-
-### Testing & Validation ✅
-1. **Unit Tests**
-   - Coordinate transformations
-   - Behavior calculations
-   - Parameter validation
-   - Group operations
-
-2. **Integration Tests**
-   - OSC communication
-   - UI interactions
-   - State management
-   - Error scenarios
-
-### Documentation 📚
-1. **Code Documentation**
-   - API documentation
-   - Component documentation
-   - Type definitions
-   - Example usage
-
-2. **User Documentation**
-   - Setup guide
-   - Usage tutorials
-   - Behavior examples
-   - Troubleshooting guide
-
-## Current Sprint Tasks 🎯
-
-### Priority 1: Core Implementation
-- [ ] Complete Track List UI
-  - Basic track display
-  - Group display
-  - Selection handling
-  - Context menu
-
-### Priority 2: Behavior System
-- [ ] Behavior Controls
-  - Play/Pause/Stop buttons
-  - Progress indicator
-  - Delete functionality
-  - Parameter editing
-
-### Priority 3: OSC Setup
-- [ ] Basic Communication
-  - Connection setup
-  - Message handling
-  - Error recovery
-  - Status display
+The application communicates with Holophonix using the Open Sound Control (OSC) protocol over UDP. See [OSC.md](OSC.md) for detailed information about:
+- Track control messages
+- Pattern matching
+- Group control
+- Connection settings
 
 ## Architecture Overview 🏗️
 
@@ -455,78 +233,6 @@ src/
 - Ensures type safety between processes
 - Defines message formats and structures
 
-## Development Roadmap 🗺️
-
-### Current Sprint 🏃
-- [ ] Track List Management
-  - Drag and drop
-  - Group handling
-  - Visual organization
-- [ ] Basic Behaviors
-  - Linear and Sine
-  - Parameter system
-  - Coordinate handling
-- [ ] Behavior Controls
-  - Play/Pause/Stop functionality
-  - Progress visualization
-  - Status indicators
-  - Delete operations
-
-### Next Up 📅
-- [ ] OSC Communication
-  - Group messaging
-  - Error handling
-  - Connection recovery
-- [ ] Advanced Behaviors
-  - 2D/3D implementations
-  - Behavior chaining
-  - Parameter validation
-
-### Future Features 🔮
-1. **Advanced Behavior System**
-   - Behavior composition and blending
-   - Layered behaviors (base, modifier, effect)
-   - Timeline-based sequencing
-   - Custom behavior creation
-
-2. **Group Dynamics**
-   - Leader/Follower relationships
-     * Leader track defines primary motion
-     * Followers with configurable delay/offset
-     * Multiple leader hierarchies
-   - Geometric Formations
-     * Isobarycentric positioning
-     * Relative spacing control
-     * Formation maintenance
-   - Group Motion Patterns
-     * Swarm behavior
-     * Synchronized movements
-     * Relative phase offsets
-
-3. **Interaction Models**
-   - Distance-based triggers
-   - State-based responses
-   - Time-based synchronization
-   - Physics-based movements
-
-4. **User Experience**
-   - Parameter presets
-   - Undo/redo system
-   - Behavior visualization
-   - Performance monitoring
-
-5. **System Integration**
-   - Configuration persistence
-   - External control integration
-   - Multi-device synchronization
-   - Resource optimization
-
-### Backlog 📝
-- State persistence
-- Bulk operations
-- Track templates
-- Performance optimization
-
 ## User Interface Layout 🎨
 
 The application uses a three-column layout optimized for efficient track and behavior management:
@@ -572,63 +278,66 @@ This layout provides:
 - Quick behavior assignment
 - Immediate parameter access
 
-## Development Setup 🛠️
+## Configuration ⚙️
 
-### Prerequisites
-- Node.js (v22.1.0 or higher)
-- Yarn package manager
-- Git
+### Default Settings
+- **OSC Configuration**
+  - Input Port: 9000 (local UDP server)
+  - Output Port: 12000 (remote Holophonix server)
+  - Host: localhost (change to your Holophonix server IP)
+  - Protocol: UDP
+  - Message Format: OSC 1.0
 
-### Installation
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/holophonix-animator.git
-
-# Navigate to project directory
-cd holophonix-animator
-
-# Install dependencies
-yarn install
-```
-
-### Development
-```bash
-# Start development server
-yarn start
-
-# The app will open automatically with:
-# - Hot Module Replacement enabled
-# - DevTools available
-# - Default OSC ports: 9000 (in) / 12000 (out)
-```
-
-### Building
-```bash
-# Create production build
-yarn build
-
-# The built app will be in the 'out' directory
-# Supported platforms: Windows, macOS, Linux
-```
-
-### Configuration
+### Configuration Methods
 The app can be configured through:
 - Command line arguments
 - Configuration file
 - Environment variables
 
-Example configuration:
+### Example Configurations
 ```bash
-# Custom OSC configuration
+# Using command line arguments
 yarn start --osc-in=9001 --osc-out=12001 --osc-host=192.168.1.100
 
-# Or using environment variables
+# Using environment variables
 OSC_IN_PORT=9001 OSC_OUT_PORT=12001 OSC_HOST=192.168.1.100 yarn start
 ```
 
-Default OSC settings:
-- Input Port: 9000 (local UDP server)
-- Output Port: 12000 (remote Holophonix server)
-- Host: localhost (change to your Holophonix server IP)
-- Protocol: UDP
-- Message Format: OSC 1.0
+### Configuration File
+Create a `config.json` in the application directory:
+```json
+{
+  "osc": {
+    "inPort": 9001,
+    "outPort": 12001,
+    "host": "192.168.1.100",
+    "protocol": "udp4"
+  },
+  "ui": {
+    "theme": "dark",
+    "units": "meters",
+    "coordinateSystem": "aed"
+  }
+}
+```
+
+### Environment Variables
+Available environment variables:
+- `OSC_IN_PORT`: Local UDP server port
+- `OSC_OUT_PORT`: Remote Holophonix server port
+- `OSC_HOST`: Holophonix server IP address
+- `UI_THEME`: Application theme (dark/light)
+- `COORDINATE_SYSTEM`: Default coordinate system (aed/xyz)
+- `DISTANCE_UNITS`: Default distance units (meters/feet)
+
+## Development Status 🚀
+
+For detailed information about the project's development status, roadmap, and progress, please see [DEVELOPMENT.md](DEVELOPMENT.md).
+
+## Contributing 🤝
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+## License 📄
+
+This project is licensed under the MIT License - see the LICENSE file for details.
