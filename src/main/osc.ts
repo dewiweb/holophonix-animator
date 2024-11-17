@@ -60,8 +60,21 @@ class OSCManager extends EventEmitter {
     });
 
     this.on('message', (message: any) => {
-      console.log('OSCManager: Emitting message event to renderer:', message);
-      this.mainWindow?.webContents.send('osc:message', message);
+      console.log('OSCManager: Forwarding OSC message to renderer:', JSON.stringify(message));
+      if (this.mainWindow) {
+        try {
+          this.mainWindow.webContents.send('osc:message', message);
+        } catch (error) {
+          console.error('Error sending message to renderer:', error);
+        }
+      } else {
+        console.warn('No main window available to send message');
+      }
+    });
+
+    this.on('track:message', (message: TrackControlMessage) => {
+      console.log('OSCManager: Emitting track message event to renderer:', message);
+      this.mainWindow?.webContents.send('osc:track:message', message);
     });
 
     // Listen for settings changes
@@ -118,25 +131,47 @@ class OSCManager extends EventEmitter {
   }
 
   private async sendMessageImmediate(address: string, args: any[]) {
-    if (!this.udpPort || !this._isReady) {
+    if (!this._isReady || !this.udpPort) {
+      console.error('Cannot send message: not connected');
       throw new Error('Not connected');
     }
 
     try {
+      console.log('Sending OSC message:', { address, args });
       this.udpPort.send({ address, args });
+
+      // Emit outgoing message
+      const message = {
+        address,
+        args,
+        timestamp: Date.now(),
+        direction: 'out'
+      };
+      this.emit('message', message);
     } catch (error) {
       console.error('Error sending OSC message:', error);
       throw error;
     }
   }
 
-  private queueMessage(address: string, args: any[], priority = 0) {
+  private async queueMessage(address: string, args: any[], priority = 0) {
+    console.log('Queueing OSC message to:', address, 'with args:', args);
+    
     this.messageQueue.push({
       address,
       args,
       timestamp: Date.now(),
       priority
     });
+
+    // Emit outgoing message immediately
+    const message = {
+      address,
+      args,
+      timestamp: Date.now(),
+      direction: 'out'
+    };
+    this.emit('message', message);
   }
 
   setMainWindow(window: BrowserWindow) {
@@ -219,48 +254,46 @@ class OSCManager extends EventEmitter {
 
   private handleMessage(oscMsg: any): void {
     try {
-      console.log('Handling OSC message:', oscMsg);
+      console.log('OSCManager: Received UDP message:', JSON.stringify(oscMsg));
 
-      // Handle query responses
-      if (oscMsg.address.startsWith('/track/')) {
-        const message = {
-          address: oscMsg.address,
-          args: oscMsg.args,
-          timestamp: Date.now()
-        };
-        this.emit('message', message);
+      if (!oscMsg || !oscMsg.address) {
+        console.warn('Invalid OSC message received:', oscMsg);
         return;
       }
 
-      // Handle regular track control messages
-      const parsed = OSCUtils.parseTrackAddress(oscMsg.address);
-      if (!parsed) {
-        console.warn('Invalid OSC address:', oscMsg.address);
-        return;
-      }
-
-      const { trackId, type } = parsed;
-      const value = oscMsg.args[0];
-
-      if (typeof value !== 'number') {
-        console.warn('Invalid OSC value type:', typeof value);
-        return;
-      }
-
-      // Constrain the value based on the parameter type
-      const constrainedValue = OSCUtils.constrainValue(value, type);
-
-      // Emit the processed message
-      const message: TrackControlMessage = {
-        trackId,
-        type,
-        value: constrainedValue,
-        raw: value,
+      // Always emit the raw message first
+      const rawMessage = {
+        address: oscMsg.address,
+        args: Array.isArray(oscMsg.args) ? oscMsg.args : [],
         timestamp: Date.now()
       };
+      
+      console.log('OSCManager: Emitting raw message:', JSON.stringify(rawMessage));
+      this.emit('message', rawMessage);
 
-      console.log('Emitting processed message:', message);
-      this.emit('message', message);
+      // Then handle special cases
+      if (oscMsg.address.startsWith('/track/')) {
+        const parsed = OSCUtils.parseTrackAddress(oscMsg.address);
+        if (parsed) {
+          const { trackId, type } = parsed;
+          const value = oscMsg.args[0];
+
+          if (typeof value === 'number') {
+            // Constrain the value based on the parameter type
+            const constrainedValue = OSCUtils.constrainValue(value, type);
+
+            // Emit the processed track message
+            const trackMessage: TrackControlMessage = {
+              trackId,
+              type,
+              value: constrainedValue,
+              raw: value,
+              timestamp: Date.now()
+            };
+            this.emit('track:message', trackMessage);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error handling OSC message:', error);
       this.emit('error', error instanceof Error ? error : new Error(String(error)));

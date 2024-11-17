@@ -14,10 +14,7 @@ export interface OSCChannels {
 export interface IElectronAPI {
   on(channel: string, callback: (...args: any[]) => void): void;
   removeAllListeners(channel: string): void;
-  invoke<T extends keyof OSCChannels>(
-    channel: T,
-    ...args: Parameters<OSCChannels[T]>
-  ): ReturnType<OSCChannels[T]>;
+  invoke(channel: string, ...args: any[]): Promise<any>;
 }
 
 declare global {

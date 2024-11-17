@@ -13,7 +13,7 @@ interface OSCConfig {
 }
 
 interface OSCConnectionProps {
-  onMessage: (message: string) => void;
+  onMessage: (message: any) => void;
 }
 
 export const OSCConnection: React.FC<OSCConnectionProps> = ({ onMessage }) => {

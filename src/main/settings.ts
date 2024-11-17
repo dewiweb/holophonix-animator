@@ -1,13 +1,15 @@
-import { app, ipcMain } from 'electron';
+import { app, ipcMain, BrowserWindow } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 
 export interface AppSettings {
   oscRateLimit: number;
+  showMessageLog: boolean;
 }
 
 const defaultSettings: AppSettings = {
-  oscRateLimit: 50 // 50ms = 20 messages per second
+  oscRateLimit: 50, // 50ms = 20 messages per second
+  showMessageLog: true
 };
 
 class SettingsManager {
@@ -49,6 +51,10 @@ class SettingsManager {
         'utf8'
       );
       console.log('Settings saved successfully');
+      // Emit settings changed event to all windows
+      BrowserWindow.getAllWindows().forEach(window => {
+        window.webContents.send('settings:changed', this.settings);
+      });
     } catch (error) {
       console.error('Error saving settings:', error);
       throw error;
