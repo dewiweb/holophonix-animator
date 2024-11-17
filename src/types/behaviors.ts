@@ -26,10 +26,10 @@ export interface BehaviorType {
 
 export interface Behavior {
   id: string;
-  type: string;
   name: string;
+  type: string;
   active: boolean;
-  parameters: Record<string, number>;
+  parameters: Record<string, any>;
 }
 
 export interface Track {

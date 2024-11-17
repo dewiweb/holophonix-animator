@@ -14,6 +14,11 @@
    - [x] Individual track state management
    - [x] Group selection functionality
    - [x] Independent track toggling within groups
+   - [x] Unified group-based track management
+   - [x] Individual tracks as special group
+   - [x] Group-to-group drag and drop
+   - [x] Track state preservation during moves
+   - [x] Bulk track deletion for individual tracks
 
 2. **OSC Communication**
    - [x] Basic UDP port setup
@@ -22,37 +27,76 @@
    - [x] Basic error handling
    - [x] Connection status management
    - [x] Test message functionality
-   - [ ] Message validation and parsing
-   - [ ] Comprehensive error handling
-   - [ ] Connection recovery
-   - [ ] Message queuing system
+   - [x] Message validation and parsing
+   - [x] Comprehensive error handling
+   - [x] Connection recovery
+   - [x] Message queuing system
+
+3. **Message Log**
+   - [x] Real-time OSC message display
+   - [x] Scrollable message history
+   - [x] Clear message formatting
+   - [x] Error highlighting
+   - [x] Timestamp display
+   - [x] Proper message formatting
+   - [x] Configurable visibility through settings
+   - [x] Message filtering and max message limit
 
 ### Current Sprint Tasks 🏃
 1. **OSC Implementation**
-   - [ ] Test and verify bidirectional communication
-   - [ ] Implement message rate limiting
-   - [ ] Add message logging system
-   - [ ] Create message format validation
-   - [ ] Add connection recovery mechanism
-   - [ ] Implement batch message support
-   - [ ] Add OSC address pattern matching
-   - [ ] Create comprehensive error reporting
+   - [x] Test and verify bidirectional communication
+   - [x] Implement message rate limiting
+   - [x] Add message logging system
+   - [x] Create message format validation
+   - [x] Add connection recovery mechanism
+   - [x] Implement batch message support
+   - [x] Add OSC address pattern matching
+   - [x] Create comprehensive error reporting
 
 2. **Track List Refinements**
-   - [ ] Fix group merging edge cases
-   - [ ] Improve drag and drop visual feedback
-   - [ ] Add group collapse/expand animations
-   - [ ] Optimize performance for large lists
+   - [x] Fix group merging edge cases
+   - [x] Improve drag and drop visual feedback
+   - [x] Add group collapse/expand animations
+   - [x] Optimize performance for large lists
    - [ ] Add keyboard shortcuts
    - [ ] Implement multi-select functionality
+   - [ ] Add track search and filtering
+   - [ ] Implement track color persistence
+   - [ ] Add track position visualization
+   - [ ] Create track behavior preview
 
 3. **Behavior System**
-   - [ ] Parameter validation system
-   - [ ] Real-time parameter updates
-   - [ ] Behavior composition
-   - [ ] Timeline integration
-   - [ ] Transition handling
-   - [ ] Behavior preview system
+   - [ ] Modular Behavior Architecture
+     * Plugin-based behavior system
+     * Standard behavior interface/contract
+     * Behavior composition utilities
+     * Documentation for behavior development
+     * Hot-reloading of custom behaviors
+     * Behavior testing framework
+   - [ ] Core Behavior Components
+     * Parameter validation system
+     * Real-time parameter updates
+     * Behavior composition
+     * Timeline integration
+     * Transition handling
+     * Behavior preview system
+   - [ ] Track state restoration
+     * Query initial track states from Holophonix on track addition
+     * Store queried positions, colors, gains
+     * Restore original states when behaviors/animations end
+     * Handle state restoration for individual parameters
+   - [ ] Position Cue System
+     * Store track positions as named cues
+     * Recall positions through behaviors
+     * Cue management interface
+     * Support for multiple cue banks
+     * Transition timing between cues
+   - [ ] Developer Tools
+     * Behavior development guide
+     * Debug visualization tools
+     * State inspection tools
+     * Performance profiling
+     * Example behavior implementations
 
 4. **Group Dynamics**
    - [ ] Leader/Follower relationships
@@ -98,12 +142,23 @@
    - Undo/redo system
    - Behavior visualization
    - Performance monitoring
+   - User settings persistence
+     * Last used OSC ports
+     * Recent configurations
+     * UI preferences
+     * Workspace layout
 
 5. **System Integration**
    - Configuration persistence
    - External control integration
    - Multi-device synchronization
    - Resource optimization
+   - Track state persistence
+     * Initial positions
+     * Default colors
+     * Starting gain values
+     * Base configuration templates
+     * Track metadata
 
 ### Backlog 📝
 - State persistence
@@ -237,6 +292,10 @@ yarn build
 - Scrollable message history
 - Clear message formatting
 - Error highlighting
+- Timestamp display
+- Proper message formatting
+- Configurable visibility through settings
+- Message filtering and max message limit
 
 ## User Interface
 

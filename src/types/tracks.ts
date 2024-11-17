@@ -17,13 +17,15 @@ export interface TrackGroup {
   expanded: boolean;   // UI state for collapsible groups
   active: boolean;     // group-wide activation state
   behaviors: Behavior[]; // behaviors applied to all tracks in group
+  trackStates: { [trackId: string]: boolean };
+  isIndividualTracks?: boolean;  // Flag to identify the special individual tracks group
 }
 
 export type TrackOrGroup = Track | TrackGroup;
 
 export interface TrackPattern {
-  type: 'range' | 'enumeration';
-  values: number[];
+  pattern: string;
+  tracks: number[];
 }
 
 // Pattern parsing utilities
@@ -32,7 +34,7 @@ export function parsePattern(pattern: string): TrackPattern | null {
   const singleMatch = pattern.match(/^(\d+)$/);
   if (singleMatch) {
     const value = parseInt(singleMatch[1]);
-    return { type: 'enumeration', values: [value] };
+    return { pattern, tracks: [value] };
   }
 
   // Range pattern: [start-end]
@@ -41,14 +43,14 @@ export function parsePattern(pattern: string): TrackPattern | null {
     const start = parseInt(rangeMatch[1]);
     const end = parseInt(rangeMatch[2]);
     const values = Array.from({ length: end - start + 1 }, (_, i) => start + i);
-    return { type: 'range', values };
+    return { pattern, tracks: values };
   }
 
   // Enumeration pattern: {n,m,p}
   const enumMatch = pattern.match(/^\{(\d+(?:,\d+)*)\}$/);
   if (enumMatch) {
     const values = enumMatch[1].split(',').map(n => parseInt(n));
-    return { type: 'enumeration', values };
+    return { pattern, tracks: values };
   }
 
   return null;

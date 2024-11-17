@@ -10,22 +10,29 @@
 
 /* Track Form */
 .track-form {
-  padding: 1rem;
+  padding: 2px;
   background-color: #333;
   border-bottom: 1px solid #3a3a3a;
   flex-shrink: 0;
   display: flex;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+}
+
+.track-form * {
+  box-sizing: border-box;
 }
 
 .track-form input {
-  flex: 1;
-  padding: 0.5rem;
+  width: 100%;
+  padding: 4px;
   background-color: #222;
   border: 1px solid #444;
-  border-radius: 4px;
+  border-radius: 2px;
   color: #fff;
   font-size: 1rem;
+  margin: 0;
 }
 
 .track-form input:focus {
@@ -34,13 +41,16 @@
 }
 
 .track-form .add-button {
-  padding: 0.5rem 1rem;
+  padding: 4px;
   background-color: #2196F3;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 2px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
+  width: 100%;
+  font-weight: 500;
+  margin: 0;
 }
 
 .track-form .add-button:hover:not(:disabled) {
@@ -50,6 +60,7 @@
 .track-form .add-button:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+  background-color: #666;
 }
 
 /* Track List Content */
@@ -57,21 +68,58 @@
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  padding: 1rem;
+  padding: 2px;
   cursor: default;
 }
 
 .track-sections {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 4px;
   min-height: 100%;
 }
 
 .track-section {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 2px;
+}
+
+.track-section[data-zone-id="individual-tracks"] {
+  min-height: 100px;
+  background-color: #2a2a2a;
+  border-radius: 2px;
+  padding: 8px;
+  border: 1px dashed #444;
+  transition: all 0.2s;
+}
+
+.track-section[data-zone-id="individual-tracks"].drop-target {
+  border-color: #1e88e5;
+  background-color: rgba(33, 150, 243, 0.1);
+}
+
+.track-section[data-zone-id="individual-tracks"]:empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.track-section[data-zone-id="individual-tracks"]:empty::after {
+  content: "Drop tracks here";
+  color: #666;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.empty-message {
+  color: #666;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+  pointer-events: none;
+  user-select: none;
 }
 
 .section-label {
@@ -79,112 +127,236 @@
   color: #888;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
+  margin-bottom: 8px;
+  user-select: none;
   pointer-events: none;
-  padding: 0 1rem;
 }
 
 .track-section.drop-target {
   background-color: rgba(33, 150, 243, 0.1);
-  border-radius: 4px;
-  padding: 0.5rem;
-  margin: -0.5rem;
+  border-radius: 2px;
+  padding: 2px;
+  margin: -2px;
+}
+
+/* Tracks Container */
+.tracks-container {
+  flex: 1;
+  min-height: 50px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tracks-container:empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #2a2a2a;
+  border-radius: 2px;
+  padding: 2px;
+}
+
+.tracks-container:empty::after {
+  content: "Drop tracks here";
+  color: #666;
+  font-style: italic;
+  font-size: 0.9rem;
 }
 
 /* Individual track styles */
 .track {
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.5rem;
-  background-color: #333;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 1rem;
-  margin-left: 1rem;
-  margin-right: 1rem;
+  justify-content: space-between;
+  padding: 4px;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 2px;
+  cursor: grab;
+  user-select: none;
+  transition: all 0.2s;
 }
 
 .track:hover {
-  background-color: #444;
-  transform: translateX(2px);
+  background-color: #333;
 }
 
 .track.selected {
-  background-color: #1976D2;
-  transform: translateX(4px);
+  background-color: rgba(0, 123, 255, 0.1);
+}
+
+.track.active {
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.track-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.track-name {
+  font-size: 0.9rem;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 1;
+}
+
+.track-button {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  transition: all 0.2s;
+  width: 20px;
+  height: 20px;
+  z-index: 1;
+}
+
+.track-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.track-button.active {
+  color: #4caf50;
+}
+
+.track-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.4);
 }
 
 /* Group styles */
 .track-group {
-  margin-bottom: 1rem;
-  background-color: #333;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-left: 0;
-  margin-right: 0;
-}
-
-.group-header {
+  background-color: #2a2a2a;
+  border-radius: 2px;
+  padding: 2px;
+  border: 1px dashed #444;
+  min-height: 50px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  background-color: #444;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.group-header:hover {
-  background-color: #555;
-}
-
-.group-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  color: #fff;
-  font-weight: 500;
-}
-
-.group-tracks {
-  padding: 0.75rem;
-}
-
-.track-actions {
-  display: flex;
-  gap: 0.5rem;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.track:hover .track-actions,
-.group-header:hover .track-actions {
-  opacity: 1;
-}
-
-.track-action-button {
-  padding: 0.35rem 0.7rem;
-  background: transparent;
-  border: 1px solid #666;
-  border-radius: 4px;
-  color: #fff;
-  cursor: pointer;
+  flex-direction: column;
+  margin-bottom: 4px;
   transition: all 0.2s;
-  font-size: 0.9rem;
 }
 
-.track-action-button:hover {
-  background: #555;
-  border-color: #888;
+.track-group.drop-target {
+  border-color: #1e88e5;
+  background-color: rgba(33, 150, 243, 0.1);
 }
 
-.group-pattern {
+.track-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.track-group-header.selected {
+  background-color: rgba(33, 150, 243, 0.1);
+}
+
+.track-group-header .group-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.track-group-header .group-name {
   font-size: 0.9rem;
-  color: #888;
-  margin-top: 0.25rem;
+  color: #fff;
+  user-select: none;
+}
+
+.track-group-header .group-name-input {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid #444;
+  border-radius: 2px;
+  color: #fff;
+  font-size: 0.9rem;
+  padding: 2px 4px;
+}
+
+.track-group-header .group-name-input:focus {
+  outline: none;
+  border-color: #1e88e5;
+}
+
+.track-group-header .group-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.track-button {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  transition: all 0.2s;
+  width: 20px;
+  height: 20px;
+  z-index: 1;
+}
+
+.track-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.track-button.active {
+  color: #4caf50;
+}
+
+.track-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.4);
+}
+
+.track-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 1;
+}
+
+.track-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 24px;
+}
+
+.track-group:empty::after {
+  content: "Drop tracks here";
+  color: #666;
+  font-style: italic;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 8px;
 }
 
 /* Error Modal */

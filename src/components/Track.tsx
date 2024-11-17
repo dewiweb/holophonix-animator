@@ -1,20 +1,19 @@
 import React from 'react';
 import type { Track } from '../types/tracks';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { useDraggable } from '@dnd-kit/core';
 
-// Predefined colors for individual tracks (warm colors)
+// Predefined colors for tracks (cool colors)
 const trackColors = [
-  '#ff7043', // Deep Orange
-  '#ff5252', // Red
-  '#ff4081', // Pink
-  '#e040fb', // Purple
-  '#b388ff', // Deep Purple
-  '#ff6e40', // Orange
-  '#ffab40', // Light Orange
-  '#ff6090', // Light Pink
-  '#ea80fc', // Light Purple
-  '#ff9e80', // Peach
+  '#2196f3', // Blue
+  '#00bcd4', // Cyan
+  '#009688', // Teal
+  '#4caf50', // Green
+  '#03a9f4', // Light Blue
+  '#00acc1', // Dark Cyan
+  '#26a69a', // Light Teal
+  '#66bb6a', // Light Green
+  '#29b6f6', // Bright Blue
+  '#00e5ff', // Bright Cyan
 ];
 
 const getTrackColor = (trackId: string): string => {
@@ -25,101 +24,84 @@ const getTrackColor = (trackId: string): string => {
   return trackColors[Math.abs(trackNumber) % trackColors.length];
 };
 
-interface TrackComponentProps {
+interface TrackProps {
   track: Track;
   isSelected: boolean;
-  onSelect: (track: Track | null) => void;
+  onSelect: (track: Track) => void;
   onToggleActive: (trackId: string) => void;
   onDelete: (trackId: string) => void;
-  groupId?: string;
-  groupColor?: string;
+  groupId: string;
 }
 
-export const TrackComponent: React.FC<TrackComponentProps> = ({
+export const TrackComponent: React.FC<TrackProps> = ({
   track,
   isSelected,
   onSelect,
   onToggleActive,
   onDelete,
-  groupId,
-  groupColor,
+  groupId
 }) => {
   const {
     attributes,
     listeners,
     setNodeRef,
     transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  } = useDraggable({
     id: track.id,
     data: {
-      type: 'track',
       groupId,
       track,
-    },
+    }
   });
 
-  // Use group color if available, otherwise use individual track color
-  const borderColor = groupColor || getTrackColor(track.id);
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    zIndex: 1,
+  } : undefined;
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    borderColor: isSelected ? '#007bff' : track.active ? '#44ff44' : borderColor,
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
-    onSelect(track);
-  };
-
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete(track.id);
-  };
-
-  const handleToggleActive = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onToggleActive(track.id);
-  };
+  const trackColor = track.active ? '#4caf50' : getTrackColor(track.id);
 
   return (
-    <div 
+    <div
       ref={setNodeRef}
       style={style}
       className={`track ${isSelected ? 'selected' : ''} ${track.active ? 'active' : ''}`}
-      onClick={handleClick}
+      onClick={() => onSelect(track)}
       {...attributes}
+      {...listeners}
     >
-      <div className="drag-handle" {...listeners}>
-        <svg width="8" height="16" viewBox="0 0 8 16">
-          <circle cx="2" cy="2" r="1.5" />
-          <circle cx="6" cy="2" r="1.5" />
-          <circle cx="2" cy="8" r="1.5" />
-          <circle cx="6" cy="8" r="1.5" />
-          <circle cx="2" cy="14" r="1.5" />
-          <circle cx="6" cy="14" r="1.5" />
-        </svg>
-      </div>
-      <div className="track-content">
+      <div className="track-info">
         <button
-          type="button"
-          className={`active-toggle ${track.active ? 'active' : ''}`}
-          onClick={handleToggleActive}
+          className={`track-button ${track.active ? 'active' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onToggleActive(track.id);
+          }}
+          title={track.active ? 'Deactivate track' : 'Activate track'}
         >
           ●
         </button>
-        <span className="track-name" style={{ color: getTrackColor(track.id) }}>Track {track.id}</span>
+        <span 
+          className="track-name"
+          style={{ color: trackColor }}
+        >
+          {track.name}
+        </span>
       </div>
-      <button
-        type="button"
-        className="delete-button"
-        onClick={handleDelete}
-      >
-        ×
-      </button>
+      <div className="track-controls">
+        <button
+          className="track-button"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onDelete(track.id);
+          }}
+          title="Delete track"
+        >
+          ×
+        </button>
+      </div>
     </div>
   );
 };
