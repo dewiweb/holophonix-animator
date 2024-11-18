@@ -103,6 +103,10 @@
      * Leader track defines primary motion
      * Followers with configurable delay/offset
      * Multiple leader hierarchies
+   - [ ] Isobarycentric positioning
+     * Tracks maintain relative positions
+     * Group center calculation
+     * Formation scaling and rotation
 
 5. **Timeline System**
    - [ ] Multi-track timeline
@@ -735,59 +739,234 @@ npm run make
 
 ### Testing Strategy 🧪
 
-1. **Behavior Tests**
-   - Parameter validation
-   - Position calculation
-   - Coordinate conversion
-   - Edge cases
+#### Unit Tests
+- [ ] Coordinate conversions
+- [ ] Behavior calculations
+- [ ] Parameter validation
+- [ ] State management
 
-2. **Integration Tests**
-   - Behavior switching
-   - Parameter updates
-   - Position output
-   - Error handling
+#### Integration Tests
+- [ ] OSC message handling
+- [ ] Behavior composition
+- [ ] Group operations
+- [ ] Timeline execution
 
-3. **Performance Tests**
-   - Calculation speed
-   - Memory usage
-   - Update frequency
-   - Multiple behaviors
+#### Performance Tests
+- [ ] Message throughput
+- [ ] UI responsiveness
+- [ ] Memory usage
+- [ ] CPU utilization
 
-## Security Considerations
-1. Input validation
-   - Message format
-   - Address patterns
-   - Port numbers
-2. Error handling
-   - Graceful degradation
-   - User feedback
-   - Recovery mechanisms
-3. Type safety
-   - Runtime checks
-   - Compile-time validation
-   - Data sanitization
-4. Network security
-   - Port binding
-   - Message validation
-   - Rate limiting
-5. Data sanitization
-   - User input
-   - Message content
-   - File operations
+### Advanced Group Modes 🎯
 
-## Resources 📖
+1. **Leader/Followers Mode**
+   ```typescript
+   interface LeaderFollowerGroup extends GroupBehavior {
+     mode: 'leader-follower';
+     leaderId: number;
+     followers: number[];
+     leaderBehavior: BaseBehavior;
+     followDistance?: number;    // Optional: maintain specific distance
+     followAngle?: number;       // Optional: maintain specific angle
+     followConstraints?: {       // Optional: follower constraints
+       minDistance?: number;
+       maxDistance?: number;
+       angleRange?: [number, number];
+     };
+   }
+   ```
+   - **Leader Track**
+     * Primary motion control
+     * Direct behavior application
+     * Can use absolute or relative mode
+     * Sets the reference for followers
 
-1. **Documentation**
-   - [Component Documentation](./components/)
-   - [OSC Protocol](./HOLOPHONIX_OSC.md)
-   - API References
+   - **Follower Tracks**
+     * Follow leader's motion pattern
+     * Maintain relative positions/distances
+     * Optional position constraints
+     * Automatic path adjustment
 
-2. **External Links**
-   - [Electron Documentation](https://www.electronjs.org/docs)
-   - [React Documentation](https://reactjs.org/docs)
-   - [TypeScript Documentation](https://www.typescriptlang.org/docs)
+   ```typescript
+   class LeaderFollowerManager {
+     private leader: TrackBehavior;
+     private followers: Map<number, FollowerConfig>;
+     
+     calculatePositions(time: number): Map<number, Position> {
+       // Calculate leader position
+       const leaderPos = this.leader.behavior.calculate(
+         time,
+         this.leader.mode,
+         this.leader.referencePosition
+       );
+       
+       // Calculate follower positions relative to leader
+       const positions = new Map([[this.leader.trackId, leaderPos]]);
+       
+       this.followers.forEach((config, trackId) => {
+         const followerPos = this.calculateFollowerPosition(
+           leaderPos,
+           config,
+           time
+         );
+         positions.set(trackId, followerPos);
+       });
+       
+       return positions;
+     }
+     
+     private calculateFollowerPosition(
+       leaderPos: Position,
+       config: FollowerConfig,
+       time: number
+     ): Position {
+       // Apply following rules and constraints
+       // Maintain specified distance/angle if configured
+       // Apply boundary constraints
+       // Return calculated position
+     }
+   }
+   ```
 
-3. **Tools**
-   - [Node OSC](https://www.npmjs.com/package/osc)
-   - [Material-UI](https://mui.com/)
-   - [Testing Library](https://testing-library.com/)
+2. **Isobarycentric Mode**
+   ```typescript
+   interface IsobarycentricGroup extends GroupBehavior {
+     mode: 'isobarycentric';
+     trackIds: number[];
+     behavior: BaseBehavior;
+     centerBehavior: BaseBehavior;    // Behavior applied to virtual center
+     preserveFormation: boolean;       // Maintain relative positions
+     scaling?: {                       // Optional: dynamic scaling
+       min: number;
+       max: number;
+       frequency?: number;
+     };
+   }
+   ```
+   - **Virtual Center**
+     * Calculated as group isobarycenter
+     * Primary point for behavior application
+     * Reference for all track movements
+     * Can have its own behavior pattern
+
+   - **Formation Management**
+     * Preserve relative track positions
+     * Support formation scaling
+     * Maintain spatial relationships
+     * Optional rotation around center
+
+   ```typescript
+   class IsobarycentricManager {
+     private tracks: Map<number, Position>;
+     private centerBehavior: BaseBehavior;
+     private formationBehavior: BaseBehavior;
+     
+     calculateCenter(): Position {
+       // Calculate isobarycenter from all track positions
+       return this.calculateIsobarycenter(Array.from(this.tracks.values()));
+     }
+     
+     calculatePositions(time: number): Map<number, Position> {
+       // Calculate center movement
+       const centerDelta = this.centerBehavior.calculate(
+         time,
+         'relative'
+       );
+       
+       // Calculate formation transformation
+       const formation = this.formationBehavior.calculate(
+         time,
+         'relative'
+       );
+       
+       // Apply to all tracks
+       const positions = new Map();
+       this.tracks.forEach((basePos, trackId) => {
+         const newPos = this.applyTransformation(
+           basePos,
+           centerDelta,
+           formation
+         );
+         positions.set(trackId, newPos);
+       });
+       
+       return positions;
+     }
+     
+     private calculateIsobarycenter(positions: Position[]): Position {
+       // Calculate geometric center of all positions
+       return {
+         x: positions.reduce((sum, pos) => sum + pos.x, 0) / positions.length,
+         y: positions.reduce((sum, pos) => sum + pos.y, 0) / positions.length,
+         z: positions.reduce((sum, pos) => sum + pos.z, 0) / positions.length
+       };
+     }
+     
+     private applyTransformation(
+       basePos: Position,
+       centerDelta: RelativePosition,
+       formation: FormationTransform
+     ): Position {
+       // Apply center movement and formation changes
+       // Handle scaling and rotation
+       // Preserve relative positions if configured
+       // Return transformed position
+     }
+   }
+   ```
+
+### Group Mode Examples
+
+1. **Leader/Followers Circle**
+   ```typescript
+   // Leader follows a circle path
+   const leaderGroup = new LeaderFollowerManager({
+     leaderId: 1,
+     followers: [2, 3, 4],
+     leaderBehavior: new CircleBehavior({
+       radius: 1.0,
+       frequency: 0.5
+     }),
+     followConstraints: {
+       minDistance: 0.5,
+       maxDistance: 2.0,
+       angleRange: [-45, 45] // degrees
+     }
+   });
+   ```
+
+2. **Isobarycentric Expansion**
+   ```typescript
+   // Group expands/contracts around center
+   const isoGroup = new IsobarycentricManager({
+     trackIds: [1, 2, 3, 4],
+     centerBehavior: new CircleBehavior({
+       radius: 0.5,
+       frequency: 0.25
+     }),
+     scaling: {
+       min: 0.5,    // Contract to 50%
+       max: 2.0,    // Expand to 200%
+       frequency: 0.1
+     },
+     preserveFormation: true
+   });
+   ```
+
+### Implementation Considerations
+
+1. **Leader/Follower Mode**
+   - Smooth follower transitions
+   - Path prediction for followers
+   - Collision avoidance
+   - Formation maintenance
+   - Dynamic leader switching
+
+2. **Isobarycentric Mode**
+   - Efficient center calculation
+   - Formation integrity
+   - Scaling precision
+   - Rotation handling
+   - Boundary management
+
+{{ ... }}
