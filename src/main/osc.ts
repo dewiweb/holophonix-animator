@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { UDPPort } from 'osc';
 import EventEmitter from 'events';
-import { OSCAddressType, OSCUtils, TrackControlMessage } from '../types/osc';
+import { OSCAddressType, OSCUtils, TrackControlMessage, OSCQueryType } from '../types/osc';
 import { settingsManager } from './settings';
 
 interface OSCConfig {
@@ -15,6 +15,7 @@ interface QueuedMessage {
   args: any[];
   timestamp: number;
   priority: number;
+  responseCallback?: (response: any) => void;
 }
 
 class OSCManager extends EventEmitter {
@@ -31,13 +32,17 @@ class OSCManager extends EventEmitter {
   private isProcessingQueue = false;
   private queueProcessor: NodeJS.Timeout | null = null;
 
+  // Track query response handling
+  private queryResponseHandlers = new Map<string, (response: any) => void>();
+  private queryTimeout = 2000; // 2 seconds timeout for queries
+
   private constructor() {
     super();
     this.setupEventForwarding();
   }
 
   private get minMessageInterval(): number {
-    return settingsManager.getSetting('oscRateLimit');
+    return settingsManager.getSettings().oscRateLimit;
   }
 
   private setupEventForwarding() {
@@ -82,6 +87,25 @@ class OSCManager extends EventEmitter {
       if (this.queueProcessor) {
         // Restart queue processor with new interval
         this.startQueueProcessor();
+      }
+    });
+
+    // Handle track state queries from renderer
+    ipcMain.handle('osc:query:states', async (_, trackId: number | string, types: OSCQueryType[]) => {
+      try {
+        return await this.queryTrackStates(trackId, types);
+      } catch (error) {
+        console.error('Error handling track state query:', error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('osc:query:state', async (_, trackId: number | string, type: OSCQueryType) => {
+      try {
+        return await this.queryTrackState(trackId, type);
+      } catch (error) {
+        console.error('Error handling track state query:', error);
+        throw error;
       }
     });
   }
@@ -154,28 +178,53 @@ class OSCManager extends EventEmitter {
     }
   }
 
-  private async queueMessage(address: string, args: any[], priority = 0) {
-    console.log('Queueing OSC message to:', address, 'with args:', args);
-    
-    this.messageQueue.push({
-      address,
-      args,
-      timestamp: Date.now(),
-      priority
-    });
+  private queueMessage(address: string, args: any[], priority: number = 0): void {
+    try {
+      if (!this._isReady || !this.udpPort) {
+        throw new Error('OSC connection not ready');
+      }
 
-    // Emit outgoing message immediately
-    const message = {
-      address,
-      args,
-      timestamp: Date.now(),
-      direction: 'out'
-    };
-    this.emit('message', message);
+      const message: QueuedMessage = {
+        address,
+        args,
+        timestamp: Date.now(),
+        priority
+      };
+
+      // Add to queue based on priority
+      const insertIndex = this.messageQueue.findIndex(m => m.priority < priority);
+      if (insertIndex === -1) {
+        this.messageQueue.push(message);
+      } else {
+        this.messageQueue.splice(insertIndex, 0, message);
+      }
+
+      if (!this.isProcessingQueue) {
+        this.processQueue();
+      }
+    } catch (error) {
+      console.error('Error queueing OSC message:', error);
+      throw error;
+    }
   }
 
   setMainWindow(window: BrowserWindow) {
     this.mainWindow = window;
+  }
+
+  private async tryAutoConnect() {
+    const settings = settingsManager.getSettings();
+    if (settings.oscConnection.autoConnect) {
+      try {
+        await this.connect({
+          localPort: settings.oscConnection.localPort,
+          remotePort: settings.oscConnection.remotePort,
+          remoteAddress: settings.oscConnection.remoteAddress
+        });
+      } catch (error) {
+        console.error('Auto-connect failed:', error);
+      }
+    }
   }
 
   static getInstance(): OSCManager {
@@ -252,48 +301,35 @@ class OSCManager extends EventEmitter {
     }
   }
 
-  private handleMessage(oscMsg: any): void {
+  private handleMessage(oscMsg: { address: string; args: any[] }): void {
     try {
-      console.log('OSCManager: Received UDP message:', JSON.stringify(oscMsg));
+      console.log('Received OSC message:', oscMsg);
 
-      if (!oscMsg || !oscMsg.address) {
-        console.warn('Invalid OSC message received:', oscMsg);
+      // Parse track control messages
+      const trackInfo = OSCUtils.parseTrackAddress(oscMsg.address);
+      if (trackInfo) {
+        const value = oscMsg.args[0];
+        if (typeof value === 'number') {
+          const constrainedValue = OSCUtils.constrainValue(value, trackInfo.type);
+          const trackMessage: TrackControlMessage = {
+            trackId: parseInt(trackInfo.trackId, 10),
+            type: trackInfo.type,
+            value: constrainedValue,
+            timestamp: Date.now()
+          };
+          this.emit('track:message', trackMessage);
+        }
+      }
+
+      // Check if this is a response to a query
+      const queryHandler = this.queryResponseHandlers.get(oscMsg.address);
+      if (queryHandler) {
+        queryHandler(oscMsg);
+        this.queryResponseHandlers.delete(oscMsg.address);
         return;
       }
 
-      // Always emit the raw message first
-      const rawMessage = {
-        address: oscMsg.address,
-        args: Array.isArray(oscMsg.args) ? oscMsg.args : [],
-        timestamp: Date.now()
-      };
-      
-      console.log('OSCManager: Emitting raw message:', JSON.stringify(rawMessage));
-      this.emit('message', rawMessage);
-
-      // Then handle special cases
-      if (oscMsg.address.startsWith('/track/')) {
-        const parsed = OSCUtils.parseTrackAddress(oscMsg.address);
-        if (parsed) {
-          const { trackId, type } = parsed;
-          const value = oscMsg.args[0];
-
-          if (typeof value === 'number') {
-            // Constrain the value based on the parameter type
-            const constrainedValue = OSCUtils.constrainValue(value, type);
-
-            // Emit the processed track message
-            const trackMessage: TrackControlMessage = {
-              trackId,
-              type,
-              value: constrainedValue,
-              raw: value,
-              timestamp: Date.now()
-            };
-            this.emit('track:message', trackMessage);
-          }
-        }
-      }
+      this.emit('message', oscMsg);
     } catch (error) {
       console.error('Error handling OSC message:', error);
       this.emit('error', error instanceof Error ? error : new Error(String(error)));
@@ -396,6 +432,41 @@ class OSCManager extends EventEmitter {
     }
   }
 
+  async queryTrackState(trackId: number | string, type: OSCQueryType): Promise<TrackControlMessage | null> {
+    if (!this._isReady) {
+      throw new Error('Not connected');
+    }
+
+    return new Promise((resolve, reject) => {
+      const queryPath = `/track/${trackId}/${type}`;
+      const address = '/get';
+
+      // Set up response handler
+      this.queryResponseHandlers.set(address, (response) => {
+        const result = OSCUtils.parseQueryResponse(address, response.args);
+        resolve(result);
+      });
+
+      // Send query
+      this.queueMessage(address, [queryPath], 2);
+
+      // Set timeout
+      setTimeout(() => {
+        if (this.queryResponseHandlers.has(address)) {
+          this.queryResponseHandlers.delete(address);
+          resolve(null);
+        }
+      }, this.queryTimeout);
+    });
+  }
+
+  async queryTrackStates(trackId: number | string, types: OSCQueryType[]): Promise<(TrackControlMessage | null)[]> {
+    const results = await Promise.all(
+      types.map(type => this.queryTrackState(trackId, type))
+    );
+    return results;
+  }
+
   isConnected(): boolean {
     return this._isReady;
   }
@@ -403,20 +474,43 @@ class OSCManager extends EventEmitter {
   getConfig(): OSCConfig | null {
     return this.config;
   }
+
+  updateConfig(config: OSCConfig): void {
+    this.config = config;
+  }
 }
 
 const oscManager = OSCManager.getInstance();
 
-export function setupOSCHandlers(mainWindow: BrowserWindow): void {
-  // Set the main window for event forwarding
+export async function initializeOSC() {
+  // Load settings but don't auto-connect
+  const settings = settingsManager.getSettings();
+  if (settings.oscConnection) {
+    oscManager.updateConfig({
+      localPort: settings.oscConnection.localPort,
+      remotePort: settings.oscConnection.remotePort,
+      remoteAddress: settings.oscConnection.remoteAddress
+    });
+  }
+}
+
+export function setupOSCHandlers(mainWindow: BrowserWindow) {
+  const oscManager = OSCManager.getInstance();
   oscManager.setMainWindow(mainWindow);
 
-  // Handle connect request
-  ipcMain.handle('osc:connect', async (event, config: OSCConfig) => {
+  // Remove existing handlers
+  ipcMain.removeHandler('osc:connect');
+  ipcMain.removeHandler('osc:disconnect');
+  ipcMain.removeHandler('osc:get-config');
+  ipcMain.removeHandler('osc:is-connected');
+  ipcMain.removeHandler('osc:track:control');
+  ipcMain.removeHandler('osc:query:state');
+  ipcMain.removeHandler('osc:query:states');
+
+  // Handle OSC connection
+  ipcMain.handle('osc:connect', async (_, config) => {
     try {
-      console.log('Received connect request with config:', config);
       await oscManager.connect(config);
-      console.log('Connection successful');
       return { success: true };
     } catch (error) {
       console.error('Failed to connect:', error);
@@ -424,12 +518,10 @@ export function setupOSCHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  // Handle disconnect request
+  // Handle OSC disconnection
   ipcMain.handle('osc:disconnect', async () => {
     try {
-      console.log('Received disconnect request');
       await oscManager.disconnect();
-      console.log('Disconnect successful');
       return { success: true };
     } catch (error) {
       console.error('Failed to disconnect:', error);
@@ -437,12 +529,20 @@ export function setupOSCHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  // Handle track control message
-  ipcMain.handle('osc:trackControl', async (event, { trackId, type, value }: TrackControlMessage) => {
+  // Get current OSC config
+  ipcMain.handle('osc:get-config', () => {
+    return oscManager.getConfig();
+  });
+
+  // Check if OSC is connected
+  ipcMain.handle('osc:is-connected', () => {
+    return oscManager.isConnected();
+  });
+
+  // Handle track control messages
+  ipcMain.handle('osc:track:control', async (_, trackId, type, value) => {
     try {
-      console.log('Received track control request:', { trackId, type, value });
       await oscManager.sendTrackControl(trackId, type, value);
-      console.log('Track control message sent successfully');
       return { success: true };
     } catch (error) {
       console.error('Failed to send track control:', error);
@@ -450,29 +550,22 @@ export function setupOSCHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  // Handle OSC query
-  ipcMain.handle('osc:query', async (event, address: string) => {
+  // Handle track state queries
+  ipcMain.handle('osc:query:state', async (_, trackId, type) => {
     try {
-      console.log('Received query request for address:', address);
-      await oscManager.sendQuery(address);
-      console.log('Query sent successfully');
-      return { success: true };
+      return await oscManager.queryTrackState(trackId, type);
     } catch (error) {
-      console.error('Failed to send query:', error);
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
+      console.error('Failed to query track state:', error);
+      return null;
     }
   });
 
-  // Handle test request
-  ipcMain.handle('osc:test', async () => {
+  ipcMain.handle('osc:query:states', async (_, trackId, types) => {
     try {
-      console.log('Received test request');
-      await oscManager.testBidirectionalCommunication();
-      console.log('Test completed successfully');
-      return { success: true };
+      return await oscManager.queryTrackStates(trackId, types);
     } catch (error) {
-      console.error('Test failed:', error);
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
+      console.error('Failed to query track states:', error);
+      return null;
     }
   });
 }

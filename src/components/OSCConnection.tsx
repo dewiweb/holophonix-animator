@@ -1,177 +1,134 @@
 import React, { useState, useEffect } from 'react';
 import './OSCConnection.css';
 
-interface ConnectionStatus {
-  isConnected: boolean;
-  error: string | null;
-}
-
-interface OSCConfig {
-  localPort: number;
-  remotePort: number;
-  remoteAddress: string;
-}
-
-interface OSCConnectionProps {
-  onMessage: (message: any) => void;
-}
-
-export const OSCConnection: React.FC<OSCConnectionProps> = ({ onMessage }) => {
-  const [status, setStatus] = useState<ConnectionStatus>({ isConnected: false, error: null });
-  const [localPort, setLocalPort] = useState(9000);  // Port to receive messages
-  const [remotePort, setRemotePort] = useState(12000);  // Port to send messages
-  const [remoteAddress, setRemoteAddress] = useState('127.0.0.1');
-  const [isConnecting, setIsConnecting] = useState(false);
+export const OSCConnection: React.FC = () => {
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [settings, setSettings] = useState({
+    remoteAddress: '',
+    remotePort: '',
+    localPort: ''
+  });
 
   useEffect(() => {
-    const handleConnected = () => {
-      console.log('Connected event received');
-      setStatus({ isConnected: true, error: null });
-      setIsConnecting(false);
-    };
+    // Load initial settings and connection status
+    Promise.all([
+      window.electron.ipcRenderer.invoke('settings:get'),
+      window.electron.ipcRenderer.invoke('osc:is-connected')
+    ]).then(([settings, connected]) => {
+      setSettings({
+        remoteAddress: settings.oscConnection.remoteAddress,
+        remotePort: settings.oscConnection.remotePort.toString(),
+        localPort: settings.oscConnection.localPort.toString()
+      });
+      setIsConnected(connected);
+    });
 
-    const handleDisconnected = () => {
-      console.log('Disconnected event received');
-      setStatus({ isConnected: false, error: null });
-      setIsConnecting(false);
-    };
+    // Listen for connection status changes
+    window.electron.ipcRenderer.on('osc:connected', () => {
+      setIsConnected(true);
+      setIsLoading(false);
+    });
 
-    const handleError = (error: string) => {
-      console.error('OSC error received:', error);
-      setStatus({ isConnected: false, error });
-      setIsConnecting(false);
-    };
+    window.electron.ipcRenderer.on('osc:disconnected', () => {
+      setIsConnected(false);
+      setIsLoading(false);
+    });
 
-    const handleMessage = (message: any) => {
-      console.log('OSC message received in OSCConnection:', message);
-      onMessage(JSON.stringify(message, null, 2));
-    };
-
-    window.electron.on('osc:connected', handleConnected);
-    window.electron.on('osc:disconnected', handleDisconnected);
-    window.electron.on('osc:error', handleError);
-    window.electron.on('osc:message', handleMessage);
+    window.electron.ipcRenderer.on('osc:error', (error: Error) => {
+      console.error('OSC connection error:', error);
+      setIsConnected(false);
+      setIsLoading(false);
+    });
 
     return () => {
       window.electron.removeAllListeners('osc:connected');
       window.electron.removeAllListeners('osc:disconnected');
       window.electron.removeAllListeners('osc:error');
-      window.electron.removeAllListeners('osc:message');
     };
-  }, [onMessage]);
+  }, []);
 
   const handleConnect = async () => {
-    setIsConnecting(true);
-    setStatus({ isConnected: false, error: null });
-
+    setIsLoading(true);
     try {
-      const config: OSCConfig = {
-        localPort,
-        remotePort,
-        remoteAddress
+      const config = {
+        remoteAddress: settings.remoteAddress,
+        remotePort: parseInt(settings.remotePort),
+        localPort: parseInt(settings.localPort)
       };
-
-      const result = await window.electron.invoke('osc:connect', config);
-      if (!result.success) {
-        setStatus({ isConnected: false, error: result.error || 'Failed to connect' });
-        setIsConnecting(false);
-      }
+      console.log('Connecting with config:', config);
+      await window.electron.ipcRenderer.invoke('osc:connect', config);
     } catch (error) {
-      setStatus({ isConnected: false, error: String(error) });
-      setIsConnecting(false);
+      console.error('Failed to connect:', error);
+      setIsConnected(false);
+      setIsLoading(false);
     }
   };
 
   const handleDisconnect = async () => {
+    setIsLoading(true);
     try {
-      const result = await window.electron.invoke('osc:disconnect');
-      if (!result.success && result.error) {
-        setStatus({ isConnected: false, error: result.error });
-      }
+      await window.electron.ipcRenderer.invoke('osc:disconnect');
     } catch (error) {
-      setStatus({ isConnected: false, error: String(error) });
+      console.error('Failed to disconnect:', error);
+      setIsLoading(false);
     }
   };
 
-  const handleTestMessage = async () => {
-    try {
-      await window.electron.invoke('osc:test');
-    } catch (error) {
-      console.error('Failed to send test message:', error);
-    }
+  const handleSettingChange = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSettings(prev => ({ ...prev, [key]: e.target.value }));
   };
 
   return (
     <div className="osc-connection">
       <div className="connection-form">
-        <div className="form-groups">
-          <div className="form-group">
-            <label>Local:</label>
-            <input
-              type="number"
-              value={localPort}
-              onChange={(e) => setLocalPort(Number(e.target.value))}
-              disabled={status.isConnected || isConnecting}
-              min="1024"
-              max="65535"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Remote:</label>
-            <input
-              type="number"
-              value={remotePort}
-              onChange={(e) => setRemotePort(Number(e.target.value))}
-              disabled={status.isConnected || isConnecting}
-              min="1024"
-              max="65535"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Address:</label>
-            <input
-              type="text"
-              value={remoteAddress}
-              onChange={(e) => setRemoteAddress(e.target.value)}
-              disabled={status.isConnected || isConnecting}
-            />
-          </div>
+        <div className="form-group">
+          <label>Remote Address</label>
+          <input
+            type="text"
+            value={settings.remoteAddress}
+            onChange={handleSettingChange('remoteAddress')}
+            disabled={isConnected || isLoading}
+            placeholder="127.0.0.1"
+          />
         </div>
-
-        <div className="form-actions">
-          {!status.isConnected ? (
-            <button 
-              onClick={handleConnect}
-              disabled={isConnecting}
-              className="connect-btn"
-            >
-              {isConnecting ? 'Connecting...' : 'Connect'}
-            </button>
+        <div className="form-group">
+          <label>Remote Port</label>
+          <input
+            type="number"
+            value={settings.remotePort}
+            onChange={handleSettingChange('remotePort')}
+            disabled={isConnected || isLoading}
+            placeholder="8000"
+          />
+        </div>
+        <div className="form-group">
+          <label>Local Port</label>
+          <input
+            type="number"
+            value={settings.localPort}
+            onChange={handleSettingChange('localPort')}
+            disabled={isConnected || isLoading}
+            placeholder="9000"
+          />
+        </div>
+        <div className="connection-status">
+          {isLoading ? (
+            <div className="loading-spinner" />
           ) : (
-            <>
-              <button 
-                onClick={handleDisconnect}
-                className="disconnect-btn"
-              >
-                Disconnect
-              </button>
-              <button 
-                onClick={handleTestMessage}
-                className="test-btn"
-              >
-                Test
-              </button>
-            </>
+            <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`} />
           )}
+          <span className="status-text">
+            {isLoading ? 'Connecting...' : (isConnected ? 'Connected' : 'Disconnected')}
+          </span>
+          <button
+            className={`connect-button ${isConnected ? 'disconnect' : ''}`}
+            onClick={isConnected ? handleDisconnect : handleConnect}
+            disabled={isLoading}
+          >
+            {isConnected ? 'Disconnect' : 'Connect'}
+          </button>
         </div>
-
-        {status.error && (
-          <div className="error-message">
-            {status.error}
-          </div>
-        )}
       </div>
     </div>
   );

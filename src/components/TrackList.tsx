@@ -14,6 +14,8 @@ import { TrackComponent } from './Track';
 import { TrackGroupComponent } from './TrackGroup';
 import type { Track, TrackGroup } from '../types/tracks';
 import { parsePattern } from '../types/tracks';
+import { OSCQueryType, TrackControlMessage } from '../types/osc';
+import '../types/electron'; // Import electron types
 
 interface TrackListProps {
   selectedTrack: Track | null;
@@ -204,55 +206,119 @@ export const TrackList: React.FC<TrackListProps> = ({
     }
   };
 
-  const handlePatternSubmit = () => {
-    const pattern = parsePattern(patternInput);
-    if (!pattern) return;
+  const queryTrackState = async (trackId: number) => {
+    try {
+      // Query all relevant track states
+      const queryTypes: OSCQueryType[] = ['xyz', 'aed', 'color', 'gain/value', 'mute'];
+      const responses = await window.electron.ipcRenderer.invoke('osc:query:states', trackId, queryTypes);
 
-    const isTrackExists = (trackId: number) => 
-      groups.some(g => g.tracks.includes(trackId));
+      // Update track states in groups
+      setGroups(prevGroups => 
+        prevGroups.map(group => {
+          if (group.tracks.includes(trackId)) {
+            const trackStates = { ...group.trackStates };
+            trackStates[trackId.toString()] = Array.isArray(responses) && responses.some((r: TrackControlMessage | null) => r !== null);
+            return {
+              ...group,
+              trackStates
+            };
+          }
+          return group;
+        })
+      );
+    } catch (error) {
+      console.error(`Error querying state for track ${trackId}:`, error);
+      setErrorMessage(`Failed to query initial state for track ${trackId}`);
+    }
+  };
 
-    const duplicateTracks = pattern.tracks.filter(trackId => isTrackExists(trackId));
-    if (duplicateTracks.length > 0) {
-      setErrorMessage(`Cannot add duplicate tracks: ${duplicateTracks.join(', ')}`);
+  const isTrackInAnyGroup = (trackId: number): boolean => {
+    return groups.some(group => group.tracks.includes(trackId));
+  };
+
+  const addTrack = async (trackId: number, groupId: string) => {
+    // Check if track already exists in any group
+    if (isTrackInAnyGroup(trackId)) {
+      setErrorMessage(`Track ${trackId} is already in use`);
       return;
     }
 
-    if (pattern.tracks.length === 1 && !patternInput.includes('[') && !patternInput.includes('{')) {
-      // Add to individual tracks group
-      setGroups(prevGroups => 
-        prevGroups.map(g => {
-          if (g.isIndividualTracks) {
-            return {
-              ...g,
-              tracks: [...g.tracks, pattern.tracks[0]].sort((a, b) => a - b),
-              trackStates: {
-                ...g.trackStates,
-                [pattern.tracks[0].toString()]: false
-              }
-            };
-          }
-          return g;
-        })
-      );
-    } else {
-      // Create new group
-      const groupId = `group-${nextGroupId}`;
-      const newGroup: TrackGroup = {
-        id: groupId,
-        name: `Group ${nextGroupId}`,
-        pattern: patternInput,
-        tracks: [...pattern.tracks].sort((a, b) => a - b),
-        expanded: true,
-        active: false,
-        behaviors: [],
-        trackStates: Object.fromEntries(pattern.tracks.map(t => [t.toString(), false]))
-      };
-      setGroups(prevGroups => [...prevGroups, newGroup]);
-      setNextGroupId(nextGroupId + 1);
-    }
+    setGroups(prevGroups =>
+      prevGroups.map(group => {
+        if (group.id === groupId) {
+          return {
+            ...group,
+            tracks: [...group.tracks, trackId]
+          };
+        }
+        return group;
+      })
+    );
 
-    setPatternInput('');
-    setErrorMessage('');
+    // Query initial state after adding track
+    await queryTrackState(trackId);
+  };
+
+  const handlePatternSubmit = async () => {
+    try {
+      const pattern = patternInput.trim();
+      if (!pattern) {
+        setErrorMessage('Please enter a track number or pattern (e.g., 1, [1-4], {1,3,5})');
+        return;
+      }
+
+      const parsedTracks = parsePattern(pattern);
+      if (!parsedTracks || !parsedTracks.tracks || parsedTracks.tracks.length === 0) {
+        setErrorMessage('Invalid track pattern');
+        return;
+      }
+
+      // Check if any of the tracks are already in use
+      const duplicateTracks = parsedTracks.tracks.filter(isTrackInAnyGroup);
+      if (duplicateTracks.length > 0) {
+        setErrorMessage(`Tracks ${duplicateTracks.join(', ')} are already in use`);
+        return;
+      }
+
+      // Check if it's a single track or a pattern
+      const isSingleTrack = /^\d+$/.test(pattern);
+
+      if (isSingleTrack) {
+        // Add to individual tracks group
+        for (const trackId of parsedTracks.tracks) {
+          await addTrack(trackId, 'individual-tracks');
+        }
+      } else {
+        // Create a new group for pattern-based tracks
+        const groupId = `group-${nextGroupId}`;
+        setNextGroupId(prevId => prevId + 1);
+
+        setGroups(prevGroups => [
+          ...prevGroups,
+          {
+            id: groupId,
+            name: `Group ${nextGroupId}`,
+            pattern: pattern,
+            tracks: [],
+            expanded: true,
+            active: false,
+            behaviors: [],
+            trackStates: {},
+          }
+        ]);
+
+        // Add tracks to the new group
+        for (const trackId of parsedTracks.tracks) {
+          await addTrack(trackId, groupId);
+        }
+      }
+
+      setPatternInput('');
+      setErrorMessage(null);
+    } catch (error) {
+      console.error('Error adding tracks:', error);
+      setErrorMessage('Failed to add tracks');
+    }
   };
 
   const handleUpdateGroupName = (groupId: string, newName: string) => {

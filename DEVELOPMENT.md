@@ -406,16 +406,127 @@ npm run make
 5. User preferences storage
 6. Multi-language support
 
-## Known Issues
-1. Limited to UDP communication
-2. Local network assumptions
-3. Basic security implementation
+## Known Issues & Future Improvements
 
-## Contributing
-1. Fork the repository
-2. Create a feature branch
-3. Submit pull request
-4. Follow code style guidelines
+### Resolved
+1. ✅ OSC connection form visibility during loading
+2. ✅ Direction arrow colors and visibility
+3. ✅ Message layout consistency
+4. ✅ Connection state handling
+5. ✅ Loading state feedback
+6. ✅ OSC message logging system
+7. ✅ Bidirectional communication
+8. ✅ Message format validation
+9. ✅ Basic error reporting
 
-## License
-[License details to be added]
+### Pending
+1. Add comprehensive error messages
+2. Implement connection timeout handling
+3. Add connection retry mechanism
+4. Enhance message filtering
+   - Advanced filter patterns
+   - Filter by message type
+   - Filter by direction
+5. Add message search functionality
+   - Full-text search
+   - Regular expression support
+   - Search history
+6. Implement message grouping
+   - Group by address pattern
+   - Group by time window
+   - Collapsible groups
+7. Add message export feature
+   - Export to JSON
+   - Export to CSV
+   - Custom format support
+8. Improve performance for large message logs
+   - Virtual scrolling
+   - Message batching
+   - Efficient rendering
+9. Track System Improvements
+   - Keyboard shortcuts
+   - Multi-select functionality
+   - Track search and filtering
+   - Track color persistence
+   - Track position visualization
+   - Track behavior preview
+10. Behavior System
+    - Modular behavior architecture
+    - Plugin-based system
+    - Standard behavior interface
+    - Behavior composition
+    - Visual behavior editor
+
+## Development Guidelines
+
+### Component Structure
+1. Clear separation of concerns
+2. Type-safe props and state
+3. Proper event handling
+4. Consistent error handling
+5. Loading state management
+
+### Styling Approach
+1. CSS modules for component styles
+2. Theme variables for consistency
+3. Responsive design considerations
+4. Animation for state changes
+5. Accessible color contrast
+
+### State Management
+1. React hooks for local state
+2. Electron IPC for process communication
+3. Settings persistence
+4. Error state handling
+5. Loading state management
+
+## Testing
+
+### Areas to Cover
+1. Connection handling
+   - Connection establishment
+   - Error scenarios
+   - Recovery mechanisms
+   - Timeout handling
+2. Message processing
+   - Format validation
+   - Rate limiting
+   - Batch processing
+   - Error handling
+3. UI state management
+   - Component states
+   - Loading states
+   - Error states
+   - Animation states
+4. Track system
+   - Track operations
+   - Group handling
+   - Drag and drop
+   - Performance
+5. Behavior system
+   - Behavior creation
+   - Behavior application
+   - Behavior composition
+   - Plugin system
+
+## Security Considerations
+1. Input validation
+   - Message format
+   - Address patterns
+   - Port numbers
+2. Error handling
+   - Graceful degradation
+   - User feedback
+   - Recovery mechanisms
+3. Type safety
+   - Runtime checks
+   - Compile-time validation
+   - Data sanitization
+4. Network security
+   - Port binding
+   - Message validation
+   - Rate limiting
+5. Data sanitization
+   - User input
+   - Message content
+   - File operations

@@ -128,6 +128,7 @@ export const TrackGroupComponent: React.FC<TrackGroupProps> = ({
               <span 
                 className="group-name"
                 onDoubleClick={() => !group.isIndividualTracks && setIsEditing(true)}
+                title={group.tracks.length > 0 ? `Tracks: ${group.tracks.join(', ')}` : 'No tracks'}
               >
                 {group.name}
               </span>
@@ -154,7 +155,7 @@ export const TrackGroupComponent: React.FC<TrackGroupProps> = ({
               <button
                 className="group-button"
                 onClick={handleDelete}
-                title="Delete all individual tracks"
+                title="Clear all individual tracks"
               >
                 ×
               </button>
@@ -162,7 +163,7 @@ export const TrackGroupComponent: React.FC<TrackGroupProps> = ({
           </div>
         </div>
 
-        {isExpanded && (
+        {(isExpanded || group.isIndividualTracks) && (
           <div className="track-list">
             {group.tracks.map((trackId) => {
               const track: Track = {
@@ -171,22 +172,22 @@ export const TrackGroupComponent: React.FC<TrackGroupProps> = ({
                 position: { x: 0, y: 0, z: 0 },
                 aedPosition: { azimuth: 0, elevation: 0, distance: 1 },
                 behaviors: [],
-                active: group.trackStates[trackId.toString()] ?? false
+                active: group.trackStates[trackId] || false
               };
               return (
                 <TrackComponent
-                  key={track.id}
+                  key={trackId}
                   track={track}
-                  isSelected={selectedTrack?.id === track.id}
+                  groupId={group.id}
+                  isSelected={selectedTrack?.id === trackId.toString()}
                   onSelect={onSelectionChange}
                   onToggleActive={onToggleActive}
                   onDelete={onDeleteTrack}
-                  groupId={group.id}
                 />
               );
             })}
-            {group.tracks.length === 0 && group.isIndividualTracks && (
-              <div className="empty-message">Drop tracks here</div>
+            {group.tracks.length === 0 && !group.isIndividualTracks && (
+              <div className="empty-group">Drop tracks here</div>
             )}
           </div>
         )}

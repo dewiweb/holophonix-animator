@@ -16,12 +16,22 @@ export const rules: Required<ModuleOptions>['rules'] = [
     },
   },
   {
-    test: /\.(js|jsx|ts|tsx)$/,
+    test: /\.tsx?$/,
     exclude: /(node_modules|\.webpack)/,
     use: {
       loader: 'ts-loader',
       options: {
         transpileOnly: true,
+      },
+    },
+  },
+  {
+    test: /\.(js|jsx)$/,
+    exclude: /node_modules/,
+    use: {
+      loader: 'babel-loader',
+      options: {
+        presets: ['@babel/preset-env', '@babel/preset-react'],
       },
     },
   },

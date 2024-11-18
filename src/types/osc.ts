@@ -8,13 +8,35 @@ export type OSCAddressType =
   | 'z'     // Z coordinate
   | 'gain/value' // Gain value in dB
   | 'mute'  // Mute state
-  | 'color'; // Track color (RGBA)
+  | 'color' // Track color (RGBA)
+  | 'xyz'   // XYZ coordinates
+  | 'aed';  // AED coordinates
 
 export interface TrackControlMessage {
-  trackId: string;
-  type: OSCAddressType;
+  trackId: number;
+  type: string;
   value: number;
-  raw?: number;
+  timestamp: number;
+}
+
+export interface OSCMessage {
+  address: string;
+  args: Array<string | number | boolean>;
+  timestamp: number;
+  direction: 'in' | 'out';
+}
+
+// Query message types
+export type OSCQueryType = 
+  | 'xyz'      // Query XYZ coordinates
+  | 'aed'      // Query AED coordinates
+  | 'color'    // Query track color
+  | 'gain/value' // Query gain value
+  | 'mute';    // Query mute state
+
+export interface TrackQueryMessage {
+  trackId: string;
+  type: OSCQueryType;
   timestamp?: number;
 }
 
@@ -69,7 +91,15 @@ export class OSCUtils {
   }
 
   static isValidAddressType(type: string): type is OSCAddressType {
-    return ['azim', 'elev', 'dist', 'x', 'y', 'z', 'gain/value', 'mute', 'color'].includes(type);
+    return ['azim', 'elev', 'dist', 'x', 'y', 'z', 'gain/value', 'mute', 'color', 'xyz', 'aed'].includes(type);
+  }
+
+  static createQueryAddress(trackId: number | string, type: OSCQueryType): string {
+    return `/get`;
+  }
+
+  static isValidQueryType(type: string): type is OSCQueryType {
+    return ['xyz', 'aed', 'color', 'gain/value', 'mute'].includes(type);
   }
 
   static constrainValue(value: number, type: OSCAddressType): number {
@@ -102,6 +132,29 @@ export class OSCUtils {
       // Clamp values for non-wrapping parameters
       return Math.max(constraints.min, Math.min(constraints.max, value));
     }
+  }
+
+  static parseQueryResponse(address: string, args: any[]): TrackControlMessage | null {
+    // First argument should be the track ID and type
+    if (!args || args.length < 2 || typeof args[0] !== 'string') return null;
+
+    const queryPath = args[0];
+    const match = queryPath.match(/^\/?track\/([^/]+)\/([^/]+)$/);
+    if (!match) return null;
+
+    const [, trackId, type] = match;
+    if (!this.isValidAddressType(type)) return null;
+
+    // Second argument onwards are the values
+    const values = args.slice(1);
+    if (values.length === 0) return null;
+
+    return {
+      trackId: parseInt(trackId),
+      type,
+      value: values[0],
+      timestamp: Date.now()
+    };
   }
 
   // Convert between radians and degrees

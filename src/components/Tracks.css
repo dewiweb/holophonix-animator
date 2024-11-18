@@ -89,7 +89,7 @@
   min-height: 100px;
   background-color: #2a2a2a;
   border-radius: 2px;
-  padding: 8px;
+  padding: 0.5rem;
   border: 1px dashed #444;
   transition: all 0.2s;
 }
@@ -116,7 +116,7 @@
   color: #666;
   font-size: 0.9rem;
   text-align: center;
-  padding: 20px;
+  padding: 0.5rem;
   font-style: italic;
   pointer-events: none;
   user-select: none;
@@ -284,6 +284,15 @@
   font-size: 0.9rem;
   color: #fff;
   user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: help;
+}
+
+.track-group-header .group-pattern {
+  color: #888;
+  font-size: 0.8rem;
 }
 
 .track-group-header .group-name-input {
@@ -347,11 +356,20 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: 4px;
   padding-left: 24px;
 }
 
 .track-group:empty::after {
   content: "Drop tracks here";
+  color: #666;
+  font-style: italic;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 8px;
+}
+
+.empty-group {
   color: #666;
   font-style: italic;
   font-size: 0.9rem;

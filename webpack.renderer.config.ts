@@ -1,44 +1,45 @@
 import type { Configuration } from 'webpack';
 import { rules } from './webpack.rules';
-import { plugins } from './webpack.plugins';
-import path from 'path';
+import { plugins } from './webpack.renderer.plugins';
 
 rules.push({
   test: /\.css$/,
-  use: [{ loader: 'style-loader' }, { loader: 'css-loader' }],
+  use: [
+    'style-loader',
+    {
+      loader: 'css-loader',
+      options: {
+        modules: {
+          auto: true,
+          localIdentName: '[name]__[local]--[hash:base64:5]',
+        },
+      },
+    },
+  ],
 });
 
 export const rendererConfig: Configuration = {
   module: {
-    rules: [
-      ...rules,
-      {
-        test: /\.(js|jsx|ts|tsx)$/,
-        exclude: /(node_modules|\.webpack)/,
-        use: {
-          loader: 'babel-loader',
-          options: {
-            presets: ['@babel/preset-env', '@babel/preset-react', '@babel/preset-typescript'],
-            plugins: [],
-          },
-        },
-      },
-    ],
+    rules,
   },
-  plugins,
+  plugins: plugins.plugins,
   resolve: {
     extensions: ['.js', '.ts', '.jsx', '.tsx', '.css'],
-    alias: {
-      'react': path.resolve('./node_modules/react'),
-      'react-dom': path.resolve('./node_modules/react-dom'),
-    },
+    ...plugins.resolve,
   },
-  target: 'web',
-  devtool: 'source-map',
-  mode: 'development',
   devServer: {
     hot: true,
-    liveReload: true,
-    port: 3005,
+    client: {
+      webSocketURL: {
+        hostname: '0.0.0.0',
+        pathname: '/ws',
+        port: 3001,
+        protocol: 'ws',
+      },
+      overlay: true,
+    },
   },
+  // Enable source maps and set mode
+  devtool: 'source-map',
+  mode: 'development',
 };

@@ -1,42 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import type { AppSettings } from '../main/settings';
 import './Settings.css';
 
 interface SettingsProps {
   onClose: () => void;
+  onSettingsChanged: (settings: any) => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
-  const [settings, setSettings] = useState<AppSettings>({
-    oscRateLimit: 50,
-    showMessageLog: true
-  });
+export const Settings: React.FC<SettingsProps> = ({ onClose, onSettingsChanged }) => {
+  const [settings, setSettings] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Load settings when component mounts
-    loadSettings();
+    // Load initial settings
+    window.electron.ipcRenderer.invoke('settings:get').then(savedSettings => {
+      setSettings(savedSettings);
+    });
   }, []);
 
-  const loadSettings = async () => {
-    try {
-      const result = await window.electron.invoke('settings:load');
-      if (result.success && result.settings) {
-        setSettings(result.settings);
-      }
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-    }
-  };
+  if (!settings) return null;
 
   const handleSave = async () => {
+    setIsSaving(true);
     try {
-      setIsSaving(true);
-      const result = await window.electron.invoke('settings:save', settings);
-      if (result.success) {
-        console.log('Settings saved successfully');
-        onClose();
-      }
+      await window.electron.ipcRenderer.invoke('settings:save', settings);
+      onSettingsChanged(settings);
+      onClose();
     } catch (error) {
       console.error('Failed to save settings:', error);
     } finally {
@@ -44,85 +32,114 @@ export const Settings: React.FC<SettingsProps> = ({ onClose }) => {
     }
   };
 
-  const handleShowMessageLogChange = (checked: boolean) => {
-    setSettings(prev => ({
-      ...prev,
-      showMessageLog: checked
-    }));
-    // Save immediately when checkbox changes
-    window.electron.invoke('settings:save', {
-      ...settings,
-      showMessageLog: checked
-    });
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
   };
 
   return (
-    <div className="settings-overlay" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose();
-    }}>
-      <div className="settings-container">
+    <div className="settings-modal" onClick={handleBackdropClick}>
+      <div className="settings-content" onClick={e => e.stopPropagation()}>
         <div className="settings-header">
           <h2>Settings</h2>
-          <button className="settings-close" onClick={onClose}>×</button>
+          <button className="close-button" onClick={onClose}>×</button>
         </div>
-
-        <div className="settings-content">
+        <div className="settings-body">
           <div className="settings-section">
-            <h3>OSC Communication</h3>
-            <div className="setting-item">
-              <label htmlFor="oscRateLimit">Message Rate Limit (ms)</label>
-              <div className="setting-input-group">
+            <h3>OSC Settings</h3>
+            <div className="settings-row">
+              <label>
+                <span>Rate Limit (ms)</span>
                 <input
-                  id="oscRateLimit"
                   type="number"
-                  min="10"
-                  max="1000"
-                  step="10"
+                  min="0"
                   value={settings.oscRateLimit}
                   onChange={(e) => setSettings({
                     ...settings,
-                    oscRateLimit: Number(e.target.value)
+                    oscRateLimit: parseInt(e.target.value) || 0
                   })}
                 />
-                <span className="setting-hint">
-                  {Math.round(1000 / settings.oscRateLimit)} messages per second
-                </span>
-              </div>
-              <p className="setting-description">
-                Minimum time between OSC messages. Lower values mean faster updates but higher network load.
-              </p>
+              </label>
             </div>
-          </div>
-
-          <div className="settings-section">
-            <h3>Interface</h3>
-            <div className="setting-item">
-              <label htmlFor="showMessageLog">Show Message Log</label>
-              <div className="setting-input-group">
+            <div className="settings-row">
+              <label>
+                <span>Local Port</span>
                 <input
-                  id="showMessageLog"
-                  type="checkbox"
-                  checked={settings.showMessageLog}
-                  onChange={(e) => handleShowMessageLogChange(e.target.checked)}
+                  type="number"
+                  min="0"
+                  max="65535"
+                  value={settings.oscConnection.localPort}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    oscConnection: {
+                      ...settings.oscConnection,
+                      localPort: parseInt(e.target.value) || 0
+                    }
+                  })}
                 />
-              </div>
-              <p className="setting-description">
-                Show or hide the OSC message log at the bottom of the screen.
-              </p>
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                <span>Remote Port</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="65535"
+                  value={settings.oscConnection.remotePort}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    oscConnection: {
+                      ...settings.oscConnection,
+                      remotePort: parseInt(e.target.value) || 0
+                    }
+                  })}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                <span>Remote Address</span>
+                <input
+                  type="text"
+                  value={settings.oscConnection.remoteAddress}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    oscConnection: {
+                      ...settings.oscConnection,
+                      remoteAddress: e.target.value
+                    }
+                  })}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={settings.oscConnection.autoConnect}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    oscConnection: {
+                      ...settings.oscConnection,
+                      autoConnect: e.target.checked
+                    }
+                  })}
+                />
+                <span>Auto Connect</span>
+              </label>
             </div>
           </div>
         </div>
-
         <div className="settings-footer">
-          <button className="cancel-button" onClick={onClose}>
-            Cancel
-          </button>
+          <button onClick={onClose}>Cancel</button>
           <button 
-            className="save-button"
             onClick={handleSave}
             disabled={isSaving}
+            className="primary"
           >
-            {isSaving ? 'Saving...' : 'Save Changes'}
+            {isSaving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>

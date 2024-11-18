@@ -2,38 +2,43 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer } from 'electron';
+import type { ElectronAPI } from './types/electron';
 
 // Log when preload script starts
 console.log('Preload script running');
 
-contextBridge.exposeInMainWorld('electron', {
-  on: (channel: string, callback: (...args: any[]) => void) => {
-    console.log(`Preload: Setting up listener for ${channel}`);
-    const subscription = (_event: any, ...args: any[]) => {
-      // For OSC messages, pass the first argument directly
-      if (channel === 'osc:message' && args.length > 0) {
-        const message = args[0];
-        console.log('Preload: Forwarding OSC message:', {
-          address: message?.address,
-          args: message?.args,
-          timestamp: message?.timestamp
-        });
-        callback(message);
-      } else {
-        console.log(`Preload: Forwarding ${channel} event:`, args);
-        callback(...args);
-      }
-    };
-    ipcRenderer.on(channel, subscription);
+// Create a type-safe API object
+const api: ElectronAPI = {
+  ipcRenderer: {
+    invoke: (channel: string, ...args: any[]) => {
+      return ipcRenderer.invoke(channel, ...args);
+    },
+    on: (channel: string, func: (...args: any[]) => void) => {
+      ipcRenderer.on(channel, (event, ...args) => func(...args));
+    },
+    once: (channel: string, func: (...args: any[]) => void) => {
+      ipcRenderer.once(channel, (event, ...args) => func(...args));
+    },
+    removeListener: (channel: string, func: (...args: any[]) => void) => {
+      ipcRenderer.removeListener(channel, func);
+    },
+    removeAllListeners: (channel: string) => {
+      ipcRenderer.removeAllListeners(channel);
+    }
   },
-  removeAllListeners: (channel: string) => {
-    console.log(`Preload: Removing all listeners for ${channel}`);
-    ipcRenderer.removeAllListeners(channel);
+  on: (channel: string, func: (...args: any[]) => void) => {
+    ipcRenderer.on(channel, (event, ...args) => func(...args));
+  },
+  once: (channel: string, func: (...args: any[]) => void) => {
+    ipcRenderer.once(channel, (event, ...args) => func(...args));
   },
   invoke: (channel: string, ...args: any[]) => {
-    console.log(`Preload: Invoking ${channel}:`, {
-      args: args.map(arg => typeof arg === 'object' ? { ...arg } : arg)
-    });
     return ipcRenderer.invoke(channel, ...args);
+  },
+  removeAllListeners: (channel: string) => {
+    ipcRenderer.removeAllListeners(channel);
   }
-});
+};
+
+// Expose the API to the renderer process
+contextBridge.exposeInMainWorld('electron', api);

@@ -1,83 +1,71 @@
 .osc-connection {
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  flex-direction: row;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3);
   width: 100%;
-  position: relative;
-  z-index: 2;
-  padding: 1rem;
-  background: #333;
-  border-radius: 8px;
-  color: #fff;
+  box-sizing: border-box;
 }
 
-.connection-header {
+.osc-connection.loading {
   display: flex;
+  justify-content: center;
   align-items: center;
-  margin-bottom: 1rem;
+  min-height: 100px;
 }
 
-.status-indicator {
-  width: 12px;
-  height: 12px;
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-text-muted);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
-  background-color: #ff4444;
-  margin-right: 0.5rem;
-  transition: background-color 0.3s ease;
+  animation: spin 1s linear infinite;
 }
 
-.status-indicator.connected {
-  background-color: #00C851;
-}
-
-.status-text {
-  font-weight: 500;
-  color: #fff;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .connection-form {
   display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  flex: 1;
-  padding-right: 1rem;
-  background-color: #2a2a2a;
-}
-
-.form-groups {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  flex: 1;
+  align-items: flex-end;
+  gap: var(--spacing-3);
+  width: 100%;
 }
 
 .form-group {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 200px;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  flex: 1;
+  min-width: 150px;
 }
 
 .form-group label {
-  color: #888;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
-  white-space: nowrap;
 }
 
 .form-group input {
-  flex: 1;
-  min-width: 80px;
-  padding: 0.35rem 0.5rem;
-  background-color: #222;
-  border: 1px solid #444;
-  border-radius: 4px;
-  color: #fff;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  color: var(--color-text);
+  padding: var(--spacing-2);
   font-size: 0.9rem;
+  width: 100px;
+}
+
+.form-group input[type="text"] {
+  width: 160px;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #2196F3;
+  border-color: var(--color-primary);
 }
 
 .form-group input:disabled {
@@ -85,83 +73,114 @@
   cursor: not-allowed;
 }
 
-.form-actions {
+.connection-controls {
   display: flex;
-  gap: 0.5rem;
+  align-items: center;
+  gap: var(--spacing-2);
   margin-left: auto;
-  padding-left: 1rem;
 }
 
-.form-actions button {
-  padding: 0.35rem 0.75rem;
-  border: none;
-  border-radius: 4px;
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
+  background-color: var(--color-background);
+  border-radius: var(--border-radius);
+  margin-left: auto;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-text-muted);
+}
+
+.status-indicator.connected {
+  background-color: var(--color-success);
+}
+
+.status-indicator.disconnected {
+  background-color: var(--color-error);
+}
+
+.status-text {
+  color: var(--color-text);
   font-size: 0.9rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
   white-space: nowrap;
-  min-width: 90px;
 }
 
-.connect-btn {
-  background-color: #2196F3;
+.connect-button {
+  background-color: var(--color-primary);
   color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  padding: var(--spacing-2) var(--spacing-4);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all var(--transition-duration) ease;
+  margin-left: var(--spacing-3);
+  white-space: nowrap;
 }
 
-.connect-btn:hover:not(:disabled) {
-  background-color: #1976D2;
-}
-
-.connect-btn:disabled {
-  opacity: 0.7;
+.connect-button:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-.disconnect-btn {
-  background-color: #f44336;
-  color: white;
+.connect-button:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--color-primary) 80%, black);
 }
 
-.disconnect-btn:hover {
-  background-color: #d32f2f;
+.connect-button:not(:disabled):active {
+  background-color: color-mix(in srgb, var(--color-primary) 60%, black);
 }
 
-.test-btn {
-  background-color: #4CAF50;
-  color: white;
+.connect-button.disconnect {
+  background-color: var(--color-error);
 }
 
-.test-btn:hover {
-  background-color: #388E3C;
+.connect-button.disconnect:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--color-error) 80%, black);
 }
 
-.error-message {
-  margin-left: auto;
-  color: #f44336;
-  font-size: 0.9rem;
-  padding: 0 1rem;
+.connect-button.disconnect:not(:disabled):active {
+  background-color: color-mix(in srgb, var(--color-error) 60%, black);
 }
 
-.message-log {
-  margin-top: 1rem;
-  padding: 1rem;
-  background-color: #222;
-  border: 1px solid #444;
+.disconnect-button {
+  padding: 0.25rem 0.5rem;
+  border: none;
   border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: 120px;
+  text-align: center;
+  background: #ff4444;
   color: #fff;
 }
 
-.message-log h4 {
-  margin: 0 0 0.5rem 0;
-  color: #fff;
+.disconnect-button:hover {
+  background: #cc0000;
 }
 
-.message-log pre {
-  margin: 0;
-  padding: 0.5rem;
-  background-color: #1a1a1a;
-  border-radius: 4px;
-  overflow-x: auto;
+.connection-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  color: var(--color-text-muted);
   font-size: 0.9rem;
-  color: #4CAF50;
+}
+
+.connection-info span {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+.connection-info .separator {
+  color: var(--color-border);
 }
