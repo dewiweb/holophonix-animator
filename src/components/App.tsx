@@ -28,7 +28,7 @@ interface Message {
   direction: 'in' | 'out';
 }
 
-export const App: React.FC = () => {
+export function App() {
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [selectedBehavior, setSelectedBehavior] = useState<Behavior | null>(null);
   const [validationErrors, setValidationErrors] = useState<ParameterValidationError[]>([]);
@@ -132,6 +132,11 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleTrackSelection = (track: Track | null) => {
+    setSelectedTrack(track);
+    setSelectedBehavior(null);
+  };
+
   const handleAddBehavior = (behavior: Behavior) => {
     if (!selectedTrack) return;
     
@@ -146,13 +151,14 @@ export const App: React.FC = () => {
 
   const handleRemoveBehavior = (behaviorId: string) => {
     if (!selectedTrack) return;
-    
+
     const updatedTrack = {
       ...selectedTrack,
-      behaviors: selectedTrack.behaviors.filter(b => b.id !== behaviorId)
+      behaviors: selectedTrack.behaviors.filter((behavior: Behavior) => behavior.id !== behaviorId)
     };
     
     // TODO: Update track in track list
+    console.log('Removing behavior:', behaviorId, 'from track:', updatedTrack);
     setSelectedTrack(updatedTrack);
     if (selectedBehavior?.id === behaviorId) {
       setSelectedBehavior(null);
@@ -193,7 +199,7 @@ export const App: React.FC = () => {
         <div className="tracks-section">
           <TrackList
             selectedTrack={selectedTrack}
-            onSelectionChange={setSelectedTrack}
+            onSelectionChange={handleTrackSelection}
           />
         </div>
         <div className="behaviors-section">

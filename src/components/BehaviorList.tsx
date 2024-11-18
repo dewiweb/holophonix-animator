@@ -1,45 +1,50 @@
 import React, { useState } from 'react';
 import type { Behavior, BehaviorCategory } from '../types/behaviors';
+import type { BehaviorType } from '../behaviors/factory';
 import { getAllBehaviors, getBehaviorsByCategory, createBehavior } from '../behaviors/registry';
 import './BehaviorList.css';
 
 interface BehaviorListProps {
-  selectedTrack: {
-    id: string;
-    behaviors: Behavior[];
-  } | null;
+  selectedTrack: { id: string; behaviors: Behavior[] } | null;
   onAddBehavior?: (behavior: Behavior) => void;
   onRemoveBehavior?: (behaviorId: string) => void;
   onSelectBehavior?: (behavior: Behavior | null) => void;
   selectedBehavior: Behavior | null;
 }
 
-export const BehaviorList: React.FC<BehaviorListProps> = ({
+export function BehaviorList({
   selectedTrack,
   onAddBehavior,
   onRemoveBehavior,
   onSelectBehavior,
-  selectedBehavior
-}) => {
+  selectedBehavior,
+}: BehaviorListProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<BehaviorCategory | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<BehaviorCategory>('1D');
   const [previewBehavior, setPreviewBehavior] = useState<Behavior | null>(null);
 
-  const handleAddBehavior = (type: string) => {
+  const behaviors = getAllBehaviors();
+  const behaviorsByCategory = getBehaviorsByCategory(selectedCategory);
+
+  const handleCategoryChange = (category: BehaviorCategory) => {
+    setSelectedCategory(category);
+    setPreviewBehavior(null);
+    onSelectBehavior?.(null);
+  };
+
+  const handleAddBehavior = (type: BehaviorType) => {
     if (!selectedTrack || !onAddBehavior) return;
-    
+
     const newBehavior = createBehavior(type, `${Date.now()}`);
     if (newBehavior) {
       onAddBehavior(newBehavior);
       setIsDropdownOpen(false);
-      setSelectedCategory(null);
       setPreviewBehavior(null);
-      // Automatically select the newly added behavior
-      onSelectBehavior?.(newBehavior);
+      onSelectBehavior?.(null);
     }
   };
 
-  const handlePreviewBehavior = (type: string) => {
+  const handlePreviewBehavior = (type: BehaviorType) => {
     const behavior = createBehavior(type, 'preview');
     setPreviewBehavior(behavior);
     onSelectBehavior?.(behavior);
@@ -52,8 +57,6 @@ export const BehaviorList: React.FC<BehaviorListProps> = ({
       onSelectBehavior?.(null);
     }
   };
-
-  const categories: BehaviorCategory[] = ['1D', '2D', '3D'];
 
   return (
     <div className="behavior-list">
@@ -75,63 +78,59 @@ export const BehaviorList: React.FC<BehaviorListProps> = ({
           >
             <span className="plus-icon">+</span>
           </button>
-          
+
           {isDropdownOpen && (
             <div className="behavior-dropdown">
-              {selectedCategory ? (
-                <>
-                  <div className="dropdown-header" onClick={() => {
-                    setSelectedCategory(null);
-                    setPreviewBehavior(null);
-                    onSelectBehavior?.(selectedBehavior);
-                  }}>
-                    <span className="back-arrow">←</span>
-                    {selectedCategory} Behaviors
-                  </div>
-                  <div className="dropdown-items">
-                    {getBehaviorsByCategory(selectedCategory).map(behavior => (
-                      <div
-                        key={behavior.type}
-                        className={`dropdown-item ${previewBehavior?.type === behavior.type ? 'selected' : ''}`}
-                      >
-                        <div 
-                          className="behavior-item-content"
-                          onClick={() => handlePreviewBehavior(behavior.type)}
-                        >
-                          {behavior.name}
-                        </div>
+              <div className="category-tabs">
+                <button
+                  className={selectedCategory === '1D' ? 'active' : ''}
+                  onClick={() => handleCategoryChange('1D')}
+                >
+                  1D
+                </button>
+                <button
+                  className={selectedCategory === '2D' ? 'active' : ''}
+                  onClick={() => handleCategoryChange('2D')}
+                >
+                  2D
+                </button>
+                <button
+                  className={selectedCategory === '3D' ? 'active' : ''}
+                  onClick={() => handleCategoryChange('3D')}
+                >
+                  3D
+                </button>
+              </div>
+
+              <div className="behavior-grid">
+                {behaviorsByCategory.map(behavior => (
+                  <div
+                    key={behavior.type}
+                    className={`behavior-card ${previewBehavior?.type === behavior.type ? 'selected' : ''}`}
+                    onMouseEnter={() => handlePreviewBehavior(behavior.type)}
+                    onMouseLeave={() => {
+                      setPreviewBehavior(null);
+                      onSelectBehavior?.(null);
+                    }}
+                    onClick={() => handleAddBehavior(behavior.type)}
+                  >
+                    <div className="behavior-info">
+                      <span className="behavior-name">{behavior.name}</span>
+                      <div className="behavior-actions">
                         <button
-                          className="add-button"
+                          className="play-button"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAddBehavior(behavior.type);
                           }}
-                          title={`Add ${behavior.name}`}
                         >
                           +
                         </button>
                       </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="dropdown-items">
-                  {categories.map(category => (
-                    <div
-                      key={category}
-                      className="dropdown-item with-arrow"
-                      onClick={() => {
-                        setSelectedCategory(category);
-                        setPreviewBehavior(null);
-                        onSelectBehavior?.(selectedBehavior);
-                      }}
-                    >
-                      {category}
-                      <span className="forward-arrow">→</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -238,4 +237,4 @@ export const BehaviorList: React.FC<BehaviorListProps> = ({
       </div>
     </div>
   );
-};
+}

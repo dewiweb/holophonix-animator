@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { Track, TrackGroup } from '../types/tracks';
 import { useDroppable } from '@dnd-kit/core';
 import { TrackComponent } from './Track';
+import { createXYZPosition, createAEDPosition } from '../types/position';
 
 interface TrackGroupProps {
   group: TrackGroup;
@@ -169,8 +170,8 @@ export const TrackGroupComponent: React.FC<TrackGroupProps> = ({
               const track: Track = {
                 id: trackId.toString(),
                 name: `Track ${trackId}`,
-                position: { x: 0, y: 0, z: 0 },
-                aedPosition: { azimuth: 0, elevation: 0, distance: 1 },
+                position: createXYZPosition(0, 0, 0),
+                aedPosition: createAEDPosition(0, 0, 1),
                 behaviors: [],
                 active: group.trackStates[trackId] || false
               };

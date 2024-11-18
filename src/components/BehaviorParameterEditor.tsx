@@ -1,79 +1,83 @@
 import React, { useCallback, useState } from 'react';
-import { BehaviorImplementation } from '../types/behaviors';
+import type { BehaviorImplementation } from '../types/behaviors';
 import { ParameterEditor } from './ParameterEditor';
-import { ParameterValidationError } from '../types/parameters';
+import type { ParameterValidationError, ParameterMetadata } from '../types/parameters';
 import './BehaviorParameterEditor.css';
 
 interface BehaviorParameterEditorProps {
-    behavior?: BehaviorImplementation;
-    onChange?: (validationErrors: ParameterValidationError[]) => void;
+  behavior: BehaviorImplementation;
+  onChange?: (errors: ParameterValidationError[]) => void;
 }
 
-export const BehaviorParameterEditor: React.FC<BehaviorParameterEditorProps> = ({
-    behavior,
-    onChange
-}) => {
-    const [validationErrors, setValidationErrors] = useState<ParameterValidationError[]>([]);
-    
-    const handleParameterChange = useCallback((name: string, value: number) => {
-        if (!behavior) return;
-        const errors = behavior.setParameters({ [name]: value });
-        setValidationErrors(errors);
-        onChange?.(errors);
-    }, [behavior, onChange]);
-    
-    const handleValidationError = useCallback((error: ParameterValidationError | null) => {
-        setValidationErrors(prev => {
-            const filtered = prev.filter(e => e.parameter !== error?.parameter);
-            return error ? [...filtered, error] : filtered;
-        });
-    }, []);
+export function BehaviorParameterEditor({ behavior, onChange }: BehaviorParameterEditorProps) {
+  const [currentValues, setCurrentValues] = useState<Record<string, number>>(behavior.getParameters());
+  const [validationErrors, setValidationErrors] = useState<ParameterValidationError[]>([]);
+  
+  const handleParameterChange = useCallback((name: string, value: number) => {
+    setCurrentValues(prev => ({
+      ...prev,
+      [name]: value
+    }));
 
-    if (!behavior) {
-        return (
-            <div className="behavior-parameter-editor">
-                <div className="no-behavior-selected">
-                    Select a behavior to edit its parameters
-                </div>
-            </div>
-        );
-    }
+    const errors = behavior.setParameters({
+      ...currentValues,
+      [name]: value
+    });
 
-    const metadata = behavior.getParameterMetadata();
-    const currentValues = behavior.getParameters();
+    setValidationErrors(errors);
+    onChange?.(errors);
+  }, [behavior, currentValues, onChange]);
+  
+  const handleValidationError = useCallback((error: ParameterValidationError) => {
+    setValidationErrors(prev => [...prev, error]);
+    onChange?.([...validationErrors, error]);
+  }, [validationErrors, onChange]);
 
+  if (!behavior) {
     return (
-        <div className="behavior-parameter-editor">
-            <div className="parameters-header">
-                <h2>Parameters</h2>
-                <div className="behavior-type">{behavior.constructor.name}</div>
-            </div>
-
-            <div className="parameters-grid">
-                {Object.entries(metadata).map(([name, meta]) => (
-                    <ParameterEditor
-                        key={name}
-                        name={name}
-                        value={currentValues[name]}
-                        metadata={meta}
-                        onChange={handleParameterChange}
-                        onValidationError={handleValidationError}
-                    />
-                ))}
-            </div>
-            
-            {validationErrors.length > 0 && (
-                <div className="validation-errors">
-                    <h4>Validation Errors</h4>
-                    <ul>
-                        {validationErrors.map((error, index) => (
-                            <li key={index} className="validation-error">
-                                {error.message}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
+      <div className="behavior-parameter-editor">
+        <div className="no-behavior-selected">
+          Select a behavior to edit its parameters
         </div>
+      </div>
     );
+  }
+
+  const metadata = behavior.getParameterMetadata();
+
+  return (
+    <div className="behavior-parameter-editor">
+      <div className="parameters-header">
+        <h2>Parameters</h2>
+        <div className="behavior-type">{behavior.constructor.name}</div>
+      </div>
+
+      <div className="parameters-grid">
+        {Object.entries(metadata).map(([name, meta]) => (
+          <div key={name} className="parameter-row">
+            <ParameterEditor
+              name={name}
+              value={currentValues[name]}
+              metadata={meta as ParameterMetadata}
+              onChange={handleParameterChange}
+              onValidationError={handleValidationError}
+            />
+          </div>
+        ))}
+      </div>
+      
+      {validationErrors.length > 0 && (
+        <div className="validation-errors">
+          <h4>Validation Errors</h4>
+          <ul>
+            {validationErrors.map((error, index) => (
+              <li key={index} className="validation-error">
+                {error.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 };
