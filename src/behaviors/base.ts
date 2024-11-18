@@ -1,86 +1,100 @@
-import type { Position, AEDPosition } from '../types/behaviors';
-import { ParameterDefinitions, ParameterValidationError } from '../types/parameters';
+import { ParameterDefinitions, ParameterValidationError, ParameterMetadata } from '../types/parameters';
 import { ParameterValidator } from './validation';
+import {
+  XYZPosition,
+  AEDPosition,
+  convertXYZtoAED,
+  convertAEDtoXYZ,
+  createXYZPosition,
+  createAEDPosition,
+  validatePosition,
+  normalizePosition,
+  HolophonixPosition,
+  CoordinateSystem
+} from '../types/position';
 
 export interface BehaviorImplementation {
-    update(time: number): Position | AEDPosition;
-    reset(): void;
-    setParameters(params: Record<string, number>): ParameterValidationError[];
-    getParameters(): Record<string, number>;
-    getParameterMetadata(): ParameterDefinitions;
-    usesAED(): boolean;
-    validate(): ParameterValidationError[];
+  update(time: number): HolophonixPosition;
+  reset(): void;
+  setParameters(params: Record<string, number | string>): ParameterValidationError[];
+  getParameters(): Record<string, number | string>;
+  getParameterMetadata(): Record<string, ParameterMetadata>;
+  getCoordinateSystem(): CoordinateSystem;
+  setCoordinateSystem(system: CoordinateSystem): void;
 }
 
 export abstract class BaseBehavior implements BehaviorImplementation {
-    protected parameters: Record<string, number>;
-    protected startTime: number;
-    protected useAED: boolean;
-    protected validator: ParameterValidator;
-    private parameterDefinitions: ParameterDefinitions;
+  protected parameters: Record<string, number | string>;
+  protected parameterDefinitions: ParameterDefinitions;
+  protected validator: ParameterValidator;
+  protected startTime: number;
+  protected coordinateSystem: CoordinateSystem;
 
-    constructor(parameterDefinitions: ParameterDefinitions, useAED: boolean = false) {
-        this.validator = new ParameterValidator(parameterDefinitions);
-        this.parameterDefinitions = parameterDefinitions;
-        this.parameters = {};
-        this.startTime = Date.now();
-        this.useAED = useAED;
+  constructor(parameterDefinitions: ParameterDefinitions, defaultSystem: CoordinateSystem = 'xyz') {
+    this.parameterDefinitions = parameterDefinitions;
+    this.validator = new ParameterValidator(parameterDefinitions);
+    this.parameters = {};
+    this.startTime = Date.now();
+    this.coordinateSystem = defaultSystem;
 
-        // Initialize all parameters with default values
-        Object.entries(parameterDefinitions).forEach(([name, def]) => {
-            this.parameters[name] = def.default;
-        });
+    // Initialize parameters with default values
+    Object.entries(parameterDefinitions).forEach(([key, def]) => {
+      this.parameters[key] = def.default;
+    });
+  }
+
+  abstract update(time: number): HolophonixPosition;
+
+  reset(): void {
+    this.startTime = Date.now();
+  }
+
+  setParameters(params: Record<string, number | string>): ParameterValidationError[] {
+    const errors = this.validator.validate(params);
+    if (errors.length === 0) {
+      // Only update parameters if there are no validation errors
+      Object.entries(params).forEach(([key, value]) => {
+        this.parameters[key] = value;
+      });
+      this.onParameterChanged(params);
     }
+    return errors;
+  }
 
-    abstract update(time: number): Position | AEDPosition;
+  getParameters(): Record<string, number | string> {
+    return { ...this.parameters };
+  }
 
-    reset(): void {
-        this.startTime = Date.now();
-        // Reset all parameters to defaults
-        Object.entries(this.parameterDefinitions).forEach(([name, def]) => {
-            this.parameters[name] = def.default;
-        });
+  getParameterMetadata(): Record<string, ParameterMetadata> {
+    return { ...this.parameterDefinitions };
+  }
+
+  getCoordinateSystem(): CoordinateSystem {
+    return this.coordinateSystem;
+  }
+
+  setCoordinateSystem(system: CoordinateSystem): void {
+    if (system !== this.coordinateSystem) {
+      this.coordinateSystem = system;
+      this.onCoordinateSystemChanged(system);
     }
+  }
 
-    setParameters(params: Record<string, number>): ParameterValidationError[] {
-        // Merge with existing parameters to ensure all required parameters exist
-        const mergedParams = { ...this.parameters, ...params };
-        const errors = this.validator.validateParameters(mergedParams);
-        
-        if (errors.length === 0) {
-            // Update parameters with validated and clamped values
-            Object.entries(mergedParams).forEach(([name, value]) => {
-                this.parameters[name] = this.validator.clampValue(name, value);
-            });
-        }
-        
-        return errors;
-    }
+  protected getElapsedTime(currentTime: number): number {
+    return (currentTime - this.startTime) / 1000;
+  }
 
-    getParameters(): Record<string, number> {
-        // Ensure all parameters have values
-        const params = { ...this.parameters };
-        Object.entries(this.parameterDefinitions).forEach(([name, def]) => {
-            if (params[name] === undefined) {
-                params[name] = def.default;
-            }
-        });
-        return params;
-    }
+  protected onParameterChanged(params: Record<string, number | string>): void {
+    // Override in subclasses if needed
+  }
 
-    getParameterMetadata(): ParameterDefinitions {
-        return this.validator.getAllMetadata();
-    }
+  protected onCoordinateSystemChanged(system: CoordinateSystem): void {
+    // Override in subclasses if needed
+  }
 
-    usesAED(): boolean {
-        return this.useAED;
-    }
-
-    validate(): ParameterValidationError[] {
-        return this.validator.validateParameters(this.parameters);
-    }
-
-    protected getElapsedTime(time: number): number {
-        return (time - this.startTime) / 1000;
-    }
+  protected createPosition(x: number, y: number, z: number): HolophonixPosition {
+    return this.coordinateSystem === 'xyz'
+      ? createXYZPosition(x, y, z)
+      : convertXYZtoAED(createXYZPosition(x, y, z));
+  }
 }

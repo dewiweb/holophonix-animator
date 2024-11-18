@@ -1,16 +1,19 @@
-import type { BehaviorType, Behavior, BehaviorParameter, BehaviorCategory, BehaviorImplementation } from '../types/behaviors';
-import { LinearBehavior } from './implementations/linear';
-import { SineWaveBehavior } from './implementations/sine';
-import { CircleBehavior } from './implementations/circle';
+import type { Behavior, BehaviorCategory, BehaviorImplementation } from '../types/behaviors';
+import type { BehaviorType } from './factory';
+import { LinearBehavior } from './implementations/1d/linear';
+import { SineWaveBehavior } from './implementations/1d/sine';
+import { CircleBehavior } from './implementations/2d/circle';
+import { Figure8Behavior } from './implementations/2d/figure8';
+import { OrbitBehavior } from './implementations/3d/orbit';
 
 interface BehaviorDefinition {
-  type: string;
+  type: BehaviorType;
   name: string;
   category: BehaviorCategory;
   implementation: new () => BehaviorImplementation;
 }
 
-const behaviors: Record<string, Omit<BehaviorDefinition, 'type'>> = {
+const behaviors: Record<BehaviorType, Omit<BehaviorDefinition, 'type'>> = {
   'linear': {
     name: 'Linear Oscillation',
     category: '1D',
@@ -21,78 +24,50 @@ const behaviors: Record<string, Omit<BehaviorDefinition, 'type'>> = {
     category: '1D',
     implementation: SineWaveBehavior
   },
-  'random-1d': {
-    name: 'Random Walk',
-    category: '1D',
-    implementation: LinearBehavior // TODO: Implement RandomBehavior
-  },
   'circle': {
     name: 'Circular Motion',
     category: '2D',
     implementation: CircleBehavior
   },
-  'spiral': {
-    name: 'Spiral Motion',
+  'figure8': {
+    name: 'Figure-8 Motion',
     category: '2D',
-    implementation: CircleBehavior // TODO: Implement SpiralBehavior
+    implementation: Figure8Behavior
   },
-  'lissajous': {
-    name: 'Lissajous Curve',
-    category: '2D',
-    implementation: CircleBehavior // TODO: Implement LissajousBehavior
-  },
-  'random-2d': {
-    name: '2D Random Walk',
-    category: '2D',
-    implementation: CircleBehavior // TODO: Implement Random2DBehavior
-  },
-  'sphere': {
-    name: 'Spherical Motion',
+  'orbit': {
+    name: 'Orbit Motion',
     category: '3D',
-    implementation: CircleBehavior // TODO: Implement SphereBehavior
-  },
-  'helix': {
-    name: 'Helical Motion',
-    category: '3D',
-    implementation: CircleBehavior // TODO: Implement HelixBehavior
-  },
-  'random-3d': {
-    name: '3D Random Walk',
-    category: '3D',
-    implementation: CircleBehavior // TODO: Implement Random3DBehavior
+    implementation: OrbitBehavior
   }
 };
 
-export const getBehaviorDefinition = (type: string): BehaviorDefinition | null => {
+export function getBehaviorDefinition(type: BehaviorType): BehaviorDefinition | null {
   const definition = behaviors[type];
-  return definition ? { ...definition, type } : null;
-};
+  return definition ? { type, ...definition } : null;
+}
 
-export const getBehaviorsByCategory = (category: BehaviorCategory): BehaviorDefinition[] => {
+export function getBehaviorsByCategory(category: BehaviorCategory): BehaviorDefinition[] {
   return Object.entries(behaviors)
-    .filter(([_, b]) => b.category === category)
-    .map(([type, def]) => ({
-      ...def,
-      type
-    }));
-};
+    .filter(([_, def]) => def.category === category)
+    .map(([type, def]) => ({ type: type as BehaviorType, ...def }));
+}
 
-export const getAllBehaviors = (): BehaviorDefinition[] => {
-  return Object.entries(behaviors).map(([type, def]) => ({
-    ...def,
-    type
-  }));
-};
+export function getAllBehaviors(): BehaviorDefinition[] {
+  return Object.entries(behaviors)
+    .map(([type, def]) => ({ type: type as BehaviorType, ...def }));
+}
 
-export const createBehavior = (type: string, id: string): Behavior | null => {
+export function createBehavior(type: BehaviorType, id: string): Behavior | null {
   const definition = getBehaviorDefinition(type);
-  if (!definition) return null;
+  if (!definition) {
+    return null;
+  }
 
   const implementation = new definition.implementation();
-  
-  // Get parameter metadata and default values from implementation
-  const metadata = implementation.getParameterMetadata();
-  const parameters = implementation.getParameters();
+  const parameters = Object.fromEntries(
+    Object.entries(implementation.getParameterMetadata())
+      .map(([key, meta]) => [key, meta.default])
+  );
 
   return {
     id,
@@ -102,4 +77,4 @@ export const createBehavior = (type: string, id: string): Behavior | null => {
     parameters,
     implementation
   };
-};
+}
