@@ -1,19 +1,44 @@
-export type ParameterUnit = 'degrees' | 'radians' | 'meters' | 'seconds' | 'hertz' | 'normalized';
+export type ParameterUnit = 
+  | 'degrees' 
+  | 'radians' 
+  | 'meters' 
+  | 'seconds' 
+  | 'hertz' 
+  | 'Hz'
+  | 'normalized'
+  | 'meters/second'
+  | 'revolutions/second'
+  | 'units/second'
+  | 'enum';
 
-export interface ParameterMetadata {
-    min: number;
-    max: number;
-    default: number;
-    step: number;
-    unit: ParameterUnit;
-    description: string;
+export interface BaseParameterMetadata {
+  unit: ParameterUnit;
+  description: string;
 }
 
+export interface NumericParameterMetadata extends BaseParameterMetadata {
+  min: number;
+  max: number;
+  default: number;
+  step: number;
+  enum?: never;
+}
+
+export interface EnumParameterMetadata extends BaseParameterMetadata {
+  default: string;
+  enum: string[];
+  min?: never;
+  max?: never;
+  step?: never;
+}
+
+export type ParameterMetadata = NumericParameterMetadata | EnumParameterMetadata;
+
 export interface ParameterValidationError {
-    parameter: string;
-    value: number;
-    message: string;
-    code: 'OUT_OF_RANGE' | 'INVALID_TYPE' | 'INVALID_STEP';
+  parameter: string;
+  value: number | string;
+  message: string;
+  code: 'OUT_OF_RANGE' | 'INVALID_TYPE' | 'INVALID_STEP' | 'INVALID_ENUM';
 }
 
 export type ParameterDefinitions = Record<string, ParameterMetadata>;
@@ -27,48 +52,58 @@ export const POSITIVE_RANGE = { min: 0, max: Number.POSITIVE_INFINITY };
 
 // Common parameter metadata
 export const COMMON_PARAMETERS: Record<string, Partial<ParameterMetadata>> = {
-    azimuth: {
-        ...ANGLE_RANGE,
-        default: 0,
-        step: 1,
-        unit: 'degrees',
-        description: 'Horizontal angle in degrees (-180 to 180)',
-    },
-    elevation: {
-        ...ELEVATION_RANGE,
-        default: 0,
-        step: 1,
-        unit: 'degrees',
-        description: 'Vertical angle in degrees (-90 to 90)',
-    },
-    distance: {
-        min: 0,
-        max: 100,
-        default: 1,
-        step: 0.1,
-        unit: 'meters',
-        description: 'Distance from origin in meters',
-    },
-    frequency: {
-        min: 0.01,
-        max: 10,
-        default: 1,
-        step: 0.01,
-        unit: 'hertz',
-        description: 'Frequency of oscillation in Hz',
-    },
-    amplitude: {
-        ...NORMALIZED_RANGE,
-        default: 1,
-        step: 0.1,
-        unit: 'normalized',
-        description: 'Amplitude of oscillation (-1 to 1)',
-    },
-    phase: {
-        ...ANGLE_RANGE,
-        default: 0,
-        step: 1,
-        unit: 'degrees',
-        description: 'Phase offset in degrees',
-    },
+  azimuth: {
+    ...ANGLE_RANGE,
+    default: 0,
+    step: 1,
+    unit: 'degrees',
+    description: 'Horizontal angle in degrees (-180 to 180)',
+  },
+  elevation: {
+    ...ELEVATION_RANGE,
+    default: 0,
+    step: 1,
+    unit: 'degrees',
+    description: 'Vertical angle in degrees (-90 to 90)',
+  },
+  distance: {
+    ...POSITIVE_RANGE,
+    default: 10,
+    step: 0.1,
+    unit: 'meters',
+    description: 'Distance in meters (0 to infinity)',
+  },
+  speed: {
+    ...POSITIVE_RANGE,
+    default: 1,
+    step: 0.1,
+    unit: 'units/second',
+    description: 'Speed in units per second',
+  },
+  phase: {
+    ...ANGLE_RANGE,
+    default: 0,
+    step: 1,
+    unit: 'degrees',
+    description: 'Phase offset in degrees',
+  },
+  frequency: {
+    ...POSITIVE_RANGE,
+    default: 1,
+    step: 0.1,
+    unit: 'Hz',
+    description: 'Frequency in Hertz',
+  },
+  axis: {
+    default: 'X',
+    enum: ['X', 'Y', 'Z'],
+    unit: 'enum',
+    description: 'Movement axis (X, Y, Z)',
+  },
+  plane: {
+    default: 'XY',
+    enum: ['XY', 'YZ', 'XZ'],
+    unit: 'enum',
+    description: 'Rotation plane (XY, YZ, XZ)',
+  }
 };

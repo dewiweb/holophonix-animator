@@ -1,9 +1,10 @@
-import type { Position, AEDPosition, Behavior } from './behaviors';
+import type { Behavior } from './behaviors';
+import type { XYZPosition, AEDPosition } from './position';
 
 export interface Track {
   id: string;
   name: string;
-  position: Position;
+  position: XYZPosition;
   aedPosition: AEDPosition;
   behaviors: Behavior[];
   active: boolean;

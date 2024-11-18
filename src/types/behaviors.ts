@@ -1,16 +1,25 @@
-import { ParameterMetadata, ParameterValidationError } from './parameters';
+import type { BehaviorType } from '../behaviors/factory';
+import type { ParameterMetadata, ParameterValidationError } from './parameters';
+import type { XYZPosition, AEDPosition } from './position';
 
-export interface Position {
-  x: number;
-  y: number;
-  z: number;
+export interface BehaviorImplementation {
+  update(deltaTime: number): void;
+  getParameters(): Record<string, number>;
+  setParameters(params: Record<string, number>): ParameterValidationError[];
+  reset(): void;
+  getParameterMetadata(): Record<string, ParameterMetadata>;
 }
 
-export interface AEDPosition {
-  azimuth: number;   // degrees
-  elevation: number; // degrees
-  distance: number;  // meters
+export interface Behavior {
+  id: string;
+  type: BehaviorType;
+  name: string;
+  parameters: Record<string, number>;
+  implementation: BehaviorImplementation;
+  active: boolean;
 }
+
+export type BehaviorCategory = '1D' | '2D' | '3D';
 
 export interface BehaviorParameter {
   name: string;
@@ -20,37 +29,12 @@ export interface BehaviorParameter {
   step?: number;
 }
 
-export interface BehaviorType {
-  type: string;
-  name: string;
-  category: BehaviorCategory;
-  parameters: BehaviorParameter[];
-}
-
-export interface Behavior {
-  id: string;
-  name: string;
-  type: string;
-  active: boolean;
-  parameters: Record<string, number>;
-  implementation: BehaviorImplementation;
-}
-
 export interface Track {
   id: string;
   name: string;
-  position: Position;
+  position: XYZPosition;
   aedPosition: AEDPosition;
   behaviors: Behavior[];
   active: boolean;
-}
-
-export type BehaviorCategory = '1D' | '2D' | '3D';
-
-export interface BehaviorImplementation {
-  update(deltaTime: number): void;
-  getParameters(): Record<string, number>;
-  setParameters(params: Record<string, number>): ParameterValidationError[];
-  reset(): void;
-  getParameterMetadata(): Record<string, ParameterMetadata>;
+  oscPath: string;
 }
