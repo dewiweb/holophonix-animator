@@ -2,9 +2,9 @@
 
 A future (WIP) cross-platform desktop application for creating and managing motion behaviors for Holophonix spatial audio tracks via OSC. Create complex spatial movements using absolute or relative coordinate changes in both AED (Azimuth, Elevation, Distance) and XYZ coordinate systems. Development helped with windsurf ide (AI based).
 
-> 🚧 **Development Status**: This project is under active development. See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed progress, roadmap, and contribution guidelines.
+> 🚧 **Development Status**: This project is under active development. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed progress, roadmap, and contribution guidelines.
 
-> 📡 **OSC Protocol**: For detailed information about the OSC communication protocol, message formats, and track control, see [OSC.md](OSC.md).
+> 📡 **OSC Protocol**: For detailed information about the OSC communication protocol, message formats, and track control, see [docs/HOLOPHONIX_OSC.md](docs/HOLOPHONIX_OSC.md).
 
 ## Features
 
@@ -116,7 +116,7 @@ Elevation = asin(Z / Distance)
   - Scaling options
 
 ### OSC Communication 📡
-The application communicates with Holophonix using the Open Sound Control (OSC) protocol over UDP. See [OSC.md](OSC.md) for detailed information about:
+The application communicates with Holophonix using the Open Sound Control (OSC) protocol over UDP. See [docs/HOLOPHONIX_OSC.md](docs/HOLOPHONIX_OSC.md) for detailed information about:
 - Track control messages
 - Pattern matching
 - Group control
@@ -332,7 +332,7 @@ Available environment variables:
 
 ## Development Status 🚀
 
-For detailed information about the project's development status, roadmap, and progress, please see [DEVELOPMENT.md](DEVELOPMENT.md).
+For detailed information about the project's development status, roadmap, and progress, please see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Contributing 🤝
 

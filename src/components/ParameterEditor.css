@@ -1,0 +1,170 @@
+.parameter-editor {
+    padding: 1rem;
+    background: var(--background-dark);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.parameter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.parameter-label {
+    font-weight: 500;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.parameter-unit {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    background: var(--background-darker);
+    border-radius: 4px;
+}
+
+.parameter-description {
+    cursor: help;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    color: var(--text-secondary);
+}
+
+.parameter-description:hover {
+    opacity: 1;
+}
+
+.parameter-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    height: 36px;
+}
+
+/* Fader track */
+.parameter-slider-container {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0 0.5rem;
+}
+
+.parameter-slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+    position: relative;
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+/* Fader thumb */
+.parameter-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 18px;
+    background: #fff;
+    cursor: pointer;
+    border-radius: 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    position: relative;
+    transition: all 0.2s;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.parameter-slider::-webkit-slider-thumb:hover {
+    background: #f0f0f0;
+    transform: scaleY(1.1);
+}
+
+.parameter-slider::-webkit-slider-thumb:active {
+    background: #e0e0e0;
+    transform: scaleY(1.2);
+}
+
+/* Fader value track */
+.parameter-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    cursor: pointer;
+    background: linear-gradient(to right, 
+        rgba(255, 255, 255, 0.5) var(--value-percent, 0%), 
+        rgba(255, 255, 255, 0.1) var(--value-percent, 0%));
+    border-radius: 2px;
+}
+
+/* Tick marks */
+.parameter-ticks {
+    position: absolute;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: -16px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.parameter-tick {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    opacity: 0.7;
+}
+
+.parameter-tick::before {
+    content: '';
+    width: 1px;
+    height: 4px;
+    background: var(--text-secondary);
+    opacity: 0.5;
+}
+
+/* Value input */
+.parameter-value {
+    width: 80px;
+}
+
+.parameter-input {
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--background-darker);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    text-align: right;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.parameter-input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+}
+
+.parameter-input.error {
+    border-color: #ff4444;
+    background-color: rgba(255, 0, 0, 0.1);
+}
+
+.parameter-error {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    color: #ff4444;
+    text-align: center;
+}

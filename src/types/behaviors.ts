@@ -1,3 +1,5 @@
+import { ParameterMetadata, ParameterValidationError } from './parameters';
+
 export interface Position {
   x: number;
   y: number;
@@ -15,6 +17,7 @@ export interface BehaviorParameter {
   min: number;
   max: number;
   default: number;
+  step?: number;
 }
 
 export interface BehaviorType {
@@ -29,7 +32,8 @@ export interface Behavior {
   name: string;
   type: string;
   active: boolean;
-  parameters: Record<string, any>;
+  parameters: Record<string, number>;
+  implementation: BehaviorImplementation;
 }
 
 export interface Track {
@@ -46,6 +50,7 @@ export type BehaviorCategory = '1D' | '2D' | '3D';
 export interface BehaviorImplementation {
   update(deltaTime: number): void;
   getParameters(): Record<string, number>;
-  setParameters(params: Record<string, number>): void;
+  setParameters(params: Record<string, number>): ParameterValidationError[];
   reset(): void;
+  getParameterMetadata(): Record<string, ParameterMetadata>;
 }

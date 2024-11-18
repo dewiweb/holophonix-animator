@@ -1,23 +1,65 @@
 import { BaseBehavior } from '../base';
-import type { Position } from '../../types/behaviors';
+import { Position } from '../../types/behaviors';
+import { ParameterDefinitions } from '../../types/parameters';
+
+const LINEAR_PARAMETERS: ParameterDefinitions = {
+    speed: {
+        min: 0.1,
+        max: 10,
+        default: 1,
+        step: 0.01,
+        unit: 'hertz',
+        description: 'Speed of oscillation in Hz'
+    },
+    amplitude: {
+        min: 0,
+        max: 100,
+        default: 10,
+        step: 1,
+        unit: 'meters',
+        description: 'Size of movement'
+    },
+    offset: {
+        min: -100,
+        max: 100,
+        default: 0,
+        step: 1,
+        unit: 'meters',
+        description: 'Center point offset'
+    }
+};
 
 export class LinearBehavior extends BaseBehavior {
-    constructor(params: Record<string, number>, axis: 'x' | 'y' | 'z' = 'x') {
-        super(params);
-        this.parameters.axis = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
+    private time: number = 0;
+    private direction: number = 1;
+
+    constructor() {
+        super(LINEAR_PARAMETERS, false);
     }
 
-    update(time: number): Position {
-        const t = this.getElapsedTime(time);
-        const { amplitude, frequency, axis } = this.parameters;
-        
-        const position = { x: 0, y: 0, z: 0 };
-        const value = amplitude * Math.sin(2 * Math.PI * frequency * t);
-        
-        if (axis === 0) position.x = value;
-        else if (axis === 1) position.y = value;
-        else position.z = value;
+    reset(): void {
+        super.reset();
+        this.time = 0;
+        this.direction = 1;
+    }
 
-        return position;
+    update(deltaTime: number): Position {
+        const params = this.getParameters(); // This ensures we have all parameters with defaults
+        
+        this.time += deltaTime * params.speed;
+        
+        if (this.time >= 1) {
+            this.direction *= -1;
+            this.time = 0;
+        }
+
+        const value = params.offset + 
+            params.amplitude * this.direction * this.time;
+
+        return {
+            x: value,
+            y: 0,
+            z: 0
+        };
     }
 }

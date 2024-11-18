@@ -2,30 +2,38 @@ import { BaseBehavior } from '../base';
 import { Position } from '../../types/behaviors';
 import { ParameterDefinitions } from '../../types/parameters';
 
-const SINE_PARAMETERS: ParameterDefinitions = {
-    frequency: {
+const CIRCLE_PARAMETERS: ParameterDefinitions = {
+    speed: {
         min: 0.01,
         max: 10,
         default: 1,
         step: 0.01,
         unit: 'hertz',
-        description: 'Oscillation frequency in Hz'
+        description: 'Rotation speed in Hz'
     },
-    amplitude: {
+    radius: {
         min: 0,
         max: 100,
         default: 10,
         step: 1,
         unit: 'meters',
-        description: 'Size of movement'
+        description: 'Circle radius'
     },
-    offset: {
+    centerX: {
         min: -100,
         max: 100,
         default: 0,
         step: 1,
         unit: 'meters',
-        description: 'Center point offset'
+        description: 'Center X position'
+    },
+    centerY: {
+        min: -100,
+        max: 100,
+        default: 0,
+        step: 1,
+        unit: 'meters',
+        description: 'Center Y position'
     },
     phase: {
         min: 0,
@@ -33,29 +41,30 @@ const SINE_PARAMETERS: ParameterDefinitions = {
         default: 0,
         step: 1,
         unit: 'degrees',
-        description: 'Phase offset in degrees'
+        description: 'Starting angle in degrees'
     }
 };
 
-export class SineWaveBehavior extends BaseBehavior {
+export class CircleBehavior extends BaseBehavior {
     constructor() {
-        super(SINE_PARAMETERS, false);
+        super(CIRCLE_PARAMETERS, false);
     }
 
     update(deltaTime: number): Position {
         const params = this.getParameters();
         const elapsedTime = this.getElapsedTime(deltaTime);
         
-        // Convert phase from degrees to radians
+        // Convert phase from degrees to radians and calculate current angle
         const phaseRadians = (params.phase * Math.PI) / 180;
+        const angle = 2 * Math.PI * params.speed * elapsedTime + phaseRadians;
         
-        // Calculate sine wave value
-        const value = params.offset + 
-            params.amplitude * Math.sin(2 * Math.PI * params.frequency * elapsedTime + phaseRadians);
+        // Calculate position on circle
+        const x = params.centerX + params.radius * Math.cos(angle);
+        const y = params.centerY + params.radius * Math.sin(angle);
 
         return {
-            x: value,
-            y: 0,
+            x,
+            y,
             z: 0
         };
     }

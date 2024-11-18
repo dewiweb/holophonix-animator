@@ -509,6 +509,250 @@ npm run make
    - Behavior composition
    - Plugin system
 
+## Behavior System Implementation 🔄
+
+### Completed Behaviors ✅
+
+1. **Linear Behavior**
+   ```typescript
+   // Linear oscillation along a single axis
+   interface LinearParameters {
+     frequency: number;     // Oscillation frequency (Hz)
+     amplitude: number;     // Movement range
+     offset: number;        // Center position
+     axis: 'x' | 'y' | 'z' | 'azimuth' | 'elevation' | 'distance';
+   }
+   ```
+   - Single-axis oscillation
+   - Configurable frequency and amplitude
+   - Position offset support
+   - Axis selection (XYZ/AED)
+   - Real-time parameter validation
+
+2. **Sine Wave Behavior**
+   ```typescript
+   // Smooth sinusoidal motion
+   interface SineParameters {
+     frequency: number;     // Wave frequency (Hz)
+     amplitude: number;     // Wave height
+     offset: number;        // Center position
+     phase: number;         // Wave phase shift
+     axis: 'x' | 'y' | 'z' | 'azimuth' | 'elevation' | 'distance';
+   }
+   ```
+   - Smooth periodic motion
+   - Phase control
+   - Frequency/amplitude adjustment
+   - Position offset
+   - Axis selection
+
+3. **Circle Behavior**
+   ```typescript
+   // Circular motion in a plane
+   interface CircleParameters {
+     frequency: number;     // Rotation frequency (Hz)
+     radius: number;        // Circle radius
+     centerX: number;      // Center X position
+     centerY: number;      // Center Y position
+     plane: 'xy' | 'xz' | 'yz';
+   }
+   ```
+   - Planar circular motion
+   - Configurable radius and center
+   - Plane selection
+   - Rotation frequency control
+   - Position validation
+
+### Behavior Base System 🏗
+
+1. **Core Architecture**
+   ```typescript
+   abstract class BaseBehavior {
+     // Core calculation method
+     abstract calculate(time: number): Position;
+     
+     // Parameter definition
+     abstract getParameters(): Parameter[];
+     
+     // Parameter validation
+     validate(params: Record<string, number>): ValidationResult;
+     
+     // Default parameter values
+     getDefaults(): Record<string, number>;
+   }
+   ```
+
+2. **Parameter System**
+   ```typescript
+   interface Parameter {
+     name: string;         // Parameter identifier
+     label: string;        // Display name
+     min: number;          // Minimum value
+     max: number;          // Maximum value
+     step: number;         // Value increment
+     default: number;      // Default value
+     unit?: string;        // Optional unit (Hz, m, etc.)
+     description?: string; // Parameter description
+   }
+   ```
+
+3. **Validation System**
+   - Unit-aware validation
+   - Step size enforcement
+   - Range checking
+   - Error messaging
+   - Floating-point handling
+
+### In Progress 🚧
+
+1. **Random Walk Behavior**
+   ```typescript
+   interface RandomWalkParameters {
+     stepSize: number;     // Maximum step size
+     interval: number;     // Time between steps
+     bounds: {            // Movement boundaries
+       min: Position;
+       max: Position;
+     };
+   }
+   ```
+   - Status: Design phase
+   - Planned features:
+     * Configurable step size
+     * Boundary constraints
+     * Direction bias
+     * Speed control
+
+2. **Spiral Behavior**
+   ```typescript
+   interface SpiralParameters {
+     frequency: number;    // Rotation frequency
+     growth: number;       // Radius growth rate
+     maxRadius: number;    // Maximum radius
+     plane: 'xy' | 'xz' | 'yz';
+   }
+   ```
+   - Status: Design phase
+   - Features planned:
+     * Configurable growth rate
+     * Maximum radius limit
+     * Plane selection
+     * Direction control
+
+3. **Figure-8 Behavior**
+   ```typescript
+   interface Figure8Parameters {
+     frequency: number;    // Cycle frequency
+     width: number;       // Pattern width
+     height: number;      // Pattern height
+     plane: 'xy' | 'xz' | 'yz';
+   }
+   ```
+   - Status: Planning
+   - Features planned:
+     * Size control
+     * Orientation options
+     * Speed adjustment
+     * Position offset
+
+### Planned Behaviors 📋
+
+1. **3D Behaviors**
+   - Spherical Motion
+   - Helix Pattern
+   - 3D Lissajous
+   - Complex Orbits
+
+2. **Composite Behaviors**
+   - Behavior Chaining
+   - Parallel Behaviors
+   - Behavior Blending
+   - Transition Control
+
+3. **Custom Behaviors**
+   - Path Recording
+   - Custom Function Input
+   - Behavior Scripting
+   - Parameter Automation
+
+### Implementation Patterns 🎯
+
+1. **Behavior Registration**
+   ```typescript
+   class BehaviorRegistry {
+     private behaviors: Map<string, BehaviorConstructor>;
+     
+     register(name: string, behavior: BehaviorConstructor) {
+       this.behaviors.set(name, behavior);
+     }
+     
+     create(name: string, params: Record<string, number>): BaseBehavior {
+       const BehaviorClass = this.behaviors.get(name);
+       return new BehaviorClass(params);
+     }
+   }
+   ```
+
+2. **Parameter Updates**
+   ```typescript
+   class BehaviorManager {
+     updateParameter(
+       behaviorId: string, 
+       param: string, 
+       value: number
+     ): ValidationResult {
+       const behavior = this.behaviors.get(behaviorId);
+       const result = behavior.validate({ [param]: value });
+       if (result.isValid) {
+         behavior.setParameter(param, value);
+       }
+       return result;
+     }
+   }
+   ```
+
+3. **Position Calculation**
+   ```typescript
+   interface Position {
+     x?: number;
+     y?: number;
+     z?: number;
+     azimuth?: number;
+     elevation?: number;
+     distance?: number;
+   }
+   
+   class PositionCalculator {
+     static toAED(xyz: Position): Position {
+       // Convert XYZ to AED coordinates
+     }
+     
+     static toXYZ(aed: Position): Position {
+       // Convert AED to XYZ coordinates
+     }
+   }
+   ```
+
+### Testing Strategy 🧪
+
+1. **Behavior Tests**
+   - Parameter validation
+   - Position calculation
+   - Coordinate conversion
+   - Edge cases
+
+2. **Integration Tests**
+   - Behavior switching
+   - Parameter updates
+   - Position output
+   - Error handling
+
+3. **Performance Tests**
+   - Calculation speed
+   - Memory usage
+   - Update frequency
+   - Multiple behaviors
+
 ## Security Considerations
 1. Input validation
    - Message format
@@ -530,3 +774,20 @@ npm run make
    - User input
    - Message content
    - File operations
+
+## Resources 📖
+
+1. **Documentation**
+   - [Component Documentation](./components/)
+   - [OSC Protocol](./HOLOPHONIX_OSC.md)
+   - API References
+
+2. **External Links**
+   - [Electron Documentation](https://www.electronjs.org/docs)
+   - [React Documentation](https://reactjs.org/docs)
+   - [TypeScript Documentation](https://www.typescriptlang.org/docs)
+
+3. **Tools**
+   - [Node OSC](https://www.npmjs.com/package/osc)
+   - [Material-UI](https://mui.com/)
+   - [Testing Library](https://testing-library.com/)

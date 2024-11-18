@@ -3,12 +3,14 @@ import { TrackList } from './TrackList';
 import { OSCConnection } from './OSCConnection';
 import { Settings } from './Settings';
 import { GearIcon } from './icons/Gear';
-import { EraserIcon } from './icons/Eraser'; // Import EraserIcon
+import { EraserIcon } from './icons/Eraser';
 import { OSCLogger } from './OSCLogger';
 import { BehaviorList } from './BehaviorList';
+import { ParameterSection } from './ParameterSection';
 import type { Track, Behavior } from '../types/behaviors';
 import type { Settings as AppSettings } from '../types/settings';
 import type { OSCMessage } from '../types/osc';
+import type { ParameterValidationError } from '../types/parameters';
 import { defaultSettings } from '../types/settings';
 import '../types/electron'; // Import electron types
 
@@ -29,6 +31,7 @@ interface Message {
 export const App: React.FC = () => {
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [selectedBehavior, setSelectedBehavior] = useState<Behavior | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ParameterValidationError[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [isFooterCollapsed, setIsFooterCollapsed] = useState(false);
@@ -203,27 +206,10 @@ export const App: React.FC = () => {
           />
         </div>
         <div className="parameters-section">
-          {selectedBehavior ? (
-            <div className="behavior-parameters">
-              <h3>{selectedBehavior.name}</h3>
-              <div className="parameters">
-                {Object.entries(selectedBehavior.parameters).map(([key, value]) => (
-                  <div key={key} className="parameter">
-                    <label>{key}:</label>
-                    <input
-                      type="number"
-                      value={value}
-                      onChange={() => {/* TODO */}}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="no-selection">
-              Select a behavior to edit parameters
-            </div>
-          )}
+          <ParameterSection
+            selectedBehavior={selectedBehavior}
+            onValidationErrors={setValidationErrors}
+          />
         </div>
       </main>
 

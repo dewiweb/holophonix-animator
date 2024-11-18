@@ -1,34 +1,71 @@
 import { BaseBehavior } from '../base';
-import type { Position } from '../../types/behaviors';
+import { Position } from '../../types/behaviors';
+import { ParameterDefinitions } from '../../types/parameters';
+
+const CIRCULAR_PARAMETERS: ParameterDefinitions = {
+    speed: {
+        min: 0.01,
+        max: 10,
+        default: 1,
+        step: 0.01,
+        unit: 'hertz',
+        description: 'Rotation speed in Hz'
+    },
+    radius: {
+        min: 0,
+        max: 100,
+        default: 10,
+        step: 1,
+        unit: 'meters',
+        description: 'Circle radius'
+    },
+    centerX: {
+        min: -100,
+        max: 100,
+        default: 0,
+        step: 1,
+        unit: 'meters',
+        description: 'Center X position'
+    },
+    centerY: {
+        min: -100,
+        max: 100,
+        default: 0,
+        step: 1,
+        unit: 'meters',
+        description: 'Center Y position'
+    },
+    phase: {
+        min: 0,
+        max: 360,
+        default: 0,
+        step: 1,
+        unit: 'degrees',
+        description: 'Starting angle in degrees'
+    }
+};
 
 export class CircularBehavior extends BaseBehavior {
-    constructor(params: Record<string, number>, plane: 'xy' | 'xz' | 'yz' = 'xy') {
-        super(params);
-        this.parameters.plane = plane === 'xy' ? 0 : plane === 'xz' ? 1 : 2;
+    constructor() {
+        super(CIRCULAR_PARAMETERS, false);
     }
 
-    update(time: number): Position {
-        const t = this.getElapsedTime(time);
-        const { radius, speed, plane } = this.parameters;
-        const angle = speed * t;
+    update(deltaTime: number): Position {
+        const params = this.getParameters();
+        const elapsedTime = this.getElapsedTime(deltaTime);
         
-        const position = { x: 0, y: 0, z: 0 };
+        // Convert phase from degrees to radians and calculate current angle
+        const phaseRadians = (params.phase * Math.PI) / 180;
+        const angle = 2 * Math.PI * params.speed * elapsedTime + phaseRadians;
         
-        switch (plane) {
-            case 0: // XY plane
-                position.x = radius * Math.cos(angle);
-                position.y = radius * Math.sin(angle);
-                break;
-            case 1: // XZ plane
-                position.x = radius * Math.cos(angle);
-                position.z = radius * Math.sin(angle);
-                break;
-            case 2: // YZ plane
-                position.y = radius * Math.cos(angle);
-                position.z = radius * Math.sin(angle);
-                break;
-        }
+        // Calculate position on circle
+        const x = params.centerX + params.radius * Math.cos(angle);
+        const y = params.centerY + params.radius * Math.sin(angle);
 
-        return position;
+        return {
+            x,
+            y,
+            z: 0
+        };
     }
 }
