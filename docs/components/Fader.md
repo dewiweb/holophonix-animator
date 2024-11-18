@@ -145,6 +145,16 @@ Error messages are displayed below the component and trigger the `onValidationEr
    - Provide tooltips for complex parameters
    - Ensure keyboard navigation works
 
+## Related Documentation 📚
+
+- [Development Guide](../development/README.md)
+- [Behavior System Architecture](../architecture/behavior-system.md)
+- [OSC Protocol Reference](../reference/osc.md)
+
+## Usage in the Behavior System
+
+The Fader component is primarily used for controlling behavior parameters. For more information about how behaviors are implemented, see the [Behavior System Architecture](../architecture/behavior-system.md).
+
 ## Related Components
 
 - `ParameterEditor`: Parent component managing parameter state

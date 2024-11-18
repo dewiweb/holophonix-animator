@@ -32,14 +32,6 @@ A cross-platform desktop application for creating and managing motion behaviors 
   - Real-time validation
   - Unit-aware inputs (Hz, meters)
 
-- **Parameter Types**
-  - Frequency control
-  - Amplitude/Range
-  - Position offsets
-  - Phase adjustments
-  - Plane selection
-  - Axis selection
-
 ### Track Management 👥
 - **Track Groups**
   ```
@@ -63,32 +55,43 @@ A cross-platform desktop application for creating and managing motion behaviors 
   - Distance: 0 to room size
 
 - **XYZ (Cartesian)**
-  - X: Left/Right
-  - Y: Front/Back
-  - Z: Up/Down
+  - X: Left/Right (-max to +max)
+  - Y: Front/Back (-max to +max)
+  - Z: Up/Down (-max to +max)
   - Automatic conversion
 
-## Technical Details 🛠
+## Documentation 📚
 
-### Architecture
+Comprehensive documentation is available in the `docs` directory:
+
+### Quick Links
+- [Development Guide](docs/development/README.md) - Setup and development workflow
+- [OSC Protocol Reference](docs/reference/osc.md) - Detailed OSC implementation
+- [Behavior System Architecture](docs/architecture/behavior-system.md) - Motion system design
+- [Component Documentation](docs/components/) - React component details
+  - [Fader Component](docs/components/Fader.md) - Parameter control component
+
+### Documentation Structure
+```
+docs/
+├── api/           # API documentation and specifications
+├── architecture/  # System architecture and design documents
+├── components/    # React component documentation
+├── development/   # Development guides and processes
+├── reference/     # Reference guides and documentation
+├── guides/        # User guides and tutorials
+├── examples/      # Code examples and use cases
+└── assets/        # Documentation assets
+```
+
+## Technical Stack 🛠
+
+### Core Technologies
 - **Frontend**: React + TypeScript
 - **Backend**: Electron
 - **Communication**: OSC over UDP
 - **UI Framework**: Material-UI
 - **State Management**: React Context
-
-### Key Components
-- **Behavior System**
-  - Base behavior class
-  - Parameter validation
-  - Position calculation
-  - Coordinate conversion
-
-- **Parameter System**
-  - Real-time validation
-  - Unit conversion
-  - Error handling
-  - Default values
 
 ### Project Structure
 ```
@@ -101,8 +104,6 @@ src/
 │       ├── sine.ts     # Sine wave motion
 │       └── circle.ts   # Circular motion
 ├── components/         # React components
-│   ├── Fader.tsx      # Parameter control
-│   └── ParameterEditor.tsx
 ├── types/             # TypeScript definitions
 └── utils/             # Helper functions
 ```
@@ -128,33 +129,26 @@ npm run dev   # or yarn dev
 ```
 
 ### Configuration
-- **OSC Settings**
-  ```typescript
-  {
-    "host": "127.0.0.1",  // Holophonix IP
-    "port": 8000,         // OSC port
-    "prefix": "/source"   // Message prefix
+Edit `config.json` to set up your environment:
+
+```json
+{
+  "network": {
+    "host": "127.0.0.1",  # Holophonix IP
+    "inputPort": 9000,    # Default input port
+    "outputPort": 12000   # Default output port
+  },
+  "defaults": {
+    "coordinateSystem": "aed",  # aed/xyz
+    "distanceUnit": "meters",   # meters/feet
+    "updateRate": 60           # Updates per second
   }
-  ```
-
-- **Default Values**
-  ```typescript
-  {
-    "coordinateSystem": "aed",  // aed/xyz
-    "distanceUnit": "meters",   // meters/feet
-    "updateRate": 60           // Updates per second
-  }
-  ```
-
-## Documentation 📚
-
-- [Development Documentation](docs/DEVELOPMENT.md)
-- [OSC Protocol Documentation](docs/HOLOPHONIX_OSC.md)
-- [Component Documentation](docs/components/)
+}
+```
 
 ## Contributing 🤝
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+We welcome contributions! Please see our [Development Guide](docs/development/README.md) for details on our development process and how to submit pull requests.
 
 ### Development Workflow
 1. Fork the repository

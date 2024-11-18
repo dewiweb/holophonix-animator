@@ -969,4 +969,309 @@ npm run make
    - Rotation handling
    - Boundary management
 
-{{ ... }}
+### Behavior System Implementation Plan 🗺️
+
+### Phase 1: Core Architecture Updates
+
+1. **Base Behavior Refactoring**
+   ```typescript
+   abstract class BaseBehavior {
+     abstract calculate(
+       time: number,
+       mode: BehaviorMode,
+       reference?: Position
+     ): Position | RelativePosition;
+
+     // Mode-specific parameter handling
+     protected abstract getDefaultsForMode(mode: BehaviorMode): Record<string, number>;
+     protected abstract validateForMode(
+       params: Record<string, number>,
+       mode: BehaviorMode
+     ): ValidationResult;
+   }
+   ```
+   - [ ] Add mode enumeration
+   - [ ] Update calculation interface
+   - [ ] Add reference position support
+   - [ ] Implement mode-specific validation
+
+2. **Position Types Enhancement**
+   ```typescript
+   interface Position {
+     x: number;
+     y: number;
+     z: number;
+     type: 'absolute';
+   }
+
+   interface RelativePosition {
+     deltaX: number;
+     deltaY: number;
+     deltaZ: number;
+     type: 'relative';
+   }
+
+   interface AEDPosition {
+     azimuth: number;
+     elevation: number;
+     distance: number;
+     type: 'absolute';
+   }
+
+   interface RelativeAEDPosition {
+     deltaAzimuth: number;
+     deltaElevation: number;
+     deltaDistance: number;
+     type: 'relative';
+   }
+   ```
+   - [ ] Update position interfaces
+   - [ ] Add type discrimination
+   - [ ] Implement conversion utilities
+   - [ ] Add validation helpers
+
+### Phase 2: Behavior Implementation Updates
+
+1. **Linear Behavior**
+   ```typescript
+   class LinearBehavior extends BaseBehavior {
+     calculate(time: number, mode: BehaviorMode, reference?: Position) {
+       const offset = this.calculateOffset(time);
+       
+       return mode === 'absolute'
+         ? this.getAbsolutePosition(offset, reference)
+         : this.getRelativePosition(offset);
+     }
+   }
+   ```
+   - [ ] Add mode support
+   - [ ] Implement reference handling
+   - [ ] Update parameter validation
+   - [ ] Add mode-specific defaults
+
+2. **Sine Wave Behavior**
+   ```typescript
+   class SineWaveBehavior extends BaseBehavior {
+     calculate(time: number, mode: BehaviorMode, reference?: Position) {
+       const wave = this.calculateWave(time);
+       
+       return mode === 'absolute'
+         ? this.getAbsolutePosition(wave, reference)
+         : this.getRelativePosition(wave);
+     }
+   }
+   ```
+   - [ ] Add mode support
+   - [ ] Implement wave calculations
+   - [ ] Add phase handling
+   - [ ] Update parameter validation
+
+3. **Circle Behavior**
+   ```typescript
+   class CircleBehavior extends BaseBehavior {
+     calculate(time: number, mode: BehaviorMode, reference?: Position) {
+       const angle = this.calculateAngle(time);
+       
+       return mode === 'absolute'
+         ? this.getAbsoluteCirclePosition(angle, reference)
+         : this.getRelativeCirclePosition(angle);
+     }
+   }
+   ```
+   - [ ] Add mode support
+   - [ ] Update circle calculations
+   - [ ] Add center point handling
+   - [ ] Implement radius scaling
+
+### Phase 3: Group Behavior Implementation
+
+1. **Leader/Follower Manager**
+   ```typescript
+   class LeaderFollowerManager {
+     private leader: TrackBehavior;
+     private followers: Map<number, FollowerConfig>;
+     
+     update(time: number): Map<number, Position> {
+       const leaderPos = this.updateLeader(time);
+       return this.updateFollowers(time, leaderPos);
+     }
+   }
+   ```
+   - [ ] Create manager class
+   - [ ] Implement leader tracking
+   - [ ] Add follower management
+   - [ ] Add constraint handling
+
+2. **Isobarycentric Manager**
+   ```typescript
+   class IsobarycentricManager {
+     private tracks: Map<number, Position>;
+     private center: Position;
+     
+     update(time: number): Map<number, Position> {
+       this.updateCenter(time);
+       return this.updateFormation(time);
+     }
+   }
+   ```
+   - [ ] Create manager class
+   - [ ] Implement center calculation
+   - [ ] Add formation management
+   - [ ] Add scaling support
+
+3. **Group State Management**
+   ```typescript
+   class GroupStateManager {
+     private groups: Map<string, GroupBehaviorManager>;
+     
+     updateGroup(
+       groupId: string,
+       time: number
+     ): Map<number, Position> {
+       const group = this.groups.get(groupId);
+       return group.update(time);
+     }
+   }
+   ```
+   - [ ] Create state manager
+   - [ ] Add group registration
+   - [ ] Implement state persistence
+   - [ ] Add group transitions
+
+### Phase 4: Coordinate System Integration
+
+1. **Position Transformer**
+   ```typescript
+   class PositionTransformer {
+     static toAED(pos: Position): AEDPosition;
+     static toXYZ(pos: AEDPosition): Position;
+     static transformRelative(
+       delta: RelativePosition,
+       from: CoordinateSystem,
+       to: CoordinateSystem
+     ): RelativePosition;
+   }
+   ```
+   - [ ] Implement coordinate conversion
+   - [ ] Add relative transformations
+   - [ ] Handle boundary cases
+   - [ ] Add precision control
+
+2. **Validation System**
+   ```typescript
+   class PositionValidator {
+     validateBounds(pos: Position): ValidationResult;
+     validateRelativeMotion(
+       delta: RelativePosition,
+       current: Position
+     ): ValidationResult;
+   }
+   ```
+   - [ ] Add position validation
+   - [ ] Implement boundary checking
+   - [ ] Add motion constraints
+   - [ ] Handle coordinate limits
+
+### Phase 5: Testing and Integration
+
+1. **Unit Tests**
+   ```typescript
+   describe('BaseBehavior', () => {
+     test('supports absolute mode', () => {});
+     test('supports relative mode', () => {});
+     test('handles reference positions', () => {});
+     test('validates parameters by mode', () => {});
+   });
+   ```
+   - [ ] Test base behavior
+   - [ ] Test implementations
+   - [ ] Test group managers
+   - [ ] Test coordinate conversion
+
+2. **Integration Tests**
+   ```typescript
+   describe('GroupBehavior', () => {
+     test('leader-follower formation', () => {});
+     test('isobarycentric movement', () => {});
+     test('group transitions', () => {});
+     test('coordinate transformations', () => {});
+   });
+   ```
+   - [ ] Test group operations
+   - [ ] Test mode switching
+   - [ ] Test complex scenarios
+   - [ ] Test error handling
+
+### Implementation Timeline
+
+1. **Week 1: Core Architecture**
+   - Base behavior refactoring
+   - Position types
+   - Validation system
+
+2. **Week 2: Behavior Updates**
+   - Linear behavior
+   - Sine wave behavior
+   - Circle behavior
+
+3. **Week 3: Group System**
+   - Leader/follower manager
+   - Isobarycentric manager
+   - State management
+
+4. **Week 4: Integration**
+   - Coordinate system
+   - Testing
+   - Documentation
+   - Performance optimization
+
+### Success Criteria
+
+1. **Functionality**
+   - All behaviors support both modes
+   - Group operations work correctly
+   - Coordinate transformations are precise
+   - Parameter validation is comprehensive
+
+2. **Performance**
+   - Smooth real-time updates
+   - Efficient group calculations
+   - Low memory overhead
+   - Quick mode switching
+
+3. **Reliability**
+   - Comprehensive error handling
+   - Predictable behavior
+   - Safe coordinate conversion
+   - Stable group operations
+
+4. **Maintainability**
+   - Clear documentation
+   - Type safety
+   - Test coverage
+   - Code organization
+
+## Behavior System Updates
+
+The behavior system is undergoing a major update to support absolute/relative modes and advanced group operations. See [BEHAVIOR_SYSTEM_PLAN.md](../reference/behavior-system-plan.md) for the detailed implementation plan.
+
+Key improvements include:
+1. Support for absolute and relative modes
+2. Advanced group operations:
+   - Leader/Follower mode
+   - Isobarycentric mode
+3. Enhanced coordinate system handling
+4. Improved parameter validation
+
+## Related Documentation 📚
+
+- [OSC Protocol Reference](../reference/osc.md)
+- [Behavior System Architecture](../architecture/behavior-system.md)
+- [Component Documentation](../components/)
+  - [Fader Component](../components/Fader.md)
+
+### OSC Communication
+For detailed information about OSC implementation, see the [OSC Protocol Reference](../reference/osc.md).
+
+### Behavior System
+For detailed information about the behavior system architecture, see the [Behavior System Architecture](../architecture/behavior-system.md).
