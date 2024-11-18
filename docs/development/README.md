@@ -66,20 +66,26 @@
    - [ ] Create track behavior preview
 
 3. **Behavior System**
-   - [ ] Modular Behavior Architecture
-     * Plugin-based behavior system
-     * Standard behavior interface/contract
-     * Behavior composition utilities
-     * Documentation for behavior development
-     * Hot-reloading of custom behaviors
-     * Behavior testing framework
-   - [ ] Core Behavior Components
-     * Parameter validation system
-     * Real-time parameter updates
-     * Behavior composition
-     * Timeline integration
-     * Transition handling
-     * Behavior preview system
+   - [x] Modular Behavior Architecture
+     * [x] Standard behavior interface/contract
+     * [x] Behavior composition utilities
+     * [x] Documentation for behavior development
+     * [ ] Hot-reloading of custom behaviors
+     * [ ] Behavior testing framework
+   - [x] Core Behavior Components
+     * [x] Parameter validation system
+     * [x] Real-time parameter updates
+     * [x] Behavior composition
+     * [x] Timeline integration
+     * [x] Transition handling
+     * [ ] Behavior preview system
+   - [x] Linear Behavior Implementation
+     * [x] XYZ coordinate support
+     * [x] AED coordinate support
+     * [x] Center offset support
+     * [x] Range-based motion
+     * [x] Dynamic parameter updates
+     * [x] Comprehensive testing
    - [ ] Track state restoration
      * Query initial track states from Holophonix on track addition
      * Store queried positions, colors, gains
@@ -331,29 +337,169 @@ yarn build
 ## Development Guidelines
 
 ### Code Organization
-- Component-based architecture
-- Separate style files per component
-- TypeScript for type safety
-- Consistent naming conventions
+1. Clear separation of concerns
+2. Type-safe props and state
+3. Proper event handling
+4. Consistent error handling
+5. Loading state management
+
+### Styling Approach
+1. CSS modules for component styles
+2. Theme variables for consistency
+3. Responsive design considerations
+4. Animation for state changes
+5. Accessible color contrast
 
 ### State Management
-- React hooks for local state
-- Props for component communication
-- Event-driven OSC message handling
-- Centralized error management
+1. React hooks for local state
+2. Electron IPC for process communication
+3. Settings persistence
+4. Error state handling
+5. Loading state management
 
-### Styling Principles
-- CSS modules for component styles
-- Global styles for common elements
-- CSS Grid and Flexbox for layout
-- CSS variables for theme colors
+## Testing
 
-### Best Practices
-- TypeScript for type safety
-- React functional components
-- Proper event cleanup
-- Performance optimization
-- Error boundary implementation
+### Areas to Cover
+1. Connection handling
+   - Connection establishment
+   - Error scenarios
+   - Recovery mechanisms
+   - Timeout handling
+2. Message processing
+   - Format validation
+   - Rate limiting
+   - Batch processing
+   - Error handling
+3. UI state management
+   - Component states
+   - Loading states
+   - Error states
+   - Animation states
+4. Track system
+   - Track operations
+   - Group handling
+   - Drag and drop
+   - Performance
+5. Behavior system
+   - Behavior creation
+   - Behavior application
+   - Behavior composition
+   - Plugin system
+
+## OSC Communication
+
+### Connection Management
+- UDP communication
+- Configurable ports and addresses
+- Connection status monitoring
+- Error handling and recovery
+
+### Message Format
+- Standard OSC message structure
+- JSON serialization for complex data
+- Validation and error checking
+- Rate limiting implementation
+
+## Building and Deployment
+
+### Development
+```bash
+npm install
+npm run dev
+```
+
+### Production Build
+```bash
+npm run build
+npm run make
+```
+
+### Environment Setup
+- Node.js v22.1.0+
+- npm or yarn
+- Electron development tools
+
+## Future Enhancements
+1. Advanced error handling system
+2. Enhanced OSC message queuing
+3. Performance optimization
+4. Additional behavior templates
+5. User preferences storage
+6. Multi-language support
+
+## Known Issues & Future Improvements
+
+### Resolved
+1. ✅ OSC connection form visibility during loading
+2. ✅ Direction arrow colors and visibility
+3. ✅ Message layout consistency
+4. ✅ Connection state handling
+5. ✅ Loading state feedback
+6. ✅ OSC message logging system
+7. ✅ Bidirectional communication
+8. ✅ Message format validation
+9. ✅ Basic error reporting
+
+### Pending
+1. Add comprehensive error messages
+2. Implement connection timeout handling
+3. Add connection retry mechanism
+4. Enhance message filtering
+   - Advanced filter patterns
+   - Filter by message type
+   - Filter by direction
+5. Add message search functionality
+   - Full-text search
+   - Regular expression support
+   - Search history
+6. Implement message grouping
+   - Group by address pattern
+   - Group by time window
+   - Collapsible groups
+7. Add message export feature
+   - Export to JSON
+   - Export to CSV
+   - Custom format support
+8. Improve performance for large message logs
+   - Virtual scrolling
+   - Message batching
+   - Efficient rendering
+9. Track System Improvements
+   - Keyboard shortcuts
+   - Multi-select functionality
+   - Track search and filtering
+   - Track color persistence
+   - Track position visualization
+   - Track behavior preview
+10. Behavior System
+    - Modular behavior architecture
+    - Plugin-based system
+    - Standard behavior interface
+    - Behavior composition
+    - Visual behavior editor
+
+## Development Guidelines
+
+### Component Structure
+1. Clear separation of concerns
+2. Type-safe props and state
+3. Proper event handling
+4. Consistent error handling
+5. Loading state management
+
+### Styling Approach
+1. CSS modules for component styles
+2. Theme variables for consistency
+3. Responsive design considerations
+4. Animation for state changes
+5. Accessible color contrast
+
+### State Management
+1. React hooks for local state
+2. Electron IPC for process communication
+3. Settings persistence
+4. Error state handling
+5. Loading state management
 
 ## OSC Communication
 
@@ -512,6 +658,20 @@ npm run make
    - Behavior application
    - Behavior composition
    - Plugin system
+
+## OSC Communication
+
+### Connection Management
+- UDP communication
+- Configurable ports and addresses
+- Connection status monitoring
+- Error handling and recovery
+
+### Message Format
+- Standard OSC message structure
+- JSON serialization for complex data
+- Validation and error checking
+- Rate limiting implementation
 
 ## Behavior System Implementation 🔄
 

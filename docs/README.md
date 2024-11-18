@@ -12,9 +12,13 @@ docs/
 ├── components/    # React component documentation
 │   └── Fader.md  # Fader component documentation
 ├── development/   # Development guides and processes
-│   └── README.md # Main development documentation
+│   ├── README.md # Main development documentation
+│   └── ROADMAP.md # Development roadmap and status
 ├── reference/     # Reference guides and detailed documentation
 │   └── osc.md    # OSC protocol reference
+├── POSITION_SYSTEM.md      # Position system documentation
+├── GROUP_BEHAVIOR_MIGRATION.md  # Group behavior migration guide
+├── MIGRATION_GUIDE.md      # General migration guide
 ├── guides/        # User guides and tutorials
 ├── examples/      # Code examples and use cases
 └── assets/        # Documentation assets
@@ -28,6 +32,7 @@ docs/
 
 ### Development
 - [Development Guide](development/README.md) - Development setup and processes
+- [Development Roadmap](development/ROADMAP.md) - Development roadmap and status
 
 ### Reference Documentation
 - [OSC Protocol Reference](reference/osc.md) - Comprehensive guide to the OSC protocol implementation
