@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Simple Mermaid Viewer</title>
+    <title>Architecture Diagram Viewer</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
     <style>
         body {
@@ -10,32 +10,41 @@
             color: #f5f5f5;
             font-family: Arial, sans-serif;
             margin: 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
         }
         .controls {
             margin-bottom: 20px;
             display: flex;
             gap: 10px;
             align-items: center;
+            background-color: #2d2d2d;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
-        .diagram {
+        .diagram-container {
+            flex: 1;
             background-color: #2d2d2d;
             padding: 20px;
             border-radius: 8px;
-            margin-top: 20px;
             overflow: auto;
-            transition: transform 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         select, button {
-            background-color: #4a4a4a;
+            background-color: #3d3d3d;
             color: #f5f5f5;
-            border: none;
+            border: 1px solid #4a4a4a;
             padding: 8px 16px;
             border-radius: 4px;
             font-size: 16px;
             cursor: pointer;
+            transition: all 0.2s ease;
         }
         button:hover, select:hover {
-            background-color: #666;
+            background-color: #4a4a4a;
+            border-color: #666;
         }
         .zoom-controls {
             display: flex;
@@ -49,16 +58,20 @@
             background-color: rgba(255, 107, 107, 0.1);
             display: none;
         }
+        #diagram {
+            transition: transform 0.2s ease;
+            transform-origin: top left;
+        }
     </style>
 </head>
 <body>
     <div class="controls">
         <select id="diagramSelect" onchange="loadDiagram()">
             <option value="">Select a diagram</option>
-            <option value="osc-flow.mmd">OSC Flow</option>
-            <option value="state-storage-behavior.mmd">State Storage Behavior</option>
-            <option value="target-architecture.mmd">Target Architecture</option>
-            
+            <option value="actual-state-architecture.mmd">actual-state-architecture.mmd (Current State)</option>
+            <option value="target-state-architecture.mmd">target-state-architecture.mmd (Future State)</option>
+            <option value="osc-flow.mmd">osc-flow.mmd (OSC Flow)</option>
+            <option value="state-storage-behavior.mmd">state-storage-behavior.mmd (State Storage)</option>
         </select>
         <div class="zoom-controls">
             <button onclick="zoomIn()">Zoom In</button>
@@ -68,7 +81,9 @@
     </div>
 
     <div id="error"></div>
-    <div id="diagram" class="diagram"></div>
+    <div class="diagram-container">
+        <div id="diagram"></div>
+    </div>
 
     <script>
         let scale = 1;
@@ -78,16 +93,16 @@
         mermaid.initialize({
             theme: 'dark',
             themeVariables: {
+                'primaryColor': '#2d2d2d',
+                'primaryTextColor': '#fff',
+                'primaryBorderColor': '#4a4a4a',
+                'lineColor': '#a7a7a7',
+                'secondaryColor': '#2d2d2d',
+                'tertiaryColor': '#2d2d2d',
                 'fontSize': '16px',
                 'fontFamily': 'arial'
             }
         });
-
-        const diagrams = {
-            'osc-flow.mmd': 'osc-flow.mmd',
-            'state-storage-behavior.mmd': 'state-storage-behavior.mmd',
-            'target-architecture.mmd': 'target-architecture.mmd'
-        };
 
         function showError(message) {
             errorDiv.textContent = message;
@@ -115,22 +130,32 @@
 
         function updateZoom() {
             diagram.style.transform = `scale(${scale})`;
-            diagram.style.transformOrigin = 'top left';
         }
 
         async function loadDiagram() {
             const select = document.getElementById('diagramSelect');
-            
+            const selectedFile = select.value;
+
+            if (!selectedFile) {
+                diagram.innerHTML = '<p>Please select a diagram</p>';
+                return;
+            }
+
             try {
-                const response = await fetch(diagrams[select.value]);
-                const content = await response.text();
-                diagram.innerHTML = '<pre class="mermaid">' + content + '</pre>';
-                resetZoom();
-                await mermaid.init(undefined, '.mermaid');
                 hideError();
+                // Add timestamp to prevent caching
+                const response = await fetch(selectedFile + '?t=' + new Date().getTime());
+                if (!response.ok) throw new Error('Failed to load diagram');
+                const mmdContent = await response.text();
+                
+                try {
+                    const { svg } = await mermaid.render('diagram-svg', mmdContent);
+                    diagram.innerHTML = svg;
+                } catch (renderError) {
+                    showError('Failed to render diagram: ' + renderError.message);
+                }
             } catch (error) {
-                console.error('Error loading diagram:', error);
-                showError('Error loading diagram: ' + error.message);
+                showError('Failed to load diagram: ' + error.message);
             }
         }
 

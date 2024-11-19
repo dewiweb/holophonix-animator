@@ -1,0 +1,159 @@
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'primaryColor': '#2d2d2d',
+    'primaryTextColor': '#fff',
+    'primaryBorderColor': '#4a4a4a',
+    'lineColor': '#a7a7a7',
+    'secondaryColor': '#2d2d2d',
+    'tertiaryColor': '#2d2d2d',
+    'fontSize': '16px',
+    'fontFamily': 'arial'
+  }
+}}%%
+graph TB
+    subgraph External["External Systems"]
+        HolophonixDevice["Holophonix Device\n(OSC Protocol)"]
+        FileSystem["File System\n(Project Files)"]
+        
+        subgraph ExternalControl["External Control"]
+            DAW["DAW\n(Ableton, Reaper)"]
+            CustomApp["Custom Applications"]
+            ShowControl["Show Control Systems"]
+        end
+    end
+
+    subgraph MainProcess["Main Process (Electron)"]
+        direction LR
+        subgraph MainServices["Main Services"]
+            OSCService["OSC Service\n(UDP Communication)"]
+            SettingsService["Settings Service"]
+            IPCMain["IPC Main Bridge"]
+
+            subgraph OSCServer["OSC Server"]
+                OSCListener["OSC Listener"]
+                OSCRouter["OSC Router"]
+                OSCValidator["OSC Validator"]
+            end
+        end
+        
+        subgraph RustBackend["Rust Backend"]
+            direction LR
+            subgraph StateManager["State Management"]
+                QueryManager["Query Manager\n(Rust)"]
+                StateStore["State Store\n(Rust)"]
+                TimeoutManager["Timeout Manager"]
+                CommandProcessor["Command Processor"]
+            end
+
+            subgraph CoreEngine["Core Engine"]
+                TimeSync["Time\nSync"]
+                BehaviorEngine["Behavior Engine"]
+                PositionEngine["Position Engine"]
+                AutomationEngine["Automation Engine"]
+            end
+            
+            subgraph ComputationLayer["Computation Layer"]
+                OSCCompute["OSC Message\nComputation"]
+                Interpolator["Parameter\nInterpolation"]
+                ExternalSync["External Sync"]
+            end
+        end
+    end
+
+    subgraph Frontend["React Frontend"]
+        direction LR
+        subgraph ReactCore["React Architecture"]
+            Providers["Context Providers"]
+            CustomHooks["Custom Hooks"]
+            HOCs["Higher-Order Components"]
+        end
+
+        subgraph Components["React Components"]
+            AppRoot["App Root"]
+            
+            subgraph Features["Feature Components"]
+                TrackManagement["Track Management"]
+                BehaviorFeature["Behavior Editor"]
+                ParameterFeature["Parameters Editor"]
+                RemoteControl["Remote Control Panel"]
+            end
+
+            subgraph Visualization["3D Visualization"]
+                ThreeScene["Three.js Scene"]
+                R3FComponents["React Three Fiber"]
+            end
+
+            SharedUI["Shared UI Components"]
+        end
+
+        subgraph StateManagement["React State"]
+            LocalState["Component State"]
+            GlobalState["Global State"]
+            EffectsLayer["Side Effects"]
+        end
+
+        subgraph Bridge["IPC Bridge"]
+            Preload["Preload Bridge"]
+            BridgeHooks["Bridge Hooks"]
+        end
+    end
+
+    %% External Control Flow
+    DAW --> |"OSC Commands"| OSCListener
+    CustomApp --> |"OSC Commands"| OSCListener
+    ShowControl --> |"OSC Commands"| OSCListener
+    
+    OSCListener --> OSCValidator
+    OSCValidator --> OSCRouter
+    OSCRouter --> CommandProcessor
+    CommandProcessor --> StateStore
+    CommandProcessor --> AutomationEngine
+    
+    AutomationEngine --> ExternalSync
+    ExternalSync --> OSCCompute
+
+    %% External Connections
+    HolophonixDevice <--> |"OSC"| OSCService
+    FileSystem <--> |"Config"| SettingsService
+
+    %% Main Process Flow
+    OSCService --> OSCCompute
+    TimeSync --> BehaviorEngine
+    BehaviorEngine --> PositionEngine
+    PositionEngine --> OSCCompute
+    Interpolator --> PositionEngine
+
+    %% IPC Communication
+    IPCMain <--> Preload
+    Preload --> BridgeHooks
+
+    %% React Data Flow
+    BridgeHooks --> GlobalState
+    GlobalState --> CustomHooks
+    CustomHooks --> Features
+    Providers --> Components
+    HOCs --> Features
+    SharedUI --> Features
+    Features --> LocalState
+    LocalState --> EffectsLayer
+    EffectsLayer --> BridgeHooks
+
+    %% Styles
+    classDef default fill:#2d2d2d,stroke:#4a4a4a,stroke-width:2px,color:#fff
+    classDef external fill:#1e1e1e,stroke:#ff5722,stroke-width:2px,color:#fff
+    classDef mainProcess fill:#1e1e1e,stroke:#2196f3,stroke-width:2px,color:#fff
+    classDef rustBackend fill:#1e1e1e,stroke:#dea584,stroke-width:2px,color:#fff
+    classDef frontend fill:#1e1e1e,stroke:#4caf50,stroke-width:2px,color:#fff
+    classDef react fill:#262626,stroke:#61dafb,stroke-width:2px,color:#fff
+    classDef components fill:#262626,stroke:#3f51b5,stroke-width:2px,color:#fff
+    classDef osc fill:#262626,stroke:#ffd700,stroke-width:2px,color:#fff
+
+    %% Apply styles
+    class External,ExternalControl external
+    class MainProcess,MainServices mainProcess
+    class RustBackend,CoreEngine,ComputationLayer,StateManager rustBackend
+    class Frontend frontend
+    class ReactCore,StateManagement react
+    class Components,Features,Visualization components
+    class OSCServer,OSCListener,OSCRouter,OSCValidator osc
