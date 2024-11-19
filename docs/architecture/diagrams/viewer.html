@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Mermaid Diagram Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #f5f5f5;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        #diagram {
+            max-width: 100%;
+            overflow: auto;
+            background-color: #2d2d2d;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        button {
+            background-color: #4a4a4a;
+            color: #f5f5f5;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #666;
+        }
+        select {
+            background-color: #4a4a4a;
+            color: #f5f5f5;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        select:hover {
+            background-color: #666;
+        }
+        .diagram-container {
+            display: none;
+        }
+        .diagram-container.active {
+            display: block;
+        }
+        #error {
+            color: #ff6b6b;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: rgba(255, 107, 107, 0.1);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <select id="diagramSelect" onchange="switchDiagram()">
+            <option value="overview">Overview Flow</option>
+            <option value="osc">OSC Communication Flow</option>
+            <option value="architecture">Detailed Architecture</option>
+        </select>
+        <button onclick="zoomIn()">Zoom In</button>
+        <button onclick="zoomOut()">Zoom Out</button>
+        <button onclick="resetZoom()">Reset Zoom</button>
+    </div>
+
+    <div id="error"></div>
+
+    <div id="overview" class="diagram-container active">
+        <pre class="mermaid">
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'fontSize': '16px',
+    'fontFamily': 'arial',
+    'lineWidth': '2px',
+    'arrowMarkerAbsolute': true,
+    'darkMode': true,
+    'primaryColor': '#fff',
+    'primaryTextColor': '#fff',
+    'primaryBorderColor': '#fff',
+    'lineColor': '#f5f5f5',
+    'textColor': '#f5f5f5'
+  },
+  'flowchart': {
+    'nodeSpacing': 50,
+    'rankSpacing': 100,
+    'curve': 'basis'
+  }
+} }%%
+
+graph LR
+    %% Input Sources
+    subgraph IN["Inputs"]
+        direction TB
+        UI["User Interface<br/>Controls"]
+        IMPORT["Import Sources<br/>- Animation Files<br/>- Scene Presets<br/>- Object Paths"]
+        TIME["Timeline Events<br/>- Keyframes<br/>- Triggers<br/>- Schedules"]
+    end
+
+    %% Core Processing
+    subgraph CORE["Holophonix Animator"]
+        direction TB
+        
+        subgraph EDIT["Editor Functions"]
+            direction LR
+            PATH["Path Creation<br/>& Editing"]
+            SCENE["Scene<br/>Management"]
+            PREVIEW["3D Preview<br/>& Simulation"]
+        end
+        
+        subgraph ENGINE["Animation Engine"]
+            direction LR
+            CALC["Real-time<br/>Calculations"]
+            INTERP["Interpolation<br/>& Smoothing"]
+            SYNC["Timing<br/>Synchronization"]
+        end
+        
+        subgraph CORE_FEATURES["Core Features"]
+            direction TB
+            RECORD["Recording<br/>& Playback"]
+            LIVE["Live Mode<br/>Control"]
+            BATCH["Batch<br/>Processing"]
+        end
+    end
+
+    %% Outputs
+    subgraph OUT["Outputs"]
+        direction TB
+        OSC["OSC Messages<br/>- Position Data<br/>- Control Commands"]
+        EXPORT["Export Formats<br/>- Animation Files<br/>- Scene Configs"]
+        VIS["Visualization<br/>- 3D Preview<br/>- Timeline View"]
+    end
+
+    %% Connections
+    UI --> PATH & SCENE
+    IMPORT --> SCENE
+    TIME --> SYNC
+    
+    PATH --> CALC
+    SCENE --> PREVIEW
+    PREVIEW --> VIS
+    
+    CALC --> INTERP
+    INTERP --> SYNC
+    SYNC --> OSC & RECORD
+    
+    RECORD --> EXPORT
+    LIVE --> OSC
+    BATCH --> EXPORT
+
+    %% Styling
+    classDef default fill:#2d2d2d,stroke:#f5f5f5,stroke-width:1px,color:#f5f5f5
+    classDef input fill:#2d2d2d,stroke:#81c784,stroke-width:3px,color:#f5f5f5
+    classDef process fill:#2d2d2d,stroke:#64b5f6,stroke-width:3px,color:#f5f5f5
+    classDef output fill:#2d2d2d,stroke:#ff4081,stroke-width:3px,color:#f5f5f5
+    classDef core fill:#2d2d2d,stroke:#ba68c8,stroke-width:4px,color:#f5f5f5
+    
+    class UI,IMPORT,TIME input
+    class PATH,SCENE,PREVIEW,CALC,INTERP,SYNC process
+    class OSC,EXPORT,VIS output
+    class RECORD,LIVE,BATCH core
+    
+    %% Subgraph styling
+    style IN fill:#1a1a1a,stroke:#81c784,stroke-width:2px,color:#f5f5f5
+    style CORE fill:#262626,stroke:#ba68c8,stroke-width:2px,color:#f5f5f5
+    style OUT fill:#1a1a1a,stroke:#ff4081,stroke-width:2px,color:#f5f5f5
+        </pre>
+    </div>
+
+    <div id="osc" class="diagram-container">
+        <pre class="mermaid">
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'fontSize': '16px',
+    'fontFamily': 'arial',
+    'lineWidth': '2px',
+    'arrowMarkerAbsolute': true,
+    'darkMode': true,
+    'primaryColor': '#fff',
+    'primaryTextColor': '#fff',
+    'primaryBorderColor': '#fff',
+    'lineColor': '#f5f5f5',
+    'textColor': '#f5f5f5'
+  },
+  'flowchart': {
+    'nodeSpacing': 50,
+    'rankSpacing': 100,
+    'curve': 'basis'
+  }
+} }%%
+
+graph LR
+    %% Input OSC Messages
+    subgraph IN["Incoming OSC"]
+        direction TB
+        STATUS["Device Status<br/>- Connection State<br/>- Current Positions<br/>- System Health"]
+        FEEDBACK["Position Feedback<br/>- Object Positions<br/>- Movement Status<br/>- Execution State"]
+        SYNC_IN["Sync Messages<br/>- Clock Sync<br/>- Timeline Position<br/>- External Triggers"]
+    end
+
+    %% Core Application
+    subgraph APP["Holophonix Animator"]
+        direction TB
+        
+        subgraph HANDLERS["OSC Handlers"]
+            direction LR
+            ROUTER["Message Router"]
+            PARSER["Message Parser"]
+            VALIDATOR["Data Validator"]
+        end
+        
+        subgraph CORE["Core Processing"]
+            direction TB
+            STATE["State Management<br/>- Device Status<br/>- Object States"]
+            QUEUE["Command Queue<br/>- Movement Buffer<br/>- Priority Handling"]
+            SYNC_ENGINE["Sync Engine<br/>- Clock Sync<br/>- Timeline Sync"]
+        end
+        
+        subgraph GENERATORS["OSC Generators"]
+            direction LR
+            POS_GEN["Position Generator<br/>- Coordinate Calc<br/>- Path Interpolation"]
+            CMD_GEN["Command Generator<br/>- Device Control<br/>- System Config"]
+            SYNC_GEN["Sync Generator<br/>- Timing Control<br/>- Trigger Events"]
+        end
+    end
+
+    %% Output OSC Messages
+    subgraph OUT["Outgoing OSC"]
+        direction TB
+        POS_OUT["Position Commands<br/>- Target Positions<br/>- Movement Paths<br/>- Speed/Accel Data"]
+        CTRL_OUT["Control Commands<br/>- Device Config<br/>- System Settings<br/>- Operation Mode"]
+        SYNC_OUT["Sync Commands<br/>- Timeline Control<br/>- Trigger Events<br/>- Clock Sync"]
+    end
+
+    %% Connections - Incoming
+    STATUS --> ROUTER
+    FEEDBACK --> ROUTER
+    SYNC_IN --> ROUTER
+    
+    ROUTER --> PARSER
+    PARSER --> VALIDATOR
+    VALIDATOR --> STATE
+    
+    %% Connections - Core
+    STATE --> QUEUE
+    QUEUE --> POS_GEN
+    STATE --> CMD_GEN
+    
+    SYNC_ENGINE --> SYNC_GEN
+    SYNC_ENGINE --> QUEUE
+    
+    %% Connections - Outgoing
+    POS_GEN --> POS_OUT
+    CMD_GEN --> CTRL_OUT
+    SYNC_GEN --> SYNC_OUT
+
+    %% Styling
+    classDef default fill:#2d2d2d,stroke:#f5f5f5,stroke-width:1px,color:#f5f5f5
+    classDef input fill:#2d2d2d,stroke:#81c784,stroke-width:3px,color:#f5f5f5
+    classDef process fill:#2d2d2d,stroke:#64b5f6,stroke-width:3px,color:#f5f5f5
+    classDef output fill:#2d2d2d,stroke:#ff4081,stroke-width:3px,color:#f5f5f5
+    classDef core fill:#2d2d2d,stroke:#ba68c8,stroke-width:4px,color:#f5f5f5
+    classDef handler fill:#2d2d2d,stroke:#ffb74d,stroke-width:3px,color:#f5f5f5
+    
+    class STATUS,FEEDBACK,SYNC_IN input
+    class ROUTER,PARSER,VALIDATOR handler
+    class POS_GEN,CMD_GEN,SYNC_GEN process
+    class POS_OUT,CTRL_OUT,SYNC_OUT output
+    class STATE,QUEUE,SYNC_ENGINE core
+    
+    %% Subgraph styling
+    style IN fill:#1a1a1a,stroke:#81c784,stroke-width:2px,color:#f5f5f5
+    style APP fill:#262626,stroke:#ba68c8,stroke-width:2px,color:#f5f5f5
+    style OUT fill:#1a1a1a,stroke:#ff4081,stroke-width:2px,color:#f5f5f5
+        </pre>
+    </div>
+
+    <div id="architecture" class="diagram-container">
+        <pre class="mermaid">
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'fontSize': '16px',
+    'fontFamily': 'arial',
+    'lineWidth': '2px',
+    'arrowMarkerAbsolute': true,
+    'darkMode': true,
+    'primaryColor': '#fff',
+    'primaryTextColor': '#fff',
+    'primaryBorderColor': '#fff',
+    'lineColor': '#f5f5f5',
+    'textColor': '#f5f5f5'
+  },
+  'flowchart': {
+    'nodeSpacing': 50,
+    'rankSpacing': 100,
+    'curve': 'basis'
+  }
+} }%%
+graph LR
+    %% External Systems
+    subgraph EXT["External Systems"]
+        direction TB
+        HD["Holophonix Device<br/>(OSC Protocol)"]
+    end
+
+    %% Animation Service
+    subgraph AS["Animation Service<br/>(High Performance)"]
+        direction TB
+        AC["Animation Core<br/>(Rust/C++)"]
+        
+        subgraph CM["Computation Modules"]
+            direction LR
+            PC["Path Calculator<br/>(Trajectories)"]
+            IE["Interpolation Engine<br/>(Smooth Transitions)"]
+            TC["Timing Controller<br/>(Sync & Scheduling)"]
+        end
+        
+        SAPI["Service API<br/>(WebSocket/gRPC)"]
+        
+        %% Internal Animation Service connections
+        PC --> AC
+        IE --> AC
+        TC --> AC
+        AC --> SAPI
+    end
+
+    %% Main Process
+    subgraph MP["Main Process (Electron)"]
+        direction TB
+        MAIN["Main Process<br/>(index.ts)"]
+        
+        subgraph CS["Core Services"]
+            direction LR
+            AB["Animation Bridge<br/>(Service Client)"]
+            OSC["OSC Manager<br/>(osc.ts)"]
+            SET["Settings Manager<br/>(settings.ts)"]
+        end
+        
+        IPC["IPC Main Handlers"]
+        
+        %% Internal Main Process connections
+        MAIN --> AB & OSC & SET & IPC
+        AB --> OSC & IPC
+        OSC --> IPC
+        SET --> IPC
+    end
+
+    %% Renderer Process
+    subgraph RP["Renderer Process (Frontend)"]
+        direction TB
+        PB["Preload Bridge<br/>(preload.ts)"]
+        RA["React Application<br/>(renderer.tsx)"]
+        
+        subgraph CC["Core Components"]
+            direction LR
+            TL["Timeline<br/>Component"]
+            WS["3D Workspace<br/>(Three.js)"]
+            CP["Control Panel"]
+        end
+        
+        subgraph SM["State Management"]
+            AS_["Application State"]
+        end
+        
+        %% Internal Renderer Process connections
+        PB --> RA
+        RA --> AS_
+        AS_ --> TL & WS & CP
+    end
+
+    %% Cross-component connections
+    HD <--> |"OSC Messages"| OSC
+    SAPI <--> |"High-speed data"| AB
+    IPC <--> |"IPC Channel"| PB
+    TL --> |"Commands"| PB
+    
+    %% Styling
+    classDef default fill:#2d2d2d,stroke:#f5f5f5,stroke-width:1px,color:#f5f5f5
+    classDef process fill:#2d2d2d,stroke:#ff4081,stroke-width:3px,color:#f5f5f5
+    classDef component fill:#2d2d2d,stroke:#64b5f6,stroke-width:3px,color:#f5f5f5
+    classDef external fill:#2d2d2d,stroke:#81c784,stroke-width:3px,color:#f5f5f5
+    classDef core fill:#2d2d2d,stroke:#ba68c8,stroke-width:4px,color:#f5f5f5
+    classDef compute fill:#2d2d2d,stroke:#ffb74d,stroke-width:3px,color:#f5f5f5
+    
+    class MAIN,OSC,SET process
+    class TL,WS,CP component
+    class HD external
+    class AC,PC,IE,TC compute
+    class SAPI,AB core
+    
+    %% Subgraph styling
+    style EXT fill:#1a1a1a,stroke:#f5f5f5,stroke-width:2px,color:#f5f5f5
+    style AS fill:#262626,stroke:#f5f5f5,stroke-width:2px,color:#f5f5f5
+    style MP fill:#1f1f1f,stroke:#f5f5f5,stroke-width:2px,color:#f5f5f5
+    style RP fill:#262626,stroke:#f5f5f5,stroke-width:2px,color:#f5f5f5
+        </pre>
+    </div>
+
+    <script>
+        let scale = 1;
+        const diagrams = document.querySelectorAll('.diagram-container');
+        const errorDiv = document.getElementById('error');
+        
+        // Configure mermaid
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
+            themeVariables: {
+                'fontSize': '16px',
+                'fontFamily': 'arial'
+            },
+            logLevel: 'error',
+            securityLevel: 'loose'
+        });
+
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            errorDiv.style.display = 'none';
+        }
+
+        async function renderMermaidDiagram(element) {
+            try {
+                const id = `mermaid-${Date.now()}`;
+                element.id = id;
+                const { svg } = await mermaid.render(id, element.textContent);
+                element.innerHTML = svg;
+                hideError();
+            } catch (e) {
+                showError('Error rendering diagram: ' + e.message);
+                console.error(e);
+            }
+        }
+
+        async function renderActiveDiagram() {
+            const activeDiagram = document.querySelector('.diagram-container.active');
+            if (activeDiagram) {
+                const mermaidElement = activeDiagram.querySelector('.mermaid');
+                if (mermaidElement) {
+                    await renderMermaidDiagram(mermaidElement);
+                }
+            }
+        }
+
+        // Initial render
+        window.addEventListener('load', renderActiveDiagram);
+
+        async function switchDiagram() {
+            const select = document.getElementById('diagramSelect');
+            diagrams.forEach(diagram => {
+                if (diagram.id === select.value) {
+                    diagram.classList.add('active');
+                } else {
+                    diagram.classList.remove('active');
+                }
+            });
+            resetZoom();
+            await renderActiveDiagram();
+        }
+
+        function zoomIn() {
+            scale *= 1.2;
+            diagrams.forEach(diagram => {
+                diagram.style.transform = `scale(${scale})`;
+                diagram.style.transformOrigin = 'top left';
+            });
+        }
+
+        function zoomOut() {
+            scale /= 1.2;
+            diagrams.forEach(diagram => {
+                diagram.style.transform = `scale(${scale})`;
+                diagram.style.transformOrigin = 'top left';
+            });
+        }
+
+        function resetZoom() {
+            scale = 1;
+            diagrams.forEach(diagram => {
+                diagram.style.transform = `scale(${scale})`;
+            });
+        }
+    </script>
+</body>
+</html>

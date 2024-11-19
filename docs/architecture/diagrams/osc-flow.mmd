@@ -1,0 +1,136 @@
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'fontSize': '16px',
+    'fontFamily': 'arial',
+    'lineWidth': '2px',
+    'arrowMarkerAbsolute': true,
+    'darkMode': true,
+    'primaryColor': '#fff',
+    'primaryTextColor': '#fff',
+    'primaryBorderColor': '#fff',
+    'lineColor': '#f5f5f5',
+    'textColor': '#f5f5f5'
+  },
+  'flowchart': {
+    'nodeSpacing': 50,
+    'rankSpacing': 100,
+    'curve': 'basis'
+  }
+} }%%
+
+graph LR
+    %% Input OSC Messages
+    subgraph IN["Incoming OSC"]
+        direction LR
+        subgraph HOLO["From Holophonix"]
+            direction LR
+            HOLO_POS["Track Position Formats<br/>- XYZ (Cartesian)<br/>- AED (Azimuth/Elevation/Distance)<br/>- X,Y,Z (Individual)<br/>- Azim,Elev,Dist (Individual)<br/>- XY (2D Position)<br/>- AE (Azimuth/Elevation)"]
+            HOLO_PROPS["Track Properties<br/>- Track Name<br/>- Mute Status<br/>- Gain Level<br/>- Track Color"]
+        end
+
+        subgraph EXT["From External Apps"]
+            direction LR
+            EXT_CTRL["Control Messages<br/>- Animation Start/Stop<br/>- Scene Selection<br/>- Timeline Control"]
+            EXT_PARAMS["Animation Parameters<br/>- Movement Speed<br/>- Interpolation Type<br/>- Custom Triggers"]
+        end
+    end
+
+    %% Core Application
+    subgraph APP["Simple Viewer"]
+        direction LR
+        
+        subgraph HANDLERS["Message Handlers"]
+            direction LR
+            POS_HANDLER["Position Handler<br/>- Format Detection<br/>- Query State Check<br/>- Drop if No Valid Query"]
+            PROP_HANDLER["Property Handler<br/>- Track Properties<br/>- Query State Check<br/>- Drop if No Valid Query"]
+            CTRL_HANDLER["Control Handler<br/>- User Actions<br/>- Query Requests"]
+        end
+        
+        subgraph STATE["State Management"]
+            direction LR
+            QUERY_STATE["Query State<br/>- Active Queries<br/>- Query Timeouts<br/>- Query Types"]
+            TRACK_STATE["Track State<br/>- Position Format<br/>- Track Status<br/>- Only Valid Updates"]
+            PROP_STATE["Property State<br/>- Track Properties<br/>- Visual Properties<br/>- Only Valid Updates"]
+        end
+        
+        subgraph DISPLAY["Display Engine"]
+            direction LR
+            VIEW["View Manager<br/>- Track Visualization<br/>- Property Display"]
+            REFRESH["Display Refresh<br/>- Update on Valid State<br/>- Ignore Invalid Updates"]
+        end
+    end
+
+    %% Output OSC Messages
+    subgraph OUT["Outgoing OSC"]
+        direction LR
+        subgraph TO_HOLO["To Holophonix"]
+            direction LR
+            QUERY_OUT["/get Queries<br/>- With Timeout<br/>- Track Position<br/>- Track Properties"]
+            CONTROL_OUT["Control Messages<br/>- Source Positions<br/>- Mute States<br/>- Color Updates"]
+        end
+
+        subgraph TO_EXT["To External Apps"]
+            direction LR
+            EXT_OUT["Status Updates<br/>- Current State<br/>- Query Status"]
+            FEEDBACK["Feedback Messages<br/>- Query Results<br/>- Error States"]
+        end
+    end
+
+    %% Connections - Incoming from Holophonix
+    HOLO_POS --> POS_HANDLER
+    HOLO_PROPS --> PROP_HANDLER
+
+    %% Connections - Incoming from External
+    EXT_CTRL --> CTRL_HANDLER
+    EXT_PARAMS --> CTRL_HANDLER
+    
+    %% Query State Management
+    CTRL_HANDLER --> QUERY_STATE
+    QUERY_STATE --> POS_HANDLER
+    QUERY_STATE --> PROP_HANDLER
+    
+    %% Valid State Updates
+    POS_HANDLER --> TRACK_STATE
+    PROP_HANDLER --> PROP_STATE
+    
+    %% Display Updates
+    TRACK_STATE --> VIEW
+    PROP_STATE --> VIEW
+    VIEW --> REFRESH
+    
+    %% Query Generation
+    CTRL_HANDLER --> QUERY_OUT
+    
+    %% Status Updates
+    QUERY_STATE --> EXT_OUT
+    QUERY_STATE --> FEEDBACK
+    
+    %% Control Messages
+    CTRL_HANDLER --> CONTROL_OUT
+    
+    %% Styling
+    classDef default fill:#2d2d2d,stroke:#f5f5f5,stroke-width:1px,color:#f5f5f5
+    classDef holophonix fill:#2d2d2d,stroke:#81c784,stroke-width:3px,color:#f5f5f5
+    classDef external fill:#2d2d2d,stroke:#64b5f6,stroke-width:3px,color:#f5f5f5
+    classDef process fill:#2d2d2d,stroke:#ba68c8,stroke-width:3px,color:#f5f5f5
+    classDef output fill:#2d2d2d,stroke:#ff4081,stroke-width:3px,color:#f5f5f5
+    classDef core fill:#2d2d2d,stroke:#ba68c8,stroke-width:4px,color:#f5f5f5
+    classDef handler fill:#2d2d2d,stroke:#ffb74d,stroke-width:3px,color:#f5f5f5
+    
+    %% Node styling
+    class HOLO_POS,HOLO_PROPS,QUERY_OUT,CONTROL_OUT holophonix
+    class EXT_CTRL,EXT_PARAMS,EXT_OUT,FEEDBACK external
+    class POS_HANDLER,PROP_HANDLER,CTRL_HANDLER handler
+    class VIEW,REFRESH process
+    class TRACK_STATE,PROP_STATE,QUERY_STATE core
+    
+    %% Subgraph styling
+    style IN fill:#1a1a1a,stroke:#81c784,stroke-width:2px,color:#f5f5f5
+    style HOLO fill:#1a1a1a,stroke:#81c784,stroke-width:2px,color:#f5f5f5
+    style EXT fill:#1a1a1a,stroke:#64b5f6,stroke-width:2px,color:#f5f5f5
+    style APP fill:#262626,stroke:#ba68c8,stroke-width:2px,color:#f5f5f5
+    style OUT fill:#1a1a1a,stroke:#ff4081,stroke-width:2px,color:#f5f5f5
+    style TO_HOLO fill:#1a1a1a,stroke:#81c784,stroke-width:2px,color:#f5f5f5
+    style TO_EXT fill:#1a1a1a,stroke:#64b5f6,stroke-width:2px,color:#f5f5f5
+    style DISPLAY fill:#262626,stroke:#ba68c8,stroke-width:2px,color:#f5f5f5

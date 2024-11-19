@@ -1,0 +1,65 @@
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'fontSize': '16px',
+    'fontFamily': 'arial',
+    'lineWidth': '2px',
+    'arrowMarkerAbsolute': true,
+    'darkMode': true,
+    'primaryColor': '#fff',
+    'primaryTextColor': '#fff',
+    'primaryBorderColor': '#fff',
+    'lineColor': '#f5f5f5',
+    'textColor': '#f5f5f5'
+  },
+  'sequence': {
+    'messageAlign': 'center',
+    'boxMargin': 10,
+    'boxTextMargin': 5,
+    'noteMargin': 10,
+    'messageMargin': 35,
+    'mirrorActors': false,
+    'bottomMarginAdj': 1,
+    'useMaxWidth': true,
+    'rightAngles': false,
+    'showSequenceNumbers': false
+  }
+} }%%
+
+sequenceDiagram
+    participant App as Simple Viewer
+    participant State as Query State
+    participant Holo as Holophonix Server
+    
+    %% Initialization Scenario
+    Note over App,Holo: Initialization Scenario
+    App->>State: Record query with timeout<br/>(type: track parameters)
+    App->>Holo: /get queries for track parameters
+    Note over State: Start query timeout
+    Holo->>App: Response with track parameters
+    App->>State: Check if query is still valid
+    Note over App: Store initial state<br/>if query not expired
+    Note over State: Remove query after timeout
+    
+    %% Regular Updates Scenario
+    Note over App,Holo: Regular Updates Scenario
+    Holo->>App: Track parameter updates
+    App->>State: Check for valid query matching update type
+    Note over App: Drop updates if<br/>no valid query exists
+    
+    %% Explicit Update Request Scenario
+    Note over App,Holo: Explicit Update Request Scenario
+    Note over App: User requests<br/>parameter update
+    App->>State: Record new query with timeout<br/>(type: specific parameter)
+    App->>Holo: /get query for specific parameter
+    Note over State: Start query timeout
+    Holo->>App: Response with parameter value
+    App->>State: Check if query is still valid
+    Note over App: Update stored state<br/>if query not expired
+    Note over State: Remove query after timeout
+    
+    %% Late Response Scenario
+    Note over App,Holo: Late Response Scenario
+    Holo->>App: Delayed response or update
+    App->>State: Check for valid query
+    Note over App: Drop update<br/>query expired

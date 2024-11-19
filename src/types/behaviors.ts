@@ -4,8 +4,8 @@ import type { XYZPosition, AEDPosition } from './position';
 
 export interface BehaviorImplementation {
   update(deltaTime: number): void;
-  getParameters(): Record<string, number>;
-  setParameters(params: Record<string, number>): ParameterValidationError[];
+  getParameters(): Record<string, number | string>;
+  setParameters(params: Record<string, number | string>): ParameterValidationError[];
   reset(): void;
   getParameterMetadata(): Record<string, ParameterMetadata>;
 }
@@ -14,19 +14,18 @@ export interface Behavior {
   id: string;
   type: BehaviorType;
   name: string;
-  parameters: Record<string, number>;
+  parameters: Record<string, number | string>;
   implementation: BehaviorImplementation;
-  active: boolean;
+  active?: boolean;
 }
 
-export type BehaviorCategory = '1D' | '2D' | '3D';
+export type BehaviorCategory = '1D' | '2D' | '3D' | 'Group';
 
-export interface BehaviorParameter {
+export interface BehaviorDefinition {
   name: string;
-  min: number;
-  max: number;
-  default: number;
-  step?: number;
+  category: BehaviorCategory;
+  description: string;
+  parameterMetadata: Record<string, ParameterMetadata>;
 }
 
 export interface Track {

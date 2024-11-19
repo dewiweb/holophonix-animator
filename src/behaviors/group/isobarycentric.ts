@@ -1,141 +1,184 @@
 import { BaseBehavior } from '../base';
-import { 
-  HolophonixPosition, 
-  XYZPosition, 
-  createXYZPosition, 
-  convertAEDtoXYZ,
-  isXYZPosition,
+import { GroupBehaviorBase, GroupMemberConfig } from './base';
+import {
+  HolophonixPosition,
+  XYZPosition,
+  createXYZPosition,
   getXValue,
   getYValue,
   getZValue
 } from '../../types/position';
-import { ParameterDefinitions } from '../../types/parameters';
+import { NumericParameterMetadata } from '../../types/parameters';
 
-interface MemberConfig {
-  weight: number;
-  radius: number;
-  phase: number;
-  speed: number;
+interface IsobarycentricConfig extends GroupMemberConfig {
+  parameters: {
+    weight: number;
+    radius: number;
+    phase: number;
+    speed: number;
+  };
 }
 
-export class IsobarycentricManager {
-  private members: Map<number, { behavior: BaseBehavior; config: MemberConfig }>;
-  private center: XYZPosition;
+const ISOBARYCENTRIC_PARAMETERS: Record<string, NumericParameterMetadata> = {
+  weight: {
+    type: 'number',
+    min: 0,
+    max: 10,
+    defaultValue: 1,
+    step: 0.1,
+    unit: 'ratio',
+    description: 'Weight of member in center calculation',
+    label: 'Weight'
+  },
+  radius: {
+    type: 'number',
+    min: 0,
+    max: 100,
+    defaultValue: 10,
+    step: 1,
+    unit: 'meters',
+    description: 'Radius of rotation around center',
+    label: 'Radius'
+  },
+  phase: {
+    type: 'number',
+    min: 0,
+    max: 360,
+    defaultValue: 0,
+    step: 1,
+    unit: 'degrees',
+    description: 'Phase offset of rotation',
+    label: 'Phase'
+  },
+  speed: {
+    type: 'number',
+    min: -10,
+    max: 10,
+    defaultValue: 1,
+    step: 0.1,
+    unit: 'degrees_per_second',
+    description: 'Angular velocity',
+    label: 'Speed'
+  }
+};
+
+export class IsobarycentricManager extends GroupBehaviorBase {
+  private positionHistory: Map<number, XYZPosition[]> = new Map();
 
   constructor() {
-    this.members = new Map();
-    this.center = createXYZPosition(0, 0, 0);
+    super(ISOBARYCENTRIC_PARAMETERS);
   }
 
-  addMember(
-    id: number,
-    behavior: BaseBehavior,
-    config: MemberConfig
-  ): void {
-    this.members.set(id, { behavior, config });
-    this.updateCenter();
+  protected validateConfig(config: GroupMemberConfig): void {
+    super.validateConfig(config);
+    const isoConfig = config as IsobarycentricConfig;
+    const { weight, radius, phase, speed } = isoConfig.parameters;
+
+    if (typeof weight !== 'number' || weight < ISOBARYCENTRIC_PARAMETERS.weight.min || weight > ISOBARYCENTRIC_PARAMETERS.weight.max) {
+      throw new Error(`Weight must be between ${ISOBARYCENTRIC_PARAMETERS.weight.min} and ${ISOBARYCENTRIC_PARAMETERS.weight.max}`);
+    }
+
+    if (typeof radius !== 'number' || radius < ISOBARYCENTRIC_PARAMETERS.radius.min || radius > ISOBARYCENTRIC_PARAMETERS.radius.max) {
+      throw new Error(`Radius must be between ${ISOBARYCENTRIC_PARAMETERS.radius.min} and ${ISOBARYCENTRIC_PARAMETERS.radius.max}`);
+    }
+
+    if (typeof phase !== 'number' || phase < ISOBARYCENTRIC_PARAMETERS.phase.min || phase > ISOBARYCENTRIC_PARAMETERS.phase.max) {
+      throw new Error(`Phase must be between ${ISOBARYCENTRIC_PARAMETERS.phase.min} and ${ISOBARYCENTRIC_PARAMETERS.phase.max}`);
+    }
+
+    if (typeof speed !== 'number' || speed < ISOBARYCENTRIC_PARAMETERS.speed.min || speed > ISOBARYCENTRIC_PARAMETERS.speed.max) {
+      throw new Error(`Speed must be between ${ISOBARYCENTRIC_PARAMETERS.speed.min} and ${ISOBARYCENTRIC_PARAMETERS.speed.max}`);
+    }
   }
 
-  removeMember(id: number): void {
-    this.members.delete(id);
-    this.updateCenter();
+  protected validateParameterValue(parameter: string, value: number | string, metadata: NumericParameterMetadata): boolean {
+    if (typeof value !== 'number') {
+      throw new Error(`${parameter} must be a number`);
+    }
+
+    if (value < metadata.min || value > metadata.max) {
+      throw new Error(`${parameter} must be between ${metadata.min} and ${metadata.max}`);
+    }
+
+    return true;
   }
 
-  private updateCenter(): void {
+  protected calculateGroupPosition(positions: Map<number, XYZPosition>): HolophonixPosition {
+    if (positions.size === 0) {
+      return {
+        type: 'xyz',
+        coordinate: createXYZPosition(0, 0, 0)
+      };
+    }
+
     let totalWeight = 0;
     let sumX = 0;
     let sumY = 0;
     let sumZ = 0;
 
-    this.members.forEach(({ behavior, config }) => {
-      const pos = behavior.update(0);
-      const xyzPos = isXYZPosition(pos) ? pos : convertAEDtoXYZ(pos);
-      
-      sumX += getXValue(xyzPos) * config.weight;
-      sumY += getYValue(xyzPos) * config.weight;
-      sumZ += getZValue(xyzPos) * config.weight;
-      totalWeight += config.weight;
+    this.members.forEach((member, id) => {
+      const config = member.getConfig() as IsobarycentricConfig;
+      const pos = positions.get(id);
+      if (!pos) return;
+
+      const { weight } = config.parameters;
+
+      sumX += pos.x * weight;
+      sumY += pos.y * weight;
+      sumZ += pos.z * weight;
+      totalWeight += weight;
     });
 
-    if (totalWeight > 0) {
-      this.center = createXYZPosition(
+    return {
+      type: 'xyz',
+      coordinate: createXYZPosition(
         sumX / totalWeight,
         sumY / totalWeight,
         sumZ / totalWeight
-      );
-    }
+      )
+    };
   }
 
-  private calculateMemberPosition(
-    basePos: XYZPosition,
-    config: MemberConfig,
-    time: number
-  ): XYZPosition {
-    // Calculate rotation angle based on time, speed, and phase
-    const angle = (time * config.speed + config.phase) * (Math.PI / 180);
-    
-    // Calculate offset from center
-    const offsetX = config.radius * Math.cos(angle);
-    const offsetZ = config.radius * Math.sin(angle);
-    
-    return createXYZPosition(
-      getXValue(basePos) + offsetX,
-      getYValue(basePos),
-      getZValue(basePos) + offsetZ
-    );
-  }
+  update(time: number): HolophonixPosition {
+    const positions = new Map<number, XYZPosition>();
 
-  update(time: number): Map<number, HolophonixPosition> {
-    const positions = new Map<number, HolophonixPosition>();
-    
-    this.members.forEach(({ behavior, config }, id) => {
-      const basePos = behavior.update(time);
-      const xyzPos = isXYZPosition(basePos) ? basePos : convertAEDtoXYZ(basePos);
-      const finalPos = this.calculateMemberPosition(xyzPos, config, time);
-      positions.set(id, finalPos);
+    this.members.forEach((member, id) => {
+      try {
+        const behavior = member.getBehavior();
+        const config = member.getConfig() as IsobarycentricConfig;
+        const basePos = behavior.update(time);
+        const xyzPos = this.ensureXYZPosition(basePos);
+        const { radius, phase, speed } = config.parameters;
+
+        // Calculate orbital position
+        const angle = (phase + speed * time) * (Math.PI / 180);
+        const orbitX = xyzPos.x + radius * Math.cos(angle);
+        const orbitY = xyzPos.y + radius * Math.sin(angle);
+        const orbitZ = xyzPos.z;
+
+        positions.set(id, createXYZPosition(orbitX, orbitY, orbitZ));
+      } catch (error) {
+        console.error(`Error updating member ${id}:`, error);
+      }
     });
-    
-    return positions;
+
+    return this.calculateGroupPosition(positions);
   }
 
-  reset(): void {
-    this.members.forEach(({ behavior }) => behavior.reset());
-    this.center = createXYZPosition(0, 0, 0);
+  addMember(id: number, behavior: BaseBehavior, config: IsobarycentricConfig): void {
+    super.addMember(id, behavior, config);
+    this.positionHistory.set(id, []);
+  }
+
+  removeMember(id: number): void {
+    super.removeMember(id);
+    this.positionHistory.delete(id);
+  }
+
+  protected ensureXYZPosition(pos: HolophonixPosition): XYZPosition {
+    if (pos.type === 'xyz') {
+      return pos.coordinate;
+    }
+    throw new Error(`Unsupported coordinate system: ${pos.type}`);
   }
 }
-
-// Common parameters for isobarycentric behaviors
-export const ISOBARYCENTRIC_PARAMETERS: ParameterDefinitions = {
-  weight: {
-    min: 0,
-    max: 10,
-    default: 1,
-    step: 0.1,
-    unit: 'normalized',
-    description: 'Weight of member in center calculation'
-  },
-  radius: {
-    min: 0,
-    max: 100,
-    default: 10,
-    step: 1,
-    unit: 'meters',
-    description: 'Radius of rotation around center'
-  },
-  phase: {
-    min: 0,
-    max: 360,
-    default: 0,
-    step: 1,
-    unit: 'degrees',
-    description: 'Phase offset of rotation'
-  },
-  speed: {
-    min: -10,
-    max: 10,
-    default: 1,
-    step: 0.1,
-    unit: 'degrees/second',
-    description: 'Angular speed of rotation'
-  }
-};

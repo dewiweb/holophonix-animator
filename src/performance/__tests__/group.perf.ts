@@ -1,6 +1,6 @@
-import { LinearBehavior } from '../../behaviors/implementations/linear';
-import { SineWaveBehavior } from '../../behaviors/implementations/sine';
-import { CircleBehavior } from '../../behaviors/implementations/circle';
+import { LinearBehavior } from '../../behaviors/implementations/1d/linear';
+import { SineBehavior } from '../../behaviors/implementations/1d/sine';
+import { CircleBehavior } from '../../behaviors/implementations/2d/circle';
 import { LeaderFollowerManager } from '../../behaviors/group/leader-follower';
 import { IsobarycentricManager } from '../../behaviors/group/isobarycentric';
 import { createXYZPosition } from '../../types/position';
@@ -164,7 +164,7 @@ describe('Group Behavior Performance', () => {
             behavior.setParameters({ axis: 0, speed: 1, distance: 10 });
             break;
           case 1:
-            behavior = new SineWaveBehavior();
+            behavior = new SineBehavior();
             behavior.setParameters({ axis: 0, frequency: 1, amplitude: 10, phase: 0 });
             break;
           default:

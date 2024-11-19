@@ -1,6 +1,13 @@
-import { ParameterDefinitions, ParameterValidationError, ParameterMetadata, NumericParameterMetadata, EnumParameterMetadata } from '../types/parameters';
+import { 
+  ParameterMetadata, 
+  ParameterDefinitions,
+  ParameterValidationError,
+  isNumericParameter,
+  isEnumParameter,
+  isBooleanParameter
+} from '../types/parameters';
 
-export class ParameterValidator {
+export class BehaviorParameterValidator {
   private definitions: ParameterDefinitions;
 
   constructor(definitions: ParameterDefinitions) {
@@ -17,8 +24,8 @@ export class ParameterValidator {
   /**
    * Get default values for all parameters
    */
-  getDefaultValues(): Record<string, number | string> {
-    const defaults: Record<string, number | string> = {};
+  getDefaultValues(): Record<string, number | string | boolean> {
+    const defaults: Record<string, number | string | boolean> = {};
     for (const [name, def] of Object.entries(this.definitions)) {
       defaults[name] = def.default;
     }
@@ -34,11 +41,11 @@ export class ParameterValidator {
       throw new Error(`No definition found for parameter: ${name}`);
     }
 
-    if (this.isEnumParameter(definition)) {
-      throw new Error(`Cannot clamp enum parameter: ${name}`);
+    if (isEnumParameter(definition) || isBooleanParameter(definition)) {
+      throw new Error(`Cannot clamp enum or boolean parameter: ${name}`);
     }
 
-    const numDef = definition as NumericParameterMetadata;
+    const numDef = definition as ParameterMetadata;
 
     // Clamp to range
     const clampedValue = Math.min(Math.max(value, numDef.min), numDef.max);
@@ -56,80 +63,54 @@ export class ParameterValidator {
   /**
    * Validates a single parameter value against its definition
    */
-  validateParameter(name: string, value: number | string): ParameterValidationError | null {
-    const definition = this.definitions[name];
-    if (!definition) {
-      throw new Error(`No definition found for parameter: ${name}`);
-    }
-
-    if (this.isEnumParameter(definition)) {
+  validateParameterValue(
+    name: string, 
+    value: number | string | boolean,
+    metadata: ParameterMetadata
+  ): ParameterValidationError | null {
+    if (isNumericParameter(metadata)) {
+      if (typeof value !== 'number') {
+        return {
+          parameter: name,
+          value,
+          message: `Invalid type for ${name}. Expected number, got ${typeof value}`,
+          code: 'INVALID_TYPE'
+        };
+      }
+      
+      if (value < metadata.min || value > metadata.max) {
+        return {
+          parameter: name,
+          value,
+          message: `Value ${value} is out of range [${metadata.min}, ${metadata.max}] for ${name}`,
+          code: 'INVALID_RANGE'
+        };
+      }
+    } else if (isEnumParameter(metadata)) {
       if (typeof value !== 'string') {
         return {
           parameter: name,
           value,
-          message: `Parameter ${name} must be a string enum value`,
+          message: `Invalid type for ${name}. Expected string, got ${typeof value}`,
           code: 'INVALID_TYPE'
         };
-      } else if (!definition.enum.includes(value)) {
+      }
+      
+      if (!metadata.values.includes(value)) {
         return {
           parameter: name,
           value,
-          message: `Invalid enum value for ${name}. Must be one of: ${definition.enum.join(', ')}`,
+          message: `Invalid enum value for ${name}. Must be one of: ${metadata.values.join(', ')}`,
           code: 'INVALID_ENUM'
         };
       }
-      return null;
-    }
-
-    if (typeof value !== 'number') {
-      return {
-        parameter: name,
-        value,
-        message: `Parameter ${name} must be a number`,
-        code: 'INVALID_TYPE'
-      };
-    }
-
-    const numValue = value as number;
-    const numDef = definition as NumericParameterMetadata;
-
-    // Check range
-    if (numValue < numDef.min || numValue > numDef.max) {
-      return {
-        parameter: name,
-        value: numValue,
-        message: `Value out of range for ${name}. Must be between ${numDef.min} and ${numDef.max}`,
-        code: 'OUT_OF_RANGE'
-      };
-    }
-
-    // Special handling for hertz values
-    if (numDef.unit === 'hertz') {
-      // Round to 3 decimal places (millihertz precision)
-      const roundedValue = Math.round(numValue * 1000) / 1000;
-      
-      // Check if the value is within reasonable precision
-      if (Math.abs(numValue - roundedValue) > 0.0001) {
+    } else if (isBooleanParameter(metadata)) {
+      if (typeof value !== 'boolean') {
         return {
           parameter: name,
           value,
-          message: `Parameter ${name} must have at most 3 decimal places`,
-          code: 'INVALID_STEP'
-        };
-      }
-      return null;
-    }
-
-    // For other units, check step size
-    if (numDef.step !== 0) {
-      const steps = Math.round((numValue - numDef.min) / numDef.step);
-      const validValue = numDef.min + (steps * numDef.step);
-      if (Math.abs(validValue - numValue) > 1e-10) {
-        return {
-          parameter: name,
-          value: numValue,
-          message: `Invalid step value for ${name}. Must be a multiple of ${numDef.step} from ${numDef.min}`,
-          code: 'INVALID_STEP'
+          message: `Invalid type for ${name}. Expected boolean, got ${typeof value}`,
+          code: 'INVALID_TYPE'
         };
       }
     }
@@ -138,12 +119,24 @@ export class ParameterValidator {
   }
 
   /**
+   * Validates a single parameter value against its definition
+   */
+  validateParameter(name: string, value: number | string | boolean): ParameterValidationError | null {
+    const definition = this.definitions[name];
+    if (!definition) {
+      throw new Error(`No definition found for parameter: ${name}`);
+    }
+
+    return this.validateParameterValue(name, value, definition);
+  }
+
+  /**
    * Validates all parameters in a parameter set
    */
-  validate(parameters: Record<string, number | string>): ParameterValidationError[] {
+  validateParameters(parameters: Record<string, number | string | boolean>): ParameterValidationError[] {
     const errors: ParameterValidationError[] = [];
 
-    Object.entries(parameters).forEach(([name, value]) => {
+    for (const [name, value] of Object.entries(parameters)) {
       const definition = this.definitions[name];
       if (!definition) {
         errors.push({
@@ -152,62 +145,14 @@ export class ParameterValidator {
           message: `Unknown parameter: ${name}`,
           code: 'INVALID_TYPE'
         });
-        return;
+        continue;
       }
 
-      if (this.isEnumParameter(definition)) {
-        if (typeof value !== 'string') {
-          errors.push({
-            parameter: name,
-            value,
-            message: `Parameter ${name} must be a string enum value`,
-            code: 'INVALID_TYPE'
-          });
-        } else if (!definition.enum.includes(value)) {
-          errors.push({
-            parameter: name,
-            value,
-            message: `Invalid enum value for ${name}. Must be one of: ${definition.enum.join(', ')}`,
-            code: 'INVALID_ENUM'
-          });
-        }
-      } else {
-        if (typeof value !== 'number') {
-          errors.push({
-            parameter: name,
-            value,
-            message: `Parameter ${name} must be a number`,
-            code: 'INVALID_TYPE'
-          });
-          return;
-        }
-
-        const numValue = value as number;
-        const numDef = definition as NumericParameterMetadata;
-
-        if (numValue < numDef.min || numValue > numDef.max) {
-          errors.push({
-            parameter: name,
-            value: numValue,
-            message: `Value out of range for ${name}. Must be between ${numDef.min} and ${numDef.max}`,
-            code: 'OUT_OF_RANGE'
-          });
-        }
-
-        if (numDef.step !== 0) {
-          const steps = Math.round((numValue - numDef.min) / numDef.step);
-          const validValue = numDef.min + (steps * numDef.step);
-          if (Math.abs(validValue - numValue) > 1e-10) {
-            errors.push({
-              parameter: name,
-              value: numValue,
-              message: `Invalid step value for ${name}. Must be a multiple of ${numDef.step} from ${numDef.min}`,
-              code: 'INVALID_STEP'
-            });
-          }
-        }
+      const error = this.validateParameterValue(name, value, definition);
+      if (error) {
+        errors.push(error);
       }
-    });
+    }
 
     return errors;
   }
@@ -221,9 +166,5 @@ export class ParameterValidator {
       throw new Error(`No definition found for parameter: ${name}`);
     }
     return { ...definition };
-  }
-
-  private isEnumParameter(def: ParameterMetadata): def is EnumParameterMetadata {
-    return 'enum' in def && Array.isArray(def.enum);
   }
 }

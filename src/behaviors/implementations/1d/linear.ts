@@ -1,221 +1,112 @@
 import { BaseBehavior } from '../../base';
-import { ParameterDefinitions } from '../../../types/parameters';
+import { ParameterDefinitions, ParameterUnit } from '../../../types/parameters';
 import { 
-  XYZPosition, 
-  AEDPosition,
+  HolophonixPosition,
   createXYZPosition, 
-  createAEDPosition,
   normalizePosition,
-  CoordinateSystem,
-  HolophonixPosition
 } from '../../../types/position';
+import { Vector3 } from 'three';
 
-// Common parameters for both coordinate systems
-const COMMON_PARAMETERS: ParameterDefinitions = {
-  coordinateMode: {
-    default: 'xyz',
-    enum: ['xyz', 'aed'],
-    unit: 'enum',
-    description: 'Coordinate system mode'
-  },
+const LINEAR_PARAMETERS: ParameterDefinitions = {
   speed: {
+    type: 'numeric',
+    defaultValue: 1,
     min: 0.1,
     max: 10,
-    default: 1,
     step: 0.1,
-    unit: 'units/second',
-    description: 'Movement speed'
-  }
-};
-
-// XYZ-specific parameters
-const XYZ_PARAMETERS: ParameterDefinitions = {
-  axis: {
-    default: 'X',
-    enum: ['X', 'Y', 'Z'],
-    unit: 'enum',
-    description: 'Movement axis'
+    unit: ParameterUnit.METERS_PER_SECOND,
+    description: 'Movement speed',
+    label: 'Speed'
   },
   range: {
+    type: 'numeric',
+    defaultValue: 10,
     min: 0.1,
     max: 100,
-    default: 10,
     step: 0.1,
-    unit: 'meters',
-    description: 'Movement range'
+    unit: ParameterUnit.METERS,
+    description: 'Movement range',
+    label: 'Range'
+  },
+  axis: {
+    type: 'enum',
+    defaultValue: 'x',
+    values: ['x', 'y', 'z'],
+    unit: ParameterUnit.NONE,
+    description: 'Movement axis',
+    label: 'Axis'
   },
   center: {
+    type: 'numeric',
+    defaultValue: 0,
     min: -100,
     max: 100,
-    default: 0,
     step: 0.1,
-    unit: 'meters',
-    description: 'Center position'
-  }
-};
-
-// AED-specific parameters
-const AED_PARAMETERS: ParameterDefinitions = {
-  dimension: {
-    default: 'azimuth',
-    enum: ['azimuth', 'elevation', 'distance'],
-    unit: 'enum',
-    description: 'Movement dimension'
+    unit: ParameterUnit.METERS,
+    description: 'Center position',
+    label: 'Center'
   },
-  azimuthRange: {
-    min: 0,
-    max: 360,
-    default: 90,
-    step: 1,
-    unit: 'degrees',
-    description: 'Azimuth movement range'
-  },
-  elevationRange: {
-    min: 0,
-    max: 180,
-    default: 45,
-    step: 1,
-    unit: 'degrees',
-    description: 'Elevation movement range'
-  },
-  distanceRange: {
-    min: 0.1,
-    max: 100,
-    default: 5,
-    step: 0.1,
-    unit: 'meters',
-    description: 'Distance movement range'
-  },
-  baseDistance: {
-    min: 1,
-    max: 100,
-    default: 10,
-    step: 0.1,
-    unit: 'meters',
-    description: 'Base distance (for azimuth/elevation movement)'
-  },
-  centerAzimuth: {
-    min: -180,
-    max: 180,
-    default: 0,
-    step: 1,
-    unit: 'degrees',
-    description: 'Center azimuth'
-  },
-  centerElevation: {
-    min: -90,
-    max: 90,
-    default: 0,
-    step: 1,
-    unit: 'degrees',
-    description: 'Center elevation'
+  direction: {
+    type: 'enum',
+    defaultValue: 'forward',
+    values: ['forward', 'backward', 'pingpong'],
+    unit: ParameterUnit.NONE,
+    description: 'Movement direction',
+    label: 'Direction'
   }
 };
 
 export class LinearBehavior extends BaseBehavior {
-  private time: number = 0;
-  private direction: number = 1;
-  protected coordinateSystem: CoordinateSystem = 'xyz';
+  private position: Vector3;
+  private currentDirection: number = 1;
 
   constructor() {
-    super({
-      ...COMMON_PARAMETERS,
-      ...XYZ_PARAMETERS,
-      ...AED_PARAMETERS
-    });
+    super(LINEAR_PARAMETERS);
+    this.position = new Vector3();
   }
 
   update(time: number): HolophonixPosition {
-    const speed = this.parameters.speed as number;
-    this.time += time * speed * this.direction;
-
-    let position: HolophonixPosition;
-    if (this.coordinateSystem === 'xyz') {
-      position = this.calculateXYZPosition();
-    } else {
-      position = this.calculateAEDPosition();
-    }
-
-    // Check for direction change
-    if (this.time >= 1) {
-      this.time = 1;
-      this.direction = -1;
-    } else if (this.time <= 0) {
-      this.time = 0;
-      this.direction = 1;
-    }
-
-    return normalizePosition(position);
-  }
-
-  private calculateXYZPosition(): XYZPosition {
-    const range = this.parameters.range as number;
-    const center = this.parameters.center as number;
-    const axis = this.parameters.axis as string;
-    const position = center + (range * this.time);
-
-    switch (axis) {
-      case 'X':
-        return createXYZPosition(position, 0, 0);
-      case 'Y':
-        return createXYZPosition(0, position, 0);
-      case 'Z':
-        return createXYZPosition(0, 0, position);
-      default:
-        return createXYZPosition(0, 0, 0);
-    }
-  }
-
-  private calculateAEDPosition(): AEDPosition {
-    const dimension = this.parameters.dimension as string;
-    const baseDistance = this.parameters.baseDistance as number;
+    const { speed, range, axis, center, direction } = this.parameters;
     
-    switch (dimension) {
-      case 'azimuth': {
-        const range = this.parameters.azimuthRange as number;
-        const center = this.parameters.centerAzimuth as number;
-        const azimuth = center + (range * this.time);
-        return createAEDPosition(azimuth, 0, baseDistance);
-      }
-      case 'elevation': {
-        const range = this.parameters.elevationRange as number;
-        const center = this.parameters.centerElevation as number;
-        const elevation = center + (range * this.time);
-        return createAEDPosition(0, elevation, baseDistance);
-      }
-      case 'distance': {
-        const range = this.parameters.distanceRange as number;
-        const distance = baseDistance + (range * this.time);
-        return createAEDPosition(0, 0, distance);
-      }
-      default:
-        return createAEDPosition(0, 0, baseDistance);
-    }
-  }
-
-  protected onParameterChanged(params: Record<string, number | string>): void {
-    if ('coordinateMode' in params) {
-      const mode = params.coordinateMode as CoordinateSystem;
-      if (mode !== this.coordinateSystem) {
-        this.coordinateSystem = mode;
-        
-        // Update parameter definitions based on new mode
-        this.parameterDefinitions = {
-          ...COMMON_PARAMETERS,
-          ...(mode === 'xyz' ? XYZ_PARAMETERS : AED_PARAMETERS)
-        };
-
-        // Reset motion state
-        this.reset();
-        this.time = 0;
-        this.direction = 1;
+    // Calculate normalized position (0 to 1)
+    let normalizedPos = (time * speed) % range;
+    
+    // Handle direction
+    if (direction === 'backward') {
+      normalizedPos = range - normalizedPos;
+    } else if (direction === 'pingpong') {
+      const cycle = Math.floor((time * speed) / range);
+      if (cycle % 2 === 1) {
+        normalizedPos = range - normalizedPos;
       }
     }
+    
+    // Calculate offset from center
+    const offset = normalizedPos - (range / 2);
+    
+    // Apply position based on selected axis
+    switch (axis) {
+      case 'x':
+        this.position.set(center + offset, 0, 0);
+        break;
+      case 'y':
+        this.position.set(0, center + offset, 0);
+        break;
+      case 'z':
+        this.position.set(0, 0, center + offset);
+        break;
+    }
+
+    return normalizePosition(createXYZPosition(
+      this.position.x,
+      this.position.y,
+      this.position.z
+    ));
   }
 
   reset(): void {
+    this.position.set(0, 0, 0);
+    this.currentDirection = 1;
     super.reset();
-    this.time = 0;
-    this.direction = 1;
   }
 }

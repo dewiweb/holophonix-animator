@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Simple Mermaid Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #f5f5f5;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .diagram {
+            background-color: #2d2d2d;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            overflow: auto;
+            transition: transform 0.2s ease;
+        }
+        select, button {
+            background-color: #4a4a4a;
+            color: #f5f5f5;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover, select:hover {
+            background-color: #666;
+        }
+        .zoom-controls {
+            display: flex;
+            gap: 10px;
+        }
+        #error {
+            color: #ff6b6b;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: rgba(255, 107, 107, 0.1);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <select id="diagramSelect" onchange="loadDiagram()">
+            <option value="">Select a diagram</option>
+            <option value="osc-flow.mmd">OSC Flow</option>
+            <option value="state-storage-behavior.mmd">State Storage Behavior</option>
+            <option value="target-architecture.mmd">Target Architecture</option>
+            
+        </select>
+        <div class="zoom-controls">
+            <button onclick="zoomIn()">Zoom In</button>
+            <button onclick="zoomOut()">Zoom Out</button>
+            <button onclick="resetZoom()">Reset Zoom</button>
+        </div>
+    </div>
+
+    <div id="error"></div>
+    <div id="diagram" class="diagram"></div>
+
+    <script>
+        let scale = 1;
+        const diagram = document.getElementById('diagram');
+        const errorDiv = document.getElementById('error');
+
+        mermaid.initialize({
+            theme: 'dark',
+            themeVariables: {
+                'fontSize': '16px',
+                'fontFamily': 'arial'
+            }
+        });
+
+        const diagrams = {
+            'osc-flow.mmd': 'osc-flow.mmd',
+            'state-storage-behavior.mmd': 'state-storage-behavior.mmd',
+            'target-architecture.mmd': 'target-architecture.mmd'
+        };
+
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            errorDiv.style.display = 'none';
+        }
+
+        function zoomIn() {
+            scale *= 1.2;
+            updateZoom();
+        }
+
+        function zoomOut() {
+            scale /= 1.2;
+            updateZoom();
+        }
+
+        function resetZoom() {
+            scale = 1;
+            updateZoom();
+        }
+
+        function updateZoom() {
+            diagram.style.transform = `scale(${scale})`;
+            diagram.style.transformOrigin = 'top left';
+        }
+
+        async function loadDiagram() {
+            const select = document.getElementById('diagramSelect');
+            
+            try {
+                const response = await fetch(diagrams[select.value]);
+                const content = await response.text();
+                diagram.innerHTML = '<pre class="mermaid">' + content + '</pre>';
+                resetZoom();
+                await mermaid.init(undefined, '.mermaid');
+                hideError();
+            } catch (error) {
+                console.error('Error loading diagram:', error);
+                showError('Error loading diagram: ' + error.message);
+            }
+        }
+
+        // Load initial diagram
+        window.addEventListener('load', loadDiagram);
+    </script>
+</body>
+</html>

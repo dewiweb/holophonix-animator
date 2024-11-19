@@ -1,7 +1,7 @@
-import { LinearBehavior } from '../../behaviors/implementations/linear';
-import { SineWaveBehavior } from '../../behaviors/implementations/sine';
-import { CircleBehavior } from '../../behaviors/implementations/circle';
-import { OrbitBehavior } from '../../behaviors/implementations/orbit';
+import { LinearBehavior } from '../../behaviors/implementations/1d/linear';
+import { SineBehavior } from '../../behaviors/implementations/1d/sine';
+import { CircleBehavior } from '../../behaviors/implementations/2d/circle';
+import { OrbitBehavior } from '../../behaviors/implementations/3d/orbit';
 import { BaseBehavior } from '../../behaviors/base';
 
 describe('Behavior System Performance', () => {
@@ -27,7 +27,7 @@ describe('Behavior System Performance', () => {
       const linear = new LinearBehavior();
       linear.setParameters({ axis: 0, speed: 1, distance: 10 });
 
-      const sine = new SineWaveBehavior();
+      const sine = new SineBehavior();
       sine.setParameters({ axis: 0, frequency: 1, amplitude: 10, phase: 0 });
 
       const circle = new CircleBehavior();
@@ -119,7 +119,7 @@ describe('Behavior System Performance', () => {
             behavior.setParameters({ axis: 0, speed: 1, distance: 10 });
             break;
           case 1:
-            behavior = new SineWaveBehavior();
+            behavior = new SineBehavior();
             behavior.setParameters({ axis: 0, frequency: 1, amplitude: 10, phase: 0 });
             break;
           case 2:

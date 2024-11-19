@@ -1,267 +1,168 @@
 import { BaseBehavior } from '../../base';
-import { ParameterDefinitions } from '../../../types/parameters';
+import { ParameterDefinitions, ParameterUnit } from '../../../types/parameters';
 import { 
-  XYZPosition, 
-  AEDPosition,
+  HolophonixPosition,
   createXYZPosition, 
-  createAEDPosition,
   normalizePosition,
-  CoordinateSystem,
-  HolophonixPosition
 } from '../../../types/position';
-import { ParameterValidator } from '../../validation';
+import { Vector3 } from 'three';
 
-// Common parameters for both coordinate systems
-const COMMON_PARAMETERS: ParameterDefinitions = {
-  speed: {
-    default: 1,
+const FIGURE8_PARAMETERS: ParameterDefinitions = {
+  frequency: {
+    type: 'numeric',
+    defaultValue: 1,
     min: 0.1,
     max: 10,
     step: 0.1,
-    unit: 'revolutions/second',
-    description: 'Motion speed'
+    unit: ParameterUnit.HERTZ,
+    description: 'Frequency of figure-8 motion',
+    label: 'Frequency'
   },
   phase: {
-    default: 0,
-    min: 0,
-    max: 360,
+    type: 'numeric',
+    defaultValue: 0,
+    min: -180,
+    max: 180,
     step: 1,
-    unit: 'degrees',
-    description: 'Starting angle'
-  }
-};
-
-// XYZ-specific parameters
-const XYZ_PARAMETERS: ParameterDefinitions = {
-  ...COMMON_PARAMETERS,
-  width: {
-    default: 20,
+    unit: ParameterUnit.DEGREES,
+    description: 'Phase offset',
+    label: 'Phase'
+  },
+  size: {
+    type: 'numeric',
+    defaultValue: 10,
     min: 1,
     max: 100,
-    step: 1,
-    unit: 'meters',
-    description: 'Figure-8 width'
+    step: 0.1,
+    unit: ParameterUnit.METERS,
+    description: 'Size of figure-8 pattern',
+    label: 'Size'
   },
-  height: {
-    default: 10,
-    min: 1,
-    max: 100,
-    step: 1,
-    unit: 'meters',
-    description: 'Figure-8 height'
-  },
-  plane: {
-    default: 0,
-    min: 0,
+  ratio: {
+    type: 'numeric',
+    defaultValue: 0.5,
+    min: 0.1,
     max: 2,
-    step: 1,
-    unit: 'enum',
-    description: 'Motion plane (0: XY, 1: YZ, 2: XZ)'
-  },
-  centerX: {
-    default: 0,
-    min: -100,
-    max: 100,
-    step: 1,
-    unit: 'meters',
-    description: 'Center X position'
-  },
-  centerY: {
-    default: 0,
-    min: -100,
-    max: 100,
-    step: 1,
-    unit: 'meters',
-    description: 'Center Y position'
-  },
-  centerZ: {
-    default: 0,
-    min: -100,
-    max: 100,
-    step: 1,
-    unit: 'meters',
-    description: 'Center Z position'
-  }
-};
-
-// AED-specific parameters
-const AED_PARAMETERS: ParameterDefinitions = {
-  ...COMMON_PARAMETERS,
-  width: {
-    default: 20,
-    min: 1,
-    max: 100,
-    step: 1,
-    unit: 'meters',
-    description: 'Figure-8 width'
-  },
-  height: {
-    default: 10,
-    min: 1,
-    max: 100,
-    step: 1,
-    unit: 'meters',
-    description: 'Figure-8 height'
-  },
-  centerAzimuth: {
-    default: 0,
-    min: 0,
-    max: 360,
-    step: 1,
-    unit: 'degrees',
-    description: 'Center azimuth'
-  },
-  centerElevation: {
-    default: 0,
-    min: -90,
-    max: 90,
-    step: 1,
-    unit: 'degrees',
-    description: 'Center elevation'
-  },
-  centerDistance: {
-    default: 10,
-    min: 0,
-    max: 100,
-    step: 1,
-    unit: 'meters',
-    description: 'Center distance'
+    step: 0.1,
+    unit: ParameterUnit.RATIO,
+    description: 'Width to height ratio',
+    label: 'Ratio'
   },
   tilt: {
-    default: 0,
-    min: -90,
-    max: 90,
+    type: 'numeric',
+    defaultValue: 0,
+    min: -180,
+    max: 180,
     step: 1,
-    unit: 'degrees',
-    description: 'Figure-8 tilt angle'
+    unit: ParameterUnit.DEGREES,
+    description: 'Tilt angle of figure-8',
+    label: 'Tilt'
+  },
+  plane: {
+    type: 'enum',
+    defaultValue: 'xy',
+    values: ['xy', 'xz', 'yz'],
+    unit: ParameterUnit.NONE,
+    description: 'Movement plane',
+    label: 'Plane'
+  },
+  centerX: {
+    type: 'numeric',
+    defaultValue: 0,
+    min: -100,
+    max: 100,
+    step: 0.1,
+    unit: ParameterUnit.METERS,
+    description: 'Center X coordinate',
+    label: 'Center X'
+  },
+  centerY: {
+    type: 'numeric',
+    defaultValue: 0,
+    min: -100,
+    max: 100,
+    step: 0.1,
+    unit: ParameterUnit.METERS,
+    description: 'Center Y coordinate',
+    label: 'Center Y'
+  },
+  centerZ: {
+    type: 'numeric',
+    defaultValue: 0,
+    min: -100,
+    max: 100,
+    step: 0.1,
+    unit: ParameterUnit.METERS,
+    description: 'Center Z coordinate',
+    label: 'Center Z'
   }
 };
 
 export class Figure8Behavior extends BaseBehavior {
-  private time: number = 0;
+  private position: Vector3;
+  private center: Vector3;
 
-  constructor(coordinateSystem: CoordinateSystem = 'xyz') {
-    const params = coordinateSystem === 'xyz' ? XYZ_PARAMETERS : AED_PARAMETERS;
-    super(params, coordinateSystem);
-    this.validator = new ParameterValidator(params);
+  constructor() {
+    super(FIGURE8_PARAMETERS);
+    this.position = new Vector3();
+    this.center = new Vector3();
   }
 
-  calculateXYZPosition(deltaTime: number): XYZPosition {
-    this.time += deltaTime * this.parameters.speed;
-    const t = (this.time * 2 * Math.PI + this.parameters.phase * Math.PI / 180) % (2 * Math.PI);
+  update(time: number): HolophonixPosition {
+    const { frequency, phase, size, ratio, tilt, plane, centerX, centerY, centerZ } = this.parameters;
     
-    const width = this.parameters.width;
-    const height = this.parameters.height;
-    const plane = Math.floor(this.parameters.plane || 0);
+    // Calculate angle based on time and frequency
+    const angle = (time * frequency * Math.PI * 2 + phase * Math.PI / 180) % (Math.PI * 2);
     
-    // Calculate lemniscate of Bernoulli
-    const scale = Math.sqrt(2);
-    const x = (width * Math.sin(t)) / (1 + Math.pow(Math.cos(t), 2));
-    const y = (height * Math.sin(t) * Math.cos(t)) / (1 + Math.pow(Math.cos(t), 2));
-
-    // Apply plane rotation and center offset
-    let position: XYZPosition;
-    switch (plane) {
-      case 0: // XY plane
-        position = createXYZPosition(
-          x + (this.parameters.centerX || 0),
-          y + (this.parameters.centerY || 0),
-          this.parameters.centerZ || 0
-        );
-        break;
-      case 1: // YZ plane
-        position = createXYZPosition(
-          this.parameters.centerX || 0,
-          x + (this.parameters.centerY || 0),
-          y + (this.parameters.centerZ || 0)
-        );
-        break;
-      case 2: // XZ plane
-        position = createXYZPosition(
-          x + (this.parameters.centerX || 0),
-          this.parameters.centerY || 0,
-          y + (this.parameters.centerZ || 0)
-        );
-        break;
-      default:
-        position = createXYZPosition(
-          this.parameters.centerX || 0,
-          this.parameters.centerY || 0,
-          this.parameters.centerZ || 0
-        );
-    }
-
-    return normalizePosition(position);
-  }
-
-  calculateAEDPosition(deltaTime: number): AEDPosition {
-    this.time += deltaTime * this.parameters.speed;
-    const t = (this.time * 2 * Math.PI + this.parameters.phase * Math.PI / 180) % (2 * Math.PI);
+    // Calculate tilt angle in radians
+    const tiltRad = tilt * Math.PI / 180;
     
-    const width = this.parameters.width;
-    const height = this.parameters.height;
-    const centerAzimuth = this.parameters.centerAzimuth || 0;
-    const centerElevation = this.parameters.centerElevation || 0;
-    const centerDistance = this.parameters.centerDistance || 10;
-    const tilt = (this.parameters.tilt || 0) * Math.PI / 180;
-    
-    // Calculate base lemniscate shape
-    const scale = Math.sqrt(2);
-    const x = (width * Math.sin(t)) / (1 + Math.pow(Math.cos(t), 2));
-    const y = (height * Math.sin(t) * Math.cos(t)) / (1 + Math.pow(Math.cos(t), 2));
+    // Calculate base figure-8 position
+    const x = size * Math.sin(angle);
+    const y = size * ratio * Math.sin(2 * angle);
     
     // Apply tilt rotation
-    const xTilted = x;
-    const yTilted = y * Math.cos(tilt);
+    const xt = x * Math.cos(tiltRad) - y * Math.sin(tiltRad);
+    const yt = x * Math.sin(tiltRad) + y * Math.cos(tiltRad);
     
-    // Convert to spherical coordinates (simplified for small angles)
-    const azimuthOffset = Math.atan2(xTilted, centerDistance) * 180 / Math.PI;
-    const elevationOffset = Math.atan2(yTilted, centerDistance) * 180 / Math.PI;
+    // Update center position
+    this.center.set(centerX, centerY, centerZ);
     
-    // Create final AED position
-    const position = createAEDPosition(
-      (centerAzimuth + azimuthOffset + 360) % 360,
-      Math.max(-90, Math.min(90, centerElevation + elevationOffset)),
-      centerDistance
-    );
-    
-    return normalizePosition(position);
-  }
+    // Apply position based on selected plane
+    switch (plane) {
+      case 'xy':
+        this.position.set(
+          this.center.x + xt,
+          this.center.y + yt,
+          this.center.z
+        );
+        break;
+      case 'xz':
+        this.position.set(
+          this.center.x + xt,
+          this.center.y,
+          this.center.z + yt
+        );
+        break;
+      case 'yz':
+        this.position.set(
+          this.center.x,
+          this.center.y + xt,
+          this.center.z + yt
+        );
+        break;
+    }
 
-  setCoordinateSystem(system: CoordinateSystem): void {
-    if (system === this.coordinateSystem) return;
-
-    // Store current parameters before switching
-    const commonParams = {
-      speed: this.parameters.speed,
-      phase: this.parameters.phase,
-      width: this.parameters.width,
-      height: this.parameters.height
-    };
-
-    // Switch coordinate system and parameters
-    this.coordinateSystem = system;
-    this.parameterDefinitions = system === 'xyz' ? XYZ_PARAMETERS : AED_PARAMETERS;
-    this.validator = new ParameterValidator(this.parameterDefinitions);
-    
-    // Reset parameters to defaults
-    Object.entries(this.parameterDefinitions).forEach(([key, def]) => {
-      this.parameters[key] = def.default;
-    });
-
-    // Restore common parameters
-    Object.entries(commonParams).forEach(([key, value]) => {
-      this.parameters[key] = value;
-    });
+    return normalizePosition(createXYZPosition(
+      this.position.x,
+      this.position.y,
+      this.position.z
+    ));
   }
 
   reset(): void {
-    this.time = 0;
-  }
-
-  update(deltaTime: number): HolophonixPosition {
-    return this.coordinateSystem === 'xyz' 
-      ? this.calculateXYZPosition(deltaTime)
-      : this.calculateAEDPosition(deltaTime);
+    this.position.set(0, 0, 0);
+    this.center.set(0, 0, 0);
+    super.reset();
   }
 }

@@ -1,100 +1,142 @@
-import { ParameterDefinitions, ParameterValidationError, ParameterMetadata } from '../types/parameters';
-import { ParameterValidator } from './validation';
-import {
-  XYZPosition,
-  AEDPosition,
-  convertXYZtoAED,
-  convertAEDtoXYZ,
-  createXYZPosition,
-  createAEDPosition,
-  validatePosition,
-  normalizePosition,
-  HolophonixPosition,
-  CoordinateSystem
-} from '../types/position';
+import { 
+  ParameterDefinitions,
+  ParameterMetadata,
+  ParameterValidationError,
+  BehaviorParameterValidator,
+  ParameterValue
+} from '../types/parameters';
+import { HolophonixPosition, XYZPosition } from '../types/position';
+
+export class BehaviorError extends Error {
+  constructor(message: string, public code: string) {
+    super(message);
+    this.name = 'BehaviorError';
+  }
+}
+
+export class BehaviorValidationError extends BehaviorError {
+  constructor(message: string) {
+    super(message, 'VALIDATION_ERROR');
+    this.name = 'BehaviorValidationError';
+  }
+}
+
+export class BehaviorExecutionError extends BehaviorError {
+  constructor(message: string) {
+    super(message, 'EXECUTION_ERROR');
+    this.name = 'BehaviorExecutionError';
+  }
+}
+
+export interface BehaviorLifecycle {
+  onInit?(): void;
+  onDestroy?(): void;
+  onParameterChange?(param: string, value: ParameterValue): void;
+  onBeforeUpdate?(time: number): void;
+  onAfterUpdate?(time: number, position: HolophonixPosition): void;
+}
 
 export interface BehaviorImplementation {
   update(time: number): HolophonixPosition;
   reset(): void;
-  setParameters(params: Record<string, number | string>): ParameterValidationError[];
-  getParameters(): Record<string, number | string>;
+  destroy(): void;
+  getParameters(): Record<string, ParameterValue>;
+  setParameters(params: Record<string, ParameterValue>): void;
   getParameterMetadata(): Record<string, ParameterMetadata>;
-  getCoordinateSystem(): CoordinateSystem;
-  setCoordinateSystem(system: CoordinateSystem): void;
+  setCoordinateSystem(system: 'xyz' | 'aed'): void;
+  getParameterGroups?(): Array<{
+    name: string;
+    description?: string;
+    parameters: string[];
+  }>;
 }
 
-export abstract class BaseBehavior implements BehaviorImplementation {
-  protected parameters: Record<string, number | string>;
-  protected parameterDefinitions: ParameterDefinitions;
-  protected validator: ParameterValidator;
-  protected startTime: number;
-  protected coordinateSystem: CoordinateSystem;
+/**
+ * Base class for all behaviors. Handles parameter validation and coordinate system conversion.
+ */
+export abstract class BaseBehavior implements BehaviorLifecycle, BehaviorImplementation {
+  protected parameters: Record<string, ParameterValue> = {};
+  protected validator: BehaviorParameterValidator;
+  protected isInitialized: boolean = false;
+  protected coordinateSystem: 'xyz' | 'aed' = 'xyz';
 
-  constructor(parameterDefinitions: ParameterDefinitions, defaultSystem: CoordinateSystem = 'xyz') {
-    this.parameterDefinitions = parameterDefinitions;
-    this.validator = new ParameterValidator(parameterDefinitions);
-    this.parameters = {};
-    this.startTime = Date.now();
-    this.coordinateSystem = defaultSystem;
+  constructor(protected parameterDefinitions: ParameterDefinitions) {
+    this.validator = new BehaviorParameterValidator(parameterDefinitions);
+    this.reset();
+    this.initialize();
+  }
 
-    // Initialize parameters with default values
-    Object.entries(parameterDefinitions).forEach(([key, def]) => {
-      this.parameters[key] = def.default;
-    });
+  protected initialize(): void {
+    try {
+      this.onInit?.();
+      this.isInitialized = true;
+    } catch (error) {
+      throw new BehaviorExecutionError(`Failed to initialize behavior: ${error.message}`);
+    }
   }
 
   abstract update(time: number): HolophonixPosition;
+  
+  protected abstract updatePosition(time: number): HolophonixPosition;
 
   reset(): void {
-    this.startTime = Date.now();
+    // Reset parameters to defaults
+    this.parameters = Object.entries(this.parameterDefinitions).reduce(
+      (acc, [name, metadata]) => ({
+        ...acc,
+        [name]: metadata.defaultValue
+      }),
+      {}
+    );
   }
 
-  setParameters(params: Record<string, number | string>): ParameterValidationError[] {
-    const errors = this.validator.validate(params);
-    if (errors.length === 0) {
-      // Only update parameters if there are no validation errors
-      Object.entries(params).forEach(([key, value]) => {
-        this.parameters[key] = value;
-      });
-      this.onParameterChanged(params);
+  destroy(): void {
+    try {
+      this.onDestroy?.();
+    } catch (error) {
+      throw new BehaviorExecutionError(`Cleanup failed: ${error.message}`);
     }
-    return errors;
   }
 
-  getParameters(): Record<string, number | string> {
+  getParameters(): Record<string, ParameterValue> {
     return { ...this.parameters };
   }
 
-  getParameterMetadata(): Record<string, ParameterMetadata> {
-    return { ...this.parameterDefinitions };
+  setParameters(params: Record<string, ParameterValue>): void {
+    const errors = this.validator.validateParameters(params);
+    if (errors.length > 0) {
+      throw errors[0];
+    }
+
+    Object.entries(params).forEach(([name, value]) => {
+      this.setParameterValue(name, value);
+    });
   }
 
-  getCoordinateSystem(): CoordinateSystem {
-    return this.coordinateSystem;
-  }
+  protected setParameterValue<T extends ParameterValue>(paramName: string, value: T): void {
+    const oldValue = this.parameters[paramName];
+    this.parameters[paramName] = value;
 
-  setCoordinateSystem(system: CoordinateSystem): void {
-    if (system !== this.coordinateSystem) {
-      this.coordinateSystem = system;
-      this.onCoordinateSystemChanged(system);
+    try {
+      this.onParameterChange?.(paramName, value);
+    } catch (error) {
+      // Rollback on error
+      this.parameters[paramName] = oldValue;
+      throw new BehaviorExecutionError(`Parameter change failed: ${error.message}`);
     }
   }
 
-  protected getElapsedTime(currentTime: number): number {
-    return (currentTime - this.startTime) / 1000;
+  getParameterMetadata(): Record<string, ParameterMetadata> {
+    return this.parameterDefinitions;
   }
 
-  protected onParameterChanged(params: Record<string, number | string>): void {
-    // Override in subclasses if needed
+  setCoordinateSystem(system: 'xyz' | 'aed'): void {
+    this.coordinateSystem = system;
   }
 
-  protected onCoordinateSystemChanged(system: CoordinateSystem): void {
-    // Override in subclasses if needed
-  }
-
-  protected createPosition(x: number, y: number, z: number): HolophonixPosition {
-    return this.coordinateSystem === 'xyz'
-      ? createXYZPosition(x, y, z)
-      : convertXYZtoAED(createXYZPosition(x, y, z));
-  }
+  getParameterGroups?(): Array<{
+    name: string;
+    description?: string;
+    parameters: string[];
+  }>;
 }
