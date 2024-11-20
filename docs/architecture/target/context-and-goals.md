@@ -157,12 +157,12 @@ Sound technicians and audio professionals who:
     - Get XY only (to be tested): `/get /track/{id}/xy` → `/track/{id}/xy {x} {y}`
 
   - Polar:
-    - Set: `/track/{id}/azimuth {value}` (0.0 to 360.0)
-    - Set: `/track/{id}/elevation {value}` (-90.0 to 90.0)
-    - Set: `/track/{id}/distance {value}` (0.0 to 1.0)
-    - Get single: `/get /track/{id}/azimuth` → `/track/{id}/azimuth {value}`
-    - Get all AED: `/get /track/{id}/aed` → `/track/{id}/aed {azimuth} {elevation} {distance}`
-    - Get AE only (to be tested): `/get /track/{id}/ae` → `/track/{id}/ae {azimuth} {elevation}`
+    - Set: `/track/{id}/azim {value}` (0.0 to 360.0)
+    - Set: `/track/{id}/elev {value}` (-90.0 to 90.0)
+    - Set: `/track/{id}/dist {value}` (0.0 to 1.0)
+    - Get single: `/get /track/{id}/azim` → `/track/{id}/azim {value}`
+    - Get all AED: `/get /track/{id}/aed` → `/track/{id}/aed {azim} {elev} {dist}`
+    - Get AE only (to be tested): `/get /track/{id}/ae` → `/track/{id}/ae {azim} {elev}`
 
 ##### Coordinate Query Options
 - Full coordinates:
@@ -170,10 +170,10 @@ Sound technicians and audio professionals who:
   - `/track/{id}/aed` - all polar coordinates
 - Partial coordinates (to be tested):
   - `/track/{id}/xy` - X and Y coordinates only
-  - `/track/{id}/ae` - Azimuth and Elevation only
+  - `/track/{id}/ae` - Azim and Elev only
 - Individual coordinates:
   - `/track/{id}/x`, `/track/{id}/y`, `/track/{id}/z`
-  - `/track/{id}/azimuth`, `/track/{id}/elevation`, `/track/{id}/distance`
+  - `/track/{id}/azim`, `/track/{id}/elev`, `/track/{id}/dist`
 
 ##### Track Parameters
 - Gain control:
@@ -182,6 +182,9 @@ Sound technicians and audio professionals who:
 - Mute control:
   - Set: `/track/{id}/mute {0|1}`
   - Get: `/get /track/{id}/mute` → `/track/{id}/mute {value}`
+- Color:
+  - Set: `/track/{id}/color {r} {g} {b} {a}` (0.0 to 1.0)
+  - Get: `/get /track/{id}/color` → `/track/{id}/color {r} {g} {b} {a}`
 
 ##### State Monitoring
 - Query format: `/get <path>`
