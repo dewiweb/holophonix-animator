@@ -22,19 +22,26 @@ This project is currently undergoing a complete restructuring based on learnings
 
 ## Development Methodology
 
-### 1. Requirements-First Approach
-- Clear documentation of core functionalities
-- Explicit performance requirements
-- Well-defined technical constraints
+### 1. Context and Goals
+- Project context definition
+- Clear project goals identification
+- User needs and expectations
+- Technical and operational constraints
+- Success criteria definition
+
+### 2. Requirements Analysis
+- Core functionalities documentation
+- Performance requirements
+- Technical constraints
 - Feature acceptance criteria
 
-### 2. Architecture Design
+### 3. Architecture Design
 - Modular system design
 - Clear component boundaries
 - Well-defined interfaces
 - Performance-critical parts identification
 
-### 3. Implementation Strategy
+### 4. Implementation Strategy
 - Iterative development
 - Test-driven development
 - Regular validation
