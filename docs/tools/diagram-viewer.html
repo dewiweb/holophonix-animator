@@ -68,10 +68,14 @@
     <div class="controls">
         <select id="diagramSelect" onchange="loadDiagram()">
             <option value="">Select a diagram</option>
-            <option value="actual-state-architecture.mmd">actual-state-architecture.mmd (Current State)</option>
-            <option value="target-state-architecture.mmd">target-state-architecture.mmd (Future State)</option>
-            <option value="osc-flow.mmd">osc-flow.mmd (OSC Flow)</option>
-            <option value="state-storage-behavior.mmd">state-storage-behavior.mmd (State Storage)</option>
+            <optgroup label="Current Implementation">
+                <option value="../architecture/current/diagrams/state-architecture.mmd">Current State Architecture</option>
+                <option value="../architecture/current/diagrams/osc-flow.mmd">OSC Flow</option>
+            </optgroup>
+            <optgroup label="Target Design">
+                <option value="../architecture/target/diagrams/state-architecture.mmd">Target State Architecture</option>
+                <option value="../architecture/target/diagrams/state-storage-behavior.mmd">State Storage Behavior</option>
+            </optgroup>
         </select>
         <div class="zoom-controls">
             <button onclick="zoomIn()">Zoom In</button>
