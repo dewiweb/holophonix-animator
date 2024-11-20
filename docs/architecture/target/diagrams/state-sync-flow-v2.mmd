@@ -1,0 +1,145 @@
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'fontSize': '16px',
+    'fontFamily': 'arial',
+    'lineWidth': '2px',
+    'arrowMarkerAbsolute': true,
+    'darkMode': true,
+    'primaryColor': '#fff',
+    'primaryTextColor': '#fff',
+    'primaryBorderColor': '#fff',
+    'lineColor': '#f5f5f5',
+    'textColor': '#f5f5f5'
+  },
+  'sequence': {
+    'messageAlign': 'center',
+    'boxMargin': 10,
+    'boxTextMargin': 5,
+    'noteMargin': 10,
+    'messageMargin': 35,
+    'mirrorActors': false,
+    'bottomMarginAdj': 1,
+    'useMaxWidth': true,
+    'rightAngles': false,
+    'showSequenceNumbers': false
+  }
+} }%%
+
+sequenceDiagram
+    participant App as Holophonix Animator
+    participant OSC as OSC Handler
+    participant State as State Manager
+    participant Holo as Holophonix System
+    
+    %% Initial Connection Scenario
+    Note over App,Holo: Initial Connection Scenario
+    App->>OSC: Initialize OSC connection
+    Note over OSC: Start connection timeout (5s)
+    OSC->>Holo: Connection request (UDP:4003)
+    Holo-->>OSC: Connection acknowledgment
+    Note over OSC: Start connection monitoring
+    OSC->>App: Connection established
+    
+    %% Initial State Synchronization
+    Note over App,Holo: Initial State Synchronization
+    App->>State: Request initial state sync
+    State->>OSC: Register state queries
+    Note over State: Track parameters:<br/>position (x,y,z)<br/>orientation (azimuth,elevation)<br/>gain, mute, name
+    loop For each parameter group
+        OSC->>Holo: /get queries with timeout
+        alt Success
+            Holo-->>OSC: Parameter values
+            OSC->>State: Validate & cache values
+        else Timeout
+            Note over OSC: Retry up to 3 times
+            OSC->>Holo: Retry /get query
+        end
+    end
+    State->>App: Notify state ready
+    
+    %% Periodic State Validation
+    Note over App,Holo: Periodic State Validation (every 5s)
+    loop Every 5 seconds
+        State->>OSC: Request critical params validation
+        Note over State: Critical params:<br/>position, gain, mute
+        OSC->>Holo: /get critical parameters
+        alt Success
+            Holo-->>OSC: Parameter responses
+            OSC->>State: Compare with cache
+            alt State Changed
+                State->>App: Notify state change
+                App->>State: Acknowledge change
+            end
+        else Timeout/Error
+            OSC->>State: Report validation failure
+            State->>App: Warning: Sync uncertain
+        end
+    end
+    
+    %% User-Initiated Updates
+    Note over App,Holo: User-Initiated Updates
+    Note over App: User modifies parameters
+    App->>State: Update request
+    State->>OSC: Send parameter changes
+    Note over OSC: Start update timeout (2s)
+    OSC->>Holo: Parameter update commands
+    alt Success
+        Holo-->>OSC: Update confirmation
+        OSC->>State: Confirm state change
+        State->>App: Update success
+    else Error/Timeout
+        OSC->>State: Report update failure
+        State->>App: Update failed
+        App->>State: Retry or rollback
+    end
+    
+    %% Error Handling
+    Note over App,Holo: Error Handling
+    alt Connection Error
+        Holo->>OSC: Connection lost/timeout
+        OSC->>State: Log connection error
+        State->>App: Connection error notification
+        App->>OSC: Initiate reconnection
+    else Validation Error
+        Holo->>OSC: Invalid parameter response
+        OSC->>State: Log validation error
+        State->>App: Parameter error notification
+        App->>State: Request parameter resync
+    else State Sync Error
+        Note over State: Detect state inconsistency
+        State->>OSC: Request full resync
+        OSC->>Holo: /get all parameters
+    end
+    
+    %% Batch Updates
+    Note over App,Holo: Batch Updates (max 10 params)
+    Note over App: Multiple parameter changes
+    App->>State: Batch update request
+    State->>OSC: Group & validate updates
+    Note over OSC: Enforce batch limits
+    alt Valid Batch
+        OSC->>Holo: Batched parameter commands
+        Holo-->>OSC: Batch confirmation
+        OSC->>State: Update cache
+        State->>App: Batch complete
+    else Invalid/Oversized Batch
+        OSC->>State: Split batch
+        State->>OSC: Send as separate updates
+    end
+    
+    %% Automatic Recovery
+    Note over App,Holo: Automatic Recovery
+    Note over OSC: Detect connection loss
+    OSC->>App: Connection lost
+    loop Until reconnected (max 5 attempts)
+        OSC->>Holo: Reconnection attempt
+        Note over OSC: Exponential backoff
+    end
+    alt Reconnection Success
+        OSC->>App: Connection restored
+        App->>State: Request state resync
+    else Max Retries Exceeded
+        OSC->>App: Connection failed
+        Note over App: Manual intervention required
+    end
