@@ -38,9 +38,12 @@
             border: 1px solid #4a4a4a;
             padding: 8px 16px;
             border-radius: 4px;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
             transition: all 0.2s ease;
+        }
+        select {
+            min-width: 300px;
         }
         button:hover, select:hover {
             background-color: #4a4a4a;
@@ -51,70 +54,61 @@
             gap: 10px;
         }
         #error {
-            color: #ff6b6b;
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 4px;
-            background-color: rgba(255, 107, 107, 0.1);
             display: none;
+            color: #ff6b6b;
+            background-color: #2d2d2d;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #ff6b6b;
         }
         #diagram {
-            transition: transform 0.2s ease;
             transform-origin: top left;
+            transition: transform 0.2s ease;
         }
     </style>
 </head>
 <body>
     <div class="controls">
         <select id="diagramSelect" onchange="loadDiagram()">
-            <option value="">Select a diagram</option>
-            <optgroup label="Current Implementation">
-                <option value="../architecture/current/diagrams/state-architecture.mmd">Current State Architecture</option>
-                <option value="../architecture/current/diagrams/osc-flow.mmd">OSC Flow</option>
-            </optgroup>
-            <optgroup label="Target Design">
-                <option value="../architecture/target/diagrams/state-architecture.mmd">Target State Architecture</option>
-                <option value="../architecture/target/diagrams/state-storage-behavior.mmd">State Storage Behavior</option>
-            </optgroup>
+            <option value="">Select a diagram...</option>
+            <option value="../architecture/current/diagrams/state-architecture.mmd">Current State Architecture (state-architecture.mmd)</option>
+            <option value="../architecture/current/diagrams/osc-flow.mmd">OSC Flow (osc-flow.mmd)</option>
+            <option value="../architecture/target/diagrams/target-architecture.mmd">Target Architecture (target-architecture.mmd)</option>
+            <option value="../architecture/target/diagrams/state-architecture.mmd">State Architecture (state-architecture.mmd)</option>
+            <option value="../architecture/target/diagrams/state-sync-flow.mmd">State Sync Flow (state-sync-flow.mmd)</option>
+            <option value="../architecture/target/diagrams/state-sync-flow-v2.mmd">State Sync Flow V2 (state-sync-flow-v2.mmd)</option>
+            <option value="../architecture/target/diagrams/state-storage-behavior.mmd">State Storage Behavior (state-storage-behavior.mmd)</option>
         </select>
         <div class="zoom-controls">
             <button onclick="zoomIn()">Zoom In</button>
+            <button onclick="resetZoom()">Reset</button>
             <button onclick="zoomOut()">Zoom Out</button>
-            <button onclick="resetZoom()">Reset Zoom</button>
         </div>
     </div>
-
     <div id="error"></div>
     <div class="diagram-container">
         <div id="diagram"></div>
     </div>
 
     <script>
-        let scale = 1;
-        const diagram = document.getElementById('diagram');
-        const errorDiv = document.getElementById('error');
-
         mermaid.initialize({
+            startOnLoad: false,
             theme: 'dark',
-            themeVariables: {
-                'primaryColor': '#2d2d2d',
-                'primaryTextColor': '#fff',
-                'primaryBorderColor': '#4a4a4a',
-                'lineColor': '#a7a7a7',
-                'secondaryColor': '#2d2d2d',
-                'tertiaryColor': '#2d2d2d',
-                'fontSize': '16px',
-                'fontFamily': 'arial'
-            }
+            securityLevel: 'loose'
         });
 
+        const diagram = document.getElementById('diagram');
+        let scale = 1;
+
         function showError(message) {
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
+            const error = document.getElementById('error');
+            error.textContent = message;
+            error.style.display = 'block';
         }
 
         function hideError() {
-            errorDiv.style.display = 'none';
+            document.getElementById('error').style.display = 'none';
         }
 
         function zoomIn() {
