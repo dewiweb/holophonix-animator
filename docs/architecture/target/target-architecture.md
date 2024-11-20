@@ -12,35 +12,110 @@ The architecture diagram is available in the following formats:
   2. VS Code with Mermaid extension - Open the .mmd file directly
   3. Any Mermaid-compatible diagram viewer
 
-## Areas to Define and Refine
+## Core Architecture Requirements
 
-1. **Animation Service Architecture**
+1. **User Interface Layer**
+   - [ ] Bilingual support (English and French)
+   - [ ] Accessibility features implementation
+   - [ ] Responsive and intuitive motion control interface
+   - [ ] Real-time preview capabilities
+   - [ ] Configuration management interface
+
+2. **Animation Service Architecture**
    - [ ] Choose optimal programming language (Rust/C++)
    - [ ] Define service communication protocol (WebSocket/gRPC)
    - [ ] Design computation modules interfaces
-   - [ ] Specify performance requirements
-   - [ ] Plan scaling strategy
+   - [ ] Specify performance requirements (real-time motion)
+   - [ ] Plan scaling strategy for multiple objects
+   - [ ] Implement state persistence and recovery
 
-2. **External Systems Integration**
-   - [ ] Define exact OSC protocol requirements
-   - [ ] Specify any additional external systems needed
-   - [ ] Plan communication between Animation Service and Holophonix
+3. **External Systems Integration**
+   - [ ] Implement bidirectional OSC protocol:
+     - Send: Motion commands and parameter updates
+     - Receive: State queries and responses
+     - Default port: 4003 (configurable)
+   - [ ] Support multiple OSC destinations (optional)
+   - [ ] Plan communication between Animation Service and Holophonix:
+     - Real-time state synchronization
+     - Error handling and recovery
+     - Connection monitoring
+   - [ ] Implement network diagnostics and monitoring:
+     - Connection status
+     - Message latency
+     - Error rates
+   - [ ] Design error handling and recovery system
 
-3. **Main Process Architecture**
+### OSC Communication Layer
+
+The OSC Handler component manages bidirectional communication between the Holophonix Animator and the Holophonix System. This communication is crucial for maintaining system state and enabling real-time control.
+
+#### Communication Flow
+1. **Outbound Communication (Animator → Holophonix)**
+   - Motion commands for source positioning
+   - Parameter value updates
+   - State queries for synchronization
+   - Configuration changes
+
+2. **Inbound Communication (Holophonix → Animator)**
+   - State query responses
+   - Parameter update confirmations
+   - Error notifications
+   - System status updates
+
+#### Protocol Specifications
+- Transport: UDP
+- Default Port: 4003 (configurable)
+- Message Format: OSC 1.0 compliant
+- Address Patterns: `/track/{id}/...` for source control
+- Query Format: `/get <parameter_path>`
+
+#### Error Handling
+- Network connectivity monitoring
+- Message validation and error reporting
+- Automatic reconnection on connection loss
+- Timeout handling for unresponsive queries
+
+#### State Management
+- Periodic state synchronization
+- Cache invalidation on parameter changes
+- Conflict resolution for concurrent updates
+
+4. **Main Process Architecture**
    - [ ] Design Animation Bridge implementation
    - [ ] Define service client requirements
    - [ ] Plan error handling and recovery strategies
+   - [ ] Implement configuration management system
+   - [ ] Design plugin architecture for motion patterns
 
-4. **Data Flow**
+5. **Data Flow and State Management**
    - [ ] Define data models for animation calculations
    - [ ] Specify state update patterns
    - [ ] Design high-performance data exchange format
+   - [ ] Implement configuration import/export
+   - [ ] Design backup and restore functionality
 
-5. **Performance Requirements**
+6. **Performance and Resource Management**
    - [ ] Define computation performance targets
-   - [ ] Specify maximum latency requirements
+   - [ ] Specify maximum latency requirements (<10ms)
    - [ ] Plan resource allocation strategy
    - [ ] Define scaling limits
+   - [ ] Implement performance monitoring
+
+## Support Infrastructure
+
+1. **Documentation System**
+   - [ ] Technical documentation in English and French
+   - [ ] API documentation for plugin development
+   - [ ] User guides and tutorials
+   - [ ] System administration guides
+   - [ ] Troubleshooting documentation
+
+2. **Development Infrastructure**
+   - [ ] Continuous Integration/Deployment pipeline
+   - [ ] Automated testing framework
+   - [ ] Code quality monitoring
+   - [ ] Performance benchmarking system
+   - [ ] Localization management system
 
 ## Notes and Decisions
 
@@ -48,14 +123,19 @@ The architecture diagram is available in the following formats:
    - Separate Animation Core into dedicated high-performance service
    - Use WebSocket/gRPC for efficient service communication
    - Implement modular computation system
+   - Support bilingual interface (English/French)
+   - Configurable OSC communication
 
 2. **Technology Considerations**:
    - Rust/C++ for performance-critical calculations
    - Binary protocol for minimal communication overhead
    - Potential for distributed computation
+   - Modern UI framework with language support
+   - Built-in diagnostic tools
 
 3. **Open Questions**:
    - Service deployment strategy
    - Inter-process communication optimization
    - State synchronization approach
    - Error recovery mechanisms
+   - Plugin system architecture

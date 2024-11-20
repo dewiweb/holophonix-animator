@@ -104,8 +104,25 @@ Sound technicians and audio professionals who:
 - Must maintain synchronization with the audio processing chain
 
 #### Communication Protocol Details
-- OSC Default Port: 9000
-- Supports both absolute and normalized parameter values
+- OSC Protocol:
+  - Bidirectional communication over UDP
+  - Default listening port: 4003 (configurable)
+  - Supports both sending commands and receiving responses
+  - Handles state queries and updates
+  - Maintains synchronization with Holophonix state
+
+##### OSC Message Types
+1. **Outgoing Messages (Animator to Holophonix)**
+   - Setting values: `/track/{id}/...`
+   - State queries: `/get <path>`
+   - Parameter updates
+   - Motion commands
+
+2. **Incoming Messages (Holophonix to Animator)**
+   - Query responses
+   - State updates
+   - Parameter confirmations
+   - Error notifications
 
 ##### OSC Message Structure
 - Setting values: 
@@ -182,62 +199,233 @@ Sound technicians and audio professionals who:
 - Smooth interpolation between position changes
 - Efficient handling of multiple simultaneous objects
 - Stable operation in professional audio environments
+- OSC message handling within 16ms to maintain 60fps update rate
 
 ## Goals
 
 ### Primary Goals
-- What are the core objectives?
-- What problems are we solving?
-- What improvements are we targeting?
+1. **Enhanced Motion Control System**
+   - Create an intuitive and powerful system for defining complex spatial movements
+   - Support both simple and advanced motion patterns (linear, circular, spiral, custom paths)
+   - Enable precise control over motion timing and synchronization
+   - Implement robust group movement capabilities
+
+2. **Improved Real-time Performance**
+   - Optimize motion calculations for minimal latency
+   - Ensure smooth transitions between position updates
+   - Support efficient handling of multiple simultaneous objects
+   - Maintain stable performance under heavy load
+
+3. **Better State Management**
+   - Implement robust state synchronization with Holophonix server
+   - Provide reliable error recovery mechanisms
+   - Enable seamless coordinate system transitions
+   - Support comprehensive undo/redo capabilities
 
 ### User Experience Goals
-- How should users interact with the system?
-- What should be the learning curve?
-- What workflows need to be optimized?
+1. **Streamlined Workflow**
+   - Minimize steps for common tasks
+   - Enable quick parameter adjustments
+   - Support rapid scene setup
+   - Provide efficient preset management
+
+2. **Motion Pattern Preview**
+   - Simple 2D preview of motion behaviors
+   - Quick preview of behavior models
+   - Easy comparison between different patterns
+   - Clear representation of timing and rhythm
+
+3. **Professional Control**
+   - Quick access to frequently used patterns
+   - Efficient multi-object management
+   - Fast response to live situations
+   - Intuitive parameter mapping
 
 ### Technical Goals
-- What technical improvements are needed?
-- What performance metrics should we achieve?
-- What architectural improvements are required?
+1. **Core Architecture**
+   - Clean separation between motion logic and UI
+   - Modular system for behavior patterns
+   - Efficient state management
+   - Robust error handling
+
+2. **Performance**
+   - Fast motion calculations
+   - Smooth OSC communication
+   - Responsive UI interactions
+   - Efficient memory usage
+
+3. **Integration**
+   - Reliable OSC protocol implementation
+   - Robust coordinate system conversions
+   - Consistent state synchronization
+   - Flexible preset system
 
 ### Success Criteria
-- How do we measure success?
-- What are the key performance indicators?
-- What user feedback indicates success?
+1. **Technical Performance**
+   - Motion updates sent within 16ms (60fps)
+   - OSC round-trip latency < 100ms
+   - UI response time < 50ms
+   - Memory usage < 500MB
 
-## Development Progress Notes
+2. **Reliability**
+   - Zero data loss during connection issues
+   - 100% recovery from connection drops
+   - No unexpected motion interruptions
+   - Correct coordinate conversions
 
-### Session 2024-01-XX
-- Defined detailed technical context for Holophonix OSC communication
-- Documented OSC protocol structure for track control:
-  - Coordinate systems (XYZ, AED)
-  - Individual and bulk parameter queries
-  - Message formats for get/set operations
-- Next steps:
-  1. Test partial coordinate queries (xy, ae)
-  2. Define Primary Goals section
-  3. Plan the animator's core features based on Holophonix capabilities
+3. **Usability**
+   - Pattern setup completed in < 1 minute
+   - New users productive within 30 minutes
+   - Preset creation in < 3 steps
+   - Pattern adjustments in real-time
 
 ## Constraints
 
 ### Technical Constraints
-- System requirements
-- Integration requirements
-- Performance boundaries
+1. **Network Requirements**
+   - Must operate over standard TCP/IP network
+   - Requires stable connection to Holophonix server
+   - Must support configurable OSC ports for both send and receive
+   - Default OSC receive port: 4003 (Holophonix standard)
+   - Restricted ports: 4002, 4001, and ports below 1024 not allowed
+   - Local network latency < 100ms
+   - Support for multiple OSC destinations (optional)
+
+2. **System Compatibility**
+   - Cross-platform support (Windows, macOS, Linux)
+   - Minimum 4GB RAM
+   - x64 architecture required
+   - ARM support optional if development effort reasonable
+
+3. **Performance Boundaries**
+   - Standard target: 64 simultaneous objects
+   - Scale with system capabilities for more objects (optional)
+   - Motion updates at 60fps (16.7ms)
+   - Maximum 1GB memory usage
+   - CPU usage < 15% on modern processors
+   - OSC message handling within 16ms to maintain 60fps update rate
+   - Support for multiple simultaneous OSC connections (optional)
 
 ### Operational Constraints
-- Deployment requirements
-- Maintenance considerations
-- Update mechanisms
+1. **Deployment Requirements**
+   - Self-contained application package
+   - Automatic handling of dependencies
+   - Support for standard user installation
+   - Configurable installation paths (optional)
+   - Preservation of user settings during updates
+
+2. **Update Management**
+   - Automated update checks
+   - Rollback capability for failed updates
+   - Delta updates to minimize download size (optional)
+   - Update deferral options for critical sessions
+   - Version compatibility checks with Holophonix server (optional)
+
+3. **Configuration Management**
+   - User-specific configuration profiles
+   - Export/Import of configuration settings (optional)
+   - Backup of user presets and patterns
+   - Network settings persistence
+   - OSC configuration templates (optional)
+   - Logging level configuration
+
+4. **Maintenance Operations**
+   - Automated log rotation and cleanup
+   - Built-in diagnostic tools (optional)
+   - Configuration validation tools
+   - Network connection testing utilities (optional)
+   - Performance monitoring and reporting (optional)
+   - Error reporting with privacy controls
+
+5. **Recovery and Backup**
+   - Automatic backup of critical user data
+   - Session state recovery after crashes
+   - Configuration restore points (optional)
+   - Emergency recovery mode (optional)
+   - Offline operation capability (optional)
+   - Data export functionality
 
 ### User Constraints
-- Skill level requirements
-- Training needs
-- Support requirements
+1. **Required Skills**
+   - Basic understanding of spatial audio concepts
+   - Familiarity with coordinate systems (AED/XYZ)
+   - Experience with Holophonix system interface
+   - Understanding of OSC protocol basics
+   - Basic computer operation skills
+
+2. **Training Requirements**
+   - Quick-start guide completion (30 minutes)
+   - Basic motion pattern tutorial (1 hour)
+   - Reference documentation for advanced features
+   - Video tutorials for common workflows
+   - Interactive help system within the application
+   - All training materials available in English and French
+
+3. **Support Requirements**
+   - First-line support:
+     - Built-in help documentation in English and French
+     - Troubleshooting guides in both languages
+     - Common issues FAQ in both languages
+     - Error message explanations in both languages
+   - Second-line support:
+     - Email support in English and French
+     - Bug reporting system with bilingual interface
+     - Feature request tracking in both languages
+   - Emergency support:
+     - Critical issue resolution during live events (optional)
+     - Rapid response for show-critical bugs
+     - Support available in both English and French
+
+4. **Accessibility Requirements**
+   - Clear, readable interface text in both languages
+   - Keyboard shortcuts for common actions
+   - High contrast display options (optional)
+   - Screen reader compatibility (optional)
+   - Configurable UI scaling
+   - Keyboard shortcuts documentation in both languages
+
+5. **Language Requirements**
+   - English and French interfaces required
+   - Technical terms consistent with Holophonix in both languages
+   - Clear error messages and notifications in both languages
+   - Additional language support (optional)
+   - Language selection persisted in user preferences
+   - Real-time language switching without application restart
 
 ## Next Steps
-- [ ] Fill in all sections with detailed information
-- [ ] Review with stakeholders
-- [ ] Validate technical feasibility
-- [ ] Define priorities
-- [ ] Create detailed requirements based on this context
+1. **Immediate Actions** (0-2 months)
+   - [ ] Create detailed technical specifications for motion system
+   - [ ] Design and prototype UI components with bilingual support
+   - [ ] Set up basic OSC communication with configurable ports
+   - [ ] Develop initial English and French quick-start guides
+   - [ ] Create technical glossary in both languages
+
+2. **Short-term Goals** (2-4 months)
+   - [ ] Implement core motion calculation engine
+   - [ ] Complete language switching system and persistence
+   - [ ] Develop testing framework for motion patterns
+   - [ ] Set up bilingual bug tracking system
+   - [ ] Create basic troubleshooting guides in both languages
+
+3. **Medium-term Goals** (4-8 months)
+   - [ ] Implement advanced group behaviors
+   - [ ] Create plugin system for custom patterns
+   - [ ] Develop comprehensive error handling in both languages
+   - [ ] Build performance monitoring tools
+   - [ ] Establish full bilingual support workflow
+   - [ ] Complete interactive help system with language support
+
+4. **Long-term Vision** (8-12 months)
+   - [ ] Support for complex choreographed sequences
+   - [ ] Integration with timeline-based editors
+   - [ ] Advanced pattern generation and manipulation
+   - [ ] Machine learning for pattern recognition
+   - [ ] Comprehensive user testing in both language contexts
+   - [ ] Advanced accessibility features implementation
+
+5. **Future Possibilities** (12+ months)
+   - [ ] Additional language support beyond English and French
+   - [ ] AI-assisted motion pattern generation
+   - [ ] Virtual reality preview system
+   - [ ] Advanced collaboration features
+   - [ ] Integration with other spatial audio platforms
