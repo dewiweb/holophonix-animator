@@ -33,49 +33,25 @@ The architecture diagram is available in the following formats:
    - [ ] Implement bidirectional OSC protocol:
      - Send: Motion commands and parameter updates
      - Receive: State queries and responses
-     - Network Configuration:
-       - Server IP: User-defined Holophonix server address
-       - Local Interface: Auto-detected network interfaces
-       - Ports: Configurable input/output (defaults: 4003/9000)
-     - Connection validation and monitoring
+     - Default port: 4003 (configurable)
    - [ ] Support multiple OSC destinations (optional)
    - [ ] Plan communication between Animation Service and Holophonix:
      - Real-time state synchronization
      - Error handling and recovery
      - Connection monitoring
    - [ ] Implement network diagnostics and monitoring:
-     - Connection status and interface availability
-     - Message latency and throughput
-     - Error rates and types
+     - Connection status
+     - Message latency
+     - Error rates
    - [ ] Design error handling and recovery system
 
 ### OSC Communication Layer
 
 The OSC Handler component manages bidirectional communication between the Holophonix Animator and the Holophonix System. This communication is crucial for maintaining system state and enabling real-time control.
 
-#### Network Configuration
-- **Server Configuration**:
-  - User-defined Holophonix server IP address
-  - Configurable output port (default: 4003)
-  - Connection validation and monitoring
-  - Automatic reconnection handling
-
-- **Local Interface Configuration**:
-  - Auto-detection of available network interfaces
-  - Interface selection from available options
-  - Support for all-interfaces binding (0.0.0.0)
-  - Configurable input port (default: 9000)
-
-- **Validation and Error Handling**:
-  - Server IP address validation
-  - Network interface availability checking
-  - Port conflict detection
-  - Clear error messages with available options
-  - Connection status monitoring
-
 #### Communication Flow
 1. **Outbound Communication (Animator → Holophonix)**
-   - Motion commands for source positioning
+   - Motion commands for source positioning (combined xyz/aed only)
    - Parameter value updates
    - State queries for synchronization
    - Configuration changes
@@ -92,106 +68,39 @@ The OSC Handler component manages bidirectional communication between the Holoph
 - Message Format: OSC 1.0 compliant
 - Address Patterns: `/track/{id}/...` for source control
 - Query Format: `/get <parameter_path>`
+- Coordinate Systems:
+  * Cartesian (XYZ): Normalized -1.0 to 1.0 range
+  * Polar (AED): Azimuth 0-360°, Elevation -90-90°, Distance 0-1
+  * Conversions handled by backend for optimal performance
 
 #### Error Handling
 - Network connectivity monitoring
 - Message validation and error reporting
 - Automatic reconnection on connection loss
 - Timeout handling for unresponsive queries
+- Value range validation for coordinates and parameters
 
 #### State Management
 - Periodic state synchronization
 - Cache invalidation on parameter changes
 - Conflict resolution for concurrent updates
+- Efficient coordinate system state tracking
 
-4. **Storage Layer Architecture**
-   - [ ] Implement JSON-based storage system:
-     - `settings.json`: Application and OSC configuration
-     - `presets.json`: Parameter presets and track configurations
-     - `state.json`: Application state and behavior data
-   - [ ] File system operations:
-     - Atomic write operations to prevent corruption
-     - Backup creation before writes
-     - Migration handling for schema updates
-   - [ ] Data validation:
-     - JSON schema validation
-     - Type checking
-     - Data integrity verification
-   - [ ] Error handling:
-     - File system access errors
-     - Parse/write failures
-     - Recovery from corrupted files
-   - [ ] Performance considerations:
-     - Caching frequently accessed data
-     - Batching write operations
-     - Lazy loading of large datasets
-
-### Storage Layer Implementation
-
-The storage layer uses a JSON-based approach for data persistence, chosen for its simplicity, human readability, and sufficient functionality for the application's needs.
-
-#### Storage Components
-
-1. **Configuration Store (settings.json)**
-   - Application settings
-   - OSC configuration
-   - Network preferences
-   - UI preferences
-   - Performance settings
-
-2. **Preset Store (presets.json)**
-   - Parameter presets
-   - Track configurations
-   - Behavior templates
-   - User-defined defaults
-
-3. **State Store (state.json)**
-   - Current application state
-   - Track states
-   - Active behaviors
-   - Session information
-
-#### Implementation Details
-
-- **File Operations**:
-  - Atomic writes using temporary files
-  - Backup creation before modifications
-  - File locking for concurrent access
-  - Error recovery mechanisms
-
-- **Data Validation**:
-  - JSON schema validation
-  - Type checking using TypeScript
-  - Data integrity verification
-  - Migration handling for schema updates
-
-- **Performance Optimization**:
-  - In-memory caching
-  - Batched write operations
-  - Lazy loading for large datasets
-  - Periodic state persistence
-
-- **Error Handling**:
-  - Graceful degradation on file access errors
-  - Automatic recovery from corrupted files
-  - Backup restoration when needed
-  - Clear error reporting
-
-5. **Main Process Architecture**
+4. **Main Process Architecture**
    - [ ] Design Animation Bridge implementation
    - [ ] Define service client requirements
    - [ ] Plan error handling and recovery strategies
    - [ ] Implement configuration management system
    - [ ] Design plugin architecture for motion patterns
 
-6. **Data Flow and State Management**
+5. **Data Flow and State Management**
    - [ ] Define data models for animation calculations
    - [ ] Specify state update patterns
    - [ ] Design high-performance data exchange format
    - [ ] Implement configuration import/export
    - [ ] Design backup and restore functionality
 
-7. **Performance and Resource Management**
+6. **Performance and Resource Management**
    - [ ] Define computation performance targets
    - [ ] Specify maximum latency requirements (<10ms)
    - [ ] Plan resource allocation strategy
