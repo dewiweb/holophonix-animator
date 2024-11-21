@@ -422,6 +422,7 @@ export class OSCHandler extends EventEmitter {
     try {
       // Query critical parameters using the correct paths
       await this.send({ address: '/get', args: ['/track/*/xyz'] }); // Get all cartesian coordinates
+      await this.send({ address: '/get', args: ['/track/*/aed'] }); // Get all polar coordinates
       await this.send({ address: '/get', args: ['/track/*/gain'] }); // Get gain values
       await this.send({ address: '/get', args: ['/track/*/mute'] }); // Get mute states
       await this.send({ address: '/get', args: ['/track/*/color'] }); // Get color values
