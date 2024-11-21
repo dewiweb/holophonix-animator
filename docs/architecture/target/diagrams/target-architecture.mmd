@@ -13,93 +13,110 @@ title: Holophonix Animator Architecture
     }
 }}%%
 graph TB
-    %% Main Components
-    UI[User Interface Layer]
-    AS[Animation Service]
-    MP[Main Process]
-    DB[(State Storage)]
-    HP[(Holophonix System)]
-    
-    %% UI Layer Components
-    subgraph UI_Components[User Interface Components]
-        UI_Motion[Motion Control Interface]
-        UI_Config[Configuration Panel]
-        UI_Preview[Preview Window]
-        UI_Monitor[System Monitor]
+    %% Application Context
+    subgraph APP["Holophonix Animator Application"]
+        direction TB
+        
+        %% UI Layer Components
+        subgraph UI_Layer["User Interface Layer (React/TypeScript)"]
+            UI_Motion["Motion Control Interface"]
+            UI_Config["Configuration Panel"]
+            UI_Preview["Preview Window"]
+            UI_Monitor["System Monitor"]
+            style UI_Layer fill:#e3f2fd,stroke:#1565c0
+        end
+        
+        %% Core Components
+        subgraph Core["Core Services"]
+            direction TB
+            
+            %% Animation Service
+            subgraph AS["Animation Service (Rust)"]
+                AS_Core["Animation Core Engine"]
+                AS_Compute["Computation Modules"]
+                AS_State["State Manager"]
+                AS_Plugin["Plugin System"]
+                style AS fill:#e8f5e9,stroke:#2e7d32
+            end
+            
+            %% Main Process
+            subgraph MP["Main Process (Electron/TypeScript)"]
+                MP_Bridge["Animation Bridge"]
+                MP_Config["Config Manager"]
+                MP_OSC["OSC Handler"]
+                MP_Diag["Diagnostics"]
+                style MP fill:#fff3e0,stroke:#f57c00
+            end
+            
+            style Core fill:#f5f5f5,stroke:#616161
+        end
+
+        %% Storage Layer
+        subgraph Storage["Storage Layer (JSON)"]
+            Config_Store["Config Store (settings.json)"]
+            Preset_Store["Preset Store (presets.json)"]
+            State_Store["State Store (state.json)"]
+            style Config_Store fill:#FFB347,stroke:#F4A261
+            style Preset_Store fill:#FFB347,stroke:#F4A261
+            style State_Store fill:#FFB347,stroke:#F4A261
+            style Storage fill:#fff3e0,stroke:#f57c00
+        end
+        
+        style APP fill:#fafafa,stroke:#424242,stroke-width:2px
     end
-    
-    %% Animation Service Components
-    subgraph AS_Components[Animation Service Components]
-        AS_Core[Animation Core Engine]
-        AS_Compute[Computation Modules]
-        AS_State[State Manager]
-        AS_Plugin[Plugin System]
+
+    %% External Context
+    subgraph EXT["External Environment"]
+        direction TB
+        
+        %% Network Layer
+        subgraph NET["Network Layer (Node.js UDP)"]
+            NI["Network Interfaces (Auto-detected)"]
+            style NI fill:#fad7a0,stroke:#d35400
+            style NET fill:#fff8e1,stroke:#ffa000
+        end
+        
+        %% External Systems
+        subgraph Systems["External Systems"]
+            HS["Holophonix System (OSC)"]
+            ES["External Software (OSC)"]
+            style HS fill:#d5f5e3,stroke:#196f3d
+            style ES fill:#d5f5e3,stroke:#196f3d
+            style Systems fill:#e8f5e9,stroke:#388e3c
+        end
+        
+        style EXT fill:#f5f5f5,stroke:#424242,stroke-width:2px
     end
+
+    %% Process Communication
+    UI_Layer -.-> |"IPC Events (Electron)"| MP
+    MP -.-> |"FFI Bridge (Rust)"| AS
     
-    %% Main Process Components
-    subgraph MP_Components[Main Process Components]
-        MP_Bridge[Animation Bridge]
-        MP_Config[Config Manager]
-        MP_OSC[OSC Handler]
-        MP_Diag[Diagnostics]
-    end
-    
-    %% Connections
-    UI --> MP
-    MP --> AS
-    MP --> HP
-    AS --> DB
-    MP --> DB
-    
-    %% UI Component Connections
+    %% Connections within Application
     UI_Motion --> MP_Bridge
     UI_Config --> MP_Config
     UI_Preview --> MP_Bridge
     UI_Monitor --> MP_Diag
-    
-    %% Animation Service Connections
     MP_Bridge --> AS_Core
     AS_Core --> AS_Compute
     AS_Core --> AS_State
     AS_Core --> AS_Plugin
     
-    %% OSC Communication
-    subgraph "Holophonix Animator"
-        UI["UI Layer<br/>(Electron Renderer)"]
-        MP["Main Process<br/>(Electron Main)"]
-        AB["Animation Bridge"]
-        OSC["OSC Handler"]
-        style UI fill:#d4e6f1,stroke:#2874a6
-        style MP fill:#d4e6f1,stroke:#2874a6
-        style AB fill:#d4e6f1,stroke:#2874a6
-        style OSC fill:#d4e6f1,stroke:#2874a6
-    end
+    %% Storage Connections
+    MP_Config --> Config_Store
+    AS_State --> State_Store
+    MP --> Preset_Store
 
-    subgraph "External Systems"
-        HS["Holophonix System"]
-        style HS fill:#d5f5e3,stroke:#196f3d
-    end
-
-    UI <--> |"IPC"| MP
-    MP <--> |"Commands/Events"| AB
-    AB <--> |"State Updates"| OSC
-    OSC <--> |"OSC Messages<br/>(UDP:4003)"| HS
-    
-    %% Styling
-    classDef primary fill:#4a90e2,stroke:#2F80ED,stroke-width:2px,color:#FFFFFF
-    classDef secondary fill:#73C991,stroke:#2A9D8F,stroke-width:1px,color:#2A2A2A
-    classDef storage fill:#FFB347,stroke:#F4A261,stroke-width:1px,color:#2A2A2A
-    classDef external fill:#FF7F7F,stroke:#E76F51,stroke-width:1px,color:#FFFFFF
-    
-    class UI,AS,MP primary
-    class UI_Motion,UI_Config,UI_Preview,UI_Monitor,AS_Core,AS_Compute,AS_State,AS_Plugin,MP_Bridge,MP_Config,MP_OSC,MP_Diag secondary
-    class DB storage
-    class HP external
-
-%% Notes
-%% - Bilingual UI (English/French) implemented across UI components
-%% - OSC communication on port 4003 (configurable)
-%% - Real-time performance monitoring and diagnostics
-%% - Plugin system for extensible motion patterns
-%% - State persistence and recovery system
-%% - Bidirectional OSC communication for sending commands and receiving status
+    %% Connections crossing boundaries
+    NI -.-> |"Interface Selection"| MP_OSC
+    MP_OSC -.-> |"Commands & Queries (UDP 4003)"| HS
+    HS -.-> |"Responses & Status (UDP 9000)"| MP_OSC
+    ES -.-> |"Control Messages (UDP 9000)"| MP_OSC
+%% Framework Notes
+%% - UI: React + TypeScript for responsive interface
+%% - Main Process: Electron + TypeScript for desktop integration
+%% - Animation Service: Rust for high-performance computation
+%% - Network: Node.js UDP for OSC communication
+%% - Storage: JSON files for persistent state
+%% - IPC: Electron IPC for UI-Main communication
+%% - Bridge: Rust FFI for Main-Animation communication

@@ -20,8 +20,9 @@ The project was initiated to create a cross-platform desktop application for man
 2. **Architecture Challenges**
    - Tight coupling between UI and motion model logic
    - Performance bottlenecks in real-time calculations
-   - Complex state management
+   - Complex state management with limited data persistence
    - Difficulty in extending the motion model system
+   - Overly complex storage solutions for simple data needs
 
 3. **User Experience Issues**
    - UI became cluttered as features were added
@@ -31,7 +32,7 @@ The project was initiated to create a cross-platform desktop application for man
 #### What are the current limitations?
 1. **Technical Limitations**
    - Performance overhead from JavaScript/TypeScript for real-time calculations
-   - Complex state management affecting reliability
+   - Need for simpler, more maintainable data storage
    - Difficulty in maintaining consistent motion across coordinate systems
    - Limited testing capabilities for complex motion models
 
@@ -96,7 +97,19 @@ Sound technicians and audio professionals who:
 #### Integration Points
 - Interfaces with the Holophonix server for real-time audio processing
 - Communicates with the main Holophonix interface for object control
-- Supports OSC (Open Sound Control) protocol for external control
+- Supports OSC (Open Sound Control) protocol for:
+  - Output: Commands and queries to Holophonix server (configurable, default UDP:4003)
+  - Input: Configurable port (default UDP:9000) for:
+    - Holophonix server responses and status
+    - External control messages (optional feature)
+  - Network Configuration:
+    - Server IP: User-defined Holophonix server address
+    - Local Interface: Selectable from available network interfaces or all interfaces (0.0.0.0)
+    - All ports configurable to accommodate different network setups
+  - Validation and Error Handling:
+    - Validates server IP address format
+    - Validates local interface selection against available network interfaces
+    - Provides clear error messages with available options
 - OSC communication focused on:
   - Source positioning (coordinates in space)
   - Source parameters (gain, mute, etc.)
@@ -195,6 +208,54 @@ Sound technicians and audio professionals who:
   - Verifying parameter changes
   - Monitoring track positions
   - Error checking
+
+##### Message Handling and Events
+- Event Types:
+  - `message`: Single OSC messages (commands, queries, responses)
+  - `bundle`: Multiple OSC messages grouped together
+  - `error`: Communication or validation errors
+  - `connectionStateChanged`: Updates about connection state
+
+- Event Handling:
+  ```typescript
+  // Message event example
+  handler.on('message', (msg) => {
+    console.log('Received:', msg.address, msg.args);
+  });
+
+  // Connection state changes
+  handler.on('connectionStateChanged', (state) => {
+    console.log('Connection state:', state);
+  });
+  ```
+
+- Message Format:
+  ```typescript
+  interface OSCMessage {
+    address: string;     // OSC address pattern
+    args: any[];        // Message arguments
+    timestamp?: string; // Optional timestamp
+  }
+  ```
+
+- Connection States:
+  - `DISCONNECTED`: Initial state or after closing connection
+  - `CONNECTING`: During connection attempt
+  - `CONNECTED`: Successfully connected to Holophonix
+  - `ERROR`: Connection or communication error
+
+##### Error Handling
+- Error Types:
+  - `CONNECTION`: Network or port issues
+  - `TIMEOUT`: Connection or operation timeout
+  - `INVALID_MESSAGE`: Malformed message or invalid parameters
+  - `UNKNOWN`: Other unexpected errors
+
+- Error Recovery:
+  - Automatic reconnection attempts with exponential backoff
+  - Maximum retry count configurable
+  - Error events include retryable flag
+  - Detailed error information for debugging
 
 #### Performance Requirements
 - Real-time performance for live events
