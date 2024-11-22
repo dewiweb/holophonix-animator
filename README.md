@@ -35,8 +35,8 @@ This project is being actively developed, building upon lessons learned from the
 │       │   └── assets/
 │       └── server/            # Documentation server
 │           └── docs_server.py
-├── reference/                   # Reference implementations
-│   └── old-project/            # Original implementation code
+├── old-code/                    # Original implementation
+│   └── old-project/            # Complete old project codebase
 └── src/                        # Current project implementation
 ```
 
@@ -58,7 +58,7 @@ This project is being actively developed, building upon lessons learned from the
   - Interactive documentation viewer
   - Local documentation server
 
-### Reference Implementation (`reference/`)
+### Original Implementation (`old-code/`)
 - Complete old project codebase preserved for reference
 - Includes original implementation patterns and solutions
 
