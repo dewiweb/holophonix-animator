@@ -50,20 +50,28 @@
    - Integration tests with Rust services
 
 ### Next Development Priorities
-1. Critical Path Items
+1. Documentation Review
+   - [ ] Restructure ROADMAP.md for clarity
+     - Analyze all key documentation
+     - Reorganize development tasks by major components (Rust/Electron/React)
+     - Ensure clear responsibility assignment
+     - Add component interaction details
+     - Update timeline estimates based on component dependencies
+
+2. Critical Path Items
    - Setup Rust development environment
    - Create Rust project structure
    - Implement basic Rust-based Animation Core
    - Develop TypeScript-Rust bridge
    - Port coordinate validation to Rust
 
-2. Performance Goals
+3. Performance Goals
    - Coordinate validation: < 1ms
    - State synchronization: < 5ms
    - Animation computation: < 16ms (60fps)
    - Memory usage: < 100MB
 
-3. Migration Strategy
+4. Migration Strategy
    - Phase 1: Setup Rust environment and tooling
    - Phase 2: Implement core Rust services
    - Phase 3: Gradually migrate performance-critical components
