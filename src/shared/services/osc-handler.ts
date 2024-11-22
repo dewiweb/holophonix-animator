@@ -11,8 +11,12 @@ import {
   TrackState,
   OSCIncomingMessage,
   OSCStateUpdate,
-  MessageType
+  MessageType,
+  Color,
+  CartesianCoordinates,
+  PolarCoordinates
 } from '../types/osc.types';
+import { StateSynchronizer } from './state-synchronizer';
 
 /**
  * OSC Handler Service
@@ -22,12 +26,13 @@ export class OSCHandler extends EventEmitter {
   private port: UDPPort;
   private config: OSCConfig;
   private logger: winston.Logger;
-  private connectionPromise: Promise<void> | null = null;
-  private retryCount: number = 0;
-  private validationTimer?: NodeJS.Timeout;
   private connected: boolean = false;
+  private connectionPromise: Promise<void> | null = null;
+  private validationTimer?: NodeJS.Timeout;
+  private retryCount: number = 0;
   private trackStates: Map<number, TrackState> = new Map();
   private pendingQueries: Map<string, (value: any) => void> = new Map();
+  private stateSynchronizer: StateSynchronizer;
 
   constructor(config: Partial<OSCConfig> = {}) {
     super();
@@ -53,6 +58,9 @@ export class OSCHandler extends EventEmitter {
       remotePort: this.config.port,
       metadata: true
     });
+
+    // Initialize state synchronizer
+    this.stateSynchronizer = new StateSynchronizer(this);
 
     this.setupEventListeners();
   }
@@ -151,24 +159,114 @@ export class OSCHandler extends EventEmitter {
   }
 
   /**
-   * Send batch of OSC messages
+   * Helper function to chunk array into smaller arrays
    */
-  public async sendBatch(messages: OSCMessage[]): Promise<void> {
-    if (messages.length > this.config.maxBatchSize) {
-      const chunks = this.chunkArray(messages, this.config.maxBatchSize);
-      for (const chunk of chunks) {
-        await this.sendBatch(chunk);
-      }
-      return;
+  private chunkArray<T>(array: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
     }
+    return chunks;
+  }
 
-    for (const message of messages) {
-      await this.send(message);
+  /**
+   * Process a single batch of messages with rate limiting
+   */
+  private async processBatch(messages: OSCMessage[], batchIndex: number): Promise<void> {
+    this.logger.debug(`Processing batch ${batchIndex + 1} with ${messages.length} messages`);
+    
+    const startTime = Date.now();
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      // Process messages with a small delay between each to prevent flooding
+      for (const [index, message] of messages.entries()) {
+        try {
+          await this.send(message);
+          successCount++;
+          
+          // Add a small delay between messages (1ms) to prevent flooding
+          if (index < messages.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1));
+          }
+        } catch (error) {
+          errorCount++;
+          this.logger.error(`Failed to send message in batch ${batchIndex + 1}:`, error);
+          // Continue processing the batch even if one message fails
+        }
+      }
+    } finally {
+      const duration = Date.now() - startTime;
+      this.logger.info(
+        `Batch ${batchIndex + 1} completed: ${successCount} succeeded, ${errorCount} failed, duration: ${duration}ms`
+      );
     }
   }
 
   /**
-   * Update track parameters
+   * Send batch of OSC messages with improved handling
+   */
+  public async sendBatch(messages: OSCMessage[]): Promise<void> {
+    if (!messages.length) {
+      return;
+    }
+
+    if (!this.connected) {
+      await this.connect();
+    }
+
+    // Validate batch size
+    if (messages.length > this.config.maxBatchSize * 10) {
+      throw this.createError(
+        OSCErrorType.VALIDATION,
+        `Batch size (${messages.length}) exceeds maximum allowed size (${this.config.maxBatchSize * 10})`,
+        false
+      );
+    }
+
+    // Split into chunks if needed
+    const chunks = this.chunkArray(messages, this.config.maxBatchSize);
+    this.logger.info(`Processing ${chunks.length} batches of messages`);
+
+    // Process chunks with some concurrency, but not all at once
+    const concurrencyLimit = 3; // Process up to 3 batches concurrently
+    const batchPromises: Promise<void>[] = [];
+    
+    for (const [index, chunk] of chunks.entries()) {
+      // If we've reached the concurrency limit, wait for one batch to complete
+      if (batchPromises.length >= concurrencyLimit) {
+        await Promise.race(batchPromises);
+        // Remove completed promises
+        const completedIndex = await Promise.race(
+          batchPromises.map(async (p, i) => {
+            try {
+              await p;
+              return i;
+            } catch {
+              return -1;
+            }
+          })
+        );
+        if (completedIndex >= 0) {
+          batchPromises.splice(completedIndex, 1);
+        }
+      }
+
+      // Add new batch to processing queue
+      const batchPromise = this.processBatch(chunk, index).catch(error => {
+        this.logger.error(`Batch ${index + 1} failed:`, error);
+        throw error;
+      });
+      batchPromises.push(batchPromise);
+    }
+
+    // Wait for all remaining batches to complete
+    await Promise.all(batchPromises);
+  }
+
+  /**
+   * Update track parameters with improved state synchronization
    */
   public async updateTrackParameters(trackId: number, params: Partial<TrackParameters>): Promise<void> {
     const messages: OSCMessage[] = [];
@@ -176,37 +274,20 @@ export class OSCHandler extends EventEmitter {
     // Handle cartesian coordinates
     if (params.cartesian) {
       const { x, y, z } = params.cartesian;
-      if (x !== undefined) {
-        messages.push({ address: `/track/${trackId}/x`, args: [x] });
-      }
-      if (y !== undefined) {
-        messages.push({ address: `/track/${trackId}/y`, args: [y] });
-      }
-      if (z !== undefined) {
-        messages.push({ address: `/track/${trackId}/z`, args: [z] });
-      }
-      // If all coordinates are present, also send the combined message
-      if (x !== undefined && y !== undefined && z !== undefined) {
-        messages.push({ address: `/track/${trackId}/xyz`, args: [x, y, z] });
-      }
+      messages.push({ address: `/track/${trackId}/xyz`, args: [x, y, z] });
     }
 
     // Handle polar coordinates
     if (params.polar) {
       const { azim, elev, dist } = params.polar;
-      if (azim !== undefined) {
-        messages.push({ address: `/track/${trackId}/azim`, args: [azim] });
-      }
-      if (elev !== undefined) {
-        messages.push({ address: `/track/${trackId}/elev`, args: [elev] });
-      }
-      if (dist !== undefined) {
-        messages.push({ address: `/track/${trackId}/dist`, args: [dist] });
-      }
-      // If all coordinates are present, also send the combined message
-      if (azim !== undefined && elev !== undefined && dist !== undefined) {
-        messages.push({ address: `/track/${trackId}/aed`, args: [azim, elev, dist] });
-      }
+      messages.push({ address: `/track/${trackId}/aed`, args: [azim, elev, dist] });
+    }
+
+    // Handle color
+    if (params.color) {
+      this.validateColor(params.color);
+      const { r, g, b, a } = params.color;
+      messages.push({ address: `/track/${trackId}/color`, args: [r, g, b, a] });
     }
 
     // Handle other parameters
@@ -220,16 +301,22 @@ export class OSCHandler extends EventEmitter {
       messages.push({ address: `/track/${trackId}/name`, args: [params.name] });
     }
 
-    // Handle color parameter
-    if (params.color !== undefined) {
-      const { r, g, b, a } = params.color;
-      messages.push({ 
-        address: `/track/${trackId}/color`, 
-        args: [r, g, b, a] 
-      });
-    }
+    // Update track state before sending messages
+    const currentState = this.trackStates.get(trackId) || { lastUpdate: new Date() };
 
-    await this.sendBatch(messages);
+    // Store only the provided coordinate system, let backend handle validation and conversions
+    this.trackStates.set(trackId, {
+      ...currentState,
+      ...params,
+      lastUpdate: new Date()
+    });
+
+    if (messages.length > 0) {
+      await this.sendBatch(messages);
+      // Trigger state synchronization after update
+      await this.stateSynchronizer.synchronizeState(trackId);
+      await this.stateSynchronizer.resolveConflicts(trackId);
+    }
   }
 
   /**
@@ -288,36 +375,53 @@ export class OSCHandler extends EventEmitter {
       this.emit('error', this.createError(
         OSCErrorType.CONNECTION,
         error.message,
-        true,
-        error
+        true
       ));
     });
   }
 
+  /**
+   * Parse incoming message
+   */
   private parseIncomingMessage(oscMsg: any): OSCIncomingMessage {
     const address = oscMsg.address as string;
     const args = oscMsg.args;
-    let type: MessageType = 'status_update';
-    let trackId: number | undefined;
-    let parameter: string | undefined;
 
-    if (address.startsWith('/track/')) {
-      const parts = address.split('/');
-      if (parts.length >= 3) {
-        trackId = parseInt(parts[2], 10);
-        parameter = parts.slice(3).join('/');
-        
-        if (parameter.includes('xyz') || parameter.includes('aed') || parameter === 'color') {
-          type = 'state_response';
-        } else {
-          type = 'parameter_update';
-        }
-      }
-    } else if (address.startsWith('/error/')) {
-      type = 'error';
+    // Parse track ID and parameter from address
+    const match = address.match(/^\/track\/(\d+)\/(.+)$/);
+    if (!match) {
+      return { address, args, type: 'status_update' };
     }
 
-    return { address, args, type, trackId, parameter };
+    const trackId = parseInt(match[1], 10);
+    const parameter = match[2];
+
+    // Handle color messages
+    if (parameter === 'color' && args.length === 4) {
+      return {
+        address,
+        args,
+        type: 'parameter_update',
+        trackId,
+        parameter: 'color',
+        value: {
+          r: args[0],
+          g: args[1],
+          b: args[2],
+          a: args[3]
+        }
+      };
+    }
+
+    // Handle other parameters
+    return {
+      address,
+      args,
+      type: 'parameter_update',
+      trackId,
+      parameter,
+      value: args[0]
+    };
   }
 
   private updateTrackState(message: OSCIncomingMessage): void {
@@ -422,6 +526,7 @@ export class OSCHandler extends EventEmitter {
     try {
       // Query critical parameters using the correct paths
       await this.send({ address: '/get', args: ['/track/*/xyz'] }); // Get all cartesian coordinates
+      await this.send({ address: '/get', args: ['/track/*/aed'] }); // Get all polar coordinates
       await this.send({ address: '/get', args: ['/track/*/gain'] }); // Get gain values
       await this.send({ address: '/get', args: ['/track/*/mute'] }); // Get mute states
       await this.send({ address: '/get', args: ['/track/*/color'] }); // Get color values
@@ -449,11 +554,23 @@ export class OSCHandler extends EventEmitter {
     };
   }
 
-  private chunkArray<T>(array: T[], size: number): T[][] {
-    const chunks: T[][] = [];
-    for (let i = 0; i < array.length; i += size) {
-      chunks.push(array.slice(i, i + size));
-    }
-    return chunks;
+  /**
+   * Validate color values are in correct range (0-1)
+   */
+  private validateColor(color: Color): void {
+    const validateComponent = (value: number, name: string) => {
+      if (value < 0 || value > 1) {
+        throw this.createError(
+          OSCErrorType.VALIDATION,
+          `Color ${name} value ${value} is out of range (0-1)`,
+          false
+        );
+      }
+    };
+
+    validateComponent(color.r, 'red');
+    validateComponent(color.g, 'green');
+    validateComponent(color.b, 'blue');
+    validateComponent(color.a, 'alpha');
   }
 }

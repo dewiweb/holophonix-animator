@@ -51,7 +51,7 @@ The OSC Handler component manages bidirectional communication between the Holoph
 
 #### Communication Flow
 1. **Outbound Communication (Animator → Holophonix)**
-   - Motion commands for source positioning
+   - Motion commands for source positioning (combined xyz/aed only)
    - Parameter value updates
    - State queries for synchronization
    - Configuration changes
@@ -68,17 +68,23 @@ The OSC Handler component manages bidirectional communication between the Holoph
 - Message Format: OSC 1.0 compliant
 - Address Patterns: `/track/{id}/...` for source control
 - Query Format: `/get <parameter_path>`
+- Coordinate Systems:
+  * Cartesian (XYZ): Normalized -1.0 to 1.0 range
+  * Polar (AED): Azimuth 0-360°, Elevation -90-90°, Distance 0-1
+  * Conversions handled by backend for optimal performance
 
 #### Error Handling
 - Network connectivity monitoring
 - Message validation and error reporting
 - Automatic reconnection on connection loss
 - Timeout handling for unresponsive queries
+- Value range validation for coordinates and parameters
 
 #### State Management
 - Periodic state synchronization
 - Cache invalidation on parameter changes
 - Conflict resolution for concurrent updates
+- Efficient coordinate system state tracking
 
 4. **Main Process Architecture**
    - [ ] Design Animation Bridge implementation

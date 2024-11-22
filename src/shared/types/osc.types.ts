@@ -112,9 +112,9 @@ export interface OSCStateUpdate {
 export const DEFAULT_OSC_CONFIG: OSCConfig = {
   port: 4003,
   host: '127.0.0.1',
-  connectionTimeout: 5000,
+  connectionTimeout: 5000,    // 5 seconds
   maxRetries: 3,
-  maxBatchSize: 10,
-  validationInterval: 5000,
-  queryTimeout: 5000
+  maxBatchSize: 50,          // Maximum messages per batch
+  validationInterval: 5000,   // 5 seconds
+  queryTimeout: 1000         // 1 second
 };

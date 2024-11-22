@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Holophonix Animator - UI Mockup</title>
+    <title>Holophonix Animator - UI Guide</title>
     <style>
         /* Dark theme colors */
         :root {
@@ -13,6 +13,7 @@
             --accent-color: #64b5f6;
             --success-color: #81c784;
             --header-color: #1a1a1a;
+            --tooltip-bg: rgba(0, 0, 0, 0.9);
         }
 
         body {
@@ -23,49 +24,167 @@
             font-family: Arial, sans-serif;
         }
 
-        /* Comments section */
-        .comments {
-            position: fixed;
-            left: 20px;
+        /* Modified styles for floating note blocks */
+        .note-block {
+            position: absolute;
+            background: var(--panel-bg);
+            border: 1px solid var(--accent-color);
+            padding: 15px;
+            border-radius: 4px;
+            width: 180px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 2;
+            transition: all 0.3s ease;
+        }
+
+        .note-block:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .note-block h3 {
+            margin: 0 0 10px 0;
+            color: var(--accent-color);
+            font-size: 14px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 6px;
+        }
+
+        .note-block p {
+            margin: 0 0 10px 0;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .note-block ul {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 12px;
+        }
+
+        .note-block li {
+            margin: 6px 0;
+        }
+
+        /* Optimized positions to minimize crossing lines */
+        #title-note {
             top: 20px;
-            width: 250px;
-            background: var(--panel-bg);
-            border: 1px solid var(--accent-color);
-            padding: 10px;
-            border-radius: 4px;
+            left: 0;
         }
 
-        .comment {
-            margin-bottom: 15px;
-            padding: 10px;
-            background: var(--panel-bg);
-            border: 1px solid var(--accent-color);
-            border-radius: 4px;
+        #controls-note {
+            top: 180px;
+            left: 0;
         }
 
-        /* Main application window */
-        .app-window {
-            margin-left: 300px;
+        #sources-note {
+            top: 340px;
+            left: 0;
+        }
+
+        #behaviors-note {
+            top: 260px;
+            right: 0;
+        }
+
+        #preview-note {
+            top: 460px;
+            right: 0;
+        }
+
+        /* Enhanced active states with smoother transitions */
+        .note-block.active {
+            border-color: var(--success-color);
             background: var(--bg-color);
+            z-index: 3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .highlight-target.active {
+            outline: 2px solid var(--success-color);
+            outline-offset: -1px;
+            z-index: 1;
+        }
+
+        /* Better tooltips */
+        [data-tooltip]:hover::after {
+            z-index: 4;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 3px;
+            white-space: normal;
+            max-width: 200px;
+            line-height: 1.4;
+            background: var(--tooltip-bg);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Better app window definition */
+        .app-container {
+            position: relative;
+            width: fit-content;
+            margin: 80px auto;
+            padding: 150px 300px;
+            background: var(--bg-color);
+            border-radius: 12px;
+        }
+
+        .app-window {
+            position: relative;
+            margin: 0;
+            width: 1000px;
             border: 2px solid var(--border-color);
             border-radius: 8px;
             overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            background: var(--panel-bg);
         }
 
-        /* Title bar */
+        /* Improved connector styling for better visibility */
+        .connector {
+            stroke: var(--accent-color);
+            stroke-width: 1.5;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .connector.active {
+            stroke: var(--success-color);
+            opacity: 0.8;
+            stroke-width: 2;
+        }
+
+        /* Content panel improvements */
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1px;
+            background: var(--border-color);
+            min-height: 600px;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            padding: 15px;
+            overflow: auto;
+            position: relative;
+        }
+
+        /* Rest of the existing styles */
         .title-bar {
             background: var(--header-color);
-            padding: 8px;
+            padding: 8px 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--border-color);
         }
 
-        /* Controls bar */
         .controls {
             background: var(--header-color);
-            padding: 8px;
+            padding: 12px 15px;
             display: flex;
             gap: 10px;
             align-items: center;
@@ -76,17 +195,19 @@
             background: var(--panel-bg);
             border: 1px solid var(--border-color);
             color: var(--text-color);
-            padding: 4px 8px;
+            padding: 6px 10px;
             border-radius: 4px;
+            font-size: 14px;
         }
 
         .button {
             background: var(--panel-bg);
             border: 1px solid var(--border-color);
             color: var(--text-color);
-            padding: 4px 8px;
+            padding: 6px 12px;
             border-radius: 4px;
             cursor: pointer;
+            font-size: 14px;
         }
 
         .button.connect {
@@ -97,200 +218,295 @@
             background: var(--accent-color);
         }
 
-        /* Main content area */
-        .content {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 1px;
-            background: var(--border-color);
-            height: 500px;
-        }
-
-        .panel {
-            background: var(--panel-bg);
-            padding: 10px;
-            overflow: auto;
-        }
-
         .panel-title {
             color: var(--accent-color);
-            margin-bottom: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        /* Status bar */
         .status-bar {
             background: var(--header-color);
-            padding: 8px;
+            padding: 8px 15px;
             display: flex;
             justify-content: space-between;
             border-top: 1px solid var(--border-color);
+            font-size: 14px;
         }
 
-        /* Settings modal */
-        .modal {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--bg-color);
-            border: 1px solid var(--border-color);
-            padding: 20px;
-            border-radius: 8px;
-            min-width: 300px;
+        /* Highlight interactive areas */
+        .interactive {
+            border: 1px dashed var(--accent-color);
+            padding: 4px;
+            margin: 2px;
+            border-radius: 4px;
         }
 
-        .modal-title {
-            color: var(--accent-color);
-            margin-bottom: 20px;
-        }
-
-        .modal-content {
-            display: grid;
-            gap: 10px;
-        }
-
-        .setting-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-buttons {
-            margin-top: 20px;
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        i {
-            opacity: 0.7;
+        /* Added styles for connectors */
+        .connector-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
         }
     </style>
 </head>
 <body>
-    <!-- Comments section -->
-    <div class="comments">
-        <h3>UI Components Description</h3>
-        <div class="comment">
-            <strong>Title Bar:</strong><br>
-            <i>• Application title<br>• Window controls</i>
+    <!-- SVG Definitions for connectors -->
+    <svg style="width: 0; height: 0; position: absolute;" aria-hidden="true" focusable="false">
+        <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="var(--accent-color)" />
+            </marker>
+        </defs>
+    </svg>
+
+    <!-- Main container -->
+    <div class="app-container">
+        <!-- Connector container -->
+        <div class="connector-container">
+            <svg width="100%" height="100%" id="connectors"></svg>
         </div>
-        <div class="comment">
-            <strong>Top Bar Controls:</strong><br>
-            <i>• Network settings<br>• Connection status<br>• Playback controls<br>• Settings access<br>• Collapsible</i>
+
+        <!-- Note blocks -->
+        <div class="note-block" id="title-note" data-target="title-bar">
+            <h3>Title Bar</h3>
+            <p>The main application window header showing:</p>
+            <ul>
+                <li>Application name</li>
+                <li>Window controls</li>
+            </ul>
         </div>
-        <div class="comment">
-            <strong>Sources Panel:</strong><br>
-            <i>• List of sound sources<br>• Add/Remove sources<br>• Source properties</i>
+
+        <div class="note-block" id="controls-note" data-target="controls">
+            <h3>Connection Controls</h3>
+            <p>Configure Holophonix connection:</p>
+            <ul>
+                <li>IP Address input</li>
+                <li>Connect/Disconnect button</li>
+                <li>Settings access</li>
+            </ul>
         </div>
-        <div class="comment">
-            <strong>Behaviors Panel:</strong><br>
-            <i>• Available behaviors list<br>• Active behaviors<br>• Behavior controls<br>• Individual timelines</i>
+
+        <div class="note-block" id="sources-note" data-target="sources-panel">
+            <h3>Sources Panel</h3>
+            <p>Manage sound sources:</p>
+            <ul>
+                <li>Add/Remove sources</li>
+                <li>Configure properties</li>
+                <li>Group management</li>
+            </ul>
         </div>
-        <div class="comment">
-            <strong>Preview Panel:</strong><br>
-            <i>• 3D visualization<br>• Timeline overview<br>• Parameter controls</i>
+
+        <div class="note-block" id="behaviors-note" data-target="behaviors-panel">
+            <h3>Behaviors Panel</h3>
+            <p>Create movement patterns:</p>
+            <ul>
+                <li>Create behaviors</li>
+                <li>Edit parameters</li>
+                <li>Apply to sources</li>
+            </ul>
         </div>
-        <div class="comment">
-            <strong>Status Bar:</strong><br>
-            <i>• Connection status<br>• Position coordinates<br>• Session timer</i>
+
+        <div class="note-block" id="preview-note" data-target="preview-panel">
+            <h3>Preview Panel</h3>
+            <p>Visualize your setup:</p>
+            <ul>
+                <li>Real-time preview</li>
+                <li>Interactive positioning</li>
+                <li>Behavior visualization</li>
+            </ul>
+        </div>
+
+        <!-- Main application window -->
+        <div class="app-window">
+            <!-- Title bar -->
+            <div class="title-bar highlight-target" id="title-bar" data-tooltip="Application window title and controls">
+                <div>Holophonix Animator</div>
+                <div>⭘ - ✕</div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls" id="controls" data-tooltip="Connection and general settings">
+                <input type="text" class="input-field" value="127.0.0.1" data-tooltip="Remote IP address">
+                <input type="text" class="input-field" value="3000" data-tooltip="Remote port number">
+                <input type="text" class="input-field" value="8000" data-tooltip="Local port number">
+                <button class="button connect" data-tooltip="Connect to Holophonix">Connect</button>
+                <button class="button" data-tooltip="Show/hide additional controls">▼</button>
+                <button class="button settings" data-tooltip="Open settings">⚙</button>
+            </div>
+
+            <!-- Main content -->
+            <div class="content">
+                <!-- Sources panel -->
+                <div class="panel" id="sources-panel" data-tooltip="Manage sound sources">
+                    <div class="panel-title">Sources</div>
+                    <div class="interactive" data-tooltip="Click to expand source">▶ Source 1</div>
+                    <div class="interactive" data-tooltip="Click to expand source">▶ Source 2</div>
+                    <div class="interactive" data-tooltip="Click to expand source">▶ Source 3</div>
+                    <div class="interactive" data-tooltip="Add a new sound source">+ Add Source</div>
+                </div>
+
+                <!-- Behaviors panel -->
+                <div class="panel" id="behaviors-panel" data-tooltip="Configure movement behaviors">
+                    <div class="panel-title">Behaviors</div>
+                    <div data-tooltip="Available behavior types">
+                        Available Behaviors
+                        <div class="interactive">⬡ Linear Move</div>
+                        <div class="interactive">⬡ Circular Path</div>
+                        <div class="interactive">⬡ Random Walk</div>
+                        <div class="interactive">⬡ Follow Path</div>
+                    </div>
+                    <br>
+                    <div data-tooltip="Currently active behaviors">
+                        Active Behaviors
+                        <div class="interactive">
+                            Linear Move 1
+                            <div>⏮ ⏯ ⏭ ✕</div>
+                        </div>
+                        <div class="interactive">
+                            Circular Path 1
+                            <div>⏮ ⏯ ⏭ ✕</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview panel -->
+                <div class="panel" id="preview-panel" data-tooltip="Preview and visualize movements">
+                    <div class="panel-title">Preview</div>
+                    <div class="interactive" data-tooltip="3D visualization of source positions">
+                        3D View
+                    </div>
+                    <div class="interactive" data-tooltip="Timeline of all active behaviors">
+                        Timeline
+                    </div>
+                    <div class="interactive" data-tooltip="Adjust behavior parameters">
+                        Parameters
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status bar -->
+            <div class="status-bar" data-tooltip="Current status and coordinates">
+                <div>Status: Connected</div>
+                <div>X: 0.0 Y: 1.0 Z: 0.5</div>
+                <div>00:00:00</div>
+            </div>
         </div>
     </div>
 
-    <!-- Main application window -->
-    <div class="app-window">
-        <!-- Title bar -->
-        <div class="title-bar">
-            <div>___________________________________|Holophonix Animator|___________________________________</div>
-            <div>⭘ - ✕</div>
-        </div>
+    <script>
+        // Function to create and update connectors
+        function updateConnectors() {
+            const svg = document.getElementById('connectors');
+            svg.innerHTML = ''; // Clear existing connectors
+            
+            // Get all note blocks
+            const notes = document.querySelectorAll('.note-block');
+            
+            notes.forEach(note => {
+                const targetId = note.getAttribute('data-target');
+                const target = document.getElementById(targetId);
+                
+                if (target) {
+                    // Calculate positions
+                    const noteRect = note.getBoundingClientRect();
+                    const targetRect = target.getBoundingClientRect();
+                    const containerRect = document.querySelector('.app-container').getBoundingClientRect();
+                    
+                    // Calculate start and end points
+                    const noteCenter = {
+                        x: noteRect.left + noteRect.width / 2 - containerRect.left,
+                        y: noteRect.top + noteRect.height / 2 - containerRect.top
+                    };
+                    
+                    const targetCenter = {
+                        x: targetRect.left + targetRect.width / 2 - containerRect.left,
+                        y: targetRect.top + targetRect.height / 2 - containerRect.top
+                    };
 
-        <!-- Controls -->
-        <div class="controls">
-            <input type="text" class="input-field" value="Remote IP: [127.0.0.1]">
-            <input type="text" class="input-field" value="Remote Port: [3000]">
-            <input type="text" class="input-field" value="Local Port: [8000]">
-            <button class="button connect">Connect</button>
-            <button class="button">▼</button>
-            <button class="button settings">⚙ <i>(open settings modal-window)</i></button>
-        </div>
+                    // Adjust connection points based on note position relative to target
+                    let startX, startY, endX, endY;
+                    
+                    if (noteRect.right < targetRect.left) {
+                        // Note is on the left
+                        startX = noteRect.right - containerRect.left;
+                        startY = noteCenter.y;
+                        endX = targetRect.left - containerRect.left;
+                        endY = targetCenter.y;
+                    } else if (noteRect.left > targetRect.right) {
+                        // Note is on the right
+                        startX = noteRect.left - containerRect.left;
+                        startY = noteCenter.y;
+                        endX = targetRect.right - containerRect.left;
+                        endY = targetCenter.y;
+                    } else if (noteRect.bottom < targetRect.top) {
+                        // Note is above
+                        startX = noteCenter.x;
+                        startY = noteRect.bottom - containerRect.top;
+                        endX = targetCenter.x;
+                        endY = targetRect.top - containerRect.top;
+                    } else {
+                        // Note is below
+                        startX = noteCenter.x;
+                        startY = noteRect.top - containerRect.top;
+                        endX = targetCenter.x;
+                        endY = targetRect.bottom - containerRect.top;
+                    }
+                    
+                    // Create SVG line
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.classList.add('connector');
+                    line.setAttribute('x1', startX);
+                    line.setAttribute('y1', startY);
+                    line.setAttribute('x2', endX);
+                    line.setAttribute('y2', endY);
+                    
+                    // Store reference to the line for hover effects
+                    note.setAttribute('data-connector', svg.children.length);
+                    svg.appendChild(line);
+                }
+            });
+        }
 
-        <!-- Main content -->
-        <div class="content">
-            <!-- Sources panel -->
-            <div class="panel">
-                <div class="panel-title">Sources</div>
-                ▶ Source 1<br>
-                ▶ Source 2<br>
-                ▶ Source 3<br><br>
-                + Add Source
-            </div>
+        // Add hover effects
+        const notes = document.querySelectorAll('.note-block');
+        notes.forEach(note => {
+            note.addEventListener('mouseenter', () => {
+                const targetId = note.getAttribute('data-target');
+                const target = document.getElementById(targetId);
+                const connectorIndex = note.getAttribute('data-connector');
+                const connector = document.querySelectorAll('.connector')[connectorIndex];
+                
+                if (target && connector) {
+                    note.classList.add('active');
+                    target.classList.add('active');
+                    connector.classList.add('active');
+                }
+            });
+            
+            note.addEventListener('mouseleave', () => {
+                const targetId = note.getAttribute('data-target');
+                const target = document.getElementById(targetId);
+                const connectorIndex = note.getAttribute('data-connector');
+                const connector = document.querySelectorAll('.connector')[connectorIndex];
+                
+                if (target && connector) {
+                    note.classList.remove('active');
+                    target.classList.remove('active');
+                    connector.classList.remove('active');
+                }
+            });
+        });
 
-            <!-- Behaviors panel -->
-            <div class="panel">
-                <div class="panel-title">Behaviors</div>
-                Available Behaviors<br>
-                ━━━━━━━━━━━━━━<br>
-                ⬡ Linear Move<br>
-                ⬡ Circular Path<br>
-                ⬡ Random Walk<br>
-                ⬡ Follow Path<br><br>
-                Active Behaviors<br>
-                ━━━━━━━━━━━━━━<br>
-                Linear Move 1<br>
-                ⏮ ⏯ ⏭ ✕<br><br>
-                Circular Path 1<br>
-                ⏮ ⏯ ⏭ ✕<br><br>
-                Random Walk 1<br>
-                ⏮ ⏯ ⏭ ✕
-            </div>
-
-            <!-- Preview panel -->
-            <div class="panel">
-                <div class="panel-title">Preview</div>
-                3D View<br><br>
-                Timeline<br><br>
-                Parameters
-            </div>
-        </div>
-
-        <!-- Status bar -->
-        <div class="status-bar">
-            <div>Status: Connected</div>
-            <div>X: 0.0 Y: 1.0 Z: 0.5</div>
-            <div>00:00:00</div>
-        </div>
-    </div>
-
-    <!-- Settings modal -->
-    <div class="modal">
-        <div class="modal-title">Settings <i>(modal-window)</i></div>
-        <div class="modal-content">
-            <div class="setting-row">
-                <span>Theme:</span>
-                <select class="input-field">
-                    <option>Dark</option>
-                </select>
-            </div>
-            <div class="setting-row">
-                <span>Language:</span>
-                <select class="input-field">
-                    <option>English</option>
-                </select>
-            </div>
-            <div class="setting-row">
-                <span>Auto-Connect:</span>
-                <input type="checkbox" checked>
-            </div>
-            <div class="setting-row">
-                <span>Save Session:</span>
-                <input type="checkbox" checked>
-            </div>
-            <div class="modal-buttons">
-                <button class="button">OK</button>
-                <button class="button">Cancel</button>
-            </div>
-        </div>
-    </div>
+        // Update connectors on load and resize
+        window.addEventListener('load', updateConnectors);
+        window.addEventListener('resize', updateConnectors);
+    </script>
 </body>
 </html>

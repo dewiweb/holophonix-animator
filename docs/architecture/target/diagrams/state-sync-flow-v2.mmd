@@ -58,6 +58,22 @@ sequenceDiagram
     end
     State->>App: Notify state ready
     
+    %% Track Initialization
+    Note over App,Holo: Track Initialization
+    App->>State: initializeTracks([trackIds])
+    activate State
+    State->>OSC: Batch query all track parameters
+    Note over State: Start timeout timer
+    OSC->>Holo: Batch query all track parameters
+    Holo-->>OSC: Parameter responses
+    Note over State: Update track states
+    alt all responses received
+        State-->>App: Initialization complete
+    else timeout reached
+        State-->>App: Error: Failed to initialize tracks
+    end
+    deactivate State
+    
     %% Periodic State Validation
     Note over App,Holo: Periodic State Validation (every 5s)
     loop Every 5 seconds

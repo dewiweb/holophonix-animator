@@ -68,29 +68,23 @@ Examples:
 
 ### Position Control
 
-#### Individual Coordinates
-```
-# XYZ Coordinates
-/track/{id}/x {value}     # X coordinate (meters)
-/track/{id}/y {value}     # Y coordinate (meters)
-/track/{id}/z {value}     # Z coordinate (meters)
+#### Coordinate Systems
+The system supports two coordinate systems:
+- **Cartesian (XYZ)**: For precise spatial positioning
+- **Polar (AED)**: For angle-based positioning
 
-# AED Coordinates
-/track/{id}/azim {value}  # Azimuth (-180° to +180°)
-/track/{id}/elev {value}  # Elevation (-90° to +90°)
-/track/{id}/dist {value}  # Distance (0 to max)
+Coordinate conversions are handled by the backend for optimal performance. Send positions in either coordinate system, and the backend will maintain consistency.
+
+#### Position Messages
+```
+# Cartesian Coordinates (XYZ)
+/track/{id}/xyz {x} {y} {z}  # x,y,z in range -1.0 to 1.0
+
+# Polar Coordinates (AED)
+/track/{id}/aed {azim} {elev} {dist}  # azim: 0-360°, elev: -90-90°, dist: 0-1
 ```
 
-#### Combined Coordinates
-```
-# Full Coordinates
-/track/{id}/xyz {x} {y} {z}           # All XYZ coordinates
-/track/{id}/aed {azim} {elev} {dist}  # All AED coordinates
-
-# Partial Coordinates
-/track/{id}/xy {x} {y}                # XY coordinates only
-/track/{id}/ae {azim} {elev}          # AE coordinates only
-```
+Note: Individual coordinate updates (x, y, z, azim, elev, dist) are not supported. Always send complete coordinate sets for optimal performance.
 
 ### Relative Movement
 ```
@@ -156,16 +150,16 @@ Examples:
 ### Coordinate Systems
 
 1. **XYZ (Cartesian)**
-   - X: -max to +max (left to right)
-   - Y: -max to +max (back to front)
-   - Z: -max to +max (down to up)
-   - Units: meters
+   - X: -1.0 to +1.0 (left to right)
+   - Y: -1.0 to +1.0 (back to front)
+   - Z: -1.0 to +1.0 (down to up)
+   - Units: normalized
 
 2. **AED (Spherical)**
-   - Azimuth: -180° to +180° (or 0° to 360°)
+   - Azimuth: 0° to 360°
    - Elevation: -90° to +90°
-   - Distance: 0 to configurable maximum
-   - Units: degrees for angles, meters for distance
+   - Distance: 0 to 1
+   - Units: degrees for angles, normalized for distance
 
 ### Other Properties
 - **Color**: RGBA values from 0.0 to 1.0
@@ -194,7 +188,7 @@ Query responses follow the format:
    - Use relative movements for small adjustments
 
 2. **Precision**
-   - Use appropriate units (meters, degrees)
+   - Use appropriate units (normalized, degrees)
    - Consider coordinate system limitations
    - Handle floating-point precision appropriately
 
@@ -211,6 +205,6 @@ Query responses follow the format:
 ## Notes 📝
 
 - Values are case-insensitive for string arguments
-- Angular values can be specified in -180° to +180° or 0° to 360° range
+- Angular values can be specified in 0° to 360° range
 - Decimal values sent to integer parameters will be rounded
 - The `/get` command only works with indexed elements (not Master, Monitoring, or LFE)
