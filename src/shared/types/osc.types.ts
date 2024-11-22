@@ -75,6 +75,8 @@ export enum OSCErrorType {
   CONNECTION = 'CONNECTION_ERROR',
   VALIDATION = 'VALIDATION_ERROR',
   STATE_SYNC = 'STATE_SYNC_ERROR',
+  STATE_UPDATE = 'STATE_UPDATE_ERROR',
+  PARAMETER = 'PARAMETER_ERROR',
   TIMEOUT = 'TIMEOUT_ERROR',
   BATCH = 'BATCH_ERROR'
 }
@@ -99,6 +101,8 @@ export interface OSCIncomingMessage {
   trackId?: number;
   /** Parameter name if applicable */
   parameter?: string;
+  /** Parameter value if applicable */
+  value?: any;
 }
 
 export interface OSCStateUpdate {

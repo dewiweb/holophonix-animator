@@ -16,7 +16,6 @@ import {
   CartesianCoordinates,
   PolarCoordinates
 } from '../types/osc.types';
-import { StateSynchronizer } from './state-synchronizer';
 
 /**
  * OSC Handler Service
@@ -24,15 +23,23 @@ import { StateSynchronizer } from './state-synchronizer';
  */
 export class OSCHandler extends EventEmitter {
   private port: UDPPort;
-  private config: OSCConfig;
+  public readonly config: OSCConfig;
   private logger: winston.Logger;
-  private connected: boolean = false;
+  protected _connected: boolean = false;
+
+  get connected(): boolean {
+    return this._connected;
+  }
+
+  set connected(value: boolean) {
+    this._connected = value;
+  }
+
   private connectionPromise: Promise<void> | null = null;
   private validationTimer?: NodeJS.Timeout;
   private retryCount: number = 0;
-  private trackStates: Map<number, TrackState> = new Map();
+  protected trackStates: Map<number, TrackState> = new Map();
   private pendingQueries: Map<string, (value: any) => void> = new Map();
-  private stateSynchronizer: StateSynchronizer;
 
   constructor(config: Partial<OSCConfig> = {}) {
     super();
@@ -58,9 +65,6 @@ export class OSCHandler extends EventEmitter {
       remotePort: this.config.port,
       metadata: true
     });
-
-    // Initialize state synchronizer
-    this.stateSynchronizer = new StateSynchronizer(this);
 
     this.setupEventListeners();
   }
@@ -313,9 +317,6 @@ export class OSCHandler extends EventEmitter {
 
     if (messages.length > 0) {
       await this.sendBatch(messages);
-      // Trigger state synchronization after update
-      await this.stateSynchronizer.synchronizeState(trackId);
-      await this.stateSynchronizer.resolveConflicts(trackId);
     }
   }
 

@@ -5,7 +5,7 @@
   "main": "src/main/main.ts",
   "scripts": {
     "start": "electron-forge start",
-    "test": "jest",
+    "test": "jest --config jest.config.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint . --ext .ts,.tsx",
@@ -16,8 +16,8 @@
     "make": "electron-forge make",
     "benchmark": "ts-node src/benchmark/index.ts"
   },
-  "author": "L-Acoustics",
-  "license": "UNLICENSED",
+  "author": "dewiweb",
+  "license": "MIT",
   "private": true,
   "devDependencies": {
     "@electron-forge/cli": "^6.4.2",

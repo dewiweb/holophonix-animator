@@ -1,6 +1,10 @@
 import { EventEmitter } from 'events';
 import { TrackState, TrackParameters, OSCMessage, OSCErrorType } from '../types/osc.types';
 import { OSCHandler } from './osc-handler';
+import { AnimationCoreClient } from '../clients/animation-core.client';
+import { validateTrackParameters } from '../utils/coordinate-validator';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 interface StateVersion {
   version: number;
@@ -12,37 +16,130 @@ export class StateSynchronizer extends EventEmitter {
   private stateVersions: Map<number, StateVersion[]> = new Map();
   private currentVersion: number = 0;
   private pendingSynchronizations: Set<number> = new Set();
-  
-  constructor(private oscHandler: OSCHandler) {
+  private stateDir: string;
+  private handlingUpdate = false;
+
+  constructor(
+    private oscHandler: OSCHandler,
+    private animationCore: AnimationCoreClient,
+    stateDir?: string
+  ) {
     super();
+    this.stateDir = stateDir || path.join(process.cwd(), '.state');
     this.setupEventListeners();
   }
 
   private setupEventListeners(): void {
     // Listen for state updates from OSC handler
     this.oscHandler.on('state', async (update) => {
-      await this.handleStateUpdate(update);
+      if (!this.handlingUpdate) {
+        await this.handleStateUpdate(update);
+      }
     });
+  }
+
+  private async ensureStateDirectory(): Promise<void> {
+    await fs.mkdir(this.stateDir, { recursive: true });
+  }
+
+  private getStateFilePath(trackId: number): string {
+    return path.join(this.stateDir, `track-${trackId}-state.json`);
+  }
+
+  private async saveState(trackId: number, state: TrackState): Promise<void> {
+    try {
+      await this.ensureStateDirectory();
+      const filePath = this.getStateFilePath(trackId);
+      
+      // Create a serializable copy of the state
+      const serializedState = {
+        ...state,
+        lastUpdate: state.lastUpdate.toISOString()
+      };
+      
+      await fs.writeFile(filePath, JSON.stringify(serializedState, null, 2));
+    } catch (error) {
+      this.emit('error', {
+        type: OSCErrorType.STATE_SYNC,
+        message: `Failed to save state for track ${trackId}`,
+        retryable: true,
+        data: error
+      });
+      throw error; // Re-throw to ensure caller knows about failure
+    }
+  }
+
+  private async loadState(trackId: number): Promise<TrackState | null> {
+    try {
+      const filePath = this.getStateFilePath(trackId);
+      const content = await fs.readFile(filePath, 'utf8');
+      const parsedState = JSON.parse(content);
+      
+      // Convert ISO string back to Date
+      return {
+        ...parsedState,
+        lastUpdate: new Date(parsedState.lastUpdate)
+      };
+    } catch (error) {
+      // If file doesn't exist or is corrupted, return null
+      return null;
+    }
+  }
+
+  /**
+   * Wait for state to be persisted to disk
+   */
+  public async waitForStatePersistence(trackId: number, maxWaitMs: number = 2000): Promise<void> {
+    const filePath = this.getStateFilePath(trackId);
+    const startTime = Date.now();
+    const retryDelay = 100;
+
+    while (Date.now() - startTime < maxWaitMs) {
+      try {
+        await fs.access(filePath);
+        const content = await fs.readFile(filePath, 'utf8');
+        JSON.parse(content); // Verify it's valid JSON
+        return;
+      } catch {
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
+
+    throw new Error(`Timeout waiting for state persistence for track ${trackId}`);
   }
 
   /**
    * Initialize tracks with parameter queries
-   * @param trackIds Array of track IDs to initialize
    */
   public async initializeTracks(trackIds: number[]): Promise<void> {
     const messages: OSCMessage[] = [];
-    
-    // For each track, query all parameters
+
     for (const trackId of trackIds) {
       if (this.pendingSynchronizations.has(trackId)) {
-        continue; // Skip if already synchronizing
+        continue; // Skip if already initializing
       }
-      
+
       this.pendingSynchronizations.add(trackId);
-      
+
+      try {
+        // Load persisted state if available
+        const persistedState = await this.loadState(trackId);
+        if (persistedState) {
+          await this.oscHandler.updateTrackParameters(trackId, persistedState);
+        }
+      } catch (error) {
+        this.emit('error', {
+          type: OSCErrorType.STATE_SYNC,
+          message: `Failed to load persisted state for track ${trackId}`,
+          retryable: false,
+          data: error
+        });
+      }
+
+      // Query current state from Holophonix
       messages.push(
-        { address: '/get', args: [`/track/${trackId}/xyz`] },
-        { address: '/get', args: [`/track/${trackId}/aed`] },
+        { address: '/get', args: [`/track/${trackId}/cartesian`] },
+        { address: '/get', args: [`/track/${trackId}/polar`] },
         { address: '/get', args: [`/track/${trackId}/gain`] },
         { address: '/get', args: [`/track/${trackId}/mute`] },
         { address: '/get', args: [`/track/${trackId}/name`] },
@@ -50,30 +147,45 @@ export class StateSynchronizer extends EventEmitter {
       );
     }
 
-    try {
-      // Send all queries in batches
-      await this.oscHandler.sendBatch(messages);
-      
-      // Wait for responses with timeout
-      await Promise.race([
-        Promise.all(trackIds.map(trackId => this.waitForInitialization(trackId))),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Track initialization timeout')), 
-          this.oscHandler.config.connectionTimeout)
-        )
-      ]);
-      
-    } catch (error) {
-      this.emit('error', {
-        type: OSCErrorType.STATE_SYNC,
-        message: `Failed to initialize tracks: ${trackIds.join(', ')}`,
-        retryable: true,
-        data: error
-      });
-    } finally {
-      // Clean up pending synchronizations
-      trackIds.forEach(trackId => this.pendingSynchronizations.delete(trackId));
+    let retryCount = 0;
+    const maxRetries = this.oscHandler.config.maxRetries;
+
+    while (retryCount <= maxRetries) {
+      try {
+        // Send all queries in batches
+        await this.oscHandler.sendBatch(messages);
+
+        // Wait for responses with timeout
+        await Promise.race([
+          Promise.all(trackIds.map(trackId => this.waitForInitialization(trackId))),
+          new Promise((_, reject) => {
+            const timeout = this.oscHandler.config.connectionTimeout;
+            setTimeout(() => reject(new Error('Track initialization timeout')), timeout);
+          })
+        ]);
+
+        // Success - exit retry loop
+        break;
+      } catch (error) {
+        retryCount++;
+
+        if (retryCount > maxRetries) {
+          this.emit('error', {
+            type: OSCErrorType.STATE_SYNC,
+            message: `Failed to initialize tracks: ${trackIds.join(', ')}`,
+            retryable: true,
+            data: error
+          });
+          throw error;
+        }
+
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+      }
     }
+
+    // Clean up pending synchronizations
+    trackIds.forEach(trackId => this.pendingSynchronizations.delete(trackId));
   }
 
   /**
@@ -94,31 +206,139 @@ export class StateSynchronizer extends EventEmitter {
   }
 
   /**
-   * Handle incoming state updates
+   * Update the state for a track
    */
-  private async handleStateUpdate(update: { trackId: number; parameter: keyof TrackParameters; value: any; timestamp: Date }): Promise<void> {
-    const trackId = update.trackId;
-    const currentState = this.oscHandler.getTrackState(trackId);
-    
-    if (!currentState) return;
+  public async updateTrackState(trackId: number, parameter: keyof TrackParameters, value: any): Promise<void> {
+    try {
+      // Quick UI validation for immediate feedback
+      const quickValidation = validateTrackParameters(parameter, value);
+      if (!quickValidation.valid) {
+        this.emit('error', {
+          type: OSCErrorType.VALIDATION,
+          message: quickValidation.error || 'Invalid coordinate values',
+          retryable: false,
+          data: { trackId, parameter, value }
+        });
+        throw new Error(quickValidation.error);
+      }
 
-    // Create new version
-    const newVersion: StateVersion = {
-      version: ++this.currentVersion,
-      timestamp: update.timestamp,
-      state: { ...currentState }
-    };
+      // Send to Animation Core for precise validation and computation
+      if (parameter === 'cartesian' || parameter === 'polar') {
+        const validationResult = await this.animationCore.validateCoordinates({
+          trackId,
+          parameter,
+          value
+        });
 
-    // Store version history
-    let versions = this.stateVersions.get(trackId) || [];
-    versions.push(newVersion);
-    
-    // Keep only last 10 versions for memory efficiency
-    if (versions.length > 10) {
-      versions = versions.slice(-10);
+        if (!validationResult.valid) {
+          this.emit('error', {
+            type: OSCErrorType.VALIDATION,
+            message: validationResult.error || 'Invalid coordinate values (Animation Core)',
+            retryable: false,
+            data: { trackId, parameter, value }
+          });
+          throw new Error(validationResult.error);
+        }
+
+        // Use the potentially adjusted value from Animation Core
+        value = validationResult.value;
+      }
+
+      // Update state after validation
+      await this.handleStateUpdate({
+        trackId,
+        parameter,
+        value,
+        timestamp: new Date()
+      });
+    } catch (error) {
+      if (error && typeof error === 'object' && 'type' in error) {
+        this.emit('error', error);
+      } else {
+        this.emit('error', {
+          type: OSCErrorType.STATE_UPDATE,
+          message: 'Failed to update state',
+          retryable: true,
+          data: error
+        });
+      }
+      throw error;
     }
-    
-    this.stateVersions.set(trackId, versions);
+  }
+
+  private async handleStateUpdate(update: {
+    trackId: number;
+    parameter: keyof TrackParameters;
+    value: any;
+    timestamp: Date;
+  }): Promise<void> {
+    const { trackId, parameter, value } = update;
+
+    try {
+      // Get current state
+      let versions = this.stateVersions.get(trackId) || [];
+      const currentState = versions.length > 0
+        ? versions[versions.length - 1].state
+        : await this.loadState(trackId) || {
+            lastUpdate: new Date()
+          };
+      
+      // Create a new state version
+      const newVersion: StateVersion = {
+        version: ++this.currentVersion,
+        timestamp: new Date(),
+        state: {
+          ...currentState,
+          [parameter]: value,
+          lastUpdate: new Date()
+        }
+      };
+
+      // Add new version to history
+      versions.push(newVersion);
+      
+      // Keep only last 10 versions for memory efficiency
+      if (versions.length > 10) {
+        versions = versions.slice(-10);
+      }
+      
+      this.stateVersions.set(trackId, versions);
+
+      // Apply update to OSC handler without triggering another state update
+      // The Rust backend will validate the coordinates
+      this.handlingUpdate = true;
+      try {
+        await this.oscHandler.updateTrackParameters(trackId, { [parameter]: value });
+      } finally {
+        this.handlingUpdate = false;
+      }
+
+      // Save state after successful backend validation
+      await this.saveState(trackId, newVersion.state);
+
+      // Emit state update event
+      this.emit('stateUpdated', { trackId, parameter, value });
+    } catch (error) {
+      // Handle validation errors from backend
+      if (error && typeof error === 'object' && 'type' in error) {
+        if (error.type === OSCErrorType.VALIDATION) {
+          this.emit('error', {
+            type: OSCErrorType.VALIDATION,
+            message: error.message || 'Invalid coordinate values',
+            retryable: false,
+            data: { trackId, parameter, value }
+          });
+        } else {
+          this.emit('error', {
+            type: OSCErrorType.STATE_UPDATE,
+            message: `Failed to update state for track ${trackId}`,
+            retryable: true,
+            data: error
+          });
+        }
+      }
+      throw error;
+    }
   }
 
   /**
@@ -126,8 +346,20 @@ export class StateSynchronizer extends EventEmitter {
    */
   public async synchronizeState(trackId: number): Promise<void> {
     try {
-      // Request full state from Holophonix
-      const messages: OSCMessage[] = [
+      if (this.pendingSynchronizations.has(trackId)) {
+        return; // Already synchronizing
+      }
+
+      this.pendingSynchronizations.add(trackId);
+
+      // Load persisted state if available
+      const persistedState = await this.loadState(trackId);
+      if (persistedState) {
+        await this.oscHandler.updateTrackParameters(trackId, persistedState);
+      }
+
+      // Query current state from Holophonix
+      const messages = [
         { address: '/get', args: [`/track/${trackId}/xyz`] },
         { address: '/get', args: [`/track/${trackId}/aed`] },
         { address: '/get', args: [`/track/${trackId}/gain`] },
@@ -144,6 +376,9 @@ export class StateSynchronizer extends EventEmitter {
         retryable: true,
         data: error
       });
+      throw error;
+    } finally {
+      this.pendingSynchronizations.delete(trackId);
     }
   }
 
@@ -199,7 +434,20 @@ export class StateSynchronizer extends EventEmitter {
    */
   private async applyNonConflictingChanges(trackId: number, changes: Partial<TrackParameters>): Promise<void> {
     try {
-      await this.oscHandler.updateTrackParameters(trackId, changes);
+      // Apply each change individually to handle partial failures
+      for (const [parameter, value] of Object.entries(changes)) {
+        try {
+          await this.oscHandler.updateTrackParameters(trackId, { [parameter]: value });
+        } catch (error) {
+          // Log error for this parameter but continue with others
+          this.emit('error', {
+            type: OSCErrorType.STATE_SYNC,
+            message: `Failed to apply ${parameter} change for track ${trackId}`,
+            retryable: true,
+            data: error
+          });
+        }
+      }
     } catch (error) {
       this.emit('error', {
         type: OSCErrorType.STATE_SYNC,

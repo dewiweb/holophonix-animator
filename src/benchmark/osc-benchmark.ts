@@ -7,6 +7,16 @@ interface BenchmarkResult {
   averageLatency: number;
   throughput: number;  // messages per second
   errors: number;
+  memoryUsage: {
+    heapUsed: number;
+    heapTotal: number;
+    external: number;
+  };
+  cpuUsage: {
+    user: number;
+    system: number;
+  };
+  errorRate: number;
 }
 
 export class OSCBenchmark {
@@ -16,11 +26,30 @@ export class OSCBenchmark {
     totalTime: 0,
     averageLatency: 0,
     throughput: 0,
-    errors: 0
+    errors: 0,
+    memoryUsage: {
+      heapUsed: 0,
+      heapTotal: 0,
+      external: 0
+    },
+    cpuUsage: {
+      user: 0,
+      system: 0
+    },
+    errorRate: 0
   };
 
   constructor() {
     this.handler = new OSCHandler();
+  }
+
+  /**
+   * Measure system resource usage
+   */
+  private getResourceUsage(): { memory: any, cpu: any } {
+    const memory = process.memoryUsage();
+    const cpu = process.cpuUsage();
+    return { memory, cpu };
   }
 
   /**
@@ -31,74 +60,94 @@ export class OSCBenchmark {
   public async measureLatency(iterations: number = 1000, interval: number = 10): Promise<BenchmarkResult> {
     await this.handler.connect();
     
+    const startResources = this.getResourceUsage();
     const latencies: number[] = [];
     let errors = 0;
+    const startTime = performance.now();
 
     for (let i = 0; i < iterations; i++) {
       const start = performance.now();
       try {
         await this.handler.send({
           address: '/benchmark/ping',
-          args: [start]
+          args: [{ type: 'i', value: i }]
         });
-        const end = performance.now();
-        latencies.push(end - start);
+        latencies.push(performance.now() - start);
       } catch (error) {
         errors++;
       }
-      await new Promise(resolve => setTimeout(resolve, interval));
+      
+      if (interval > 0) {
+        await new Promise(resolve => setTimeout(resolve, interval));
+      }
     }
 
-    const totalTime = latencies.reduce((a, b) => a + b, 0);
-    const averageLatency = totalTime / latencies.length;
-    const throughput = (iterations - errors) / (totalTime / 1000);
+    const endTime = performance.now();
+    const endResources = this.getResourceUsage();
 
     this.results = {
       messagesSent: iterations,
-      totalTime,
-      averageLatency,
-      throughput,
-      errors
+      totalTime: endTime - startTime,
+      averageLatency: latencies.reduce((a, b) => a + b, 0) / latencies.length,
+      throughput: (iterations / (endTime - startTime)) * 1000,
+      errors,
+      memoryUsage: {
+        heapUsed: endResources.memory.heapUsed - startResources.memory.heapUsed,
+        heapTotal: endResources.memory.heapTotal - startResources.memory.heapTotal,
+        external: endResources.memory.external - startResources.memory.external
+      },
+      cpuUsage: {
+        user: endResources.cpu.user - startResources.cpu.user,
+        system: endResources.cpu.system - startResources.cpu.system
+      },
+      errorRate: errors / iterations
     };
 
     return this.results;
   }
 
   /**
-   * Run throughput benchmark
-   * @param duration Duration in seconds
-   * @param batchSize Number of messages to send in each batch
+   * Run throughput benchmark by sending messages in parallel
+   * @param totalMessages Total number of messages to send
+   * @param batchSize Number of messages to send in parallel
    */
-  public async measureThroughput(duration: number = 10, batchSize: number = 100): Promise<BenchmarkResult> {
+  public async measureThroughput(totalMessages: number = 10000, batchSize: number = 100): Promise<BenchmarkResult> {
     await this.handler.connect();
     
-    const start = performance.now();
-    let messagesSent = 0;
+    const startResources = this.getResourceUsage();
     let errors = 0;
+    const startTime = performance.now();
 
-    while (performance.now() - start < duration * 1000) {
-      const batch = Array(batchSize).fill(null).map(() => ({
-        address: '/benchmark/throughput',
-        args: [messagesSent]
-      }));
+    for (let i = 0; i < totalMessages; i += batchSize) {
+      const batch = Array.from({ length: Math.min(batchSize, totalMessages - i) }, (_, index) => {
+        return this.handler.send({
+          address: '/benchmark/throughput',
+          args: [{ type: 'i', value: i + index }]
+        }).catch(() => errors++);
+      });
 
-      try {
-        await this.handler.sendBatch(batch);
-        messagesSent += batchSize;
-      } catch (error) {
-        errors += batchSize;
-      }
+      await Promise.all(batch);
     }
 
-    const totalTime = performance.now() - start;
-    const throughput = (messagesSent - errors) / (totalTime / 1000);
+    const endTime = performance.now();
+    const endResources = this.getResourceUsage();
 
     this.results = {
-      messagesSent,
-      totalTime,
-      averageLatency: totalTime / messagesSent,
-      throughput,
-      errors
+      messagesSent: totalMessages,
+      totalTime: endTime - startTime,
+      averageLatency: (endTime - startTime) / totalMessages,
+      throughput: (totalMessages / (endTime - startTime)) * 1000,
+      errors,
+      memoryUsage: {
+        heapUsed: endResources.memory.heapUsed - startResources.memory.heapUsed,
+        heapTotal: endResources.memory.heapTotal - startResources.memory.heapTotal,
+        external: endResources.memory.external - startResources.memory.external
+      },
+      cpuUsage: {
+        user: endResources.cpu.user - startResources.cpu.user,
+        system: endResources.cpu.system - startResources.cpu.system
+      },
+      errorRate: errors / totalMessages
     };
 
     return this.results;
