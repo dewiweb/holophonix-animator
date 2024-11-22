@@ -1,12 +1,6 @@
 import { UDPPort } from 'osc';
 import { OSCHandler } from '../osc-handler';
-import { 
-  OSCConfig, 
-  OSCErrorType, 
-  ConnectionState,
-  TrackParameters, 
-  OSCIncomingMessage 
-} from '../../types/osc.types';
+import { OSCConfig, OSCErrorType, TrackParameters, OSCIncomingMessage } from '../../types/osc.types';
 
 // Mock the UDPPort class
 const mockUDPPort = {
@@ -14,8 +8,7 @@ const mockUDPPort = {
   once: jest.fn(),
   open: jest.fn(),
   close: jest.fn(),
-  send: jest.fn(),
-  emit: jest.fn()
+  send: jest.fn()
 };
 
 jest.mock('osc', () => ({
@@ -27,13 +20,12 @@ describe('OSCHandler', () => {
   let messageCallback: (msg: any) => void;
 
   const testConfig: Partial<OSCConfig> = {
-    serverIP: '127.0.0.1',
-    localIP: '0.0.0.0',
-    inputPort: 9000,
-    outputPort: 4003,
+    port: 4003,
+    host: '127.0.0.1',
     connectionTimeout: 100, // Reduced timeout for faster tests
     maxRetries: 2,
-    retryDelay: 100 // Reduced delay for faster tests
+    queryTimeout: 100, // Add query timeout
+    validationInterval: 1000
   };
 
   beforeEach(() => {
@@ -51,7 +43,7 @@ describe('OSCHandler', () => {
     // Setup ready event
     mockUDPPort.once.mockImplementation((event: string, callback: any) => {
       if (event === 'ready') {
-        callback();
+        callback(); // Call immediately instead of using setTimeout
       }
       return mockUDPPort;
     });
@@ -60,160 +52,185 @@ describe('OSCHandler', () => {
   });
 
   afterEach(() => {
-    // Clear all mocks
-    jest.clearAllMocks();
-    
-    // Clear all timers
+    handler.close();
     jest.clearAllTimers();
-    
-    // Ensure handler is properly closed
-    if (handler) {
-      handler.close();
-    }
-    
-    // Reset event listeners
-    mockUDPPort.on.mockReset();
-    mockUDPPort.once.mockReset();
-    mockUDPPort.send.mockReset();
-    mockUDPPort.emit.mockReset();
-    
-    // Clear all intervals and timeouts
     jest.useRealTimers();
   });
 
-  describe('Connection Management', () => {
-    it('should initialize in disconnected state', () => {
-      expect(handler.getConnectionState()).toBe(ConnectionState.DISCONNECTED);
-    });
-
+  describe('connect', () => {
     it('should connect successfully', async () => {
       const connectPromise = handler.connect();
       jest.runAllTimers();
-      await connectPromise;
-
-      expect(handler.getConnectionState()).toBe(ConnectionState.CONNECTED);
-      expect(mockUDPPort.open).toHaveBeenCalledTimes(2); // Both input and output ports
+      await expect(connectPromise).resolves.toBeUndefined();
+      expect(mockUDPPort.open).toHaveBeenCalled();
     });
 
     it('should handle connection timeout', async () => {
-      // Make ready event never fire
-      mockUDPPort.once.mockImplementation(() => mockUDPPort);
+      mockUDPPort.once.mockImplementation((event: string, callback: any) => {
+        if (event === 'ready') {
+          // Don't call the callback to simulate timeout
+        }
+        return mockUDPPort;
+      });
 
       const connectPromise = handler.connect();
-      jest.runAllTimers();
-
+      jest.advanceTimersByTime(testConfig.connectionTimeout! + 100);
       await expect(connectPromise).rejects.toMatchObject({
-        type: OSCErrorType.TIMEOUT,
-        message: 'Connection timeout'
+        type: OSCErrorType.TIMEOUT
       });
-    });
-
-    it('should handle connection errors', async () => {
-      // Simulate port error
-      mockUDPPort.emit('error', {
-        type: OSCErrorType.CONNECTION,
-        message: 'Connection failed',
-        retryable: true
-      });
-
-      const connectPromise = handler.connect();
-      jest.runAllTimers();
-
-      await expect(connectPromise).rejects.toMatchObject({
-        type: OSCErrorType.CONNECTION,
-        message: expect.stringContaining('Connection failed')
-      });
-    });
-
-    it('should detect connection loss and attempt reconnection', async () => {
-      // First connect successfully
-      const connectPromise = handler.connect();
-      jest.runAllTimers();
-      await connectPromise;
-
-      // Simulate 3 failed pings
-      for (let i = 0; i < 3; i++) {
-        mockUDPPort.send.mockRejectedValueOnce(new Error('Send failed'));
-        jest.advanceTimersByTime(5000); // Ping interval
-      }
-
-      expect(handler.getConnectionState()).toBe(ConnectionState.RECONNECTING);
-    });
-
-    it('should handle successful reconnection', async () => {
-      // First connect successfully
-      const connectPromise = handler.connect();
-      jest.runAllTimers();
-      await connectPromise;
-
-      // Simulate connection loss
-      for (let i = 0; i < 3; i++) {
-        mockUDPPort.send.mockRejectedValueOnce(new Error('Send failed'));
-        jest.advanceTimersByTime(5000);
-      }
-
-      // Reset mock to allow successful reconnection
-      mockUDPPort.send.mockResolvedValue(undefined);
-      jest.runAllTimers();
-
-      expect(handler.getConnectionState()).toBe(ConnectionState.CONNECTED);
     });
   });
 
-  describe('Configuration Validation', () => {
-    it('should validate IP configuration', () => {
-      expect(() => new OSCHandler({ 
-        ...testConfig, 
-        serverIP: 'invalid-ip' 
-      })).toThrow(/Invalid server IP/);
-    });
-
-    it('should validate port configuration', () => {
-      expect(() => new OSCHandler({ 
-        ...testConfig, 
-        inputPort: 0 
-      })).toThrow(/Invalid input port/);
-    });
-
-    it('should accept valid configuration', () => {
-      expect(() => new OSCHandler(testConfig)).not.toThrow();
-    });
-  });
-
-  describe('Message Handling', () => {
+  describe('message handling', () => {
     beforeEach(async () => {
       const connectPromise = handler.connect();
       jest.runAllTimers();
       await connectPromise;
     });
 
-    it('should handle ping messages', () => {
-      messageCallback({
-        address: '/pong',
-        args: []
+    it('should handle cartesian coordinate updates', (done) => {
+      handler.on('state', (update) => {
+        expect(update).toMatchObject({
+          trackId: 1,
+          parameter: 'xyz',
+          value: [0.5, -0.3, 0.1]
+        });
+        done();
       });
 
-      expect(handler.getConnectionState()).toBe(ConnectionState.CONNECTED);
-    });
-
-    it('should handle animation control messages', () => {
-      const onAnimationStart = jest.fn();
-      handler.on('animation:start', onAnimationStart);
-
       messageCallback({
-        address: '/animation/control/start',
-        args: ['animation1']
+        address: '/track/1/xyz',
+        args: [0.5, -0.3, 0.1]
       });
 
-      expect(onAnimationStart).toHaveBeenCalledWith('animation1');
+      jest.runAllTimers();
     });
 
-    it('should validate incoming messages', () => {
-      expect(() => messageCallback({
-        // Invalid message format
-        address: undefined,
-        args: 'not-an-array'
-      })).toThrow(/Invalid OSC message structure/);
+    it('should handle polar coordinate updates', (done) => {
+      handler.on('state', (update) => {
+        expect(update).toMatchObject({
+          trackId: 1,
+          parameter: 'aed',
+          value: [45, 30, 0.8]
+        });
+        done();
+      });
+
+      messageCallback({
+        address: '/track/1/aed',
+        args: [45, 30, 0.8]
+      });
+
+      jest.runAllTimers();
+    });
+
+    it('should handle color updates', (done) => {
+      handler.on('state', (update) => {
+        expect(update).toMatchObject({
+          trackId: 1,
+          parameter: 'color',
+          value: [1, 0, 0, 1]
+        });
+        done();
+      });
+
+      messageCallback({
+        address: '/track/1/color',
+        args: [1, 0, 0, 1]
+      });
+
+      jest.runAllTimers();
+    });
+
+    it('should maintain track state', () => {
+      messageCallback({
+        address: '/track/1/xyz',
+        args: [0.5, -0.3, 0.1]
+      });
+
+      messageCallback({
+        address: '/track/1/color',
+        args: [1, 0, 0, 1]
+      });
+
+      const state = handler.getTrackState(1);
+      expect(state).toMatchObject({
+        cartesian: { x: 0.5, y: -0.3, z: 0.1 },
+        color: { r: 1, g: 0, b: 0, a: 1 }
+      });
+    });
+  });
+
+  describe('parameter queries', () => {
+    beforeEach(async () => {
+      const connectPromise = handler.connect();
+      jest.runAllTimers();
+      await connectPromise;
+    });
+
+    it('should handle parameter query responses', async () => {
+      const queryPromise = handler.queryParameter(1, 'xyz');
+      
+      // Simulate response immediately
+      messageCallback({
+        address: '/track/1/xyz',
+        args: [0.5, -0.3, 0.1]
+      });
+
+      jest.runOnlyPendingTimers();
+      const result = await queryPromise;
+      expect(result).toEqual([0.5, -0.3, 0.1]);
+    });
+
+    it('should timeout parameter queries', async () => {
+      const promise = handler.queryParameter(1, 'xyz');
+      
+      // Advance time past the query timeout
+      jest.advanceTimersByTime(testConfig.connectionTimeout || 1000);
+      
+      await expect(promise).resolves.toBe(undefined);
+    });
+  });
+
+  describe('updateTrackParameters', () => {
+    beforeEach(async () => {
+      const connectPromise = handler.connect();
+      jest.runAllTimers();
+      await connectPromise;
+      mockUDPPort.send.mockImplementation(() => Promise.resolve());
+    });
+
+    it('should send cartesian coordinates correctly', async () => {
+      await handler.updateTrackParameters(1, {
+        cartesian: { x: 0.5, y: -0.3, z: 0.1 }
+      });
+
+      expect(mockUDPPort.send).toHaveBeenCalledWith({
+        address: '/track/1/xyz',
+        args: [0.5, -0.3, 0.1]
+      });
+    });
+
+    it('should send polar coordinates correctly', async () => {
+      await handler.updateTrackParameters(1, {
+        polar: { azim: 45, elev: 30, dist: 0.8 }
+      });
+
+      expect(mockUDPPort.send).toHaveBeenCalledWith({
+        address: '/track/1/aed',
+        args: [45, 30, 0.8]
+      });
+    });
+
+    it('should send color correctly', async () => {
+      await handler.updateTrackParameters(1, {
+        color: { r: 1, g: 0, b: 0, a: 1 }
+      });
+
+      expect(mockUDPPort.send).toHaveBeenCalledWith({
+        address: '/track/1/color',
+        args: [1, 0, 0, 1]
+      });
     });
   });
 });

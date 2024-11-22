@@ -23,13 +23,5 @@ module.exports = {
       lines: 80,
       statements: 80
     }
-  },
-  // Add verbose output
-  verbose: true,
-  // Force exit after all tests complete
-  forceExit: true,
-  // Set timeout for tests
-  testTimeout: 10000,
-  // Cleanup after each test file
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js']
+  }
 };

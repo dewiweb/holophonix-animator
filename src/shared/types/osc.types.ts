@@ -2,126 +2,23 @@
  * OSC Message Types and Interfaces
  */
 
-/**
- * OSC Configuration
- * Configuration options for OSC communication with Holophonix
- */
 export interface OSCConfig {
-  serverIP: string;
-  localIP: string;
-  inputPort: number;
-  outputPort: number;
+  /** Default port for OSC communication */
+  port: number;
+  /** Host address */
+  host: string;
+  /** Connection timeout in milliseconds */
   connectionTimeout: number;
+  /** Maximum retry attempts */
   maxRetries: number;
-  queryTimeout: number;
-  validationInterval: number;
+  /** Batch size limit for parameter updates */
   maxBatchSize: number;
+  /** State validation interval in milliseconds */
+  validationInterval: number;
+  /** Query timeout in milliseconds */
+  queryTimeout: number;
 }
 
-/**
- * Default OSC Configuration
- */
-export const DEFAULT_OSC_CONFIG: OSCConfig = {
-  serverIP: '127.0.0.1',
-  localIP: '0.0.0.0',
-  inputPort: 9000,
-  outputPort: 9001,
-  connectionTimeout: 5000,
-  maxRetries: 3,
-  queryTimeout: 1000,
-  validationInterval: 5000,
-  maxBatchSize: 10
-};
-
-/**
- * Port Constraints
- */
-export const PORT_CONSTRAINTS = {
-  MIN_PORT: 1024,
-  MAX_PORT: 65535
-} as const;
-
-/**
- * OSC Message Types
- */
-export enum MessageType {
-  ANIMATION_CONTROL = 'ANIMATION_CONTROL',
-  STATUS = 'STATUS',
-  UNKNOWN = 'UNKNOWN'
-}
-
-/**
- * OSC Error Types
- */
-export enum OSCErrorType {
-  CONNECTION = 'CONNECTION',
-  TIMEOUT = 'TIMEOUT',
-  INVALID_MESSAGE = 'INVALID_MESSAGE',
-  NOT_CONNECTED = 'NOT_CONNECTED',
-  SEND_FAILED = 'SEND_FAILED'
-}
-
-/**
- * OSC Error
- */
-export interface OSCError {
-  type: OSCErrorType;
-  message: string;
-  retryable: boolean;
-  data?: unknown;
-  timestamp: string;
-}
-
-/**
- * OSC Message
- */
-export interface OSCMessage {
-  address: string;
-  args: Array<{
-    type: string;
-    value: unknown;
-  }>;
-}
-
-/**
- * Animation Control Command
- */
-export interface AnimationControlCommand {
-  type: string;
-  parameters?: Record<string, unknown>;
-}
-
-/**
- * Animation Control Message
- */
-export interface AnimationControlMessage {
-  command: string;
-  parameters?: Record<string, unknown>;
-}
-
-/**
- * Network Interface
- */
-export interface NetworkInterface {
-  name: string;
-  ip: string;
-  family: string;
-  internal: boolean;
-}
-
-/**
- * Connection State
- */
-export enum ConnectionState {
-  DISCONNECTED = 'DISCONNECTED',
-  CONNECTING = 'CONNECTING',
-  CONNECTED = 'CONNECTED',
-  ERROR = 'ERROR'
-}
-
-/**
- * Cartesian Coordinates
- */
 export interface CartesianCoordinates {
   /** X coordinate (-1.0 to 1.0) */
   x: number;
@@ -131,9 +28,6 @@ export interface CartesianCoordinates {
   z: number;
 }
 
-/**
- * Polar Coordinates
- */
 export interface PolarCoordinates {
   /** Azimuth in degrees (0.0 to 360.0) */
   azim: number;
@@ -143,9 +37,6 @@ export interface PolarCoordinates {
   dist: number;
 }
 
-/**
- * Color
- */
 export interface Color {
   r: number;  // 0-1 range
   g: number;  // 0-1 range
@@ -153,17 +44,14 @@ export interface Color {
   a: number;  // 0-1 range
 }
 
-/**
- * Track Parameters
- */
 export interface TrackParameters {
   /** Track position in cartesian coordinates */
   cartesian?: CartesianCoordinates;
   /** Track position in polar coordinates */
   polar?: PolarCoordinates;
-  /** Track gain (0.0 to 1.0) */
+  /** Track gain (-inf to 10.0) */
   gain?: number;
-  /** Track mute state */
+  /** Track mute state (0 or 1) */
   mute?: boolean;
   /** Track name */
   name?: string;
@@ -171,33 +59,48 @@ export interface TrackParameters {
   color?: Color;
 }
 
-/**
- * Track State
- */
 export interface TrackState extends TrackParameters {
   /** Last update timestamp */
   lastUpdate: Date;
 }
 
-/**
- * IP address validation regex
- */
-export const IP_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-
-/**
- * OSC Incoming Message
- */
-export interface OSCIncomingMessage {
+export interface OSCMessage {
+  /** OSC address pattern */
   address: string;
-  args: any[];
-  type: MessageType;
-  trackId?: number;
-  timestamp?: string;
+  /** Message arguments */
+  args: Array<string | number | boolean>;
 }
 
-/**
- * OSC State Update
- */
+export enum OSCErrorType {
+  CONNECTION = 'CONNECTION_ERROR',
+  VALIDATION = 'VALIDATION_ERROR',
+  STATE_SYNC = 'STATE_SYNC_ERROR',
+  TIMEOUT = 'TIMEOUT_ERROR',
+  BATCH = 'BATCH_ERROR'
+}
+
+export interface OSCError {
+  type: OSCErrorType;
+  message: string;
+  retryable: boolean;
+  data?: unknown;
+}
+
+export type MessageType = 'state_response' | 'parameter_update' | 'status_update' | 'error';
+
+export interface OSCIncomingMessage {
+  /** OSC address pattern */
+  address: string;
+  /** Message arguments */
+  args: any[];
+  /** Message type */
+  type: MessageType;
+  /** Track ID if applicable */
+  trackId?: number;
+  /** Parameter name if applicable */
+  parameter?: string;
+}
+
 export interface OSCStateUpdate {
   trackId: number;
   parameter: keyof TrackParameters;
@@ -205,22 +108,13 @@ export interface OSCStateUpdate {
   timestamp: Date;
 }
 
-/**
- * Animation Control Command Types
- */
-export enum AnimationControlCommandType {
-  START = 'start',
-  STOP = 'stop',
-  PAUSE = 'pause',
-  RESUME = 'resume',
-  SEEK = 'seek',
-  SET_SPEED = 'set_speed'
-}
-
-/**
- * Animation Control Command Parameters
- */
-export interface AnimationControlCommandParams {
-  timestamp?: number;  // For seek command (in milliseconds)
-  speed?: number;      // For set_speed command (1.0 is normal speed)
-}
+/** Default configuration values */
+export const DEFAULT_OSC_CONFIG: OSCConfig = {
+  port: 4003,
+  host: '127.0.0.1',
+  connectionTimeout: 5000,    // 5 seconds
+  maxRetries: 3,
+  maxBatchSize: 50,          // Maximum messages per batch
+  validationInterval: 5000,   // 5 seconds
+  queryTimeout: 1000         // 1 second
+};
