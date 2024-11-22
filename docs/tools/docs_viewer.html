@@ -16,125 +16,150 @@
             display: flex;
         }
 
-        .sidebar {
+        .nav-container {
+            background-color: #1e1e1e;
             width: 300px;
-            background-color: #252526;
-            padding: 20px;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-            overflow-y: auto;
-            height: 100vh;
-            position: fixed;
-            left: 0;
-            top: 0;
+            min-width: 50px;
+            transition: all 0.3s ease;
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            transition: transform 0.3s ease;
-            z-index: 100;
+            position: relative;
+            border-right: 1px solid #3c3c3c;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
         }
 
-        .sidebar.collapsed {
-            transform: translateX(-300px);
+        .nav-container.collapsed {
+            width: 50px;
         }
 
-        .main-content {
-            margin-left: 300px;
-            flex: 1;
-            padding: 20px;
-            max-width: none;
-            margin-right: auto;
-            height: 100vh;
+        .nav-container.collapsed .nav-content {
+            visibility: hidden;
+            opacity: 0;
+        }
+
+        .nav-container.collapsed .nav-toggle {
+            transform: rotate(180deg);
+        }
+
+        .nav-content {
             overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            transition: margin-left 0.3s ease;
+            padding: 30px 20px;
+            flex-grow: 1;
+            transition: visibility 0.3s, opacity 0.3s;
+            opacity: 1;
+            visibility: visible;
         }
 
-        .main-content.expanded {
-            margin-left: 0;
-        }
-
-        .menu-toggle {
-            position: fixed;
-            left: 300px;
-            top: 20px;
-            background-color: #252526;
-            color: #f5f5f5;
+        .nav-toggle {
+            position: absolute;
+            right: -12px;
+            top: 10px;
+            background: #3c3c3c;
             border: none;
-            padding: 8px 12px;
+            color: #f5f5f5;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
             cursor: pointer;
-            z-index: 100;
-            transition: left 0.3s ease;
-            border-radius: 0 4px 4px 0;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: transform 0.3s ease;
         }
 
-        .menu-toggle:hover {
-            background-color: #2d2d2d;
+        .section {
+            margin-bottom: 30px;
+            background: #252526;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
-        .menu-toggle.collapsed {
-            left: 0;
+        .section-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #569cd6;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #3c3c3c;
+            padding-bottom: 8px;
         }
 
-        .doc-nav, .diagram-nav, .mockup-nav {
-            margin-bottom: 20px;
-        }
-
-        .doc-nav h2, .diagram-nav h2, .mockup-nav h2 {
-            color: #fff;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            border-bottom: 1px solid #444;
-        }
-
-        .doc-list, .diagram-list, .mockup-list {
+        .file-list {
             list-style: none;
             padding: 0;
             margin: 0;
         }
 
-        .doc-list li, .diagram-list li, .mockup-list li {
-            margin-bottom: 8px;
-        }
-
-        .doc-list a, .diagram-list a, .mockup-list a {
+        .file-item {
+            margin: 2px 0;
+            padding: 8px 12px;
+            cursor: pointer;
             color: #d4d4d4;
-            text-decoration: none;
-            display: block;
-            padding: 8px;
             border-radius: 4px;
-            transition: background-color 0.2s;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            font-size: 0.95em;
+            line-height: 1.4;
         }
 
-        .doc-list a:hover, .diagram-list a:hover, .mockup-list a:hover {
+        .file-item:before {
+            content: "📄";
+            margin-right: 8px;
+            font-size: 1.1em;
+            opacity: 0.7;
+        }
+
+        .file-item:hover {
             background-color: #2d2d2d;
-        }
-
-        .doc-list a.active, .diagram-list a.active, .mockup-list a.active {
-            background-color: #37373d;
             color: #fff;
         }
 
-        .diagram-container {
-            background-color: #2d2d2d;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-            overflow: hidden;
-            position: relative;
+        .file-item.active {
+            background-color: #37373d;
+            color: #fff;
+            font-weight: 500;
         }
 
-        .diagram-controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            display: flex;
-            gap: 10px;
-            background-color: rgba(45, 45, 45, 0.9);
-            padding: 5px;
+        /* Custom icons for different file types */
+        .file-item[data-type="doc"]:before {
+            content: "📝";
+        }
+
+        .file-item[data-type="diagram"]:before {
+            content: "📊";
+        }
+
+        .file-item[data-type="mockup"]:before {
+            content: "🎨";
+        }
+
+        /* Scrollbar styling */
+        .nav-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .nav-content::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        .nav-content::-webkit-scrollbar-thumb {
+            background: #3c3c3c;
             border-radius: 4px;
-            z-index: 1000;
+        }
+
+        .nav-content::-webkit-scrollbar-thumb:hover {
+            background: #4c4c4c;
+        }
+
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
         }
 
         .markdown-body {
@@ -188,30 +213,25 @@
             color: #58a6ff !important;
         }
 
-        button {
-            background-color: #3d3d3d;
-            color: #f5f5f5;
-            border: 1px solid #4a4a4a;
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        button:hover {
-            background-color: #4a4a4a;
-            border-color: #666;
-        }
-
-        #error {
-            display: none;
-            color: #ff6b6b;
+        .diagram-container {
             background-color: #2d2d2d;
-            padding: 10px;
-            margin: 10px 0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .diagram-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+            background-color: rgba(45, 45, 45, 0.9);
+            padding: 5px;
             border-radius: 4px;
-            border-left: 4px solid #ff6b6b;
+            z-index: 1000;
         }
 
         .diagram-viewer {
@@ -269,48 +289,36 @@
 
         /* Responsive design */
         @media (max-width: 1024px) {
-            .sidebar {
-                transform: translateX(-300px);
+            .nav-container {
+                width: 50px;
             }
-            
-            .main-content {
-                margin-left: 0;
-            }
-            
-            .menu-toggle {
-                left: 0;
-            }
-            
-            .sidebar.expanded {
-                transform: translateX(0);
-            }
-            
-            .menu-toggle.expanded {
-                left: 300px;
+            .nav-content {
+                visibility: hidden;
             }
         }
     </style>
 </head>
 <body>
-    <button class="menu-toggle">☰</button>
-    <div class="sidebar">
-        <div class="doc-nav">
-            <h2>Documentation</h2>
-            <ul class="doc-list" id="docList"></ul>
-        </div>
-        <div class="diagram-nav">
-            <h2>Diagrams</h2>
-            <ul class="diagram-list" id="diagramList"></ul>
-        </div>
-        <div class="mockup-nav">
-            <h2>UI Mockups</h2>
-            <ul class="mockup-list" id="mockupList"></ul>
+    <div class="nav-container">
+        <button class="nav-toggle" onclick="toggleNav()">←</button>
+        <div class="nav-content">
+            <div class="section">
+                <div class="section-title">Documentation</div>
+                <ul class="file-list" id="docs-list"></ul>
+            </div>
+            <div class="section">
+                <div class="section-title">Architecture Diagrams</div>
+                <ul class="file-list" id="diagrams-list"></ul>
+            </div>
+            <div class="section">
+                <div class="section-title">UI Mockups</div>
+                <ul class="file-list" id="mockups-list"></ul>
+            </div>
         </div>
     </div>
-
-    <div class="main-content">
-        <div id="error"></div>
-        <div id="content" class="markdown-body"></div>
+    <div class="content">
+        <div id="content-display"></div>
+        <div id="error-display" class="error" style="display: none;"></div>
         <div id="diagramViewer" class="diagram-viewer" style="display: none;">
             <div class="diagram-controls">
                 <div class="zoom-controls">
@@ -334,7 +342,8 @@
             securityLevel: 'loose',
         });
 
-        let currentDoc = null;
+        let currentContent = '';
+        let currentPath = '';
         let refreshInterval = null;
         let scale = 1;
         let panX = 0;
@@ -476,24 +485,24 @@
                 const response = await fetch('http://localhost:8080/list-docs');
                 const data = await response.json();
                 
-                const docList = document.getElementById('docList');
+                const docList = document.getElementById('docs-list');
                 docList.innerHTML = '';
                 
                 data.files.forEach(file => {
                     const li = document.createElement('li');
                     const a = document.createElement('a');
-                    a.href = '#' + file.path;
                     a.textContent = file.name;
+                    a.href = '#' + file.path;
+                    a.className = 'file-item';
+                    a.setAttribute('data-type', 'doc');
                     a.onclick = (e) => {
                         e.preventDefault();
                         loadDoc(file.path);
-                        
-                        // Update active state
-                        document.querySelectorAll('.doc-list a').forEach(a => a.classList.remove('active'));
+                        document.querySelectorAll('.file-item').forEach(a => a.classList.remove('active'));
                         a.classList.add('active');
                     };
                     
-                    if (file.path === currentDoc) {
+                    if (file.path === currentPath) {
                         a.classList.add('active');
                     }
                     
@@ -504,20 +513,20 @@
                 const diagramResponse = await fetch('http://localhost:8080/list-mmd');
                 const diagramData = await diagramResponse.json();
                 
-                const diagramList = document.getElementById('diagramList');
+                const diagramList = document.getElementById('diagrams-list');
                 diagramList.innerHTML = '';
                 
                 diagramData.files.forEach(file => {
                     const li = document.createElement('li');
                     const a = document.createElement('a');
-                    a.href = '#diagram:' + file.path;
                     a.textContent = file.name;
+                    a.href = '#diagram:' + file.path;
+                    a.className = 'file-item';
+                    a.setAttribute('data-type', 'diagram');
                     a.onclick = (e) => {
                         e.preventDefault();
                         loadDiagram(file.path);
-                        
-                        // Update active state
-                        document.querySelectorAll('.diagram-list a').forEach(a => a.classList.remove('active'));
+                        document.querySelectorAll('.file-item').forEach(a => a.classList.remove('active'));
                         a.classList.add('active');
                     };
                     
@@ -528,20 +537,20 @@
                 const mockupResponse = await fetch('http://localhost:8080/list-mockups');
                 const mockupData = await mockupResponse.json();
                 
-                const mockupList = document.getElementById('mockupList');
+                const mockupList = document.getElementById('mockups-list');
                 mockupList.innerHTML = '';
                 
                 mockupData.files.forEach(file => {
                     const li = document.createElement('li');
                     const a = document.createElement('a');
-                    a.href = '#mockup:' + file.path;
                     a.textContent = file.name;
+                    a.href = '#mockup:' + file.path;
+                    a.className = 'file-item';
+                    a.setAttribute('data-type', 'mockup');
                     a.onclick = (e) => {
                         e.preventDefault();
                         loadMockup(file.path);
-                        
-                        // Update active state
-                        document.querySelectorAll('.mockup-list a').forEach(a => a.classList.remove('active'));
+                        document.querySelectorAll('.file-item').forEach(a => a.classList.remove('active'));
                         a.classList.add('active');
                     };
                     
@@ -555,13 +564,13 @@
 
         async function loadDoc(path) {
             try {
-                currentDoc = path;
+                currentPath = path;
                 const response = await fetch('http://localhost:8080/read-doc/' + path);
                 const data = await response.json();
                 
                 document.title = data.title + ' - Holophonix Documentation';
                 
-                const contentDiv = document.getElementById('content');
+                const contentDiv = document.getElementById('content-display');
                 const diagramViewer = document.getElementById('diagramViewer');
                 const mockupViewer = document.getElementById('mockupViewer');
                 
@@ -581,7 +590,7 @@
                 window.location.hash = '#' + path;
                 
                 // Update active state in sidebar
-                document.querySelectorAll('.doc-list a').forEach(a => {
+                document.querySelectorAll('.file-list a').forEach(a => {
                     if (a.getAttribute('href') === '#' + path) {
                         a.classList.add('active');
                     } else {
@@ -596,7 +605,7 @@
         async function loadMockup(path) {
             try {
                 const mockupViewer = document.getElementById('mockupViewer');
-                const contentDiv = document.getElementById('content');
+                const contentDiv = document.getElementById('content-display');
                 const diagramViewer = document.getElementById('diagramViewer');
                 
                 // Hide other viewers
@@ -613,7 +622,7 @@
                 window.location.hash = '#mockup:' + path;
                 
                 // Update active state in sidebar
-                document.querySelectorAll('.mockup-list a').forEach(a => {
+                document.querySelectorAll('.file-list a').forEach(a => {
                     if (a.getAttribute('href') === '#mockup:' + path) {
                         a.classList.add('active');
                     } else {
@@ -634,7 +643,7 @@
                 
                 document.title = path.split('/').pop().replace('.mmd', '') + ' - Holophonix Diagrams';
                 
-                const contentDiv = document.getElementById('content');
+                const contentDiv = document.getElementById('content-display');
                 const mockupViewer = document.getElementById('mockupViewer');
                 contentDiv.style.display = 'none';
                 mockupViewer.style.display = 'none';
@@ -683,7 +692,7 @@
                 window.location.hash = '#diagram:' + path;
                 
                 // Update active state in sidebar
-                document.querySelectorAll('.diagram-list a').forEach(a => {
+                document.querySelectorAll('.file-list a').forEach(a => {
                     if (a.getAttribute('href') === '#diagram:' + path) {
                         a.classList.add('active');
                     } else {
@@ -695,77 +704,22 @@
             }
         }
 
+        function toggleNav() {
+            const nav = document.querySelector('.nav-container');
+            nav.classList.toggle('collapsed');
+            const button = document.querySelector('.nav-toggle');
+            button.textContent = nav.classList.contains('collapsed') ? '→' : '←';
+        }
+
         function showError(message) {
-            const errorDiv = document.getElementById('error');
+            const errorDiv = document.getElementById('error-display');
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
         }
 
         function hideError() {
-            document.getElementById('error').style.display = 'none';
+            document.getElementById('error-display').style.display = 'none';
         }
-
-        // Menu toggle functionality
-        const menuToggle = document.querySelector('.menu-toggle');
-        const sidebar = document.querySelector('.sidebar');
-        const mainContent = document.querySelector('.main-content');
-        let isMenuCollapsed = false;
-
-        function toggleMenu() {
-            isMenuCollapsed = !isMenuCollapsed;
-            
-            if (window.innerWidth <= 1024) {
-                // Mobile behavior
-                if (isMenuCollapsed) {
-                    sidebar.classList.remove('expanded');
-                    menuToggle.classList.remove('expanded');
-                } else {
-                    sidebar.classList.add('expanded');
-                    menuToggle.classList.add('expanded');
-                }
-            } else {
-                // Desktop behavior
-                if (isMenuCollapsed) {
-                    sidebar.classList.add('collapsed');
-                    mainContent.classList.add('expanded');
-                    menuToggle.classList.add('collapsed');
-                } else {
-                    sidebar.classList.remove('collapsed');
-                    mainContent.classList.remove('expanded');
-                    menuToggle.classList.remove('collapsed');
-                }
-            }
-        }
-
-        menuToggle.addEventListener('click', toggleMenu);
-
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            if (window.innerWidth <= 1024) {
-                // Reset classes for mobile view
-                sidebar.classList.remove('collapsed');
-                mainContent.classList.remove('expanded');
-                menuToggle.classList.remove('collapsed');
-                
-                if (isMenuCollapsed) {
-                    sidebar.classList.remove('expanded');
-                    menuToggle.classList.remove('expanded');
-                } else {
-                    sidebar.classList.add('expanded');
-                    menuToggle.classList.add('expanded');
-                }
-            } else {
-                // Reset classes for desktop view
-                sidebar.classList.remove('expanded');
-                menuToggle.classList.remove('expanded');
-                
-                if (isMenuCollapsed) {
-                    sidebar.classList.add('collapsed');
-                    mainContent.classList.add('expanded');
-                    menuToggle.classList.add('collapsed');
-                }
-            }
-        });
 
         // Load initial document from hash or load first document
         window.addEventListener('load', async () => {
@@ -780,7 +734,7 @@
                 loadDoc(hash);
             } else {
                 // Load the first document in the list
-                const firstDoc = document.querySelector('.doc-list a');
+                const firstDoc = document.querySelector('.file-list a');
                 if (firstDoc) {
                     firstDoc.click();
                 }
