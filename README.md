@@ -1,49 +1,70 @@
-# Holophonix Animator v2
+# Holophonix Animator
 
 A tool for creating and managing animations for Holophonix systems.
 
 ## Project Status
 
-This project is undergoing a complete restructuring for v2, building upon lessons learned from the original v1 implementation. The v1 implementation is preserved for reference.
+This project is being actively developed, building upon lessons learned from the old project. The old project implementation is preserved for reference while we develop the current project.
 
 ## Project Organization
 
 ```
 .
 ├── docs/                          # Documentation
-│   ├── architecture/             
-│   │   ├── old/                  # v1 implementation documentation
-│   │   │   ├── components/       # v1 component documentation
-│   │   │   ├── development/      # v1 development notes
-│   │   │   └── diagrams/        # v1 architecture diagrams
-│   │   └── target/               # v2 target architecture and design
-│   │       ├── diagrams/         # v2 architecture and UI diagrams
-│   │       └── ROADMAP.md        # v2 development roadmap
-│   └── tools/                    # Documentation tools
-│       ├── docs_viewer.html      # Interactive documentation viewer
-│       └── docs_server.py        # Local documentation server
-├── reference/                     # Reference implementations
-│   └── v1/                       # Original v1 implementation code
-└── src/                          # v2 implementation (coming soon)
+│   ├── old-project/              # Old project documentation
+│   │   ├── architecture/         # Original architecture docs
+│   │   ├── development/          # Original development notes
+│   │   └── diagrams/            # Original architecture diagrams
+│   ├── current-project/          # Current project documentation
+│   │   ├── architecture/         # New architecture design
+│   │   │   ├── diagrams/        # Architecture diagrams
+│   │   │   └── specs/          # Technical specifications
+│   │   ├── development/         # Development docs
+│   │   │   ├── roadmap/        # Development roadmap
+│   │   │   └── progress/       # Progress tracking
+│   │   └── design/             # Design docs
+│   │       ├── mockups/        # UI/UX mockups
+│   │       └── assets/         # Design assets
+│   ├── technical/               # Technical documentation
+│   │   ├── protocols/          # Protocol specifications
+│   │   │   └── osc.md         # OSC protocol docs
+│   │   └── systems/           # System documentation
+│   └── tools/                  # Documentation tools
+│       ├── viewer/            # Documentation viewer
+│       │   ├── docs_viewer.html
+│       │   └── assets/
+│       └── server/            # Documentation server
+│           └── docs_server.py
+├── reference/                   # Reference implementations
+│   └── old-project/            # Original implementation code
+└── src/                        # Current project implementation
 ```
 
 ## Project Structure Overview
 
 ### Documentation (`docs/`)
-- **Architecture Documentation**
-  - `old/`: Documentation of the v1 implementation, preserved for reference
-  - `target/`: Design and architecture documentation for v2
+- **Old Project Documentation**
+  - Original architecture documentation
+  - Development history
+  - Original diagrams and designs
+- **Current Project Documentation**
+  - New architecture design
+  - Development roadmap and progress
+  - UI/UX designs and mockups
+- **Technical Documentation**
+  - Protocol specifications (OSC, etc.)
+  - System documentation
 - **Documentation Tools**
   - Interactive documentation viewer
   - Local documentation server
 
 ### Reference Implementation (`reference/`)
-- Complete v1 codebase preserved for reference
+- Complete old project codebase preserved for reference
 - Includes original implementation patterns and solutions
 
 ### Source Code (`src/`)
-- Future home of the v2 implementation
-- Will be structured according to the target architecture
+- Current project implementation
+- Structured according to the new architecture
 
 ## Development Methodology
 
@@ -72,37 +93,39 @@ This project is undergoing a complete restructuring for v2, building upon lesson
 - Regular validation
 - Performance monitoring
 
-## Documentation
+## Documentation Structure
 
-Project documentation is organized into two main sections:
+### Old Project Documentation
+Located in `docs/old-project/`, contains:
+- Original architecture documentation
+- Development history and notes
+- Legacy diagrams and designs
 
-### Old Implementation (v1)
-- Component architecture
-- Development notes
-- Original system diagrams
-- Implementation patterns
+### Current Project Documentation
+Located in `docs/current-project/`, organized into:
+- **Architecture**: System design, components, and interfaces
+- **Development**: Roadmap, progress tracking, and milestones
+- **Design**: UI/UX mockups and design assets
 
-### Target Implementation (v2)
-- New architecture design
-- UI/UX mockups
-- Development roadmap
-- System specifications
+### Technical Documentation
+Located in `docs/technical/`, includes:
+- Protocol specifications
+- System documentation
+- Integration guides
 
 ### Documentation Tools
-
-The project includes documentation tools to help navigate and understand the codebase:
-
-1. **Documentation Viewer** (`docs/tools/docs_viewer.html`):
+Located in `docs/tools/`, provides:
+1. **Documentation Viewer** (`viewer/docs_viewer.html`):
    - Interactive documentation navigation
    - Organized sections for easy access
    - Responsive design for various screen sizes
 
-2. **UI Mockup** (`docs/architecture/target/diagrams/ui-mockup.html`):
+2. **UI Mockup Viewer** (`current-project/design/mockups/ui-mockup.html`):
    - Interactive visualization of the application interface
    - Detailed component descriptions
    - Visual connections between UI elements
 
-3. **Documentation Server** (`docs/tools/docs_server.py`):
+3. **Documentation Server** (`server/docs_server.py`):
    - Local server for documentation viewing
    - Supports live updates
    - Easy to run and configure
