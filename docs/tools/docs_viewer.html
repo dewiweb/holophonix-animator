@@ -20,6 +20,8 @@
             background-color: #1e1e1e;
             width: 300px;
             min-width: 50px;
+            max-width: 300px;
+            flex: 0 0 300px;
             transition: all 0.3s ease;
             display: flex;
             flex-direction: column;
@@ -30,6 +32,8 @@
 
         .nav-container.collapsed {
             width: 50px;
+            flex: 0 0 50px;
+            max-width: 50px;
         }
 
         .nav-container.collapsed .nav-content {
@@ -213,38 +217,20 @@
             color: #58a6ff !important;
         }
 
-        .diagram-container {
-            background-color: #2d2d2d;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .diagram-controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            display: flex;
-            gap: 10px;
-            background-color: rgba(45, 45, 45, 0.9);
-            padding: 5px;
-            border-radius: 4px;
-            z-index: 1000;
-        }
-
         .diagram-viewer {
             position: relative;
             width: 100%;
             height: calc(100vh - 40px);
             overflow: hidden;
-            background-color: #2d2d2d;
+            background: #2d2d2d;
             border-radius: 8px;
-            margin-top: 0;
-            cursor: grab;
-            display: flex;
-            flex-direction: column;
+        }
+
+        .diagram-container {
+            position: absolute;
+            transform-origin: center center;
+            left: 50%;
+            top: 50%;
         }
 
         .diagram-controls {
@@ -257,19 +243,6 @@
             padding: 5px;
             border-radius: 4px;
             z-index: 1000;
-        }
-
-        #diagram {
-            position: relative;
-            transform-origin: center center;
-            transition: transform 0.1s ease;
-            margin: 0 auto;
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
         }
 
         .diagram-viewer svg {
@@ -329,7 +302,7 @@
                     <button onclick="fitDiagramToView()">Fit</button>
                 </div>
             </div>
-            <div id="diagram"></div>
+            <div class="diagram-container" id="diagram"></div>
         </div>
         <iframe id="mockupViewer" style="display: none; width: 100%; height: 800px; border: none; background: #fff;"></iframe>
     </div>
@@ -351,37 +324,39 @@
         let isDragging = false;
         let lastX = 0;
         let lastY = 0;
-        let diagramContainer = document.getElementById('diagram');
-        let diagramViewer = document.getElementById('diagramViewer');
+        let diagramContainer = document.querySelector('.diagram-container');
         
         function updateTransform() {
-            diagramContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            const container = document.querySelector('.diagram-container');
+            if (!container) return;
+            
+            // Apply transform with both translation and scale
+            container.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            
+            // Update zoom level display
             document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
         }
 
         function zoomTo(newScale, clientX = null, clientY = null) {
             const oldScale = scale;
-            scale = Math.min(Math.max(0.1, newScale), 20);
+            scale = Math.max(0.1, Math.min(5, newScale)); // Limit scale between 0.1 and 5
             
             if (clientX !== null && clientY !== null) {
-                // Get the diagram viewer's bounding rectangle
-                const viewerRect = diagramViewer.getBoundingClientRect();
+                // Get viewer and container dimensions
+                const viewer = document.getElementById('diagramViewer');
+                const container = document.querySelector('.diagram-container');
+                const viewerRect = viewer.getBoundingClientRect();
                 
-                // Calculate mouse position relative to the diagram viewer
-                const mouseX = clientX - viewerRect.left;
-                const mouseY = clientY - viewerRect.top;
+                // Calculate mouse position relative to viewer center
+                const viewerCenterX = viewerRect.left + viewerRect.width / 2;
+                const viewerCenterY = viewerRect.top + viewerRect.height / 2;
+                const mouseOffsetX = clientX - viewerCenterX;
+                const mouseOffsetY = clientY - viewerCenterY;
                 
-                // Calculate the point in the diagram space before zoom
-                const pointXBeforeZoom = (mouseX - panX) / oldScale;
-                const pointYBeforeZoom = (mouseY - panY) / oldScale;
-                
-                // Calculate the point in the diagram space after zoom
-                const pointXAfterZoom = (mouseX - panX) / scale;
-                const pointYAfterZoom = (mouseY - panY) / scale;
-                
-                // Adjust the pan to keep the point under the mouse
-                panX += (pointXAfterZoom - pointXBeforeZoom) * scale;
-                panY += (pointYAfterZoom - pointYBeforeZoom) * scale;
+                // Adjust pan to keep mouse position fixed during zoom
+                const scaleFactor = scale / oldScale;
+                panX = panX * scaleFactor + mouseOffsetX * (1 - scaleFactor);
+                panY = panY * scaleFactor + mouseOffsetY * (1 - scaleFactor);
             }
             
             updateTransform();
@@ -409,54 +384,68 @@
         }
 
         function fitDiagramToView(shouldAnimate = true) {
-            const diagram = document.getElementById('diagram');
+            const container = document.querySelector('.diagram-container');
+            const diagram = container?.firstChild;
             const diagramViewer = document.getElementById('diagramViewer');
-            const svg = diagram.querySelector('svg');
             
-            if (!svg) return;
+            if (!diagram || !container) return;
             
-            // Store current transform state
-            const currentScale = scale;
-            const currentPanX = panX;
-            const currentPanY = panY;
-            
-            // Temporarily reset transform to measure true dimensions
-            if (shouldAnimate) {
+            // Remove transitions temporarily
+            if (!shouldAnimate) {
+                container.style.transition = 'none';
                 diagram.style.transition = 'none';
             }
-            scale = 1;
-            panX = 0;
-            panY = 0;
-            updateTransform();
             
-            // Get dimensions
+            // Get viewer dimensions with padding
+            const viewerWidth = diagramViewer.clientWidth * 0.9;
+            const viewerHeight = diagramViewer.clientHeight * 0.9;
+            
+            // Get both SVG and actual rendered dimensions
+            const svgWidth = diagram.viewBox.baseVal.width;
+            const svgHeight = diagram.viewBox.baseVal.height;
+            const actualWidth = diagram.getBoundingClientRect().width;
+            const actualHeight = diagram.getBoundingClientRect().height;
+            
+            // Calculate scale based on both dimensions
+            const svgScaleX = viewerWidth / svgWidth;
+            const svgScaleY = viewerHeight / svgHeight;
+            const actualScaleX = viewerWidth / actualWidth;
+            const actualScaleY = viewerHeight / actualHeight;
+            
+            // Use the most appropriate scale factor
+            let scaleX = Math.min(svgScaleX, actualScaleX);
+            let scaleY = Math.min(svgScaleY, actualScaleY);
+            
+            // Apply the smaller scale to maintain aspect ratio
+            scale = Math.min(scaleX, scaleY);
+            
+            // Ensure scale is within reasonable bounds
+            scale = Math.min(Math.max(0.1, scale), 2);
+            
+            // Center the diagram
+            const diagramRect = diagram.getBoundingClientRect();
             const viewerRect = diagramViewer.getBoundingClientRect();
-            const svgRect = svg.getBoundingClientRect();
             
-            // Calculate scale to fit
-            const scaleX = (viewerRect.width * 0.95) / svgRect.width;
-            const scaleY = (viewerRect.height * 0.95) / svgRect.height;
-            const newScale = Math.min(scaleX, scaleY);
-            
-            // Calculate center position
-            const newPanX = (viewerRect.width - svgRect.width * newScale) / 2;
-            const newPanY = (viewerRect.height - svgRect.height * newScale) / 2;
+            // Calculate center offset
+            panX = (viewerRect.width - diagramRect.width * scale) / 2;
+            panY = (viewerRect.height - diagramRect.height * scale) / 2;
             
             if (shouldAnimate) {
-                // Restore transition and animate to new position
-                diagram.style.transition = 'transform 0.3s ease-out';
-                requestAnimationFrame(() => {
-                    scale = newScale;
-                    panX = newPanX;
-                    panY = newPanY;
-                    updateTransform();
-                });
-            } else {
-                // Apply new transform immediately
-                scale = newScale;
-                panX = newPanX;
-                panY = newPanY;
-                updateTransform();
+                container.style.transition = 'transform 0.3s ease-out';
+            }
+            
+            // Apply transform
+            updateTransform();
+            
+            // Update zoom display
+            document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+            
+            // Reset transition after a short delay
+            if (!shouldAnimate) {
+                setTimeout(() => {
+                    container.style.transition = '';
+                    diagram.style.transition = '';
+                }, 50);
             }
         }
 
@@ -649,50 +638,130 @@
                 mockupViewer.style.display = 'none';
                 
                 const diagramViewer = document.getElementById('diagramViewer');
-                const diagramDiv = document.getElementById('diagram');
-                
-                // Store current transform state
-                const currentScale = scale;
-                const currentPanX = panX;
-                const currentPanY = panY;
-                
-                // Reset transform temporarily
-                scale = 1;
-                panX = 0;
-                panY = 0;
-                updateTransform();
-                
-                // Show diagram viewer
                 diagramViewer.style.display = 'block';
                 
-                // Clear and create new mermaid div
-                diagramDiv.innerHTML = '';
+                const container = document.querySelector('.diagram-container');
+                
+                // Fade out current content
+                container.style.opacity = '0';
+                container.style.transition = 'opacity 0.2s ease-out';
+                
+                // Wait for fade out
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                container.innerHTML = '';
+                
+                // Create a new div for Mermaid
                 const mermaidDiv = document.createElement('div');
                 mermaidDiv.className = 'mermaid';
                 mermaidDiv.textContent = content;
-                diagramDiv.appendChild(mermaidDiv);
+                container.appendChild(mermaidDiv);
+                
+                // Reset transform before rendering
+                container.style.transform = 'scale(1)';
+                scale = 1;
+                panX = 0;
+                panY = 0;
                 
                 // Render the diagram
-                await renderDiagram(mermaidDiv);
-                
-                if (window.location.hash !== '#diagram:' + path) {
-                    // Only fit if loading a new diagram
-                    fitDiagramToView(false);
-                } else {
-                    // Restore previous transform for same diagram
-                    scale = currentScale;
-                    panX = currentPanX;
-                    panY = currentPanY;
+                try {
+                    const { svg } = await mermaid.render('mermaid-diagram', content);
+                    container.innerHTML = svg;
+                    
+                    // Get diagram dimensions after render
+                    const diagram = container.firstChild;
+                    if (!diagram) {
+                        throw new Error('Failed to render diagram');
+                    }
+
+                    // Remove any existing transitions to prevent flickering
+                    container.style.transition = 'none';
+                    diagram.style.transition = 'none';
+                    
+                    // Force browser to acknowledge the style changes
+                    container.offsetHeight;
+                    
+                    // Wait for the SVG to be fully loaded and measured
+                    await new Promise(resolve => {
+                        if (diagram.getBoundingClientRect().width > 0) {
+                            resolve();
+                        } else {
+                            const observer = new ResizeObserver(() => {
+                                if (diagram.getBoundingClientRect().width > 0) {
+                                    observer.disconnect();
+                                    resolve();
+                                }
+                            });
+                            observer.observe(diagram);
+                        }
+                    });
+                    
+                    // Get viewer dimensions with padding
+                    const viewerWidth = diagramViewer.clientWidth * 0.9;
+                    const viewerHeight = diagramViewer.clientHeight * 0.9;
+                    
+                    // Get both SVG and actual rendered dimensions
+                    const svgWidth = diagram.viewBox.baseVal.width;
+                    const svgHeight = diagram.viewBox.baseVal.height;
+                    const actualWidth = diagram.getBoundingClientRect().width;
+                    const actualHeight = diagram.getBoundingClientRect().height;
+                    
+                    // Calculate scale based on both dimensions
+                    const svgScaleX = viewerWidth / svgWidth;
+                    const svgScaleY = viewerHeight / svgHeight;
+                    const actualScaleX = viewerWidth / actualWidth;
+                    const actualScaleY = viewerHeight / actualHeight;
+                    
+                    // Use the most appropriate scale factor
+                    let scaleX = Math.min(svgScaleX, actualScaleX);
+                    let scaleY = Math.min(svgScaleY, actualScaleY);
+                    
+                    // Adjust scale based on diagram complexity
+                    const isComplexDiagram = svgWidth > 1000 || svgHeight > 1000 || 
+                                           content.includes('subgraph') || 
+                                           content.split('\n').length > 50;
+                    
+                    if (isComplexDiagram) {
+                        scaleX *= 0.7;
+                        scaleY *= 0.7;
+                    }
+                    
+                    // Apply the smaller scale to maintain aspect ratio
+                    scale = Math.min(scaleX, scaleY);
+                    
+                    // Ensure scale is within reasonable bounds
+                    scale = Math.min(Math.max(0.1, scale), 2);
+                    
+                    // Center the diagram
+                    const diagramRect = diagram.getBoundingClientRect();
+                    const viewerRect = diagramViewer.getBoundingClientRect();
+                    
+                    // Calculate center offset
+                    panX = (viewerRect.width - diagramRect.width * scale) / 2;
+                    panY = (viewerRect.height - diagramRect.height * scale) / 2;
+                    
+                    // Apply transform
                     updateTransform();
+                    
+                    // Update zoom display
+                    document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+                    
+                    // Fade in the new content
+                    requestAnimationFrame(() => {
+                        container.style.transition = 'opacity 0.3s ease-in';
+                        container.style.opacity = '1';
+                    });
+                    
+                } catch (error) {
+                    console.error('Failed to render diagram:', error);
+                    container.innerHTML = `<div class="error-message">Failed to render diagram: ${error.message}</div>`;
                 }
-                
-                hideError();
                 
                 // Update URL hash
                 window.location.hash = '#diagram:' + path;
                 
                 // Update active state in sidebar
-                document.querySelectorAll('.file-list a').forEach(a => {
+                document.querySelectorAll('.file-item').forEach(a => {
                     if (a.getAttribute('href') === '#diagram:' + path) {
                         a.classList.add('active');
                     } else {
@@ -767,15 +836,15 @@
 
         // Add mouse wheel zoom handler
         diagramViewer.addEventListener('wheel', (e) => {
-            if (diagramViewer.style.display !== 'none') {
-                e.preventDefault();
-                const delta = -Math.sign(e.deltaY);
-                const factor = e.shiftKey ? 1.2 : 1.1;  // Faster zoom with Shift key
-                const newScale = scale * Math.pow(factor, delta);
-                zoomTo(newScale, e.clientX, e.clientY);
-            }
-        }, { passive: false });
-
+            e.preventDefault();
+            const delta = -Math.sign(e.deltaY);
+            const zoomFactor = 1.1;
+            const newScale = delta > 0 ? scale * zoomFactor : scale / zoomFactor;
+            
+            // Pass mouse coordinates for centered zoom
+            zoomTo(newScale, e.clientX, e.clientY);
+        });
+        
         // Add pan handlers
         diagramViewer.addEventListener('mousedown', (e) => {
             if (e.button === 0) { // Left click only
