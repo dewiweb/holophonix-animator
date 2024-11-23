@@ -397,18 +397,7 @@
                     </g>
                 </svg>
             </div>
-            <div class="section">
-                <div class="section-title">Documentation</div>
-                <ul class="file-list" id="docs-list"></ul>
-            </div>
-            <div class="section">
-                <div class="section-title">Architecture Diagrams</div>
-                <ul class="file-list" id="diagrams-list"></ul>
-            </div>
-            <div class="section">
-                <div class="section-title">UI Mockups</div>
-                <ul class="file-list" id="mockups-list"></ul>
-            </div>
+            <div id="doc-tree"></div>
         </div>
     </div>
     <div class="content">
@@ -447,14 +436,63 @@
         let lastX = 0;
         let lastY = 0;
         let diagramContainer = document.querySelector('.diagram-container');
-        
+
+        // Document sections structure
+        const docSections = [
+            {
+                title: 'Getting Started',
+                path: 'getting-started',
+                items: ['installation']
+            },
+            {
+                title: 'Architecture',
+                path: 'architecture',
+                items: ['overview', 'components', 'data-flow', 'state-management', 'tech-stack']
+            },
+            {
+                title: 'API',
+                path: 'api',
+                items: ['osc-protocol']
+            },
+            {
+                title: 'Core',
+                path: 'core',
+                items: ['coordinate-system']
+            },
+            {
+                title: 'Implementation',
+                path: 'implementation',
+                items: ['core/animation-system', 'networking/osc-implementation']
+            },
+            {
+                title: 'Development',
+                path: 'development',
+                items: ['git-workflow', 'code-style', 'testing-guidelines', 'release-process']
+            },
+            {
+                title: 'Design',
+                path: 'design',
+                items: ['mockups/ui-mockup']
+            },
+            {
+                title: 'Project',
+                path: 'project',
+                items: ['context-and-vision', 'roadmap', 'current-milestone']
+            },
+            {
+                title: 'Help',
+                path: 'help',
+                items: ['getting-started/quick-start', 'reference/shortcuts']
+            }
+        ];
+
         function updateTransform() {
             const container = document.querySelector('.diagram-container');
             if (!container) return;
-            
+
             // Apply transform with both translation and scale
             container.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-            
+
             // Update zoom level display
             document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
         }
@@ -462,25 +500,25 @@
         function zoomTo(newScale, clientX = null, clientY = null) {
             const oldScale = scale;
             scale = Math.max(0.1, Math.min(5, newScale)); // Limit scale between 0.1 and 5
-            
+
             if (clientX !== null && clientY !== null) {
                 // Get viewer and container dimensions
                 const viewer = document.getElementById('diagramViewer');
                 const container = document.querySelector('.diagram-container');
                 const viewerRect = viewer.getBoundingClientRect();
-                
+
                 // Calculate mouse position relative to viewer center
                 const viewerCenterX = viewerRect.left + viewerRect.width / 2;
                 const viewerCenterY = viewerRect.top + viewerRect.height / 2;
                 const mouseOffsetX = clientX - viewerCenterX;
                 const mouseOffsetY = clientY - viewerCenterY;
-                
+
                 // Adjust pan to keep mouse position fixed during zoom
                 const scaleFactor = scale / oldScale;
                 panX = panX * scaleFactor + mouseOffsetX * (1 - scaleFactor);
                 panY = panY * scaleFactor + mouseOffsetY * (1 - scaleFactor);
             }
-            
+
             updateTransform();
         }
 
@@ -509,59 +547,59 @@
             const container = document.querySelector('.diagram-container');
             const diagram = container?.firstChild;
             const diagramViewer = document.getElementById('diagramViewer');
-            
+
             if (!diagram || !container) return;
-            
+
             // Remove transitions temporarily
             if (!shouldAnimate) {
                 container.style.transition = 'none';
                 diagram.style.transition = 'none';
             }
-            
+
             // Get viewer dimensions with padding
             const viewerWidth = diagramViewer.clientWidth * 0.9;
             const viewerHeight = diagramViewer.clientHeight * 0.9;
-            
+
             // Get both SVG and actual rendered dimensions
             const svgWidth = diagram.viewBox.baseVal.width;
             const svgHeight = diagram.viewBox.baseVal.height;
             const actualWidth = diagram.getBoundingClientRect().width;
             const actualHeight = diagram.getBoundingClientRect().height;
-            
+
             // Calculate scale based on both dimensions
             const svgScaleX = viewerWidth / svgWidth;
             const svgScaleY = viewerHeight / svgHeight;
             const actualScaleX = viewerWidth / actualWidth;
             const actualScaleY = viewerHeight / actualHeight;
-            
+
             // Use the most appropriate scale factor
             let scaleX = Math.min(svgScaleX, actualScaleX);
             let scaleY = Math.min(svgScaleY, actualScaleY);
-            
+
             // Apply the smaller scale to maintain aspect ratio
             scale = Math.min(scaleX, scaleY);
-            
+
             // Ensure scale is within reasonable bounds
             scale = Math.min(Math.max(0.1, scale), 2);
-            
+
             // Center the diagram
             const diagramRect = diagram.getBoundingClientRect();
             const viewerRect = diagramViewer.getBoundingClientRect();
-            
+
             // Calculate center offset
             panX = (viewerRect.width - diagramRect.width * scale) / 2;
             panY = (viewerRect.height - diagramRect.height * scale) / 2;
-            
+
             if (shouldAnimate) {
                 container.style.transition = 'transform 0.3s ease-out';
             }
-            
+
             // Apply transform
             updateTransform();
-            
+
             // Update zoom display
             document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
-            
+
             // Reset transition after a short delay
             if (!shouldAnimate) {
                 setTimeout(() => {
@@ -593,89 +631,41 @@
 
         async function refreshDocList() {
             try {
-                const response = await fetch('http://localhost:8080/list-docs');
-                const data = await response.json();
-                
-                const docList = document.getElementById('docs-list');
-                docList.innerHTML = '';
-                
-                data.files
-                    .filter(file => !file.path.includes('old-project')) // Filter out old-project files
-                    .forEach(file => {
-                    const li = document.createElement('li');
-                    const a = document.createElement('a');
-                    a.textContent = file.name;
-                    a.href = '#' + file.path;
-                    a.className = 'file-item';
-                    a.setAttribute('data-type', 'doc');
-                    a.onclick = (e) => {
-                        e.preventDefault();
-                        loadDoc(file.path);
-                        document.querySelectorAll('.file-item').forEach(a => a.classList.remove('active'));
-                        a.classList.add('active');
-                    };
-                    
-                    if (file.path === currentPath) {
-                        a.classList.add('active');
-                    }
-                    
-                    li.appendChild(a);
-                    docList.appendChild(li);
-                });
+                const docTree = document.getElementById('doc-tree');
+                docTree.innerHTML = '';
 
-                const diagramResponse = await fetch('http://localhost:8080/list-mmd');
-                const diagramData = await diagramResponse.json();
-                
-                const diagramList = document.getElementById('diagrams-list');
-                diagramList.innerHTML = '';
-                
-                diagramData.files
-                    .filter(file => !file.path.includes('old-project')) // Filter out old-project files
-                    .forEach(file => {
-                    const li = document.createElement('li');
-                    const a = document.createElement('a');
-                    a.textContent = file.name;
-                    a.href = '#diagram:' + file.path;
-                    a.className = 'file-item';
-                    a.setAttribute('data-type', 'diagram');
-                    a.onclick = (e) => {
-                        e.preventDefault();
-                        loadDiagram(file.path);
-                        document.querySelectorAll('.file-item').forEach(a => a.classList.remove('active'));
-                        a.classList.add('active');
-                    };
-                    
-                    li.appendChild(a);
-                    diagramList.appendChild(li);
-                });
+                docSections.forEach(section => {
+                    const sectionDiv = document.createElement('div');
+                    sectionDiv.className = 'doc-section';
 
-                const mockupResponse = await fetch('http://localhost:8080/list-mockups');
-                const mockupData = await mockupResponse.json();
-                
-                const mockupList = document.getElementById('mockups-list');
-                mockupList.innerHTML = '';
-                
-                mockupData.files
-                    .filter(file => !file.path.includes('old-project')) // Filter out old-project files
-                    .forEach(file => {
-                    const li = document.createElement('li');
-                    const a = document.createElement('a');
-                    a.textContent = file.name;
-                    a.href = '#mockup:' + file.path;
-                    a.className = 'file-item';
-                    a.setAttribute('data-type', 'mockup');
-                    a.onclick = (e) => {
-                        e.preventDefault();
-                        loadMockup(file.path);
-                        document.querySelectorAll('.file-item').forEach(a => a.classList.remove('active'));
-                        a.classList.add('active');
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'doc-section-title';
+                    titleDiv.textContent = section.title;
+                    titleDiv.onclick = () => {
+                        sectionDiv.classList.toggle('expanded');
                     };
-                    
-                    li.appendChild(a);
-                    mockupList.appendChild(li);
+
+                    const itemsDiv = document.createElement('div');
+                    itemsDiv.className = 'doc-items';
+
+                    section.items.forEach(item => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'doc-item';
+                        itemDiv.textContent = item.split('/').pop().replace(/-/g, ' ').replace('.md', '');
+                        itemDiv.onclick = () => {
+                            document.querySelectorAll('.doc-item').forEach(el => el.classList.remove('active'));
+                            itemDiv.classList.add('active');
+                            loadDoc(`${section.path}/${item}.md`);
+                        };
+                        itemsDiv.appendChild(itemDiv);
+                    });
+
+                    sectionDiv.appendChild(titleDiv);
+                    sectionDiv.appendChild(itemsDiv);
+                    docTree.appendChild(sectionDiv);
                 });
             } catch (error) {
-                showError('Failed to load document list: ' + error.message);
+                console.error('Failed to load document list:', error);
             }
         }
 
@@ -684,38 +674,38 @@
                 currentPath = path;
                 const response = await fetch('http://localhost:8080/read-doc/' + path);
                 const data = await response.json();
-                
+
                 document.title = data.title + ' - Holophonix Documentation';
-                
+
                 const contentDiv = document.getElementById('content-display');
                 const diagramViewer = document.getElementById('diagramViewer');
                 const mockupViewer = document.getElementById('mockupViewer');
-                
+
                 // Show content, hide others
                 contentDiv.style.display = 'block';
                 diagramViewer.style.display = 'none';
                 mockupViewer.style.display = 'none';
-                
+
                 contentDiv.innerHTML = data.content;
-                
+
                 // Re-render any mermaid diagrams in the markdown
                 mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
-                
+
                 hideError();
-                
+
                 // Update URL hash
                 window.location.hash = '#' + path;
-                
+
                 // Update active state in sidebar
-                document.querySelectorAll('.file-list a').forEach(a => {
-                    if (a.getAttribute('href') === '#' + path) {
+                document.querySelectorAll('.doc-item').forEach(a => {
+                    if (a.textContent === path.split('/').pop().replace(/-/g, ' ').replace('.md', '')) {
                         a.classList.add('active');
                     } else {
                         a.classList.remove('active');
                     }
                 });
             } catch (error) {
-                showError('Failed to load document: ' + error.message);
+                console.error('Failed to load document:', error);
             }
         }
 
@@ -724,32 +714,32 @@
                 const mockupViewer = document.getElementById('mockupViewer');
                 const contentDiv = document.getElementById('content-display');
                 const diagramViewer = document.getElementById('diagramViewer');
-                
+
                 // Hide other viewers
                 contentDiv.style.display = 'none';
                 diagramViewer.style.display = 'none';
-                
+
                 // Show and load mockup
                 mockupViewer.style.display = 'block';
                 mockupViewer.style.width = '100%';
                 mockupViewer.style.height = 'calc(100vh - 40px)';
                 mockupViewer.src = 'http://localhost:8080/mockup/' + path;
-                
+
                 // Update URL hash
                 window.location.hash = '#mockup:' + path;
-                
+
                 // Update active state in sidebar
-                document.querySelectorAll('.file-list a').forEach(a => {
-                    if (a.getAttribute('href') === '#mockup:' + path) {
+                document.querySelectorAll('.doc-item').forEach(a => {
+                    if (a.textContent === path.split('/').pop().replace(/-/g, ' ').replace('.md', '')) {
                         a.classList.add('active');
                     } else {
                         a.classList.remove('active');
                     }
                 });
-                
+
                 hideError();
             } catch (error) {
-                showError('Failed to load mockup: ' + error.message);
+                console.error('Failed to load mockup:', error);
             }
         }
 
@@ -757,45 +747,45 @@
             try {
                 const response = await fetch('http://localhost:8080/read-mmd/' + path);
                 const content = await response.text();
-                
+
                 document.title = path.split('/').pop().replace('.mmd', '') + ' - Holophonix Diagrams';
-                
+
                 const contentDiv = document.getElementById('content-display');
                 const mockupViewer = document.getElementById('mockupViewer');
                 contentDiv.style.display = 'none';
                 mockupViewer.style.display = 'none';
-                
+
                 const diagramViewer = document.getElementById('diagramViewer');
                 diagramViewer.style.display = 'block';
-                
+
                 const container = document.querySelector('.diagram-container');
-                
+
                 // Fade out current content
                 container.style.opacity = '0';
                 container.style.transition = 'opacity 0.2s ease-out';
-                
+
                 // Wait for fade out
                 await new Promise(resolve => setTimeout(resolve, 200));
-                
+
                 container.innerHTML = '';
-                
+
                 // Create a new div for Mermaid
                 const mermaidDiv = document.createElement('div');
                 mermaidDiv.className = 'mermaid';
                 mermaidDiv.textContent = content;
                 container.appendChild(mermaidDiv);
-                
+
                 // Reset transform before rendering
                 container.style.transform = 'scale(1)';
                 scale = 1;
                 panX = 0;
                 panY = 0;
-                
+
                 // Render the diagram
                 try {
                     const { svg } = await mermaid.render('mermaid-diagram', content);
                     container.innerHTML = svg;
-                    
+
                     // Get diagram dimensions after render
                     const diagram = container.firstChild;
                     if (!diagram) {
@@ -805,10 +795,10 @@
                     // Remove any existing transitions to prevent flickering
                     container.style.transition = 'none';
                     diagram.style.transition = 'none';
-                    
+
                     // Force browser to acknowledge the style changes
                     container.offsetHeight;
-                    
+
                     // Wait for the SVG to be fully loaded and measured
                     await new Promise(resolve => {
                         if (diagram.getBoundingClientRect().width > 0) {
@@ -823,81 +813,80 @@
                             observer.observe(diagram);
                         }
                     });
-                    
+
                     // Get viewer dimensions with padding
                     const viewerWidth = diagramViewer.clientWidth * 0.9;
                     const viewerHeight = diagramViewer.clientHeight * 0.9;
-                    
+
                     // Get both SVG and actual rendered dimensions
                     const svgWidth = diagram.viewBox.baseVal.width;
                     const svgHeight = diagram.viewBox.baseVal.height;
                     const actualWidth = diagram.getBoundingClientRect().width;
                     const actualHeight = diagram.getBoundingClientRect().height;
-                    
+
                     // Calculate scale based on both dimensions
                     const svgScaleX = viewerWidth / svgWidth;
                     const svgScaleY = viewerHeight / svgHeight;
                     const actualScaleX = viewerWidth / actualWidth;
                     const actualScaleY = viewerHeight / actualHeight;
-                    
+
                     // Use the most appropriate scale factor
                     let scaleX = Math.min(svgScaleX, actualScaleX);
                     let scaleY = Math.min(svgScaleY, actualScaleY);
-                    
+
                     // Adjust scale based on diagram complexity
-                    const isComplexDiagram = svgWidth > 1000 || svgHeight > 1000 || 
-                                           content.includes('subgraph') || 
+                    const isComplexDiagram = svgWidth > 1000 || svgHeight > 1000 ||
+                                           content.includes('subgraph') ||
                                            content.split('\n').length > 50;
-                    
+
                     if (isComplexDiagram) {
                         scaleX *= 0.7;
                         scaleY *= 0.7;
                     }
-                    
+
                     // Apply the smaller scale to maintain aspect ratio
                     scale = Math.min(scaleX, scaleY);
-                    
+
                     // Ensure scale is within reasonable bounds
                     scale = Math.min(Math.max(0.1, scale), 2);
-                    
+
                     // Center the diagram
                     const diagramRect = diagram.getBoundingClientRect();
                     const viewerRect = diagramViewer.getBoundingClientRect();
-                    
+
                     // Calculate center offset
                     panX = (viewerRect.width - diagramRect.width * scale) / 2;
                     panY = (viewerRect.height - diagramRect.height * scale) / 2;
-                    
+
                     // Apply transform
                     updateTransform();
-                    
+
                     // Update zoom display
                     document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
-                    
+
                     // Fade in the new content
                     requestAnimationFrame(() => {
                         container.style.transition = 'opacity 0.3s ease-in';
                         container.style.opacity = '1';
                     });
-                    
                 } catch (error) {
                     console.error('Failed to render diagram:', error);
                     container.innerHTML = `<div class="error-message">Failed to render diagram: ${error.message}</div>`;
                 }
-                
+
                 // Update URL hash
                 window.location.hash = '#diagram:' + path;
-                
+
                 // Update active state in sidebar
-                document.querySelectorAll('.file-item').forEach(a => {
-                    if (a.getAttribute('href') === '#diagram:' + path) {
+                document.querySelectorAll('.doc-item').forEach(a => {
+                    if (a.textContent === path.split('/').pop().replace(/-/g, ' ').replace('.md', '')) {
                         a.classList.add('active');
                     } else {
                         a.classList.remove('active');
                     }
                 });
             } catch (error) {
-                showError('Failed to load diagram: ' + error.message);
+                console.error('Failed to load diagram:', error);
             }
         }
 
@@ -934,7 +923,7 @@
         // Load initial document from hash or load first document
         window.addEventListener('load', async () => {
             await refreshDocList();
-            
+
             const hash = window.location.hash.slice(1);
             if (hash.startsWith('mockup:')) {
                 loadMockup(hash.slice(7));
@@ -944,12 +933,12 @@
                 loadDoc(hash);
             } else {
                 // Load the first document in the list
-                const firstDoc = document.querySelector('.file-list a');
+                const firstDoc = document.querySelector('.doc-item');
                 if (firstDoc) {
                     firstDoc.click();
                 }
             }
-            
+
             // Start auto-refresh
             refreshInterval = setInterval(refreshDocList, 5000);
         });
@@ -981,11 +970,11 @@
             const delta = -Math.sign(e.deltaY);
             const zoomFactor = 1.1;
             const newScale = delta > 0 ? scale * zoomFactor : scale / zoomFactor;
-            
+
             // Pass mouse coordinates for centered zoom
             zoomTo(newScale, e.clientX, e.clientY);
         });
-        
+
         // Add pan handlers
         diagramViewer.addEventListener('mousedown', (e) => {
             if (e.button === 0) { // Left click only
