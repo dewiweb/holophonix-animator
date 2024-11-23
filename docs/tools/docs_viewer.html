@@ -1,1005 +1,600 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Holophonix Documentation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css">
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css" rel="stylesheet">
     <style>
-        body {
-            background-color: #1e1e1e;
-            color: #f5f5f5;
-            font-family: Arial, sans-serif;
+        :root {
+            --bg-color: #1e1e1e;
+            --text-color: #e0e0e0;
+            --border-color: #3c3c3c;
+            --hover-color: #2d2d2d;
+            --active-color: #094771;
+            --sidebar-width: 300px;
+        }
+
+        * {
             margin: 0;
             padding: 0;
-            min-height: 100vh;
-            display: flex;
+            box-sizing: border-box;
         }
 
-        .nav-container {
-            background-color: #1e1e1e;
-            width: 300px;
-            min-width: 50px;
-            max-width: 300px;
-            flex: 0 0 300px;
-            transition: all 0.3s ease;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--bg-color);
+            border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
-            position: relative;
-            border-right: 1px solid #3c3c3c;
-            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            transition: width 0.3s ease;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 100;
         }
 
-        .nav-container.collapsed {
-            width: 50px;
-            flex: 0 0 50px;
-            max-width: 50px;
+        .sidebar.collapsed {
+            width: 0;
         }
 
-        .nav-container.collapsed .nav-content {
-            visibility: hidden;
-            opacity: 0;
+        .logo-container {
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+            text-align: center;
         }
 
-        .nav-container.collapsed .nav-toggle {
-            transform: rotate(180deg);
+        .logo-container img {
+            max-width: 100px;
+            height: auto;
+            margin: 5px 0;
         }
 
-        .nav-content {
-            overflow-y: auto;
-            padding: 30px 20px;
-            flex-grow: 1;
-            transition: visibility 0.3s, opacity 0.3s;
-            opacity: 1;
-            visibility: visible;
+        .app-name {
+            font-size: 0.9em;
+            font-weight: 500;
+            color: var(--text-color);
+            opacity: 0.9;
+        }
+
+        .doc-label {
+            font-size: 0.8em;
+            color: var(--text-color);
+            opacity: 0.7;
         }
 
         .nav-toggle {
             position: absolute;
-            right: -12px;
-            top: 10px;
-            background: #3c3c3c;
-            border: none;
-            color: #f5f5f5;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
+            right: -30px;
+            top: 20px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-left: none;
+            color: var(--text-color);
+            width: 30px;
+            height: 30px;
+            border-radius: 0 4px 4px 0;
             cursor: pointer;
-            z-index: 2;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
-            transition: transform 0.3s ease;
-        }
-
-        .section {
-            margin-bottom: 30px;
-            background: #252526;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .section-title {
-            font-size: 1.1em;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: #569cd6;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid #3c3c3c;
-            padding-bottom: 8px;
-        }
-
-        .file-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .file-item {
-            margin: 2px 0;
-            padding: 8px 12px;
-            cursor: pointer;
-            color: #d4d4d4;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            font-size: 0.95em;
-            line-height: 1.4;
-        }
-
-        .file-item:before {
-            content: "📄";
-            margin-right: 8px;
-            font-size: 1.1em;
-            opacity: 0.7;
-        }
-
-        .file-item:hover {
-            background-color: #2d2d2d;
-            color: #fff;
-        }
-
-        .file-item.active {
-            background-color: #37373d;
-            color: #fff;
-            font-weight: 500;
-        }
-
-        /* Custom icons for different file types */
-        .file-item[data-type="doc"]:before {
-            content: "📝";
-        }
-
-        .file-item[data-type="diagram"]:before {
-            content: "📊";
-        }
-
-        .file-item[data-type="mockup"]:before {
-            content: "🎨";
-        }
-
-        /* Scrollbar styling */
-        .nav-content::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .nav-content::-webkit-scrollbar-track {
-            background: #1e1e1e;
-        }
-
-        .nav-content::-webkit-scrollbar-thumb {
-            background: #3c3c3c;
-            border-radius: 4px;
-        }
-
-        .nav-content::-webkit-scrollbar-thumb:hover {
-            background: #4c4c4c;
-        }
-
-        .content {
-            flex-grow: 1;
-            padding: 20px;
-            overflow-y: auto;
-        }
-
-        .markdown-body {
-            background-color: #2d2d2d !important;
-            color: #d4d4d4 !important;
-            padding: 20px !important;
-            border-radius: 8px;
-        }
-
-        .markdown-body h1,
-        .markdown-body h2,
-        .markdown-body h3,
-        .markdown-body h4,
-        .markdown-body h5,
-        .markdown-body h6 {
-            color: #fff !important;
-            border-bottom-color: #444 !important;
-        }
-
-        .markdown-body code {
-            background-color: #1e1e1e !important;
-            color: #d4d4d4 !important;
-        }
-
-        .markdown-body pre {
-            background-color: #1e1e1e !important;
-        }
-
-        .markdown-body blockquote {
-            color: #8b949e !important;
-            border-left-color: #444 !important;
-        }
-
-        .markdown-body table {
-            display: block;
-            width: 100%;
-            overflow: auto;
-        }
-
-        .markdown-body table th,
-        .markdown-body table td {
-            border-color: #444 !important;
-            background-color: #2d2d2d !important;
-        }
-
-        .markdown-body hr {
-            background-color: #444 !important;
-        }
-
-        .markdown-body a {
-            color: #58a6ff !important;
-        }
-
-        .diagram-viewer {
-            position: relative;
-            width: 100%;
-            height: calc(100vh - 40px);
-            overflow: hidden;
-            background: #2d2d2d;
-            border-radius: 8px;
-        }
-
-        .diagram-container {
-            position: absolute;
-            transform-origin: center center;
-            left: 50%;
-            top: 50%;
-        }
-
-        .diagram-controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            display: flex;
-            gap: 10px;
-            background-color: rgba(45, 45, 45, 0.9);
-            padding: 5px;
-            border-radius: 4px;
             z-index: 1000;
         }
 
-        .diagram-viewer svg {
-            display: block;
-            margin: auto;
-            max-width: 95%;
-            max-height: 95%;
+        .nav-toggle:hover {
+            background: var(--hover-color);
         }
 
-        #content.markdown-body {
-            background-color: #2d2d2d !important;
-            color: #d4d4d4 !important;
-            padding: 20px !important;
-            border-radius: 8px;
+        .nav-toggle::after {
+            content: "←";
+        }
+
+        .sidebar.collapsed .nav-toggle::after {
+            content: "→";
+        }
+
+        .doc-tree {
             flex: 1;
-        }
-
-        /* Logo styles */
-        .logo-container {
+            overflow-y: auto;
             padding: 20px;
-            text-align: center;
+        }
+
+        .doc-section {
             margin-bottom: 20px;
-            position: relative;
         }
 
-        .logo-container svg {
-            width: 100px;
-            height: 100px;
-            transition: transform 0.3s ease;
-        }
-
-        .logo-container svg:hover {
-            transform: scale(1.1);
-        }
-
-        /* Theme styles */
-        :root {
-            --bg-color: #1e1e1e;
-            --text-color: #f5f5f5;
-            --logo-color: #f5f5f5;
-            --border-color: #3c3c3c;
-        }
-
-        [data-theme="light"] {
-            --bg-color: #ffffff;
-            --text-color: #1e1e1e;
-            --logo-color: #1e1e1e;
-            --border-color: #e0e0e0;
-        }
-
-        body {
-            background-color: var(--bg-color);
+        .doc-section-title {
+            font-weight: bold;
             color: var(--text-color);
+            margin-bottom: 10px;
+            font-size: 1.1em;
         }
 
-        .nav-container {
-            background-color: var(--bg-color);
-            border-right: 1px solid var(--border-color);
-        }
-
-        /* Theme toggle button */
-        .theme-toggle {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: none;
-            border: none;
-            color: var(--text-color);
+        .doc-item {
+            padding: 6px 10px;
             cursor: pointer;
-            padding: 5px;
-            border-radius: 50%;
+            border-radius: 4px;
+            margin: 2px 0;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+        }
+
+        .doc-item:hover {
+            background: var(--hover-color);
+        }
+
+        .doc-item.active {
+            background: var(--active-color);
+        }
+
+        .doc-item.diagram::before {
+            content: "📊";  /* Diagram icon */
+            margin-right: 8px;
+            font-size: 0.9em;
+        }
+
+        .doc-item.doc::before {
+            content: "📄";  /* Document icon */
+            margin-right: 8px;
+            font-size: 0.9em;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            margin-left: var(--sidebar-width);
+            transition: margin-left 0.3s ease;
+        }
+
+        .sidebar.collapsed + .main-content {
+            margin-left: 0;
+        }
+
+        .markdown-body {
+            background: var(--bg-color) !important;
+            color: var(--text-color) !important;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .markdown-body pre {
+            background: #2d2d2d !important;
+        }
+
+        .markdown-body code {
+            background: #2d2d2d !important;
+            color: #d4d4d4 !important;
+        }
+
+        /* Mermaid Diagram Styles */
+        .mermaid {
+            background: var(--bg-color);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        .mermaid-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            min-height: 400px;
+            width: 100%;
+            height: calc(100vh - 100px);
+            margin: 0 auto;
+        }
+
+        .mermaid-zoom {
+            transform-origin: center;
+            transition: transform 0.1s ease;
+            cursor: grab;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .mermaid-zoom.dragging {
+            cursor: grabbing;
+            transition: none;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 8px;
+            background: var(--bg-color);
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .zoom-controls:hover {
+            opacity: 1;
+        }
+
+        .zoom-button {
+            background: var(--hover-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
             width: 30px;
             height: 30px;
+            border-radius: 4px;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background-color 0.3s ease;
+            font-size: 1.2em;
+            user-select: none;
         }
 
-        .theme-toggle:hover {
-            background-color: var(--border-color);
+        .zoom-button:hover {
+            background: var(--active-color);
         }
 
-        /* Responsive design */
-        @media (max-width: 1024px) {
-            .nav-container {
-                width: 50px;
-            }
-            .nav-content {
-                visibility: hidden;
-            }
+        .zoom-level {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 60px;
+            color: var(--text-color);
+            user-select: none;
+        }
+
+        /* Error Display */
+        .error {
+            color: #ff6b6b;
+            padding: 20px;
+            border: 1px solid #ff6b6b;
+            border-radius: 4px;
+            margin: 20px 0;
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div class="nav-container">
-        <button class="nav-toggle" onclick="toggleNav()">←</button>
-        <div class="nav-content">
-            <div class="logo-container">
-                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="5"/>
-                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-                    </svg>
-                </button>
-                <svg width="100" height="100" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" class="logo">
-                    <!-- Background edges (1.0pt) -->
-                    <g stroke="var(--logo-color)" stroke-width="1" fill="none">
-                        <path d="M200 120 L280 160 L280 240 L200 280 L120 240 L120 160 Z" />
-                        <path d="M200 120 L240 80 L320 120 L280 160" />
-                        <path d="M320 120 L320 200 L280 240" />
-                        <path d="M320 200 L240 320 L200 280" />
-                        <path d="M240 320 L160 320 L120 240" />
-                        <path d="M160 320 L80 200 L120 160" />
-                        <path d="M80 200 L80 120 L160 80 L240 80" />
-                    </g>
-
-                    <!-- Middle ground edges (1.25pt) -->
-                    <g stroke="var(--logo-color)" stroke-width="1.25" fill="none">
-                        <path d="M200 120 L240 80" />
-                        <path d="M280 160 L320 120" />
-                        <path d="M280 240 L320 200" />
-                        <path d="M200 280 L240 320" />
-                        <path d="M120 240 L160 320" />
-                        <path d="M120 160 L80 200" />
-                    </g>
-
-                    <!-- Foreground edges (1.5pt) -->
-                    <g stroke="var(--logo-color)" stroke-width="1.5" fill="none">
-                        <path d="M200 120 L280 160" />
-                        <path d="M280 160 L280 240" />
-                        <path d="M280 240 L200 280" />
-                        <path d="M200 280 L120 240" />
-                        <path d="M120 240 L120 160" />
-                        <path d="M120 160 L200 120" />
-                    </g>
-
-                    <!-- Vertices (dots for emphasis) -->
-                    <g fill="var(--logo-color)">
-                        <circle cx="200" cy="120" r="2" />
-                        <circle cx="280" cy="160" r="2" />
-                        <circle cx="280" cy="240" r="2" />
-                        <circle cx="200" cy="280" r="2" />
-                        <circle cx="120" cy="240" r="2" />
-                        <circle cx="120" cy="160" r="2" />
-                        <circle cx="240" cy="80" r="2" />
-                        <circle cx="320" cy="120" r="2" />
-                        <circle cx="320" cy="200" r="2" />
-                        <circle cx="240" cy="320" r="2" />
-                        <circle cx="160" cy="320" r="2" />
-                        <circle cx="80" cy="200" r="2" />
-                    </g>
-                </svg>
-            </div>
-            <div id="doc-tree"></div>
+    <div class="sidebar">
+        <div class="logo-container">
+            <div class="app-name">Holophonix Animator</div>
+            <img src="../assets/branding/logo-light.svg" alt="Holophonix Documentation" />
+            <div class="doc-label">Documentation</div>
         </div>
+        <button class="nav-toggle" onclick="toggleSidebar()"></button>
+        <div class="doc-tree" id="docTree"></div>
     </div>
-    <div class="content">
-        <div id="content-display"></div>
-        <div id="error-display" class="error" style="display: none;"></div>
-        <div id="diagramViewer" class="diagram-viewer" style="display: none;">
-            <div class="diagram-controls">
-                <div class="zoom-controls">
-                    <button onclick="zoomOut()">-</button>
-                    <span id="zoomLevel">100%</span>
-                    <button onclick="zoomIn()">+</button>
-                    <button onclick="resetZoom()">Reset</button>
-                    <button onclick="fitDiagramToView()">Fit</button>
-                </div>
-            </div>
-            <div class="diagram-container" id="diagram"></div>
-        </div>
-        <iframe id="mockupViewer" style="display: none; width: 100%; height: 800px; border: none; background: #fff;"></iframe>
-    </div>
+    <main class="main-content" id="mainContent">
+        <div id="contentDisplay"></div>
+        <div id="errorDisplay" class="error"></div>
+    </main>
 
     <script>
-        // Initialize mermaid with custom configuration
+        // Initialize mermaid
         mermaid.initialize({
-            startOnLoad: false,  // Prevent automatic initialization
+            startOnLoad: true,
             theme: 'dark',
             securityLevel: 'loose',
+            fontFamily: 'monospace'
         });
 
-        let currentContent = '';
-        let currentPath = '';
-        let refreshInterval = null;
-        let scale = 1;
-        let panX = 0;
-        let panY = 0;
-        let isDragging = false;
-        let lastX = 0;
-        let lastY = 0;
-        let diagramContainer = document.querySelector('.diagram-container');
+        let currentDoc = localStorage.getItem('currentDoc') || '';
 
-        // Document sections structure
-        const docSections = [
-            {
-                title: 'Getting Started',
-                path: 'getting-started',
-                items: ['installation']
-            },
-            {
-                title: 'Architecture',
-                path: 'architecture',
-                items: ['overview', 'components', 'data-flow', 'state-management', 'tech-stack']
-            },
-            {
-                title: 'API',
-                path: 'api',
-                items: ['osc-protocol']
-            },
-            {
-                title: 'Core',
-                path: 'core',
-                items: ['coordinate-system']
-            },
-            {
-                title: 'Implementation',
-                path: 'implementation',
-                items: ['core/animation-system', 'networking/osc-implementation']
-            },
-            {
-                title: 'Development',
-                path: 'development',
-                items: ['git-workflow', 'code-style', 'testing-guidelines', 'release-process']
-            },
-            {
-                title: 'Design',
-                path: 'design',
-                items: ['mockups/ui-mockup']
-            },
-            {
-                title: 'Project',
-                path: 'project',
-                items: ['context-and-vision', 'roadmap', 'current-milestone']
-            },
-            {
-                title: 'Help',
-                path: 'help',
-                items: ['getting-started/quick-start', 'reference/shortcuts']
-            }
-        ];
-
-        function updateTransform() {
-            const container = document.querySelector('.diagram-container');
-            if (!container) return;
-
-            // Apply transform with both translation and scale
-            container.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-
-            // Update zoom level display
-            document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+        // Toggle sidebar
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            sidebar.classList.toggle('collapsed');
+            
+            // Save state
+            localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
         }
 
-        function zoomTo(newScale, clientX = null, clientY = null) {
-            const oldScale = scale;
-            scale = Math.max(0.1, Math.min(5, newScale)); // Limit scale between 0.1 and 5
-
-            if (clientX !== null && clientY !== null) {
-                // Get viewer and container dimensions
-                const viewer = document.getElementById('diagramViewer');
-                const container = document.querySelector('.diagram-container');
-                const viewerRect = viewer.getBoundingClientRect();
-
-                // Calculate mouse position relative to viewer center
-                const viewerCenterX = viewerRect.left + viewerRect.width / 2;
-                const viewerCenterY = viewerRect.top + viewerRect.height / 2;
-                const mouseOffsetX = clientX - viewerCenterX;
-                const mouseOffsetY = clientY - viewerCenterY;
-
-                // Adjust pan to keep mouse position fixed during zoom
-                const scaleFactor = scale / oldScale;
-                panX = panX * scaleFactor + mouseOffsetX * (1 - scaleFactor);
-                panY = panY * scaleFactor + mouseOffsetY * (1 - scaleFactor);
-            }
-
-            updateTransform();
-        }
-
-        function zoomIn() {
-            const rect = diagramViewer.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            zoomTo(scale * 1.5, centerX, centerY);
-        }
-
-        function zoomOut() {
-            const rect = diagramViewer.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            zoomTo(scale / 1.5, centerX, centerY);
-        }
-
-        function resetZoom() {
-            scale = 1;
-            panX = 0;
-            panY = 0;
-            updateTransform();
-        }
-
-        function fitDiagramToView(shouldAnimate = true) {
-            const container = document.querySelector('.diagram-container');
-            const diagram = container?.firstChild;
-            const diagramViewer = document.getElementById('diagramViewer');
-
-            if (!diagram || !container) return;
-
-            // Remove transitions temporarily
-            if (!shouldAnimate) {
-                container.style.transition = 'none';
-                diagram.style.transition = 'none';
-            }
-
-            // Get viewer dimensions with padding
-            const viewerWidth = diagramViewer.clientWidth * 0.9;
-            const viewerHeight = diagramViewer.clientHeight * 0.9;
-
-            // Get both SVG and actual rendered dimensions
-            const svgWidth = diagram.viewBox.baseVal.width;
-            const svgHeight = diagram.viewBox.baseVal.height;
-            const actualWidth = diagram.getBoundingClientRect().width;
-            const actualHeight = diagram.getBoundingClientRect().height;
-
-            // Calculate scale based on both dimensions
-            const svgScaleX = viewerWidth / svgWidth;
-            const svgScaleY = viewerHeight / svgHeight;
-            const actualScaleX = viewerWidth / actualWidth;
-            const actualScaleY = viewerHeight / actualHeight;
-
-            // Use the most appropriate scale factor
-            let scaleX = Math.min(svgScaleX, actualScaleX);
-            let scaleY = Math.min(svgScaleY, actualScaleY);
-
-            // Apply the smaller scale to maintain aspect ratio
-            scale = Math.min(scaleX, scaleY);
-
-            // Ensure scale is within reasonable bounds
-            scale = Math.min(Math.max(0.1, scale), 2);
-
-            // Center the diagram
-            const diagramRect = diagram.getBoundingClientRect();
-            const viewerRect = diagramViewer.getBoundingClientRect();
-
-            // Calculate center offset
-            panX = (viewerRect.width - diagramRect.width * scale) / 2;
-            panY = (viewerRect.height - diagramRect.height * scale) / 2;
-
-            if (shouldAnimate) {
-                container.style.transition = 'transform 0.3s ease-out';
-            }
-
-            // Apply transform
-            updateTransform();
-
-            // Update zoom display
-            document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
-
-            // Reset transition after a short delay
-            if (!shouldAnimate) {
-                setTimeout(() => {
-                    container.style.transition = '';
-                    diagram.style.transition = '';
-                }, 50);
-            }
-        }
-
-        async function renderDiagram(mermaidDiv) {
-            // Remove any existing SVG to prevent duplicates
-            const existingSvg = mermaidDiv.querySelector('svg');
-            if (existingSvg) {
-                existingSvg.remove();
-            }
-
+        // Load and display document
+        async function loadDocument(path) {
             try {
-                await mermaid.init(undefined, mermaidDiv);
-                const svg = mermaidDiv.querySelector('svg');
-                if (svg) {
-                    // Ensure SVG takes full size of container
-                    svg.style.width = '100%';
-                    svg.style.height = '100%';
+                const contentDisplay = document.getElementById('contentDisplay');
+                const errorDisplay = document.getElementById('errorDisplay');
+                
+                const response = await fetch(`/read-doc/${encodeURIComponent(path)}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to load document: ${response.statusText}`);
                 }
-            } catch (error) {
-                console.error('Failed to render diagram:', error);
-            }
-        }
-
-        async function refreshDocList() {
-            try {
-                const docTree = document.getElementById('doc-tree');
-                docTree.innerHTML = '';
-
-                docSections.forEach(section => {
-                    const sectionDiv = document.createElement('div');
-                    sectionDiv.className = 'doc-section';
-
-                    const titleDiv = document.createElement('div');
-                    titleDiv.className = 'doc-section-title';
-                    titleDiv.textContent = section.title;
-                    titleDiv.onclick = () => {
-                        sectionDiv.classList.toggle('expanded');
-                    };
-
-                    const itemsDiv = document.createElement('div');
-                    itemsDiv.className = 'doc-items';
-
-                    section.items.forEach(item => {
-                        const itemDiv = document.createElement('div');
-                        itemDiv.className = 'doc-item';
-                        itemDiv.textContent = item.split('/').pop().replace(/-/g, ' ').replace('.md', '');
-                        itemDiv.onclick = () => {
-                            document.querySelectorAll('.doc-item').forEach(el => el.classList.remove('active'));
-                            itemDiv.classList.add('active');
-                            loadDoc(`${section.path}/${item}.md`);
-                        };
-                        itemsDiv.appendChild(itemDiv);
-                    });
-
-                    sectionDiv.appendChild(titleDiv);
-                    sectionDiv.appendChild(itemsDiv);
-                    docTree.appendChild(sectionDiv);
-                });
-            } catch (error) {
-                console.error('Failed to load document list:', error);
-            }
-        }
-
-        async function loadDoc(path) {
-            try {
-                currentPath = path;
-                const response = await fetch('http://localhost:8080/read-doc/' + path);
+                
                 const data = await response.json();
-
-                document.title = data.title + ' - Holophonix Documentation';
-
-                const contentDiv = document.getElementById('content-display');
-                const diagramViewer = document.getElementById('diagramViewer');
-                const mockupViewer = document.getElementById('mockupViewer');
-
-                // Show content, hide others
-                contentDiv.style.display = 'block';
-                diagramViewer.style.display = 'none';
-                mockupViewer.style.display = 'none';
-
-                contentDiv.innerHTML = data.content;
-
-                // Re-render any mermaid diagrams in the markdown
-                mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
-
-                hideError();
-
-                // Update URL hash
-                window.location.hash = '#' + path;
-
+                
+                // Save current document
+                currentDoc = path;
+                localStorage.setItem('currentDoc', path);
+                
+                // Update content
+                contentDisplay.innerHTML = `<div class="markdown-body">${data.content}</div>`;
+                errorDisplay.style.display = 'none';
+                
                 // Update active state in sidebar
-                document.querySelectorAll('.doc-item').forEach(a => {
-                    if (a.textContent === path.split('/').pop().replace(/-/g, ' ').replace('.md', '')) {
-                        a.classList.add('active');
-                    } else {
-                        a.classList.remove('active');
-                    }
+                document.querySelectorAll('.doc-item').forEach(item => {
+                    item.classList.toggle('active', item.getAttribute('data-path') === path);
                 });
+                
+                // Re-render any mermaid diagrams
+                mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+                
             } catch (error) {
-                console.error('Failed to load document:', error);
-            }
-        }
-
-        async function loadMockup(path) {
-            try {
-                const mockupViewer = document.getElementById('mockupViewer');
-                const contentDiv = document.getElementById('content-display');
-                const diagramViewer = document.getElementById('diagramViewer');
-
-                // Hide other viewers
-                contentDiv.style.display = 'none';
-                diagramViewer.style.display = 'none';
-
-                // Show and load mockup
-                mockupViewer.style.display = 'block';
-                mockupViewer.style.width = '100%';
-                mockupViewer.style.height = 'calc(100vh - 40px)';
-                mockupViewer.src = 'http://localhost:8080/mockup/' + path;
-
-                // Update URL hash
-                window.location.hash = '#mockup:' + path;
-
-                // Update active state in sidebar
-                document.querySelectorAll('.doc-item').forEach(a => {
-                    if (a.textContent === path.split('/').pop().replace(/-/g, ' ').replace('.md', '')) {
-                        a.classList.add('active');
-                    } else {
-                        a.classList.remove('active');
-                    }
-                });
-
-                hideError();
-            } catch (error) {
-                console.error('Failed to load mockup:', error);
+                console.error('Error loading document:', error);
+                errorDisplay.textContent = error.message;
+                errorDisplay.style.display = 'block';
             }
         }
 
         async function loadDiagram(path) {
             try {
-                const response = await fetch('http://localhost:8080/read-mmd/' + path);
+                const contentDisplay = document.getElementById('contentDisplay');
+                const errorDisplay = document.getElementById('errorDisplay');
+                
+                const response = await fetch(`/read-mmd/${encodeURIComponent(path)}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to load diagram: ${response.statusText}`);
+                }
+                
                 const content = await response.text();
-
-                document.title = path.split('/').pop().replace('.mmd', '') + ' - Holophonix Diagrams';
-
-                const contentDiv = document.getElementById('content-display');
-                const mockupViewer = document.getElementById('mockupViewer');
-                contentDiv.style.display = 'none';
-                mockupViewer.style.display = 'none';
-
-                const diagramViewer = document.getElementById('diagramViewer');
-                diagramViewer.style.display = 'block';
-
-                const container = document.querySelector('.diagram-container');
-
-                // Fade out current content
-                container.style.opacity = '0';
-                container.style.transition = 'opacity 0.2s ease-out';
-
-                // Wait for fade out
-                await new Promise(resolve => setTimeout(resolve, 200));
-
-                container.innerHTML = '';
-
-                // Create a new div for Mermaid
-                const mermaidDiv = document.createElement('div');
-                mermaidDiv.className = 'mermaid';
-                mermaidDiv.textContent = content;
-                container.appendChild(mermaidDiv);
-
-                // Reset transform before rendering
-                container.style.transform = 'scale(1)';
-                scale = 1;
-                panX = 0;
-                panY = 0;
-
-                // Render the diagram
-                try {
-                    const { svg } = await mermaid.render('mermaid-diagram', content);
-                    container.innerHTML = svg;
-
-                    // Get diagram dimensions after render
-                    const diagram = container.firstChild;
-                    if (!diagram) {
-                        throw new Error('Failed to render diagram');
-                    }
-
-                    // Remove any existing transitions to prevent flickering
-                    container.style.transition = 'none';
-                    diagram.style.transition = 'none';
-
-                    // Force browser to acknowledge the style changes
-                    container.offsetHeight;
-
-                    // Wait for the SVG to be fully loaded and measured
-                    await new Promise(resolve => {
-                        if (diagram.getBoundingClientRect().width > 0) {
-                            resolve();
-                        } else {
-                            const observer = new ResizeObserver(() => {
-                                if (diagram.getBoundingClientRect().width > 0) {
-                                    observer.disconnect();
-                                    resolve();
-                                }
-                            });
-                            observer.observe(diagram);
-                        }
-                    });
-
-                    // Get viewer dimensions with padding
-                    const viewerWidth = diagramViewer.clientWidth * 0.9;
-                    const viewerHeight = diagramViewer.clientHeight * 0.9;
-
-                    // Get both SVG and actual rendered dimensions
-                    const svgWidth = diagram.viewBox.baseVal.width;
-                    const svgHeight = diagram.viewBox.baseVal.height;
-                    const actualWidth = diagram.getBoundingClientRect().width;
-                    const actualHeight = diagram.getBoundingClientRect().height;
-
-                    // Calculate scale based on both dimensions
-                    const svgScaleX = viewerWidth / svgWidth;
-                    const svgScaleY = viewerHeight / svgHeight;
-                    const actualScaleX = viewerWidth / actualWidth;
-                    const actualScaleY = viewerHeight / actualHeight;
-
-                    // Use the most appropriate scale factor
-                    let scaleX = Math.min(svgScaleX, actualScaleX);
-                    let scaleY = Math.min(svgScaleY, actualScaleY);
-
-                    // Adjust scale based on diagram complexity
-                    const isComplexDiagram = svgWidth > 1000 || svgHeight > 1000 ||
-                                           content.includes('subgraph') ||
-                                           content.split('\n').length > 50;
-
-                    if (isComplexDiagram) {
-                        scaleX *= 0.7;
-                        scaleY *= 0.7;
-                    }
-
-                    // Apply the smaller scale to maintain aspect ratio
-                    scale = Math.min(scaleX, scaleY);
-
-                    // Ensure scale is within reasonable bounds
-                    scale = Math.min(Math.max(0.1, scale), 2);
-
-                    // Center the diagram
-                    const diagramRect = diagram.getBoundingClientRect();
-                    const viewerRect = diagramViewer.getBoundingClientRect();
-
-                    // Calculate center offset
-                    panX = (viewerRect.width - diagramRect.width * scale) / 2;
-                    panY = (viewerRect.height - diagramRect.height * scale) / 2;
-
-                    // Apply transform
-                    updateTransform();
-
-                    // Update zoom display
-                    document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
-
-                    // Fade in the new content
-                    requestAnimationFrame(() => {
-                        container.style.transition = 'opacity 0.3s ease-in';
-                        container.style.opacity = '1';
-                    });
-                } catch (error) {
-                    console.error('Failed to render diagram:', error);
-                    container.innerHTML = `<div class="error-message">Failed to render diagram: ${error.message}</div>`;
-                }
-
-                // Update URL hash
-                window.location.hash = '#diagram:' + path;
-
+                
+                // Save current document
+                currentDoc = path;
+                localStorage.setItem('currentDoc', path);
+                
+                // Create mermaid container with zoom controls
+                contentDisplay.innerHTML = `
+                    <div class="markdown-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-zoom">
+                                <div class="mermaid">
+                                    ${content}
+                                </div>
+                            </div>
+                            <div class="zoom-controls">
+                                <button class="zoom-button" onclick="adjustZoom(-0.1)">−</button>
+                                <div class="zoom-level">100%</div>
+                                <button class="zoom-button" onclick="adjustZoom(0.1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                errorDisplay.style.display = 'none';
+                
                 // Update active state in sidebar
-                document.querySelectorAll('.doc-item').forEach(a => {
-                    if (a.textContent === path.split('/').pop().replace(/-/g, ' ').replace('.md', '')) {
-                        a.classList.add('active');
-                    } else {
-                        a.classList.remove('active');
-                    }
+                document.querySelectorAll('.doc-item').forEach(item => {
+                    item.classList.toggle('active', item.getAttribute('data-path') === path);
                 });
+                
+                // Render the diagram
+                await mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+                
+                // Initialize zoom and pan functionality
+                initializeZoom();
+                
+                // Auto-fit diagram to container
+                setTimeout(() => {
+                    const container = document.querySelector('.mermaid-container');
+                    const diagram = container.querySelector('.mermaid svg');
+                    if (diagram) {
+                        const containerWidth = container.clientWidth;
+                        const containerHeight = container.clientHeight;
+                        const diagramWidth = diagram.getBoundingClientRect().width;
+                        const diagramHeight = diagram.getBoundingClientRect().height;
+                        
+                        // Calculate scale to fit
+                        const scaleX = (containerWidth - 80) / diagramWidth;
+                        const scaleY = (containerHeight - 80) / diagramHeight;
+                        const scale = Math.min(scaleX, scaleY, 1); // Don't scale up beyond 100%
+                        
+                        currentZoom = scale;
+                        translateX = (containerWidth - diagramWidth * scale) / 2;
+                        translateY = (containerHeight - diagramHeight * scale) / 2;
+                        
+                        updateTransform();
+                        updateZoomLevel();
+                    }
+                }, 100); // Small delay to ensure diagram is rendered
+                
             } catch (error) {
-                console.error('Failed to load diagram:', error);
+                console.error('Error loading diagram:', error);
+                errorDisplay.textContent = error.message;
+                errorDisplay.style.display = 'block';
             }
         }
 
-        function toggleNav() {
-            const nav = document.querySelector('.nav-container');
-            nav.classList.toggle('collapsed');
-            const button = document.querySelector('.nav-toggle');
-            button.textContent = nav.classList.contains('collapsed') ? '→' : '←';
-        }
+        // Zoom and pan functionality
+        let currentZoom = 1;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let translateX = 0;
+        let translateY = 0;
 
-        function showError(message) {
-            const errorDiv = document.getElementById('error-display');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-        }
-
-        function hideError() {
-            document.getElementById('error-display').style.display = 'none';
-        }
-
-        // Theme toggle functionality
-        function toggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-        }
-
-        // Set initial theme
-        const savedTheme = localStorage.getItem('theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-
-        // Load initial document from hash or load first document
-        window.addEventListener('load', async () => {
-            await refreshDocList();
-
-            const hash = window.location.hash.slice(1);
-            if (hash.startsWith('mockup:')) {
-                loadMockup(hash.slice(7));
-            } else if (hash.startsWith('diagram:')) {
-                loadDiagram(hash.slice(8));
-            } else if (hash && hash.startsWith('docs/architecture/target/')) {
-                loadDoc(hash);
-            } else {
-                // Load the first document in the list
-                const firstDoc = document.querySelector('.doc-item');
-                if (firstDoc) {
-                    firstDoc.click();
-                }
-            }
-
-            // Start auto-refresh
-            refreshInterval = setInterval(refreshDocList, 5000);
-        });
-
-        // Handle hash changes
-        window.addEventListener('hashchange', () => {
-            const hash = window.location.hash.slice(1);
-            if (hash.startsWith('mockup:')) {
-                loadMockup(hash.slice(7));
-            } else if (hash.startsWith('diagram:')) {
-                loadDiagram(hash.slice(8));
-            } else if (hash && hash.startsWith('docs/architecture/target/')) {
-                loadDoc(hash);
-            }
-        });
-
-        // Add window resize handler to refit diagram
-        let resizeTimeout;
-        window.addEventListener('resize', () => {
-            if (diagramViewer.style.display === 'block') {
-                clearTimeout(resizeTimeout);
-                resizeTimeout = setTimeout(() => fitDiagramToView(true), 100);
-            }
-        });
-
-        // Add mouse wheel zoom handler
-        diagramViewer.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const delta = -Math.sign(e.deltaY);
-            const zoomFactor = 1.1;
-            const newScale = delta > 0 ? scale * zoomFactor : scale / zoomFactor;
-
-            // Pass mouse coordinates for centered zoom
-            zoomTo(newScale, e.clientX, e.clientY);
-        });
-
-        // Add pan handlers
-        diagramViewer.addEventListener('mousedown', (e) => {
-            if (e.button === 0) { // Left click only
-                isDragging = true;
-                lastX = e.clientX;
-                lastY = e.clientY;
-                diagramViewer.style.cursor = 'grabbing';
-            }
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                const dx = e.clientX - lastX;
-                const dy = e.clientY - lastY;
-                panX += dx;
-                panY += dy;
-                lastX = e.clientX;
-                lastY = e.clientY;
+        function initializeZoom() {
+            const container = document.querySelector('.mermaid-container');
+            const zoomElement = document.querySelector('.mermaid-zoom');
+            
+            if (!container || !zoomElement) return;
+            
+            // Mouse wheel zoom
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                
+                const rect = zoomElement.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const delta = -Math.sign(e.deltaY) * 0.1;
+                const newZoom = Math.max(0.1, Math.min(3, currentZoom + delta));
+                
+                // Calculate new position to zoom towards mouse
+                const scale = newZoom / currentZoom;
+                translateX = x - (x - translateX) * scale;
+                translateY = y - (y - translateY) * scale;
+                
+                currentZoom = newZoom;
                 updateTransform();
-            }
-        });
+                updateZoomLevel();
+            });
+            
+            // Drag to pan
+            zoomElement.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                zoomElement.classList.add('dragging');
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+            });
+            
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                updateTransform();
+            });
+            
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+                const zoomElement = document.querySelector('.mermaid-zoom');
+                if (zoomElement) {
+                    zoomElement.classList.remove('dragging');
+                }
+            });
+        }
 
-        window.addEventListener('mouseup', () => {
-            isDragging = false;
-            diagramViewer.style.cursor = 'grab';
+        function adjustZoom(delta) {
+            const newZoom = Math.max(0.1, Math.min(3, currentZoom + delta));
+            const scale = newZoom / currentZoom;
+            
+            // Zoom from center
+            const container = document.querySelector('.mermaid-container');
+            const rect = container.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            translateX = centerX - (centerX - translateX) * scale;
+            translateY = centerY - (centerY - translateY) * scale;
+            
+            currentZoom = newZoom;
+            updateTransform();
+            updateZoomLevel();
+        }
+
+        function updateTransform() {
+            const zoomElement = document.querySelector('.mermaid-zoom');
+            if (zoomElement) {
+                zoomElement.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentZoom})`;
+            }
+        }
+
+        function updateZoomLevel() {
+            const zoomLevel = document.querySelector('.zoom-level');
+            if (zoomLevel) {
+                zoomLevel.textContent = `${Math.round(currentZoom * 100)}%`;
+            }
+        }
+
+        // Build document tree
+        async function buildDocTree() {
+            try {
+                const response = await fetch('/list-docs');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch document list');
+                }
+                
+                const docs = await response.json();
+                const docTree = document.getElementById('docTree');
+                docTree.innerHTML = ''; // Clear existing content
+                
+                // Group documents by directory
+                const sections = {};
+                docs.forEach(doc => {
+                    const parts = doc.path.split('/');
+                    const section = parts.length > 1 ? parts[1] : 'Other';
+                    if (!sections[section]) {
+                        sections[section] = [];
+                    }
+                    sections[section].push(doc);
+                });
+                
+                // Create sections
+                Object.entries(sections).forEach(([section, docs]) => {
+                    const sectionDiv = document.createElement('div');
+                    sectionDiv.className = 'doc-section';
+                    sectionDiv.innerHTML = `
+                        <div class="doc-section-title">${section.replace('-', ' ').toUpperCase()}</div>
+                        ${docs.map(doc => `
+                            <div class="doc-item ${doc.type}" 
+                                 data-path="${doc.path}"
+                                 onclick="${doc.type === 'diagram' ? 'loadDiagram' : 'loadDocument'}('${doc.path}')">
+                                ${doc.name}
+                            </div>
+                        `).join('')}
+                    `;
+                    docTree.appendChild(sectionDiv);
+                });
+                
+                // Load last viewed document if any
+                if (currentDoc) {
+                    const doc = docs.find(d => d.path === currentDoc);
+                    if (doc) {
+                        if (doc.type === 'diagram') {
+                            loadDiagram(doc.path);
+                        } else {
+                            loadDocument(doc.path);
+                        }
+                    }
+                } else if (docs.length > 0) {
+                    // Load first document by default
+                    const firstDoc = docs[0];
+                    if (firstDoc.type === 'diagram') {
+                        loadDiagram(firstDoc.path);
+                    } else {
+                        loadDocument(firstDoc.path);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error building doc tree:', error);
+                document.getElementById('errorDisplay').textContent = 'Failed to load document list';
+                document.getElementById('errorDisplay').style.display = 'block';
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Restore sidebar state
+            const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            if (isCollapsed) {
+                document.querySelector('.sidebar').classList.add('collapsed');
+            }
+            
+            // Build document tree
+            buildDocTree();
         });
     </script>
 </body>

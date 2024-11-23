@@ -275,17 +275,17 @@ The Holophonix Animator uses OSC (Open Sound Control) for bidirectional communic
 ## Message Examples
 
 ```
-# Setting source parameters
-/source/1/gain 0.8                  # Set gain for source 1
-/source/1/position 0.5 0.3          # Set position for source 1
+# Setting track parameters
+/track/1/gain/value f 0.8           # Set gain for track 1
+/track/1/xy ff 0.5 0.3              # Set position for track 1
 
-# Getting current values (send address with no arguments)
-/source/1/gain                      # Query gain
-/source/1/position                  # Query position
+# Getting current values
+/get "track/1/gain/value"           # Query gain
+/get "track/1/xy"                   # Query position
 
 # Response comes on same address pattern
-/source/1/gain 0.8                  # Response with current gain
-/source/1/position 0.5 0.3          # Response with current position
+/track/1/gain/value f 0.8           # Response with current gain
+/track/1/xy ff 0.5 0.3              # Response with current position
 ```
 
 ## Message Types

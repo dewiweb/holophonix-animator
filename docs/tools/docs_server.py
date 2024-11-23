@@ -45,9 +45,10 @@ class DocsHandler(SimpleHTTPRequestHandler):
         try:
             # Remove /read-mmd/ prefix and decode the path
             file_path = self.path[10:]  # len('/read-mmd/') == 10
+            file_path = file_path.replace('%2F', '/')
             
-            # Security check: ensure path is within docs/architecture
-            if not file_path.startswith('docs/current-project/') and not file_path.startswith('docs/old-project/') and not file_path.startswith('docs/technical/') or '..' in file_path:
+            # Security check: ensure path is within docs directory
+            if not file_path.startswith('docs/') or '..' in file_path:
                 raise ValueError('Invalid file path')
                 
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -57,7 +58,9 @@ class DocsHandler(SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'text/plain')
             self.end_headers()
             self.wfile.write(content.encode('utf-8'))
+            
         except Exception as e:
+            print(f"Error reading mermaid diagram: {str(e)}")  # Debug output
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
@@ -67,9 +70,10 @@ class DocsHandler(SimpleHTTPRequestHandler):
         try:
             # Remove /read-doc/ prefix and decode the path
             file_path = self.path[10:]  # len('/read-doc/') == 10
+            file_path = file_path.replace('%2F', '/')
             
-            # Security check: ensure path is within docs/architecture/target
-            if not file_path.startswith('docs/current-project/') and not file_path.startswith('docs/old-project/') and not file_path.startswith('docs/technical/') and not file_path.startswith('docs/tools/') or '..' in file_path:
+            # Security check: ensure path is within docs directory
+            if not file_path.startswith('docs/') or '..' in file_path:
                 raise ValueError('Invalid file path')
                 
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -96,7 +100,9 @@ class DocsHandler(SimpleHTTPRequestHandler):
             }
             
             self.wfile.write(json.dumps(response).encode('utf-8'))
+            
         except Exception as e:
+            print(f"Error reading document: {str(e)}")  # Debug output
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
@@ -106,22 +112,37 @@ class DocsHandler(SimpleHTTPRequestHandler):
         try:
             diagrams = []
             diagram_paths = [
-                'docs/current-project/**/*.mmd',
-                'docs/old-project/**/*.mmd',
-                'docs/technical/**/*.mmd'
+                'docs/**/*.mmd'  # This will catch all .mmd files in any subdirectory under docs
             ]
             
-            # Find all .mmd files in the architecture diagrams directory
+            # Find all .mmd files in the docs directory
             for path in diagram_paths:
                 diagram_files = glob.glob(path, recursive=True)
                 for file in diagram_files:
+                    # Skip files in node_modules or other unwanted directories
+                    if 'node_modules' in file:
+                        continue
+                        
+                    # Get display name from filename
                     display_name = os.path.basename(file).replace('.mmd', '')
+                    display_name = display_name.replace('-', ' ').title()
+                    
                     # Convert Windows paths to forward slashes if needed
                     relative_path = file.replace('\\', '/')
+                    
+                    # Get the category from the path
+                    path_parts = relative_path.split('/')
+                    category = path_parts[1] if len(path_parts) > 2 else 'Other'
+                    category = category.replace('-', ' ').title()
+                    
                     diagrams.append({
                         'path': relative_path,
-                        'name': display_name
+                        'name': display_name,
+                        'category': category
                     })
+
+            # Sort diagrams by category and then by name
+            diagrams.sort(key=lambda x: (x['category'], x['name']))
 
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
@@ -136,38 +157,32 @@ class DocsHandler(SimpleHTTPRequestHandler):
     def handle_list_docs(self):
         try:
             docs = []
-            doc_paths = [
-                'docs/current-project/**/*.md',
-                'docs/old-project/**/*.md',
-                'docs/technical/**/*.md',
-                'docs/tools/**/*.md'
-            ]
-            
-            # Find all .md files in the target directory
-            for path in doc_paths:
-                md_files = glob.glob(path, recursive=True)
-                for file in md_files:
-                    # Read the file to get the title from the first heading
-                    with open(file, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        title = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
-                        title = title.group(1) if title else os.path.basename(file)
-
-                    # Convert Windows paths to forward slashes if needed
-                    relative_path = file.replace('\\', '/')
+            # Get all markdown and mermaid files from docs directory
+            for ext in ['md', 'mmd']:
+                for file_path in glob.glob(f'docs/**/*.{ext}', recursive=True):
+                    # Convert path to use forward slashes
+                    file_path = file_path.replace('\\', '/')
+                    # Skip files in the tools directory
+                    if '/tools/' in file_path:
+                        continue
+                    
+                    name = os.path.basename(file_path)
+                    # Remove extension and convert to title case
+                    name = os.path.splitext(name)[0].replace('-', ' ').title()
+                    
                     docs.append({
-                        'path': relative_path,
-                        'name': title
+                        'path': file_path,
+                        'name': name,
+                        'type': 'diagram' if ext == 'mmd' else 'doc'
                     })
-
-            # Sort files by name
-            docs.sort(key=lambda x: x['name'])
-
+            
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
-            self.wfile.write(json.dumps({'files': docs}).encode('utf-8'))
+            self.wfile.write(json.dumps(docs).encode('utf-8'))
+            
         except Exception as e:
+            print(f"Error listing documents: {str(e)}")  # Debug output
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
