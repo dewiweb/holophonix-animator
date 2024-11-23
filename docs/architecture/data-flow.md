@@ -51,6 +51,17 @@ Rust State → Native Module → IPC → React State → UI Update
 - Sent via IPC to renderer
 - React updates UI accordingly
 
+### 5. File Upload Flow
+```
+File Selection → Electron → Native Module → Rust Processing → State Update
+```
+- User selects SVG file through Electron dialog
+- File is read and validated in Electron
+- Content is passed through native module
+- Rust processes SVG data
+- Path is stored in core state
+- UI is updated with new path
+
 ## Data Processing
 
 ### 1. Input Processing (Rust)
@@ -58,6 +69,7 @@ Rust State → Native Module → IPC → React State → UI Update
 - Coordinate system conversions
 - Parameter normalization
 - Error handling
+- SVG path parsing and validation
 
 ### 2. State Management (Rust)
 - Centralized state store

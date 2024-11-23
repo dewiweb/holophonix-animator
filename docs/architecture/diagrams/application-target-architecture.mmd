@@ -20,6 +20,7 @@ graph TB
         direction LR
         HolophonixDevice["Holophonix Device\n(OSC Protocol)"]
         FileSystem["File System\n(Project Files)"]
+        SVGFiles["SVG Path Files"]
         
         subgraph ExternalControl["External Control"]
             direction LR
@@ -47,6 +48,7 @@ graph TB
             BehaviorEngine["Behavior Engine"]
             PositionEngine["Position Engine"]
             AutomationEngine["Automation Engine"]
+            PathEngine["Path Processing\nEngine"]
         end
         
         subgraph StateManager["State Management"]
@@ -54,6 +56,7 @@ graph TB
             StateStore["State Store"]
             CommandProcessor["Command Processor"]
             StateSync["State Synchronizer"]
+            FileUploadManager["File Upload\nManager"]
         end
 
         subgraph NativeBridge["Native Bridge"]
@@ -71,6 +74,7 @@ graph TB
         IPCMain["IPC Main Bridge"]
         SettingsService["Settings Service"]
         SystemBridge["System Bridge"]
+        FileDialog["File Dialog\n(SVG Upload)"]
     end
 
     %% Frontend Systems
@@ -95,6 +99,7 @@ graph TB
             Timeline["Timeline"]
             Workspace["Workspace"]
             Controls["Controls"]
+            PathEditor["Path Editor"]
         end
     end
 
@@ -103,6 +108,8 @@ graph TB
     HolophonixDevice <-->|"OSC"|OSCService
     ExternalControl -->|"OSC"|OSCService
     FileSystem <-->|"Files"|SystemBridge
+    SVGFiles -->|"Upload"|FileDialog
+    FileDialog -->|"File Data"|FileUploadManager
 
     %% Rust Core Internal
     OSCService -->|"Messages"|OSCParser
@@ -112,6 +119,8 @@ graph TB
     CommandProcessor -->|"Updates"|StateStore
     StateStore -->|"Sync"|StateSync
     StateSync -->|"State"|CoreEngine
+    FileUploadManager -->|"Path Data"|PathEngine
+    PathEngine -->|"Updates"|StateStore
 
     %% Native Bridge
     StateSync -->|"State"|NAPI
@@ -119,20 +128,30 @@ graph TB
     NAPI -->|"Async"|AsyncOps
     SyncOps & AsyncOps -->|"FFI"|NativeModule
 
-    %% Electron to Frontend
+    %% Electron to Frontend and Back
     NativeModule -->|"State"|IPCMain
     IPCMain <-->|"IPC"|Preload
     Preload -->|"Events"|BridgeHooks
     BridgeHooks -->|"State"|GlobalState
     GlobalState -->|"Props"|Features
+    Features -->|"Actions"|BridgeHooks
+    BridgeHooks -->|"Commands"|Preload
+    Preload -->|"IPC"|IPCMain
+    IPCMain -->|"Commands"|NativeModule
+    NativeModule -->|"FFI"|AsyncOps
+    AsyncOps -->|"Commands"|CommandProcessor
 
 %% Link colors
 linkStyle default stroke:#a7a7a7,stroke-width:2px
 %% OSC Messages: Gold
 linkStyle 0,1 stroke:#ffd700,stroke-width:2px
+%% File Upload: Purple
+linkStyle 3,4 stroke:#9370db,stroke-width:2px
 %% State Flow: Purple
-linkStyle 3,4,5,6,7,8 stroke:#9370db,stroke-width:2px
+linkStyle 5,6,7,8,9,10,11,12,13 stroke:#9370db,stroke-width:2px
 %% Native Bridge: Orange
-linkStyle 9,10,11,12 stroke:#ffa500,stroke-width:2px
-%% IPC: Blue
-linkStyle 13,14,15,16 stroke:#4169e1,stroke-width:2px
+linkStyle 14,15,16,17 stroke:#ffa500,stroke-width:2px
+%% IPC Down: Blue
+linkStyle 18,19,20,21 stroke:#4169e1,stroke-width:2px
+%% IPC Up: Green
+linkStyle 22,23,24,25,26 stroke:#32cd32,stroke-width:2px
