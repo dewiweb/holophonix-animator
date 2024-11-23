@@ -1,105 +1,129 @@
 # Animation System Implementation
 
 ## Overview
-The animation system is responsible for managing and executing all animations within the Holophonix Animator. It handles keyframe interpolation, timeline management, and real-time parameter updates.
+The animation system manages real-time animations for Holophonix sources through OSC protocol. It provides a workflow for creating, configuring, and controlling animations for individual tracks or groups of tracks.
 
-## Technical Architecture
-The animation system is built on a modular architecture with these main components:
-- Timeline Manager
-- Keyframe Interpolator
-- Parameter Controller
-- Animation Scheduler
+## Core Workflow
 
-### Timeline Manager
-Manages the global timeline and synchronization of multiple animation tracks. Implements a high-precision timer for accurate playback.
+### 1. Connection Setup
+- User configures connection parameters:
+  - Remote IP (Holophonix device)
+  - Remote Port
+  - Local IP
+- System establishes and maintains OSC connection
 
-### Keyframe Interpolator
-Handles interpolation between keyframes using various easing functions:
-- Linear
-- Cubic Bezier
-- Step
-- Custom curves
+### 2. Track Management
+- Users can:
+  - Add individual tracks
+  - Create track groups
+  - Select tracks/groups for animation
+- Track Configuration:
+  ```typescript
+  interface Track {
+    id: string;
+    name: string;
+    type: 'single' | 'group';
+    position: Position;  // Current position
+    children?: string[]; // For groups: child track IDs
+  }
+  ```
 
-### Parameter Controller
-Manages animated parameters:
-- Position (x, y, z)
-- Rotation (pitch, yaw, roll)
-- Scale
-- Custom properties
+### 3. Animation Models
+The system supports several animation models that can be applied to tracks or groups:
 
-### Animation Scheduler
-Handles scheduling and execution of animations:
-- Frame-based updates
-- Time-based updates
-- Event-driven updates
+#### Available Models
+- **Linear Movement**
+  - Direct point-to-point movement
+  - Parameters:
+    - Start position
+    - End position
+    - Duration
+    - Loop behavior
 
-## Data Structures
-```typescript
-interface Keyframe {
-  timestamp: number;
-  value: number | Vector3 | Quaternion;
-  easing: EasingFunction;
-  metadata?: Record<string, unknown>;
+- **Circular Movement**
+  - Orbital movement around a center
+  - Parameters:
+    - Center point
+    - Radius
+    - Speed
+    - Direction (clockwise/counterclockwise)
+
+- **Random Movement**
+  - Controlled random movement
+  - Parameters:
+    - Boundary limits
+    - Speed range
+    - Update interval
+
+- **Custom Path**
+  - User-defined movement paths
+  - Parameters:
+    - Path points
+    - Speed
+    - Loop behavior
+
+### 4. Animation Application
+1. Select track/group from tracklist
+2. Choose animation model from selector
+3. Add to applied animations list
+4. Configure animation parameters
+5. Real-time parameter adjustment
+
+## Coordinate Systems
+The animation system uses two coordinate systems:
+
+### Cartesian (XYZ)
+- X: -1.0 to +1.0 (left to right)
+- Y: -1.0 to +1.0 (back to front)
+- Z: -1.0 to +1.0 (down to up)
+
+### Polar (AED)
+- Azimuth: 0° to 360°
+- Elevation: -90° to 90°
+- Distance: 0.0 to 1.0
+
+## Technical Implementation
+
+### State Management
+```rust
+pub struct AnimationState {
+    // Track and Group Management
+    tracks: HashMap<TrackId, Track>,
+    groups: HashMap<GroupId, TrackGroup>,
+    
+    // Animation Management
+    active_animations: HashMap<TrackId, Vec<Animation>>,
+    animation_parameters: HashMap<AnimationId, AnimationParams>,
+    
+    // Connection State
+    connection: ConnectionState,
 }
 
-interface AnimationTrack {
-  id: string;
-  parameter: string;
-  keyframes: Keyframe[];
-  enabled: boolean;
-}
-
-interface Timeline {
-  tracks: AnimationTrack[];
-  duration: number;
-  currentTime: number;
+pub struct Animation {
+    id: AnimationId,
+    model_type: AnimationModel,
+    target: TrackId,  // Single track or group
+    parameters: AnimationParams,
+    state: AnimationState,
 }
 ```
 
-## Algorithms
-### Keyframe Interpolation
-1. Find surrounding keyframes
-2. Calculate interpolation factor
-3. Apply easing function
-4. Compute interpolated value
+### Real-time Parameter Updates
+- All animation parameters can be adjusted in real-time
+- Changes are immediately reflected in the animation
+- Updates are sent via OSC to the Holophonix device
 
-### Timeline Synchronization
-1. Update global time
-2. Find active keyframes
-3. Compute current values
-4. Update parameters
-5. Trigger events
-
-## Dependencies
-- Three.js for 3D math operations
-- Custom easing function library
-- Event system for notifications
-
-## Performance Considerations
-- Use WebWorkers for heavy computations
-- Optimize keyframe lookup with binary search
-- Cache computed values where possible
-- Use requestAnimationFrame for smooth updates
+### OSC Communication
+- Regular position updates for each animated track
+- Parameter change messages
+- Connection status monitoring
 
 ## Error Handling
-- Validate keyframe data
-- Handle missing or corrupt data
-- Provide fallback values
-- Log errors with context
+- Connection failure recovery
+- Invalid parameter validation
+- Animation state consistency checks
 
-## Testing Approach
-- Unit tests for interpolation
-- Integration tests for timeline
-- Performance benchmarks
-- Visual regression tests
-
-## Known Limitations
-- Maximum 1000 keyframes per track
-- Linear-only interpolation for some parameter types
-- 60 FPS maximum update rate
-
-## Future Improvements
-- GPU-accelerated interpolation
-- More easing functions
-- Better timeline scrubbing
-- Multi-timeline support
+## Performance Considerations
+- Efficient batch updates for groups
+- Optimized parameter interpolation
+- Minimal OSC message overhead

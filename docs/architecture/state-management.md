@@ -1,84 +1,153 @@
 # State Management
 
 ## Overview
+The Holophonix Animator uses a centralized state management system with Rust at its core, handling real-time animations and OSC communication while React manages the UI state.
 
-The Holophonix Animator uses a hybrid state management system with Rust at its core, handling all performance-critical state while React manages UI-specific state.
+## Core State Components
 
-## State Architecture
+### 1. Connection State
+```rust
+pub struct ConnectionState {
+    remote_ip: String,
+    remote_port: u16,
+    local_ip: String,
+    status: ConnectionStatus,
+    last_error: Option<String>,
+}
+```
 
-### 1. Core State (Rust)
-- Track positions and parameters
-- Animation states and timelines
-- Motion model computations
-- OSC message handling
-- Performance-critical operations
+### 2. Track Management
+```rust
+pub struct TrackState {
+    tracks: HashMap<TrackId, Track>,
+    groups: HashMap<GroupId, TrackGroup>,
+    selected: Option<SelectionId>,  // Track or group ID
+}
 
-### 2. UI State (React)
-- View configurations
-- Selected elements
-- User preferences
-- Temporary UI states
-- Visual feedback states
+pub struct Track {
+    id: TrackId,
+    name: String,
+    position: Position,
+    animations: Vec<AnimationId>,
+}
 
-### 3. Bridge State (Native Module)
-- State synchronization
-- Event queuing
-- Error handling
-- Performance monitoring
+pub struct TrackGroup {
+    id: GroupId,
+    name: String,
+    members: Vec<TrackId>,
+    animations: Vec<AnimationId>,
+}
+```
+
+### 3. Animation State
+```rust
+pub struct AnimationState {
+    models: HashMap<ModelId, AnimationModel>,
+    active_animations: HashMap<AnimationId, ActiveAnimation>,
+    parameters: HashMap<AnimationId, ModelParameters>,
+}
+
+pub struct ActiveAnimation {
+    id: AnimationId,
+    model_id: ModelId,
+    target_id: SelectionId,  // ID of the selected track or group
+    state: RunningState,
+}
+
+pub enum SelectionId {
+    Track(TrackId),
+    Group(GroupId),
+}
+
+pub enum AnimationModel {
+    Linear(LinearMovement),
+    Circular(CircularMovement),
+    Random(RandomMovement),
+    Custom(CustomPath),
+}
+
+pub enum ModelParameters {
+    Linear(LinearParams),
+    Circular(CircularParams),
+    Random(RandomParams),
+    Custom(CustomParams),
+}
+
+pub struct LinearParams {
+    start_position: Position,
+    end_position: Position,
+    duration: Duration,
+}
+
+pub struct CircularParams {
+    center: Position,
+    radius: f64,
+    speed: f64,
+    direction: RotationDirection,
+}
+
+pub struct RandomParams {
+    bounds: BoundingBox,
+    speed_range: Range<f64>,
+    update_interval: Duration,
+}
+
+pub struct CustomParams {
+    points: Vec<Position>,
+    speed: f64,
+    loop_behavior: LoopMode,
+}
+```
 
 ## State Flow
 
-### 1. Core State Updates (Rust)
-- Computed in Rust core
-- Type-safe operations
-- Zero-copy where possible
-- Lock-free concurrency
-- Direct OSC handling
+### 1. Connection Flow
+1. User inputs connection parameters
+2. System attempts connection
+3. Connection state updated
+4. UI reflects connection status
 
-### 2. State Persistence
-- Critical states saved to disk
-- Crash recovery handling
-- State versioning
-- Automatic backups
-- Safe file operations
+### 2. Track Management Flow
+1. User adds track/group via form
+2. Core validates and stores track
+3. UI updates track list
+4. Selection state managed
 
-### 3. State Propagation
-- Rust → Native Module → Electron → React
-- Efficient serialization
-- Minimal copying
-- Type safety across boundaries
-- Performance optimization
+### 3. Animation Flow
+1. User selects track/group from tracklist
+2. Chooses animation model from selector
+3. Animation is applied to selected track or group
+4. Model-specific parameters are configurable in real-time:
+   - Linear Movement: start position, end position, duration
+   - Circular Movement: center point, radius, speed, direction
+   - Random Movement: boundary limits, speed range, update interval
+   - Custom Path: path points, speed, loop behavior
+5. Real-time updates via OSC
 
 ## Implementation
 
 ### Core State (Rust)
 ```rust
 pub struct CoreState {
-    // Track Management
-    tracks: HashMap<TrackId, Track>,
-    active_tracks: HashSet<TrackId>,
+    connection: ConnectionState,
+    tracks: TrackState,
+    animations: AnimationState,
     
-    // Animation State
-    animations: HashMap<AnimationId, Animation>,
-    timeline: Timeline,
-    playback_state: PlaybackState,
-    
-    // OSC State
-    osc_connections: OscConnections,
-    message_queue: MessageQueue,
-    
-    // Performance Monitoring
+    // Performance monitoring
     metrics: PerformanceMetrics,
 }
 
-// Type-safe state updates
 impl CoreState {
-    pub fn update_track_position(&mut self, id: TrackId, position: Position) -> Result<(), StateError> {
-        // Validate and update track position
+    pub fn update_animation_parameter(&mut self, animation_id: AnimationId, param: ParamUpdate) -> Result<(), StateError> {
+        // Update parameter
+        // Recalculate animation
+        // Send OSC update
     }
     
-    pub fn update_animation_state(&mut self, id: AnimationId, state: AnimationState) -> Result<(), StateError> {
-        // Update animation state
+    pub fn add_animation(&mut self, target: SelectionId, model: AnimationModel) -> Result<AnimationId, StateError> {
+        // Create new animation
+        // Initialize parameters
+        // Start if needed
     }
 }
 ```
@@ -86,76 +155,38 @@ impl CoreState {
 ### UI State (TypeScript)
 ```typescript
 interface UIState {
-  // View State
-  selectedTrack: TrackId | null;
-  viewMode: ViewMode;
-  zoomLevel: number;
-  
-  // User Preferences
-  theme: Theme;
-  language: Language;
-  
-  // Temporary States
-  isDragging: boolean;
-  isEditing: boolean;
-  
-  // Error States
-  errors: ErrorState[];
+    // Connection UI
+    connectionForm: {
+        remoteIp: string;
+        remotePort: number;
+        localIp: string;
+    };
+    
+    // Track Management
+    trackForm: {
+        name: string;
+        type: 'single' | 'group';
+    };
+    
+    // Animation UI
+    selectedTrack: string | null;
+    selectedAnimation: string | null;
+    parameterEditors: Record<string, ParamEditor>;
+    
+    // Status
+    errors: ErrorState[];
+    loading: boolean;
 }
 ```
-
-### Native Bridge
-```typescript
-interface NativeBridge {
-  // State Sync
-  syncState(): Promise<void>;
-  
-  // Core Operations
-  updateTrack(id: TrackId, update: TrackUpdate): Promise<void>;
-  updateAnimation(id: AnimationId, update: AnimationUpdate): Promise<void>;
-  
-  // Event Handling
-  onStateChange(callback: (state: CoreState) => void): void;
-  onError(callback: (error: StateError) => void): void;
-}
-```
-
-## Performance Considerations
-
-### 1. State Updates
-- Computed in Rust for performance
-- Minimal data copying
-- Efficient memory usage
-- Lock-free operations
-
-### 2. State Synchronization
-- Batched updates
-- Efficient serialization
-- Minimal IPC overhead
-- Type-safe transfers
-
-### 3. Memory Management
-- Zero-copy operations
-- Smart pointer usage
-- Automatic cleanup
-- Resource pooling
 
 ## Error Handling
+- Connection failures
+- Invalid track configurations
+- Animation parameter validation
+- OSC communication errors
 
-### 1. State Errors
-- Type-safe error handling
-- Error propagation
-- Automatic recovery
-- State validation
-
-### 2. Sync Errors
-- Connection recovery
-- State reconciliation
-- Error reporting
-- Fallback states
-
-### 3. UI Errors
-- Error boundaries
-- User feedback
-- State recovery
-- Graceful degradation
+## Performance Optimization
+- Batch OSC updates
+- Efficient parameter updates
+- Minimal state copying
+- Lock-free operations where possible
