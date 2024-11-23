@@ -1,0 +1,138 @@
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'primaryColor': '#2d2d2d',
+    'primaryTextColor': '#fff',
+    'primaryBorderColor': '#4a4a4a',
+    'lineColor': '#a7a7a7',
+    'secondaryColor': '#2d2d2d',
+    'tertiaryColor': '#2d2d2d',
+    'fontSize': '16px',
+    'fontFamily': 'arial'
+  }
+}}%%
+graph TB
+    %% Layout Direction
+    direction TB
+
+    %% External Systems at the Top
+    subgraph External["External Systems"]
+        direction LR
+        HolophonixDevice["Holophonix Device\n(OSC Protocol)"]
+        FileSystem["File System\n(Project Files)"]
+        
+        subgraph ExternalControl["External Control"]
+            direction LR
+            DAW["DAW\n(Ableton, Reaper)"]
+            CustomApp["Custom Applications"]
+            ShowControl["Show Control Systems"]
+        end
+    end
+
+    %% Rust Core Engine
+    subgraph RustCore["Rust Core Engine"]
+        direction TB
+        
+        subgraph OSCServer["OSC Communication Layer"]
+            direction TB
+            OSCService["OSC Service\n(UDP Socket Management)"]
+            OSCParser["OSC Parser\n(Zero-Copy Parsing)"]
+            OSCRouter["Message Router"]
+            OSCQueue["Message Queue"]
+        end
+
+        subgraph CoreEngine["Real-time Engine"]
+            direction LR
+            TimeSync["Time\nSync"]
+            BehaviorEngine["Behavior Engine"]
+            PositionEngine["Position Engine"]
+            AutomationEngine["Automation Engine"]
+        end
+        
+        subgraph StateManager["State Management"]
+            direction TB
+            StateStore["State Store"]
+            CommandProcessor["Command Processor"]
+            StateSync["State Synchronizer"]
+        end
+
+        subgraph NativeBridge["Native Bridge"]
+            direction TB
+            NAPI["N-API Bindings"]
+            AsyncOps["Async Operations"]
+            SyncOps["Sync Operations"]
+        end
+    end
+
+    %% Electron Main Process
+    subgraph ElectronMain["Electron Main Process"]
+        direction TB
+        NativeModule["Native Module\n(Rust Integration)"]
+        IPCMain["IPC Main Bridge"]
+        SettingsService["Settings Service"]
+        SystemBridge["System Bridge"]
+    end
+
+    %% Frontend Systems
+    subgraph Frontend["Frontend (React + Electron Renderer)"]
+        direction TB
+        
+        subgraph UIBridge["Backend Communication"]
+            direction LR
+            Preload["Preload Script"]
+            BridgeHooks["Bridge Hooks"]
+        end
+
+        subgraph ReactCore["React Framework"]
+            direction LR
+            Providers["Context Providers"]
+            CustomHooks["Custom Hooks"]
+            GlobalState["Global State"]
+        end
+
+        subgraph Features["Feature Components"]
+            direction TB
+            Timeline["Timeline"]
+            Workspace["Workspace"]
+            Controls["Controls"]
+        end
+    end
+
+    %% Connections
+    %% External Systems to Rust Core
+    HolophonixDevice <-->|"OSC"|OSCService
+    ExternalControl -->|"OSC"|OSCService
+    FileSystem <-->|"Files"|SystemBridge
+
+    %% Rust Core Internal
+    OSCService -->|"Messages"|OSCParser
+    OSCParser -->|"Parsed"|OSCRouter
+    OSCRouter -->|"Queued"|OSCQueue
+    OSCQueue -->|"Process"|CommandProcessor
+    CommandProcessor -->|"Updates"|StateStore
+    StateStore -->|"Sync"|StateSync
+    StateSync -->|"State"|CoreEngine
+
+    %% Native Bridge
+    StateSync -->|"State"|NAPI
+    NAPI -->|"Sync"|SyncOps
+    NAPI -->|"Async"|AsyncOps
+    SyncOps & AsyncOps -->|"FFI"|NativeModule
+
+    %% Electron to Frontend
+    NativeModule -->|"State"|IPCMain
+    IPCMain <-->|"IPC"|Preload
+    Preload -->|"Events"|BridgeHooks
+    BridgeHooks -->|"State"|GlobalState
+    GlobalState -->|"Props"|Features
+
+%% Link colors
+linkStyle default stroke:#a7a7a7,stroke-width:2px
+%% OSC Messages: Gold
+linkStyle 0,1 stroke:#ffd700,stroke-width:2px
+%% State Flow: Purple
+linkStyle 3,4,5,6,7,8 stroke:#9370db,stroke-width:2px
+%% Native Bridge: Orange
+linkStyle 9,10,11,12 stroke:#ffa500,stroke-width:2px
+%% IPC: Blue
+linkStyle 13,14,15,16 stroke:#4169e1,stroke-width:2px

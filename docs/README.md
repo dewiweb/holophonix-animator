@@ -1,61 +1,110 @@
 # Holophonix Animator Documentation 📚
 
-Welcome to the Holophonix Animator documentation. This documentation is organized into several sections for easy navigation.
+Welcome to the Holophonix Animator documentation. This guide will help you understand and contribute to the Holophonix Animator project, a cross-platform desktop application for managing motion models in Holophonix spatial audio systems.
+
+## Quick Start 🚀
+
+- [Installation Guide](getting-started/installation.md)
+- [Development Setup](getting-started/development-setup.md)
+- [First Contribution](getting-started/first-contribution.md)
+
+## Project Overview 🎯
+
+1. [Context & Vision](project/context-and-vision.md)
+   - Project background
+   - Goals and objectives
+   - Current status
+   - Future roadmap
+
+2. [Architecture](architecture/README.md)
+   - [System Overview](architecture/overview.md)
+   - [Technical Stack](architecture/tech-stack.md)
+   - [Component Design](architecture/components.md)
+   - [State Management](architecture/state-management.md)
+
+3. [Core Concepts](core/README.md)
+   - [Coordinate Systems](core/coordinate-system.md)
+   - [Motion Models](core/motion-models.md)
+   - [OSC Protocol](core/osc-protocol.md)
+   - [Behaviors](core/behaviors.md)
+
+## Development Guide 💻
+
+1. [Getting Started](getting-started/README.md)
+   - [Development Environment](getting-started/development-setup.md)
+   - [Building & Running](getting-started/building.md)
+   - [Testing](getting-started/testing.md)
+
+2. [Development Process](development/README.md)
+   - [Code Style](development/code-style.md)
+   - [Git Workflow](development/git-workflow.md)
+   - [Testing Guidelines](development/testing-guidelines.md)
+   - [Release Process](development/release-process.md)
+
+3. [Implementation Guide](implementation/README.md)
+   - [Frontend Development](implementation/frontend.md)
+   - [Animation Core](implementation/animation-core.md)
+   - [OSC Communication](implementation/osc-communication.md)
+   - [State Management](implementation/state-management.md)
+
+## API Reference 📡
+
+- [OSC Protocol Reference](api/osc-protocol.md)
+- [Animation Core API](api/animation-core.md)
+- [State Management API](api/state-management.md)
+
+## Contributing 🤝
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for:
+- Code of Conduct
+- Development Process
+- Pull Request Guidelines
+- Documentation Standards
+
+## Project Status 📊
+
+- [Development Roadmap](project/roadmap.md)
+- [Current Milestone](project/current-milestone.md)
+- [Known Issues](project/known-issues.md)
+
+## Need Help? 💬
+
+- [FAQ](help/faq.md)
+- [Troubleshooting](help/troubleshooting.md)
+- [Report an Issue](https://github.com/ORGANIZATION/holophonix-animator/issues)
 
 ## Directory Structure 📂
 
 ```
 docs/
-├── architecture/           # System architecture and design documents
-│   ├── current/           # Current system architecture
-│   └── target/            # Target system architecture
-│       ├── CHECKPOINT_V2.md
-│       ├── context-and-goals.md
-│       ├── target-architecture.md
-│       └── diagrams/
-│           ├── state-sync-flow.mmd
-│           ├── state-sync-flow-v2.mmd
-│           └── target-architecture.mmd
-├── assets/                # Documentation assets
-│   └── original_docs/     # Original Holophonix documentation
-├── reference/             # Reference guides and detailed documentation
-│   └── osc.md            # OSC protocol reference
-└── tools/                # Documentation tools
-    └── diagram-viewer.html
+├── project/                 # Project overview and status
+│   ├── context-and-vision.md
+│   ├── roadmap.md
+│   └── current-milestone.md
+├── architecture/           # System architecture and design
+│   ├── overview.md
+│   ├── tech-stack.md
+│   └── diagrams/          # Architecture and flow diagrams
+├── design/                # UI/UX design assets
+│   └── mockups/          # UI mockups and prototypes
+├── core/                  # Core concepts and fundamentals
+│   ├── coordinate-system.md
+│   ├── motion-models.md
+│   └── behaviors.md
+├── development/          # Development guidelines
+│   ├── code-style.md
+│   ├── git-workflow.md
+│   └── testing-guidelines.md
+├── implementation/       # Implementation details
+│   ├── frontend.md
+│   ├── animation-core.md
+│   └── osc-communication.md
+├── api/                 # API documentation
+│   ├── osc-protocol.md
+│   └── animation-core.md
+└── assets/             # Documentation assets
+    └── branding/       # Logo and branding files
 ```
-
-## Quick Links 🔗
-
-### Architecture
-- [Target Architecture](architecture/target/target-architecture.md) - Target system architecture and design
-- [Context and Goals](architecture/target/context-and-goals.md) - System context and objectives
-- [Behavior System](architecture/behavior-system.md) - Behavior system architecture
-- [State Sync Flow](architecture/target/diagrams/state-sync-flow-v2.mmd) - State synchronization flow diagram
-- [Checkpoint V2](architecture/target/CHECKPOINT_V2.md) - Latest architecture checkpoint
-
-### Development
-- [Development Guide](development/README.md) - Development setup and processes
-- [Development Roadmap](development/ROADMAP.md) - Development roadmap and status
-
-### Reference Documentation
-- [OSC Protocol Reference](reference/osc.md) - Comprehensive guide to the OSC protocol implementation
-
-### Component Documentation
-- [Fader Component](components/Fader.md) - Fader component documentation
-
-### Guides
-- Coming soon...
-
-### Examples
-- Coming soon...
-
-## Contributing 🤝
-
-To contribute to this documentation:
-1. Follow the directory structure
-2. Use clear, concise language
-3. Include examples where appropriate
-4. Add links to related documentation
 
 ## License 📄
 
