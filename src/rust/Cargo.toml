@@ -1,0 +1,23 @@
+[package]
+name = "holophonix-animator-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["dewiweb"]
+description = "Core Rust implementation for Holophonix Animator"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tokio = { version = "1.28", features = ["full"] }
+rosc = "0.10"  # For OSC implementation
+napi = { version = "2.12", features = ["async"] }
+napi-derive = "2.12"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+log = "0.4"
+env_logger = "0.10"
+
+[build-dependencies]
+napi-build = "2.0"
