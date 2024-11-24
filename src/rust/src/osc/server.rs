@@ -2,18 +2,25 @@ use std::net::UdpSocket;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use rosc::{OscMessage, OscPacket, OscType};
-use crate::osc::types::{OSCConfig, TrackState, OSCError, OSCErrorType};
+use crate::osc::types::{OSCConfig, OSCError, OSCErrorType, TrackState};
 use crate::osc::protocol::Protocol;
-use crate::osc::handlers::*;
+use crate::state::StateManager;
 
 pub struct OSCServer {
     socket: Arc<Mutex<UdpSocket>>,
     config: OSCConfig,
-    track_states: Arc<Mutex<HashMap<String, TrackState>>>,
+    state_manager: Arc<Mutex<StateManager>>,
 }
 
 impl OSCServer {
     pub fn new(config: OSCConfig) -> Result<Self, OSCError> {
+        return Err(OSCError::new(
+            OSCErrorType::Protocol,
+            "OSCServer::new() is deprecated. Use OSCServer::with_state_manager() instead.".to_string()
+        ));
+    }
+
+    pub fn with_state_manager(config: OSCConfig, state_manager: Arc<Mutex<StateManager>>) -> Result<Self, OSCError> {
         let socket = UdpSocket::bind(format!("{}:{}", config.server_address, config.server_port))
             .map_err(|e| OSCError::new(
                 OSCErrorType::Connection,
@@ -23,7 +30,7 @@ impl OSCServer {
         Ok(Self {
             socket: Arc::new(Mutex::new(socket)),
             config,
-            track_states: Arc::new(Mutex::new(HashMap::new())),
+            state_manager,
         })
     }
 
@@ -50,87 +57,106 @@ impl OSCServer {
     }
 
     async fn handle_message(&self, message: OscMessage) -> Result<(), OSCError> {
-        let addr_parts: Vec<&str> = message.addr.split('/').collect();
-        if addr_parts.len() < 3 {
-            return Err(OSCError::new(
-                OSCErrorType::Protocol,
-                format!("Invalid OSC address format: {}", message.addr)
-            ));
-        }
-
-        let track_id = addr_parts[2].to_string();
-        Protocol::validate_track_id(&track_id)?;
-
-        let mut states = self.track_states.lock().await;
-        let track_state = states.entry(track_id.clone()).or_insert_with(TrackState::default);
-
-        self.handle_message(track_state, message).await?;
-
-        Ok(())
-    }
-
-    async fn handle_message(&self, track_state: &mut TrackState, message: OscMessage) -> Result<(), OSCError> {
+        let track_id = self.extract_track_id(&message.addr)?;
+        let mut state_manager = self.state_manager.lock().await;
+        
+        // Process the message based on its path
         let addr_parts: Vec<&str> = message.addr.split('/').filter(|s| !s.is_empty()).collect();
-        if addr_parts.len() < 2 {
-            return Err(OSCError::new(
-                OSCErrorType::Protocol,
-                "Invalid OSC address".to_string()
-            ));
-        }
-
-        match addr_parts[0] {
-            "track" => self.handle_track_message(track_state, &addr_parts[1..], &message)?,
-            "animation" => self.handle_animation_message(track_state, &addr_parts[1..], &message)?,
+        match addr_parts.get(1) {
+            Some(&"track") => self.handle_track_message(&mut state_manager, &track_id, &addr_parts[2..], &message).await?,
+            Some(&"animation") => self.handle_animation_message(&mut state_manager, &track_id, &addr_parts[2..], &message).await?,
             _ => return Err(OSCError::new(
                 OSCErrorType::Protocol,
-                format!("Unknown OSC address prefix: {}", addr_parts[0])
+                format!("Invalid OSC address: {}", message.addr)
             )),
         }
-
+        
         Ok(())
     }
 
-    fn handle_track_message(&self, track_state: &mut TrackState, addr_parts: &[&str], message: &OscMessage) -> Result<(), OSCError> {
-        if addr_parts.len() < 2 {
-            return Err(OSCError::new(
-                OSCErrorType::Protocol,
-                "Invalid track message address".to_string()
-            ));
-        }
-
-        let track_id = addr_parts[0];
-        Protocol::validate_track_id(track_id)?;
-
-        let handler: Box<dyn MessageHandler> = match addr_parts[1] {
-            "x" | "y" | "z" => Box::new(CartesianHandler::new(addr_parts[1])),
-            "azim" | "elev" | "dist" => Box::new(PolarHandler::new(addr_parts[1])),
-            "gain" => Box::new(GainHandler),
-            "mute" => Box::new(MuteHandler),
-            "color" => Box::new(ColorHandler),
+    async fn handle_track_message(
+        &self,
+        state_manager: &mut StateManager,
+        track_id: &str,
+        addr_parts: &[&str],
+        message: &OscMessage
+    ) -> Result<(), OSCError> {
+        match addr_parts.first() {
+            Some(&"position") => {
+                let float_args = self.get_float_args(&message.args)?;
+                if float_args.len() == 2 {
+                    state_manager.update_track_position(track_id, (float_args[0], float_args[1]))?;
+                    state_manager.notify_track_change(track_id.to_string());
+                }
+            },
+            Some(&"gain") => {
+                let float_args = self.get_float_args(&message.args)?;
+                if float_args.len() == 1 {
+                    let mut track_state = state_manager.track_state().lock().unwrap();
+                    if let Some(track) = track_state.get_track_mut(track_id) {
+                        track.gain = float_args[0];
+                        state_manager.notify_track_change(track_id.to_string());
+                    }
+                }
+            },
             _ => return Err(OSCError::new(
                 OSCErrorType::Protocol,
-                format!("Unknown track parameter: {}", addr_parts[1])
+                "Invalid track parameter".to_string()
             )),
-        };
-
-        handler.handle(track_state, &message.args)
+        }
+        Ok(())
     }
 
-    fn handle_animation_message(&self, track_state: &mut TrackState, addr_parts: &[&str], message: &OscMessage) -> Result<(), OSCError> {
-        if addr_parts.len() < 2 {
-            return Err(OSCError::new(
+    async fn handle_animation_message(
+        &self,
+        state_manager: &mut StateManager,
+        track_id: &str,
+        addr_parts: &[&str],
+        message: &OscMessage
+    ) -> Result<(), OSCError> {
+        match addr_parts.first() {
+            Some(&"create") => {
+                let string_args = self.get_string_args(&message.args)?;
+                if string_args.len() == 2 {
+                    let anim_id = &string_args[0];
+                    let model_type = &string_args[1];
+                    let mut animation_state = state_manager.animation_state().lock().unwrap();
+                    // Create animation based on model_type and parameters
+                    // This is simplified - you'll need to handle different animation models
+                    state_manager.notify_animation_change(anim_id.to_string());
+                }
+            },
+            _ => return Err(OSCError::new(
                 OSCErrorType::Protocol,
-                "Invalid animation message address".to_string()
-            ));
+                "Invalid animation command".to_string()
+            )),
         }
+        Ok(())
+    }
 
-        let handler = AnimationHandler::new(addr_parts[1]);
-        handler.handle(track_state, &message.args)
+    fn get_float_args(&self, args: &[OscType]) -> Result<Vec<f32>, OSCError> {
+        args.iter()
+            .map(|arg| self.get_float_arg(arg))
+            .collect()
+    }
+
+    fn get_string_args(&self, args: &[OscType]) -> Result<Vec<String>, OSCError> {
+        args.iter()
+            .map(|arg| match arg {
+                OscType::String(s) => Ok(s.clone()),
+                _ => Err(OSCError::new(
+                    OSCErrorType::Protocol,
+                    "Invalid string argument type".to_string()
+                )),
+            })
+            .collect()
     }
 
     fn get_float_arg(&self, arg: &OscType) -> Result<f32, OSCError> {
         match arg {
             OscType::Float(f) => Ok(*f),
+            OscType::Double(d) => Ok(*d as f32),
+            OscType::Int(i) => Ok(*i as f32),
             _ => Err(OSCError::new(
                 OSCErrorType::Protocol,
                 "Invalid float argument type".to_string()
@@ -138,13 +164,24 @@ impl OSCServer {
         }
     }
 
-    pub async fn get_track_state(&self, track_id: &str) -> Option<TrackState> {
-        let states = self.track_states.lock().await;
-        states.get(track_id).cloned()
+    fn extract_track_id(&self, path: &str) -> Result<String, OSCError> {
+        let addr_parts: Vec<&str> = path.split('/').collect();
+        if addr_parts.len() < 3 {
+            return Err(OSCError::new(
+                OSCErrorType::Protocol,
+                format!("Invalid OSC address format: {}", path)
+            ));
+        }
+
+        let track_id = addr_parts[2].to_string();
+        Protocol::validate_track_id(&track_id)?;
+
+        Ok(track_id)
     }
 
-    pub async fn get_all_track_states(&self) -> HashMap<String, TrackState> {
-        let states = self.track_states.lock().await;
-        states.clone()
+    pub async fn get_track_state(&self, track_id: &str) -> Option<TrackState> {
+        let state_manager = self.state_manager.lock().await;
+        let track_state = state_manager.track_state().lock().unwrap();
+        track_state.get_track(track_id).cloned()
     }
 }
