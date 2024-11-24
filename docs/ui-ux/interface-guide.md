@@ -11,17 +11,17 @@
   - Connect/Disconnect button
   - Connection status indicator
 
-### 2. Left Sidebar
+### 2. Track List Panel
 - Location: Left sidebar
 - Components:
-  - Track list panel
+  - Track list with hierarchical view
   - Add Track/Group button
   - Track creation form:
     - Name input
     - Type selector (Track/Group)
   - Selection highlighting for active track/group
 
-### 3. Main Content Area
+### 3. Animation Models Panel
 - Location: Center main content area
 - Components:
   - Animation model selector dropdown
@@ -33,31 +33,35 @@
   - Add animation button
   - Applied animations list for selected track/group
 
-### 4. Right Sidebar
+### 4. Animation Parameters Panel
 - Location: Right sidebar
 - Components:
-  - Model-specific parameter panels:
+  - Model-specific parameter panels with appropriate input controls:
     
     #### Linear Movement
-    - Start Position (X, Y, Z)
-    - End Position (X, Y, Z)
-    - Duration slider
+    - Start Position (numerical inputs or faders)
+    - End Position (numerical inputs or faders)
+    - Duration (fader or input field)
+    - Loop Mode (checkbox)
     
     #### Circular Movement
-    - Center Point (X, Y, Z)
-    - Radius slider
-    - Speed control
-    - Direction toggle (CW/CCW)
+    - Center Point (numerical inputs)
+    - Radius (fader or input field)
+    - Speed (fader or input field)
+    - Direction (toggle button)
+    - Continuous (checkbox)
     
     #### Random Movement
-    - Boundary limits (X, Y, Z ranges)
-    - Speed range slider
-    - Update interval control
+    - Bounds (numerical inputs or faders)
+    - Speed Range (fader or input field)
+    - Update Rate (fader or input field)
+    - Seed (numerical input)
     
     #### Custom Path
-    - Path point list
-    - Speed control
-    - Loop behavior selector
+    - Path points (coordinate inputs)
+    - Speed (fader or input field)
+    - Loop Mode (dropdown)
+    - Interpolation Type (dropdown)
 
 ## Interface Layout
 ```
@@ -65,23 +69,24 @@
 │ Connection Panel: IP, Port, Status                              │
 ├───────────────┬───────────────────────┬─────────────────────────┤
 │               │                       │                         │
-│ Left Sidebar  │  Main Content Area    │  Right Sidebar         │
+│ Track List    │  Animation Models     │  Parameters Panel      │
 │               │                       │                         │
-│ [+ Track]     │  [Select Model ▼]     │  Model Parameters      │
-│ [+ Group]     │                       │                         │
-│               │  • Linear             │  X: [-1.0 ──○── 1.0]   │
-│ • Track 1     │  • Circular          │  Y: [-1.0 ──○── 1.0]   │
-│ ▼ Group 1     │  • Random            │  Z: [-1.0 ──○── 1.0]   │
+│ [+ Track]     │  [Select Model ▼]     │  Parameter Controls    │
+│ [+ Group]     │                       │  • Faders              │
+│               │  • Linear             │  • Input Fields        │
+│ • Track 1     │  • Circular          │  • Checkboxes          │
+│ ▼ Group 1     │  • Random            │  • Dropdowns           │
 │   • Track 2   │  • Custom            │                         │
-│   • Track 3   │                       │  Speed: [──○──]        │
+│   • Track 3   │                       │                         │
 │               │  [Add Animation]      │                         │
-│               │                       │  Duration: [──○──]      │
+│               │                       │                         │
 │               │                       │                         │
 │               │  Applied Animations   │                         │
 │               │  • Linear Move [▶]    │                         │
 │               │  • Circular [▶]       │                         │
 │               │                       │                         │
 └───────────────┴───────────────────────┴─────────────────────────┘
+```
 
 ## User Workflow
 
@@ -124,16 +129,17 @@
 ```
 ┌─ Linear Movement Parameters ─┐
 │ Start Position              │
-│ X: [-1.0 ──○── 1.0]        │
-│ Y: [-1.0 ──○── 1.0]        │
-│ Z: [-1.0 ──○── 1.0]        │
+│ X: [   0.5   ] or [──○──]  │
+│ Y: [  -0.3   ] or [──○──]  │
+│ Z: [   0.0   ] or [──○──]  │
 │                            │
 │ End Position               │
-│ X: [-1.0 ──○── 1.0]        │
-│ Y: [-1.0 ──○── 1.0]        │
-│ Z: [-1.0 ──○── 1.0]        │
+│ X: [  -0.5   ] or [──○──]  │
+│ Y: [   0.3   ] or [──○──]  │
+│ Z: [   0.0   ] or [──○──]  │
 │                            │
-│ Duration: [──○──] 5.0s     │
+│ Duration: [5.0] or [──○──] │
+│ [✓] Loop Mode              │
 └────────────────────────────┘
 ```
 
@@ -158,21 +164,32 @@
 - Drag and drop for group organization
 
 ### 2. Parameter Adjustment
-- All parameters update in real-time
-- Sliders for continuous values
-- Input fields for precise values
-- Immediate OSC updates on change
+- Multiple input methods based on parameter type:
+  - Numerical values: Input fields and/or faders
+  - Boolean values: Checkboxes or toggle buttons
+  - Options: Dropdown menus
+  - Coordinates: Input fields with optional fader control
+- Real-time updates for all input methods
+- Parameter validation and bounds checking
+- Visual feedback for changes
 
 ### 3. Animation Control
 - Play/Pause individual animations
 - Quick access to common parameters
 - Visual feedback for active animations
+- Parameter presets support
 
 ### 4. Error Handling
 - Clear error messages in status bar
 - Visual indicators for invalid values
 - Connection status feedback
 - Parameter validation feedback
+
+### 5. Internationalization
+- Language selector in settings
+- Localized UI elements and labels
+- RTL/LTR layout support
+- Localized number formats
 
 ## Keyboard Shortcuts
 - `Ctrl+N`: New Track
@@ -194,3 +211,8 @@
   - Blue: Playing
   - Gray: Paused
   - Red: Error
+- Parameter input:
+  - Bounds indication where applicable
+  - Unit display where applicable
+  - Visual feedback for changes
+  - Clear indication of current value

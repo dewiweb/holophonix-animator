@@ -2,261 +2,157 @@
 
 ## Overview
 
-The React frontend provides the user interface for the Holophonix Animator, implementing a responsive and intuitive interface for track manipulation and animation control.
+The React frontend provides the user interface for the Holophonix Animator, focusing on user interaction, state visualization, and real-time feedback through a modern, theme-switchable interface supporting both light and dark modes.
 
 ## Core Components
 
-### 1. State Management
+### 1. Main Window Components
 
-#### Application State
-```typescript
-interface AppState {
-    tracks: Map<number, Track>;
-    animations: Map<number, Animation>;
-    timeline: TimelineState;
-    ui: UIState;
-}
+#### Title Bar
+- Application title
+- Window controls (minimize, maximize, close)
+- Connection status
 
-// Using Redux Toolkit
-const appSlice = createSlice({
-    name: 'app',
-    initialState,
-    reducers: {
-        updateTrack(state, action: PayloadAction<Track>),
-        updateAnimation(state, action: PayloadAction<Animation>),
-        updateTimeline(state, action: PayloadAction<TimelineState>),
-    }
-});
-```
+#### Control Panel
+- IP address and port configuration
+- Connection management
+- Settings access
+- Additional controls toggle
 
-#### State Synchronization
-- IPC communication with main process
-- Real-time updates
-- Optimistic updates
-- State persistence
+#### Status Bar
+- Connection status
+- Current coordinates
+- Time display
 
-### 2. UI Components
+### 2. Panel Components
 
-#### Track Control
-```typescript
-interface TrackControlProps {
-    trackId: number;
-    position: Position;
-    gain: number;
-    mute: boolean;
-    onPositionChange: (position: Position) => void;
-    onGainChange: (gain: number) => void;
-    onMuteToggle: () => void;
-}
+#### Tracks Panel
+- Track list management
+- Track expansion/collapse
+- Track addition interface
+- Group management
+- Property configuration
 
-const TrackControl: React.FC<TrackControlProps> = ({
-    trackId,
-    position,
-    gain,
-    mute,
-    onPositionChange,
-    onGainChange,
-    onMuteToggle,
-}) => {
-    // Component implementation
-};
-```
+#### Animation Models Panel
+- Available animation models:
+  - Linear Movement
+  - Circular Motion
+  - Random Movement
+  - Path Following
+- Active animations management
+- Playback controls
+- Parameter editing with horizontal faders
+- Real-time parameter adjustment
 
-#### Animation Timeline
-```typescript
-interface TimelineProps {
-    currentTime: number;
-    duration: number;
-    markers: Marker[];
-    onTimeChange: (time: number) => void;
-    onMarkerAdd: (time: number) => void;
-}
-```
+#### Animation Parameters Panel
+- Horizontal parameter faders for numerical adjustments
+- Real-time parameter feedback
+- Parameter bounds visualization
+- Animation model visualization
+- Timeline control and display
 
-#### 3D Visualization
-- Three.js integration
-- Real-time position updates
-- Interactive manipulation
-- Visual feedback
+### 3. Interaction Handling
 
-### 3. User Interaction
+#### User Input Processing
+- Captures and validates connection settings
+- Processes numerical parameters via horizontal faders
+- Handles track modifications
+- Manages timeline interactions
 
-#### Keyboard Shortcuts
-```typescript
-const keyboardShortcuts = {
-    'space': 'Play/Pause',
-    'ctrl+z': 'Undo',
-    'ctrl+shift+z': 'Redo',
-    'delete': 'Delete Selected',
-};
+#### Event Flow
+- Forwards validated commands to Electron main process
+- Receives state updates through IPC
+- Updates visualization in real-time
+- Provides visual feedback for parameter changes
 
-const useKeyboardShortcuts = () => {
-    useEffect(() => {
-        // Keyboard shortcut implementation
-    }, []);
-};
-```
+### 4. Visual Feedback
 
-#### Drag and Drop
-- Track positioning
-- Timeline marker manipulation
-- Asset management
+#### State Visualization
+- Real-time parameter updates
+- Animation model visualization
+- Timeline progress
+- Connection status indicators
+- Parameter fader positions
 
-### 4. Internationalization
-
-#### Language Support
-```typescript
-const messages = {
-    en: {
-        'track.position': 'Position',
-        'track.gain': 'Gain',
-        'track.mute': 'Mute',
-        // ...
-    },
-    fr: {
-        'track.position': 'Position',
-        'track.gain': 'Gain',
-        'track.mute': 'Muet',
-        // ...
-    }
-};
-```
+#### Interactive Elements
+- Horizontal parameter faders
+- Parameter bound indicators
+- Playback controls
+- Expandable panels
+- Smooth fader interactions
 
 ## Performance Optimization
 
 ### 1. Rendering Optimization
-- React.memo for pure components
-- useMemo for expensive calculations
-- useCallback for stable callbacks
-- Virtual scrolling for large lists
+- React.memo for panel components
+- Virtual scrolling for track lists
+- Optimized 2D canvas rendering
+- Efficient timeline rendering
 
 ### 2. State Updates
-```typescript
-// Optimized batch updates
-const batchUpdateTracks = (updates: Track[]) => {
-    dispatch(batchAction({
-        type: 'BATCH_UPDATE_TRACKS',
-        payload: updates
-    }));
-};
-```
+- Batched updates for parameter changes
+- Efficient IPC message handling
+- Optimistic UI updates
+- Smooth animation transitions
 
-### 3. Asset Loading
-- Lazy loading
-- Image optimization
-- Caching strategies
+### 3. Resource Management
+- Lazy loading of panels
+- Efficient canvas rendering
+- Efficient asset caching
+- Memory-conscious timeline handling
 
 ## Error Handling
 
-### 1. Error Boundaries
-```typescript
-class AppErrorBoundary extends React.Component {
-    static getDerivedStateFromError(error: Error) {
-        return { hasError: true, error };
-    }
+### 1. User Input Validation
+- Connection parameter validation
+- Animation model parameter bounds with visual fader limits
+- Track configuration validation
+- Real-time parameter feedback
+- Fader step size validation
 
-    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-        // Log error to service
-    }
+### 2. Visual Error Feedback
+- Connection status indicators
+- Parameter validation highlights
+- Error message displays
+- Recovery suggestions
 
-    render() {
-        if (this.state.hasError) {
-            return <ErrorFallback error={this.state.error} />;
-        }
-        return this.props.children;
-    }
-}
-```
+## Internationalization
 
-### 2. Form Validation
-- Input validation
-- Error messages
-- Visual feedback
+### 1. Language Support
+- English (default)
+- French
+- Dynamic language switching
+- Fallback handling
+- RTL support preparation
 
-## Testing Strategy
+### 2. Translation Management
+- Structured translation keys
+- Context-aware translations
+- Pluralization support
+- Number and date formatting
+- Units conversion handling
 
-### 1. Component Tests
-```typescript
-describe('TrackControl', () => {
-    it('should update position', () => {
-        const onPositionChange = jest.fn();
-        const { getByTestId } = render(
-            <TrackControl
-                trackId={1}
-                position={{ x: 0, y: 0, z: 0 }}
-                onPositionChange={onPositionChange}
-            />
-        );
+### 3. Content Adaptation
+- Dynamic layout adjustments
+- Language-specific formatting
+- Cultural considerations
+- Accessibility compliance
+- Error messages localization
 
-        // Test implementation
-    });
-});
-```
+## Theme System
 
-### 2. Integration Tests
-- User flow testing
-- State management
-- IPC communication
+### 1. Theme Implementation
+- Comprehensive theming system
+- Light and dark mode support
+- Dynamic theme switching
+- System preference detection
+- Theme-specific component styling
+- Consistent color tokens across themes
 
-### 3. Visual Testing
-- Storybook integration
-- Visual regression tests
-- Accessibility testing
-
-## Accessibility
-
-### 1. ARIA Support
-```typescript
-const AccessibleSlider: React.FC<SliderProps> = (props) => {
-    return (
-        <div
-            role="slider"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={props.value}
-            tabIndex={0}
-        >
-            {/* Slider implementation */}
-        </div>
-    );
-};
-```
-
-### 2. Keyboard Navigation
-- Focus management
-- Tab order
-- Shortcut keys
-
-## Theme Support
-
-### 1. Theme Definition
-```typescript
-const theme = {
-    colors: {
-        primary: '#007AFF',
-        secondary: '#5856D6',
-        background: '#FFFFFF',
-        text: '#000000',
-    },
-    spacing: {
-        small: '8px',
-        medium: '16px',
-        large: '24px',
-    },
-    typography: {
-        heading: {
-            fontSize: '24px',
-            fontWeight: 600,
-        },
-        body: {
-            fontSize: '16px',
-            fontWeight: 400,
-        },
-    },
-};
-```
-
-### 2. Theme Switching
-- Light/dark mode
-- Custom themes
-- Dynamic theme loading
+### 2. Visual Hierarchy
+- Clear component separation
+- Intuitive grouping
+- Consistent spacing
+- Focus indicators
+- Accessible contrast ratios
+- Theme-independent visual structure

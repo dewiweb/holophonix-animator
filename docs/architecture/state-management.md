@@ -6,98 +6,56 @@ The Holophonix Animator uses a centralized state management system with Rust at 
 ## Core State Components
 
 ### 1. Connection State
-```rust
-pub struct ConnectionState {
-    remote_ip: String,
-    remote_port: u16,
-    local_ip: String,
-    status: ConnectionStatus,
-    last_error: Option<String>,
-}
-```
+Manages the network connection configuration and status, including:
+- Remote IP and port settings
+- Local IP configuration
+- Connection status tracking
+- Error state management
 
 ### 2. Track Management
-```rust
-pub struct TrackState {
-    tracks: HashMap<TrackId, Track>,
-    groups: HashMap<GroupId, TrackGroup>,
-    selected: Option<SelectionId>,  // Track or group ID
-}
-
-pub struct Track {
-    id: TrackId,
-    name: String,
-    position: Position,
-    animations: Vec<AnimationId>,
-}
-
-pub struct TrackGroup {
-    id: GroupId,
-    name: String,
-    members: Vec<TrackId>,
-    animations: Vec<AnimationId>,
-}
-```
+Handles the organization and state of tracks and groups:
+- Track registry and identification
+- Track properties and attributes
+- Group management and membership
+- Selection state tracking
 
 ### 3. Animation State
-```rust
-pub struct AnimationState {
-    models: HashMap<ModelId, AnimationModel>,
-    active_animations: HashMap<AnimationId, ActiveAnimation>,
-    parameters: HashMap<AnimationId, ModelParameters>,
-}
+Manages all aspects of animation configuration and execution:
+- Animation model registry
+- Active animation tracking
+- Parameter management
+- Target selection (tracks/groups)
 
-pub struct ActiveAnimation {
-    id: AnimationId,
-    model_id: ModelId,
-    target_id: SelectionId,  // ID of the selected track or group
-    state: RunningState,
-}
+#### Animation Models
+Supported animation model types:
+- Linear Movement
+- Circular Movement
+- Random Movement
+- Custom Path Movement
 
-pub enum SelectionId {
-    Track(TrackId),
-    Group(GroupId),
-}
+#### Model Parameters
+Each animation model type has specific parameters:
 
-pub enum AnimationModel {
-    Linear(LinearMovement),
-    Circular(CircularMovement),
-    Random(RandomMovement),
-    Custom(CustomPath),
-}
+**Linear Movement**
+- Start position
+- End position
+- Duration
 
-pub enum ModelParameters {
-    Linear(LinearParams),
-    Circular(CircularParams),
-    Random(RandomParams),
-    Custom(CustomParams),
-}
+**Circular Movement**
+- Center point
+- Radius
+- Speed
+- Rotation direction
 
-pub struct LinearParams {
-    start_position: Position,
-    end_position: Position,
-    duration: Duration,
-}
+**Random Movement**
+- Boundary limits
+- Speed range
+- Update interval
 
-pub struct CircularParams {
-    center: Position,
-    radius: f64,
-    speed: f64,
-    direction: RotationDirection,
-}
-
-pub struct RandomParams {
-    bounds: BoundingBox,
-    speed_range: Range<f64>,
-    update_interval: Duration,
-}
-
-pub struct CustomParams {
-    points: Vec<Position>,
-    speed: f64,
-    loop_behavior: LoopMode,
-}
-```
+**Custom Path**
+- Path points
+- Movement speed
+- Loop behavior
 
 ## State Flow
 
@@ -124,60 +82,22 @@ pub struct CustomParams {
    - Custom Path: path points, speed, loop behavior
 5. Real-time updates via OSC
 
-## Implementation
+## Core Responsibilities
 
 ### Core State (Rust)
-```rust
-pub struct CoreState {
-    connection: ConnectionState,
-    tracks: TrackState,
-    animations: AnimationState,
-    
-    // Performance monitoring
-    metrics: PerformanceMetrics,
-}
+- Connection management
+- Track and group state management
+- Animation processing
+- Parameter validation
+- OSC communication
+- Performance monitoring
 
-impl CoreState {
-    pub fn update_animation_parameter(&mut self, animation_id: AnimationId, param: ParamUpdate) -> Result<(), StateError> {
-        // Update parameter
-        // Recalculate animation
-        // Send OSC update
-    }
-    
-    pub fn add_animation(&mut self, target: SelectionId, model: AnimationModel) -> Result<AnimationId, StateError> {
-        // Create new animation
-        // Initialize parameters
-        // Start if needed
-    }
-}
-```
-
-### UI State (TypeScript)
-```typescript
-interface UIState {
-    // Connection UI
-    connectionForm: {
-        remoteIp: string;
-        remotePort: number;
-        localIp: string;
-    };
-    
-    // Track Management
-    trackForm: {
-        name: string;
-        type: 'single' | 'group';
-    };
-    
-    // Animation UI
-    selectedTrack: string | null;
-    selectedAnimation: string | null;
-    parameterEditors: Record<string, ParamEditor>;
-    
-    // Status
-    errors: ErrorState[];
-    loading: boolean;
-}
-```
+### UI State (React)
+- Form state management
+- Selection tracking
+- Parameter editor states
+- Error display management
+- Loading states
 
 ## Error Handling
 - Connection failures
