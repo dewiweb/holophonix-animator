@@ -1,0 +1,58 @@
+%% TODO: Review and update this diagram to ensure it matches the current implementation and architecture
+
+flowchart TB
+    %% React Frontend Architecture
+    
+    subgraph RF[React Frontend]
+        subgraph SL[State Layer]
+            RS[Redux Store]
+            SS[State Sync]
+            PS[Persistence]
+            RS --> SS
+            SS --> PS
+        end
+
+        subgraph UI[UI Layer]
+            TC[Track Control]
+            TL[Timeline]
+            VZ[Visualization]
+        end
+
+        subgraph IX[Interaction]
+            KM[Keyboard]
+            DM[DragDrop]
+            MM[Mouse]
+            KM --> DM
+            DM --> MM
+        end
+
+        subgraph I18[i18n]
+            LM[Language]
+            TR[Translate]
+            RT[RTL]
+            LM --> TR
+            TR --> RT
+        end
+
+        SL --> UI
+        UI --> IX
+        IX --> SL
+        I18 --> UI
+    end
+
+    IPC[IPC Bridge]
+    BR[Browser APIs]
+    GL[WebGL]
+
+    IPC <--> SL
+    BR <--> IX
+    GL <--> VZ
+
+    %% Styling
+    classDef module fill:#9f9,stroke:#333,stroke-width:2px
+    classDef component fill:#ff9,stroke:#333,stroke-width:2px
+    classDef external fill:#bbf,stroke:#333,stroke-width:2px
+    
+    class SL,UI,IX,I18 module
+    class TC,TL,VZ component
+    class IPC,BR,GL external
