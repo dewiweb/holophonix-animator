@@ -1,0 +1,70 @@
+graph TB
+    %% Electron Main Process Architecture
+    subgraph ElectronMain["Electron Main Process"]
+        subgraph NativeIntegration["Native Module Integration"]
+            RustBridge["Rust Bridge"]
+            ResourceMgr["Resource Manager"]
+            ErrorProp["Error Propagation"]
+            
+            RustBridge --> ResourceMgr
+            ResourceMgr --> ErrorProp
+        end
+
+        subgraph IPCLayer["IPC Communication"]
+            MessageHandler["Message Handler"]
+            ChannelMgr["Channel Manager"]
+            Validator["Message Validator"]
+            
+            MessageHandler --> ChannelMgr
+            ChannelMgr --> Validator
+        end
+
+        subgraph SystemIntegration["System Integration"]
+            ConfigMgr["Configuration Manager"]
+            WindowMgr["Window Manager"]
+            StateManager["State Manager"]
+            
+            ConfigMgr --> WindowMgr
+            WindowMgr --> StateManager
+        end
+
+        subgraph FileSystem["File System Operations"]
+            ProjectMgr["Project Manager"]
+            AssetMgr["Asset Manager"]
+            AutoSave["Auto-Save Handler"]
+            
+            ProjectMgr --> AssetMgr
+            AssetMgr --> AutoSave
+        end
+
+        %% Inter-module Communication
+        NativeIntegration <--> IPCLayer
+        IPCLayer <--> SystemIntegration
+        SystemIntegration <--> FileSystem
+        FileSystem <--> NativeIntegration
+    end
+
+    %% External Connections
+    RustCore["Rust Core (Native)"] <--> |"initAnimator()\nprocessFrame()\ncleanup()"| NativeIntegration
+    Renderer["Renderer Process"] <--> |"IPC Messages\nState Updates"| IPCLayer
+    OS["Operating System"] <--> |"Window Management\nSystem Events"| SystemIntegration
+    Storage["File System"] <--> |"Project Files\nAssets\nBackups"| FileSystem
+
+    %% Message Types
+    MessageTypes["Message Types"] --> IPCLayer
+    subgraph Types
+        StateUpdate["STATE_UPDATE"]
+        AnimControl["ANIMATION_CONTROL"]
+        TrackUpdate["TRACK_UPDATE"]
+        Error["ERROR"]
+    end
+    MessageTypes --> Types
+
+    %% Styling
+    classDef module fill:#f96,stroke:#333,stroke-width:2px
+    classDef external fill:#bbf,stroke:#333,stroke-width:2px
+    classDef types fill:#dfd,stroke:#333,stroke-width:1px
+    
+    class NativeIntegration,IPCLayer,SystemIntegration,FileSystem module
+    class RustCore,Renderer,OS,Storage external
+    class Types,StateUpdate,AnimControl,TrackUpdate,Error types
