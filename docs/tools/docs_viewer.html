@@ -151,6 +151,18 @@
             font-size: 0.9em;
         }
 
+        .doc-item.svg::before {
+            content: "🖼️";  /* SVG icon */
+            margin-right: 8px;
+            font-size: 0.9em;
+        }
+
+        .doc-item.html::before {
+            content: "🌐";  /* HTML icon */
+            margin-right: 8px;
+            font-size: 0.9em;
+        }
+
         /* Main Content Styles */
         .main-content {
             flex: 1;
@@ -266,6 +278,52 @@
             user-select: none;
         }
 
+        /* SVG and HTML Preview Styles */
+        .preview-container {
+            background: var(--bg-color);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px auto;
+            max-width: 100%;
+            overflow: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        .preview-container iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+            background: white;
+        }
+
+        .preview-container svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .preview-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 10px;
+        }
+
+        .preview-toolbar button {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .preview-toolbar button:hover {
+            background: var(--hover-color);
+        }
+
         /* Error Display */
         .error {
             color: #ff6b6b;
@@ -319,19 +377,48 @@
                 const contentDisplay = document.getElementById('contentDisplay');
                 const errorDisplay = document.getElementById('errorDisplay');
                 
-                const response = await fetch(`/read-doc/${encodeURIComponent(path)}`);
-                if (!response.ok) {
-                    throw new Error(`Failed to load document: ${response.statusText}`);
+                const fileExtension = path.split('.').pop().toLowerCase();
+                
+                // Handle different file types
+                if (fileExtension === 'svg') {
+                    const response = await fetch(`/read-file/${encodeURIComponent(path)}`);
+                    if (!response.ok) {
+                        throw new Error(`Failed to load SVG: ${response.statusText}`);
+                    }
+                    const svgContent = await response.text();
+                    
+                    contentDisplay.innerHTML = `
+                        <div class="preview-container">
+                            <div class="preview-toolbar">
+                                <button onclick="window.open('/read-file/${encodeURIComponent(path)}', '_blank')">Open in New Tab</button>
+                                <button onclick="downloadFile('${path}')">Download</button>
+                            </div>
+                            ${svgContent}
+                        </div>
+                    `;
+                } else if (fileExtension === 'html' && path !== window.location.pathname) {
+                    contentDisplay.innerHTML = `
+                        <div class="preview-container">
+                            <div class="preview-toolbar">
+                                <button onclick="window.open('/read-file/${encodeURIComponent(path)}', '_blank')">Open in New Tab</button>
+                                <button onclick="downloadFile('${path}')">Download</button>
+                            </div>
+                            <iframe src="/read-file/${encodeURIComponent(path)}" title="HTML Preview"></iframe>
+                        </div>
+                    `;
+                } else {
+                    const response = await fetch(`/read-doc/${encodeURIComponent(path)}`);
+                    if (!response.ok) {
+                        throw new Error(`Failed to load document: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    contentDisplay.innerHTML = `<div class="markdown-body">${data.content}</div>`;
+                    
+                    // Re-render any mermaid diagrams
+                    mermaid.init(undefined, document.querySelectorAll('.mermaid'));
                 }
                 
-                const data = await response.json();
-                
-                // Save current document
-                currentDoc = path;
-                localStorage.setItem('currentDoc', path);
-                
-                // Update content
-                contentDisplay.innerHTML = `<div class="markdown-body">${data.content}</div>`;
                 errorDisplay.style.display = 'none';
                 
                 // Update active state in sidebar
@@ -339,8 +426,9 @@
                     item.classList.toggle('active', item.getAttribute('data-path') === path);
                 });
                 
-                // Re-render any mermaid diagrams
-                mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+                // Save current document
+                currentDoc = path;
+                localStorage.setItem('currentDoc', path);
                 
             } catch (error) {
                 console.error('Error loading document:', error);
@@ -349,6 +437,17 @@
             }
         }
 
+        // Helper function to download files
+        function downloadFile(path) {
+            const link = document.createElement('a');
+            link.href = `/read-file/${encodeURIComponent(path)}`;
+            link.download = path.split('/').pop();
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Load and display diagram
         async function loadDiagram(path) {
             try {
                 const contentDisplay = document.getElementById('contentDisplay');
@@ -538,7 +637,12 @@
                     if (!sections[section]) {
                         sections[section] = [];
                     }
-                    sections[section].push(doc);
+                    // Update the type based on file extension
+                    const fileType = getFileType(doc.path);
+                    sections[section].push({
+                        ...doc,
+                        type: fileType
+                    });
                 });
                 
                 // Create sections
@@ -547,13 +651,16 @@
                     sectionDiv.className = 'doc-section';
                     sectionDiv.innerHTML = `
                         <div class="doc-section-title">${section.replace('-', ' ').toUpperCase()}</div>
-                        ${docs.map(doc => `
-                            <div class="doc-item ${doc.type}" 
-                                 data-path="${doc.path}"
-                                 onclick="${doc.type === 'diagram' ? 'loadDiagram' : 'loadDocument'}('${doc.path}')">
-                                ${doc.name}
-                            </div>
-                        `).join('')}
+                        ${docs.map(doc => {
+                            const loadFunction = doc.type === 'diagram' ? 'loadDiagram' : 'loadDocument';
+                            return `
+                                <div class="doc-item ${doc.type}" 
+                                     data-path="${doc.path}"
+                                     onclick="${loadFunction}('${doc.path}')">
+                                    ${doc.name}
+                                </div>
+                            `;
+                        }).join('')}
                     `;
                     docTree.appendChild(sectionDiv);
                 });
@@ -562,7 +669,8 @@
                 if (currentDoc) {
                     const doc = docs.find(d => d.path === currentDoc);
                     if (doc) {
-                        if (doc.type === 'diagram') {
+                        const fileType = getFileType(doc.path);
+                        if (fileType === 'diagram') {
                             loadDiagram(doc.path);
                         } else {
                             loadDocument(doc.path);
@@ -571,7 +679,8 @@
                 } else if (docs.length > 0) {
                     // Load first document by default
                     const firstDoc = docs[0];
-                    if (firstDoc.type === 'diagram') {
+                    const fileType = getFileType(firstDoc.path);
+                    if (fileType === 'diagram') {
                         loadDiagram(firstDoc.path);
                     } else {
                         loadDocument(firstDoc.path);
@@ -583,6 +692,15 @@
                 document.getElementById('errorDisplay').textContent = 'Failed to load document list';
                 document.getElementById('errorDisplay').style.display = 'block';
             }
+        }
+
+        // Helper function to determine file type
+        function getFileType(path) {
+            const ext = path.split('.').pop().toLowerCase();
+            if (ext === 'mmd') return 'diagram';
+            if (ext === 'svg') return 'svg';
+            if (ext === 'html') return 'html';
+            return 'doc';
         }
 
         // Initialize on page load

@@ -4,6 +4,7 @@ import json
 import glob
 import markdown
 import re
+import mimetypes
 
 class DocsHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -22,6 +23,8 @@ class DocsHandler(SimpleHTTPRequestHandler):
             self.handle_read_mmd()
         elif self.path.startswith('/read-doc/'):
             self.handle_read_doc()
+        elif self.path.startswith('/read-file/'):
+            self.handle_read_file()
         elif self.path.startswith('/mockup/'):
             self.handle_mockup()
         else:
@@ -157,8 +160,15 @@ class DocsHandler(SimpleHTTPRequestHandler):
     def handle_list_docs(self):
         try:
             docs = []
-            # Get all markdown and mermaid files from docs directory
-            for ext in ['md', 'mmd']:
+            # Get all supported file types from docs directory
+            supported_types = {
+                'md': 'doc',
+                'mmd': 'diagram',
+                'svg': 'svg',
+                'html': 'html'
+            }
+            
+            for ext, file_type in supported_types.items():
                 for file_path in glob.glob(f'docs/**/*.{ext}', recursive=True):
                     # Convert path to use forward slashes
                     file_path = file_path.replace('\\', '/')
@@ -173,7 +183,7 @@ class DocsHandler(SimpleHTTPRequestHandler):
                     docs.append({
                         'path': file_path,
                         'name': name,
-                        'type': 'diagram' if ext == 'mmd' else 'doc'
+                        'type': file_type
                     })
             
             self.send_response(200)
@@ -183,6 +193,36 @@ class DocsHandler(SimpleHTTPRequestHandler):
             
         except Exception as e:
             print(f"Error listing documents: {str(e)}")  # Debug output
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+
+    def handle_read_file(self):
+        try:
+            # Remove /read-file/ prefix and decode the path
+            file_path = self.path[11:]  # len('/read-file/') == 11
+            file_path = file_path.replace('%2F', '/')
+            
+            # Security check: ensure path is within docs directory
+            if not file_path.startswith('docs/') or '..' in file_path:
+                raise ValueError('Invalid file path')
+                
+            # Get the file's mime type
+            mime_type, _ = mimetypes.guess_type(file_path)
+            if not mime_type:
+                mime_type = 'application/octet-stream'
+            
+            with open(file_path, 'rb') as f:
+                content = f.read()
+                
+            self.send_response(200)
+            self.send_header('Content-type', mime_type)
+            self.end_headers()
+            self.wfile.write(content)
+            
+        except Exception as e:
+            print(f"Error reading file: {str(e)}")  # Debug output
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
