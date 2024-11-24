@@ -103,3 +103,15 @@ typings/
 
 # Electron-Forge
 out/
+
+# Rust
+/src/rust/target/
+/src/rust/debug/
+/src/rust/Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# NAPI build artifacts
+/src/rust/index.node
+/src/rust/index.js
+/src/rust/index.d.ts

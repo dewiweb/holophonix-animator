@@ -28,34 +28,34 @@ Note: The input port can be changed in the application settings if it conflicts 
 1. Track Control
 ```
 # Position Control
-/track/{id}/xyz <fff> <x> <y> <z>           # x,y,z: -1.0 to 1.0
-/track/{id}/aed <fff> <azim> <elev> <dist>  # azim: 0-360°, elev: -90-90°, dist: 0-1
+/track/{id}/xyz <fff> <x> <y> <z>           # x,y,z in meters
+/track/{id}/aed <fff> <azim> <elev> <dist>  # azim: 0-360°, elev: -90-90°, dist in meters
 
 # Individual Coordinates
-/track/{id}/x <f> <value>      # X coordinate: -1.0 to 1.0
-/track/{id}/y <f> <value>      # Y coordinate: -1.0 to 1.0
-/track/{id}/z <f> <value>      # Z coordinate: -1.0 to 1.0
+/track/{id}/x <f> <value>      # X coordinate in meters
+/track/{id}/y <f> <value>      # Y coordinate in meters
+/track/{id}/z <f> <value>      # Z coordinate in meters
 /track/{id}/azim <f> <value>   # Azimuth: 0-360°
 /track/{id}/elev <f> <value>   # Elevation: -90-90°
-/track/{id}/dist <f> <value>   # Distance: 0-1
+/track/{id}/dist <f> <value>   # Distance in meters (non-negative)
 
 # Coordinate Pairs
-/track/{id}/xy <ff> <x> <y>    # X,Y coordinates
-/track/{id}/ae <ff> <a> <e>    # Azimuth, Elevation
+/track/{id}/xy <ff> <x> <y>    # X,Y coordinates in meters
+/track/{id}/ae <ff> <a> <e>    # Azimuth (0-360°), Elevation (-90-90°)
 
 # Relative Movement
-/track/{id}/x+ <f> <delta>      # Increment X
-/track/{id}/x- <f> <delta>      # Decrement X
-/track/{id}/y+ <f> <delta>      # Increment Y
-/track/{id}/y- <f> <delta>      # Decrement Y
-/track/{id}/z+ <f> <delta>      # Increment Z
-/track/{id}/z- <f> <delta>      # Decrement Z
-/track/{id}/azim+ <f> <delta>   # Increment azimuth
-/track/{id}/azim- <f> <delta>   # Decrement azimuth
-/track/{id}/elev+ <f> <delta>   # Increment elevation
-/track/{id}/elev- <f> <delta>   # Decrement elevation
-/track/{id}/dist+ <f> <delta>   # Increment distance
-/track/{id}/dist- <f> <delta>   # Decrement distance
+/track/{id}/x+ <f> <delta>      # Increment X by delta meters
+/track/{id}/x- <f> <delta>      # Decrement X by delta meters
+/track/{id}/y+ <f> <delta>      # Increment Y by delta meters
+/track/{id}/y- <f> <delta>      # Decrement Y by delta meters
+/track/{id}/z+ <f> <delta>      # Increment Z by delta meters
+/track/{id}/z- <f> <delta>      # Decrement Z by delta meters
+/track/{id}/azim+ <f> <delta>   # Increment azimuth by delta degrees
+/track/{id}/azim- <f> <delta>   # Decrement azimuth by delta degrees
+/track/{id}/elev+ <f> <delta>   # Increment elevation by delta degrees
+/track/{id}/elev- <f> <delta>   # Decrement elevation by delta degrees
+/track/{id}/dist+ <f> <delta>   # Increment distance by delta meters
+/track/{id}/dist- <f> <delta>   # Decrement distance by delta meters
 
 # Audio Properties
 /track/{id}/gain/value <f> <value>  # Gain in dB (-60 to +12)
