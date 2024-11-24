@@ -1,23 +1,6 @@
 /**
- * OSC Message Types and Interfaces
+ * Core Types for Track State Management
  */
-
-export interface OSCConfig {
-  /** Default port for OSC communication */
-  port: number;
-  /** Host address */
-  host: string;
-  /** Connection timeout in milliseconds */
-  connectionTimeout: number;
-  /** Maximum retry attempts */
-  maxRetries: number;
-  /** Batch size limit for parameter updates */
-  maxBatchSize: number;
-  /** State validation interval in milliseconds */
-  validationInterval: number;
-  /** Query timeout in milliseconds */
-  queryTimeout: number;
-}
 
 export interface CartesianCoordinates {
   /** X coordinate (-1.0 to 1.0) */
@@ -49,9 +32,9 @@ export interface TrackParameters {
   cartesian?: CartesianCoordinates;
   /** Track position in polar coordinates */
   polar?: PolarCoordinates;
-  /** Track gain (-inf to 10.0) */
+  /** Track gain (0.0 to 1.0) */
   gain?: number;
-  /** Track mute state (0 or 1) */
+  /** Track mute state */
   mute?: boolean;
   /** Track name */
   name?: string;
@@ -60,65 +43,19 @@ export interface TrackParameters {
 }
 
 export interface TrackState extends TrackParameters {
-  /** Last update timestamp */
   lastUpdate: Date;
 }
 
-export interface OSCMessage {
-  /** OSC address pattern */
-  address: string;
-  /** Message arguments */
-  args: Array<string | number | boolean>;
-}
-
-export enum OSCErrorType {
-  CONNECTION = 'CONNECTION_ERROR',
-  VALIDATION = 'VALIDATION_ERROR',
-  STATE_SYNC = 'STATE_SYNC_ERROR',
-  STATE_UPDATE = 'STATE_UPDATE_ERROR',
-  PARAMETER = 'PARAMETER_ERROR',
-  TIMEOUT = 'TIMEOUT_ERROR',
-  BATCH = 'BATCH_ERROR'
-}
-
-export interface OSCError {
-  type: OSCErrorType;
-  message: string;
-  retryable: boolean;
-  data?: unknown;
-}
-
-export type MessageType = 'state_response' | 'parameter_update' | 'status_update' | 'error';
-
-export interface OSCIncomingMessage {
-  /** OSC address pattern */
-  address: string;
-  /** Message arguments */
-  args: any[];
-  /** Message type */
-  type: MessageType;
-  /** Track ID if applicable */
-  trackId?: number;
-  /** Parameter name if applicable */
-  parameter?: string;
-  /** Parameter value if applicable */
-  value?: any;
-}
-
-export interface OSCStateUpdate {
+export interface StateUpdate {
   trackId: number;
   parameter: keyof TrackParameters;
   value: any;
   timestamp: Date;
 }
 
-/** Default configuration values */
-export const DEFAULT_OSC_CONFIG: OSCConfig = {
-  port: 4003,
-  host: '127.0.0.1',
-  connectionTimeout: 5000,    // 5 seconds
-  maxRetries: 3,
-  maxBatchSize: 50,          // Maximum messages per batch
-  validationInterval: 5000,   // 5 seconds
-  queryTimeout: 1000         // 1 second
-};
+export interface ErrorInfo {
+  type: 'STATE_SYNC' | 'VALIDATION' | 'STATE_UPDATE';
+  message: string;
+  retryable: boolean;
+  data?: unknown;
+}

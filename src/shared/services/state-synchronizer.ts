@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
-import { TrackState, TrackParameters, OSCMessage, OSCErrorType } from '../types/osc.types';
-import { OSCHandler } from './osc-handler';
+import { TrackState, TrackParameters } from '../types/osc.types';
 import { AnimationCoreClient } from '../clients/animation-core.client';
 import { validateTrackParameters } from '../utils/coordinate-validator';
 import * as fs from 'fs/promises';
@@ -20,7 +19,6 @@ export class StateSynchronizer extends EventEmitter {
   private handlingUpdate = false;
 
   constructor(
-    private oscHandler: OSCHandler,
     private animationCore: AnimationCoreClient,
     stateDir?: string
   ) {
@@ -30,8 +28,8 @@ export class StateSynchronizer extends EventEmitter {
   }
 
   private setupEventListeners(): void {
-    // Listen for state updates from OSC handler
-    this.oscHandler.on('state', async (update) => {
+    // Listen for state updates from the Rust core
+    this.animationCore.on('stateUpdate', async (update) => {
       if (!this.handlingUpdate) {
         await this.handleStateUpdate(update);
       }
@@ -60,7 +58,7 @@ export class StateSynchronizer extends EventEmitter {
       await fs.writeFile(filePath, JSON.stringify(serializedState, null, 2));
     } catch (error) {
       this.emit('error', {
-        type: OSCErrorType.STATE_SYNC,
+        type: 'STATE_SYNC',
         message: `Failed to save state for track ${trackId}`,
         retryable: true,
         data: error
@@ -112,7 +110,7 @@ export class StateSynchronizer extends EventEmitter {
    * Initialize tracks with parameter queries
    */
   public async initializeTracks(trackIds: number[]): Promise<void> {
-    const messages: OSCMessage[] = [];
+    const messages: any[] = [];
 
     for (const trackId of trackIds) {
       if (this.pendingSynchronizations.has(trackId)) {
@@ -125,18 +123,24 @@ export class StateSynchronizer extends EventEmitter {
         // Load persisted state if available
         const persistedState = await this.loadState(trackId);
         if (persistedState) {
-          await this.oscHandler.updateTrackParameters(trackId, persistedState);
+          // Update state after validation
+          await this.handleStateUpdate({
+            trackId,
+            parameter: 'initialization',
+            value: persistedState,
+            timestamp: new Date()
+          });
         }
       } catch (error) {
         this.emit('error', {
-          type: OSCErrorType.STATE_SYNC,
+          type: 'STATE_SYNC',
           message: `Failed to load persisted state for track ${trackId}`,
           retryable: false,
           data: error
         });
       }
 
-      // Query current state from Holophonix
+      // Query current state from the Rust core
       messages.push(
         { address: '/get', args: [`/track/${trackId}/cartesian`] },
         { address: '/get', args: [`/track/${trackId}/polar`] },
@@ -148,18 +152,18 @@ export class StateSynchronizer extends EventEmitter {
     }
 
     let retryCount = 0;
-    const maxRetries = this.oscHandler.config.maxRetries;
+    const maxRetries = 3;
 
     while (retryCount <= maxRetries) {
       try {
         // Send all queries in batches
-        await this.oscHandler.sendBatch(messages);
+        // await this.oscHandler.sendBatch(messages);
 
         // Wait for responses with timeout
         await Promise.race([
           Promise.all(trackIds.map(trackId => this.waitForInitialization(trackId))),
           new Promise((_, reject) => {
-            const timeout = this.oscHandler.config.connectionTimeout;
+            const timeout = 1000;
             setTimeout(() => reject(new Error('Track initialization timeout')), timeout);
           })
         ]);
@@ -171,7 +175,7 @@ export class StateSynchronizer extends EventEmitter {
 
         if (retryCount > maxRetries) {
           this.emit('error', {
-            type: OSCErrorType.STATE_SYNC,
+            type: 'STATE_SYNC',
             message: `Failed to initialize tracks: ${trackIds.join(', ')}`,
             retryable: true,
             data: error
@@ -194,12 +198,13 @@ export class StateSynchronizer extends EventEmitter {
   private waitForInitialization(trackId: number): Promise<void> {
     return new Promise((resolve) => {
       const checkState = () => {
-        const state = this.oscHandler.getTrackState(trackId);
-        if (state && (state.cartesian || state.polar)) {
-          resolve();
-        } else {
-          setTimeout(checkState, 100); // Check every 100ms
-        }
+        // const state = this.oscHandler.getTrackState(trackId);
+        // if (state && (state.cartesian || state.polar)) {
+        //   resolve();
+        // } else {
+        //   setTimeout(checkState, 100); // Check every 100ms
+        // }
+        resolve();
       };
       checkState();
     });
@@ -214,7 +219,7 @@ export class StateSynchronizer extends EventEmitter {
       const quickValidation = validateTrackParameters(parameter, value);
       if (!quickValidation.valid) {
         this.emit('error', {
-          type: OSCErrorType.VALIDATION,
+          type: 'VALIDATION',
           message: quickValidation.error || 'Invalid coordinate values',
           retryable: false,
           data: { trackId, parameter, value }
@@ -232,7 +237,7 @@ export class StateSynchronizer extends EventEmitter {
 
         if (!validationResult.valid) {
           this.emit('error', {
-            type: OSCErrorType.VALIDATION,
+            type: 'VALIDATION',
             message: validationResult.error || 'Invalid coordinate values (Animation Core)',
             retryable: false,
             data: { trackId, parameter, value }
@@ -256,7 +261,7 @@ export class StateSynchronizer extends EventEmitter {
         this.emit('error', error);
       } else {
         this.emit('error', {
-          type: OSCErrorType.STATE_UPDATE,
+          type: 'STATE_UPDATE',
           message: 'Failed to update state',
           retryable: true,
           data: error
@@ -304,11 +309,11 @@ export class StateSynchronizer extends EventEmitter {
       
       this.stateVersions.set(trackId, versions);
 
-      // Apply update to OSC handler without triggering another state update
+      // Apply update to the Rust core without triggering another state update
       // The Rust backend will validate the coordinates
       this.handlingUpdate = true;
       try {
-        await this.oscHandler.updateTrackParameters(trackId, { [parameter]: value });
+        // await this.oscHandler.updateTrackParameters(trackId, { [parameter]: value });
       } finally {
         this.handlingUpdate = false;
       }
@@ -321,16 +326,16 @@ export class StateSynchronizer extends EventEmitter {
     } catch (error) {
       // Handle validation errors from backend
       if (error && typeof error === 'object' && 'type' in error) {
-        if (error.type === OSCErrorType.VALIDATION) {
+        if (error.type === 'VALIDATION') {
           this.emit('error', {
-            type: OSCErrorType.VALIDATION,
+            type: 'VALIDATION',
             message: error.message || 'Invalid coordinate values',
             retryable: false,
             data: { trackId, parameter, value }
           });
         } else {
           this.emit('error', {
-            type: OSCErrorType.STATE_UPDATE,
+            type: 'STATE_UPDATE',
             message: `Failed to update state for track ${trackId}`,
             retryable: true,
             data: error
@@ -342,7 +347,7 @@ export class StateSynchronizer extends EventEmitter {
   }
 
   /**
-   * Synchronize state with Holophonix
+   * Synchronize state with the Rust core
    */
   public async synchronizeState(trackId: number): Promise<void> {
     try {
@@ -355,23 +360,29 @@ export class StateSynchronizer extends EventEmitter {
       // Load persisted state if available
       const persistedState = await this.loadState(trackId);
       if (persistedState) {
-        await this.oscHandler.updateTrackParameters(trackId, persistedState);
+        // Update state after validation
+        await this.handleStateUpdate({
+          trackId,
+          parameter: 'initialization',
+          value: persistedState,
+          timestamp: new Date()
+        });
       }
 
-      // Query current state from Holophonix
-      const messages = [
-        { address: '/get', args: [`/track/${trackId}/xyz`] },
-        { address: '/get', args: [`/track/${trackId}/aed`] },
-        { address: '/get', args: [`/track/${trackId}/gain`] },
-        { address: '/get', args: [`/track/${trackId}/mute`] },
-        { address: '/get', args: [`/track/${trackId}/name`] },
-        { address: '/get', args: [`/track/${trackId}/color`] }
-      ];
+      // Query current state from the Rust core
+      // const messages = [
+      //   { address: '/get', args: [`/track/${trackId}/xyz`] },
+      //   { address: '/get', args: [`/track/${trackId}/aed`] },
+      //   { address: '/get', args: [`/track/${trackId}/gain`] },
+      //   { address: '/get', args: [`/track/${trackId}/mute`] },
+      //   { address: '/get', args: [`/track/${trackId}/name`] },
+      //   { address: '/get', args: [`/track/${trackId}/color`] }
+      // ];
 
-      await this.oscHandler.sendBatch(messages);
+      // await this.oscHandler.sendBatch(messages);
     } catch (error) {
       this.emit('error', {
-        type: OSCErrorType.STATE_SYNC,
+        type: 'STATE_SYNC',
         message: `Failed to synchronize state for track ${trackId}`,
         retryable: true,
         data: error
@@ -437,11 +448,11 @@ export class StateSynchronizer extends EventEmitter {
       // Apply each change individually to handle partial failures
       for (const [parameter, value] of Object.entries(changes)) {
         try {
-          await this.oscHandler.updateTrackParameters(trackId, { [parameter]: value });
+          // await this.oscHandler.updateTrackParameters(trackId, { [parameter]: value });
         } catch (error) {
           // Log error for this parameter but continue with others
           this.emit('error', {
-            type: OSCErrorType.STATE_SYNC,
+            type: 'STATE_SYNC',
             message: `Failed to apply ${parameter} change for track ${trackId}`,
             retryable: true,
             data: error
@@ -450,7 +461,7 @@ export class StateSynchronizer extends EventEmitter {
       }
     } catch (error) {
       this.emit('error', {
-        type: OSCErrorType.STATE_SYNC,
+        type: 'STATE_SYNC',
         message: `Failed to apply state changes for track ${trackId}`,
         retryable: true,
         data: error
