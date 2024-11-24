@@ -9,15 +9,7 @@ The Electron main process serves as the bridge between the Rust core and the ren
 ### 1. Native Module Integration
 
 #### Rust Bridge
-```typescript
-interface RustBridge {
-    initAnimator(): Promise<void>;
-    processFrame(): void;
-    cleanup(): void;
-}
-
-const rustBridge = require('../native');
-```
+The Rust bridge provides core functionality for animation processing, including initialization, frame processing, and cleanup operations.
 
 #### Resource Management
 - Native module lifecycle management
@@ -27,20 +19,7 @@ const rustBridge = require('../native');
 ### 2. IPC Communication
 
 #### Message Types
-```typescript
-interface IPCMessage {
-    type: string;
-    payload: any;
-    timestamp: number;
-}
-
-enum MessageType {
-    STATE_UPDATE = 'state-update',
-    ANIMATION_CONTROL = 'animation-control',
-    TRACK_UPDATE = 'track-update',
-    ERROR = 'error',
-}
-```
+The application uses a structured message system for IPC communication, handling state updates, animation control, track updates, and error reporting.
 
 #### Channel Management
 - Bidirectional communication with renderer
@@ -50,14 +29,7 @@ enum MessageType {
 ### 3. System Integration
 
 #### Configuration Management
-```typescript
-interface AppConfig {
-    oscPort: number;
-    language: 'en' | 'fr';
-    theme: 'light' | 'dark';
-    autoSave: boolean;
-}
-```
+The application configuration handles OSC port settings, language preferences, theme selection, and auto-save functionality.
 
 #### Window Management
 - Window creation and lifecycle
@@ -79,17 +51,7 @@ interface AppConfig {
 ## Process Communication
 
 ### 1. Renderer Communication
-```typescript
-// IPC handlers
-ipcMain.handle('animation:start', async (event, animationId) => {
-    try {
-        await rustBridge.startAnimation(animationId);
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-});
-```
+The main process handles IPC events for animation control, state management, and error handling between the renderer and native modules.
 
 ### 2. Native Module Communication
 - Async operation handling
@@ -99,20 +61,7 @@ ipcMain.handle('animation:start', async (event, animationId) => {
 ## Error Handling
 
 ### 1. Error Types
-```typescript
-enum ErrorType {
-    RUST_ERROR = 'rust-error',
-    IPC_ERROR = 'ipc-error',
-    SYSTEM_ERROR = 'system-error',
-}
-
-interface AppError {
-    type: ErrorType;
-    message: string;
-    stack?: string;
-    metadata?: any;
-}
-```
+The application handles various error categories including Rust errors, IPC errors, and system errors, each with specific handling strategies.
 
 ### 2. Error Recovery
 - Graceful shutdown
@@ -146,14 +95,7 @@ interface AppError {
 ## Testing Strategy
 
 ### 1. Unit Tests
-```typescript
-describe('Animation Control', () => {
-    it('should start animation', async () => {
-        const result = await ipcMain.invoke('animation:start', 1);
-        expect(result.success).toBe(true);
-    });
-});
-```
+Unit tests cover core functionality including animation control, IPC communication, and error handling.
 
 ### 2. Integration Tests
 - IPC communication testing
