@@ -2,7 +2,7 @@
 
 ## Overview
 
-Animation Models form the core behavioral components of the Holophonix Animator. Each model defines specific movement patterns and behaviors for spatial audio positioning, with precise mathematical foundations and configurable parameters. The capability to operate in specific coordinate systems (AED/XYZ) and dimensions (1D/2D/3D) is determined by the intrinsic nature of each animation model.
+Animation Models form the core behavioral components of the Holophonix Animator. Each model defines specific movement patterns and behaviors for spatial audio positioning, with precise mathematical foundations and configurable parameters. Models can be applied to both individual tracks and track groups, with behavior determined by track relationships and coordinate system constraints.
 
 ## Model Architecture
 
@@ -18,6 +18,7 @@ All animation models adhere to a common interface that ensures consistent behavi
    - Interpolation control
    - Coordinate system capabilities declaration
    - Dimensional capabilities declaration
+   - Group application support
 
 2. **State Management**
    - State retrieval and updates
@@ -27,6 +28,7 @@ All animation models adhere to a common interface that ensures consistent behavi
    - Interpolation state
    - Coordinate system state
    - Dimensional state
+   - Group state handling
 
 3. **Parameter Handling**
    - Parameter updates and validation
@@ -35,6 +37,7 @@ All animation models adhere to a common interface that ensures consistent behavi
    - Mode-specific settings
    - Coordinate-specific validations
    - Dimension-specific validations
+   - Group parameter sharing
 
 ### Common Components
 
@@ -48,6 +51,7 @@ Each model implements:
    - Interpolation progress tracking
    - Coordinate system handling
    - Dimensional handling
+   - Group relationship preservation
 
 2. **Parameter Validation**
    - Range checking
@@ -57,6 +61,7 @@ Each model implements:
    - Mode compatibility checks
    - Coordinate system compatibility
    - Dimensional compatibility
+   - Relationship-specific constraints
 
 3. **Update Logic**
    - Position calculation
@@ -66,20 +71,50 @@ Each model implements:
    - Interpolation updates
    - Coordinate transformations (if supported)
    - Dimensional transformations (if supported)
+   - Group position propagation
 
-4. **Interpolation System**
-   - Start position interpolation
-   - End position interpolation
-   - Smooth transitions
-   - Easing functions
-   - Progress tracking
+### Group Application Support
 
-5. **Cycle Management**
-   - One-shot mode handling
-   - Cyclic mode handling
-   - Completion detection
-   - Transition management
-   - State cleanup
+Models support application to track groups with specific behaviors:
+
+1. **Center-Based Application**
+   - Model applied to center/leader
+   - Position updates propagate to members
+   - Relationship preservation during movement
+   - Synchronized position updates
+
+2. **Relationship Types**
+   - Leader-Follower support
+     - Direct model application to leader
+     - Follower position calculation
+     - Offset preservation
+   - Isobarycentric support
+     - Virtual center calculation
+     - Formation preservation
+     - Weight management
+   - As Individuals support
+     - Shared parameter values
+     - Relative positioning only
+     - Synchronized movement
+
+3. **Parameter Sharing**
+   - Group-wide parameter application
+   - Relationship-specific constraints
+   - Coordinate system limitations
+   - Synchronized updates
+
+### Coordinate System Support
+
+1. **Individual Track Application**
+   - Full coordinate system access
+   - Mode selection flexibility
+   - Dimensional freedom
+
+2. **Group Application**
+   - Leader-Follower: Full access for leader
+   - Isobarycentric: Full access for center
+   - As Individuals: Relative positioning only
+   - Relationship-specific constraints
 
 ## Built-in Models
 
