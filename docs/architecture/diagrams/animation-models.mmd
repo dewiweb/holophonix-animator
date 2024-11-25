@@ -1,0 +1,134 @@
+graph TB
+    %% Animation Models Architecture [WIP]
+    subgraph Models["Animation Models"]
+        subgraph BaseModel["Base Model Interface"]
+            CoreBehavior["Core Behavior"]
+            StateManagement["State Management"]
+            ParameterHandling["Parameter Handling"]
+            ValidationSystem["Validation System"]
+        end
+
+        subgraph BuiltInModels["Built-in Models"]
+            subgraph Linear["Linear Movement"]
+                LinearState["State"]
+                LinearParams["Parameters"]
+                LinearCalc["Position Calculator"]
+                LinearInterp["Interpolator"]
+                LinearLoop["Loop Handler"]
+            end
+
+            subgraph Circular["Circular Movement"]
+                CircularState["State"]
+                CircularParams["Parameters"]
+                CircularCalc["Position Calculator"]
+                PhaseManager["Phase Manager"]
+                CircularLoop["Loop Handler"]
+            end
+
+            subgraph Random["Random Movement"]
+                RandomState["State"]
+                RandomParams["Parameters"]
+                RandomCalc["Position Calculator"]
+                BoundaryManager["Boundary Manager"]
+                Smoothing["Smoothing System"]
+            end
+
+            subgraph CustomPath["Custom Path"]
+                PathState["State"]
+                PathParams["Parameters"]
+                PathCalc["Path Calculator"]
+                PathInterp["Path Interpolator"]
+                PathLoop["Loop Handler"]
+            end
+        end
+
+        subgraph Composite["Model Composition"]
+            ModelRegistry["Model Registry"]
+            WeightSystem["Weight System"]
+            BlendSystem["Blend System"]
+            CompositeState["Composite State"]
+        end
+    end
+
+    subgraph Common["Common Components"]
+        subgraph State["State System"]
+            Position["Position"]
+            Velocity["Velocity"]
+            Timing["Timing"]
+            ModelState["Model State"]
+        end
+
+        subgraph Parameters["Parameter System"]
+            ParamTypes["Parameter Types"]
+            Validation["Validation"]
+            Constraints["Constraints"]
+            Defaults["Defaults"]
+        end
+
+        subgraph Update["Update System"]
+            DeltaTime["Delta Time"]
+            Calculation["Calculation"]
+            EventGen["Event Generation"]
+            ErrorHandle["Error Handling"]
+        end
+    end
+
+    subgraph Integration["Integration Points"]
+        subgraph StateInt["State Integration"]
+            Serialization["Serialization"]
+            Recovery["Recovery"]
+            Config["Configuration"]
+        end
+
+        subgraph EventInt["Event Integration"]
+            PosUpdate["Position Updates"]
+            StateChange["State Changes"]
+            ParamMod["Parameter Modifications"]
+            ErrorEvent["Error Events"]
+        end
+
+        subgraph OSCInt["OSC Integration"]
+            Broadcast["Position Broadcast"]
+            Control["Control Messages"]
+            Sync["Synchronization"]
+        end
+    end
+
+    %% Base Model Connections
+    CoreBehavior --> StateManagement
+    StateManagement --> ParameterHandling
+    ParameterHandling --> ValidationSystem
+
+    %% Model Implementation Connections
+    Linear --> BaseModel
+    Circular --> BaseModel
+    Random --> BaseModel
+    CustomPath --> BaseModel
+
+    %% Common Component Connections
+    State --> BaseModel
+    Parameters --> BaseModel
+    Update --> BaseModel
+
+    %% Integration Connections
+    StateInt --> State
+    EventInt --> Update
+    OSCInt --> Position
+
+    %% Composite Model Connections
+    ModelRegistry --> BuiltInModels
+    WeightSystem --> BlendSystem
+    BlendSystem --> Position
+
+    %% Styling for Dark Mode
+    classDef interface fill:#2c3e50,stroke:#95a5a6,stroke-width:2px,color:#fff
+    classDef model fill:#8e44ad,stroke:#d2b4de,stroke-width:2px,color:#fff
+    classDef component fill:#2980b9,stroke:#7fb3d5,stroke-width:1px,color:#fff
+    classDef system fill:#27ae60,stroke:#82e0aa,stroke-width:1px,color:#fff
+    classDef integration fill:#c0392b,stroke:#f1948a,stroke-width:1px,color:#fff
+
+    class BaseModel interface
+    class Linear,Circular,Random,CustomPath,Composite model
+    class Position,Velocity,Timing,ModelState,ParamTypes,Validation,Constraints,Defaults,DeltaTime,Calculation,EventGen,ErrorHandle component
+    class State,Parameters,Update,StateInt,EventInt,OSCInt system
+    class Serialization,Recovery,Config,PosUpdate,StateChange,ParamMod,ErrorEvent,Broadcast,Control,Sync integration

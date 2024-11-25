@@ -1,0 +1,148 @@
+graph TB
+    %% Animation Engine Architecture [WIP]
+    subgraph AnimationEngine["Animation Engine"]
+        subgraph ThreadManagement["Thread Management"]
+            ComputeThread["Computation Thread"]
+            CommThread["Communication Thread"]
+            BridgeThread["Bridge Thread"]
+            ThreadPool["Thread Pool"]
+            ThreadSync["Thread Synchronization"]
+        end
+
+        subgraph Manager["Animation Manager"]
+            LifecycleManager["Lifecycle Manager"]
+            ModelRegistry["Model Registry"]
+            Scheduler["Scheduler"]
+            ResourceManager["Resource Manager"]
+        end
+
+        subgraph Models["Animation Models"]
+            subgraph LinearModel["Linear Movement"]
+                LinearCalc["Position Calculator"]
+                LinearInterp["Interpolator"]
+                LinearEasing["Easing Functions"]
+            end
+
+            subgraph CircularModel["Circular Movement"]
+                CircularCalc["Position Calculator"]
+                RadiusManager["Radius Manager"]
+                PhaseManager["Phase Manager"]
+            end
+
+            subgraph RandomModel["Random Movement"]
+                RandomCalc["Position Calculator"]
+                BoundaryManager["Boundary Manager"]
+                PatternGenerator["Pattern Generator"]
+            end
+
+            subgraph CustomModel["Custom Path"]
+                PathCalc["Path Calculator"]
+                CurveManager["Curve Manager"]
+                PathValidator["Path Validator"]
+            end
+
+            subgraph AnimationStack["Animation Stack"]
+                AM1["Animation Model 1"]
+                AM2["Animation Model 2"]
+                AM3["Animation Model 3"]
+                AM1 --> |Output| AM2
+                AM2 --> |Output| AM3
+            end
+        end
+
+        subgraph Computation["Computation Engine"]
+            VectorEngine["Vector Engine"]
+            InterpEngine["Interpolation Engine"]
+            TimingSystem["Timing System"]
+            CoordTransform["Coordinate Transform"]
+            PerformanceMonitor["Performance Monitor"]
+        end
+
+        subgraph Parameters["Parameter System"]
+            ParamRegistry["Parameter Registry"]
+            Validator["Value Validator"]
+            Constraints["Constraints Manager"]
+            UnitConverter["Unit Converter"]
+        end
+
+        subgraph Events["Event System"]
+            Dispatcher["Event Dispatcher"]
+            CallbackRegistry["Callback Registry"]
+            EventQueue["Event Queue"]
+            PriorityManager["Priority Manager"]
+        end
+
+        subgraph ErrorHandling["Error Handling"]
+            ErrorDispatcher["Error Dispatcher"]
+            RecoveryManager["Recovery Manager"]
+            ErrorLogger["Error Logger"]
+        end
+    end
+
+    %% External Rust Components
+    subgraph StateManager["State Management"]
+        StateSync["State Sync"]
+        ConfigManager["Config Manager"]
+        PersistenceLayer["Persistence Layer"]
+    end
+
+    subgraph OSCLayer["OSC Layer"]
+        OSCServer["OSC Server"]
+        OSCClient["OSC Client"]
+        ProtocolHandler["Protocol Handler"]
+    end
+
+    subgraph Bridge["N-API Bridge"]
+        DataMarshalling["Data Marshalling"]
+        AsyncHandler["Async Handler"]
+        CallbackManager["Callback Manager"]
+    end
+
+    %% Internal Connections
+    ComputeThread --> Models
+    ComputeThread --> Computation
+    CommThread --> Events
+    BridgeThread --> ErrorHandling
+    ThreadPool --> ComputeThread
+    ThreadPool --> CommThread
+    ThreadPool --> BridgeThread
+    ThreadSync --> ThreadPool
+
+    LifecycleManager --> ModelRegistry
+    ModelRegistry --> Scheduler
+    Scheduler --> ResourceManager
+
+    Models --> Computation
+    Computation --> Parameters
+    Parameters --> Events
+    Events --> ErrorHandling
+
+    %% External Component Connections
+    %% State Management
+    StateSync --> Manager
+    StateSync --> Parameters
+    ConfigManager --> Models
+    PersistenceLayer --> ResourceManager
+
+    %% OSC Layer
+    OSCServer --> Events
+    OSCClient <--> Computation
+    ProtocolHandler --> Parameters
+
+    %% Bridge
+    DataMarshalling --> Parameters
+    AsyncHandler --> Events
+    CallbackManager --> ErrorHandling
+
+    %% Styling for Dark Mode
+    classDef module fill:#4a235a,stroke:#c39bd3,stroke-width:2px,color:#fff
+    classDef submodule fill:#1a5276,stroke:#85c1e9,stroke-width:1px,color:#fff
+    classDef component fill:#212f3c,stroke:#5499c7,stroke-width:1px,color:#fff
+    classDef external fill:#154360,stroke:#5dade2,stroke-width:1px,stroke-dasharray:5 5,color:#fff
+    classDef thread fill:#145a32,stroke:#82e0aa,stroke-width:1px,color:#fff
+
+    class AnimationEngine module
+    class Manager,Models,Computation,Parameters,Events,ErrorHandling,ThreadManagement submodule
+    class LifecycleManager,ModelRegistry,Scheduler,ResourceManager,LinearCalc,LinearInterp,LinearEasing,CircularCalc,RadiusManager,PhaseManager,RandomCalc,BoundaryManager,PatternGenerator,PathCalc,CurveManager,PathValidator,VectorEngine,InterpEngine,TimingSystem,CoordTransform,PerformanceMonitor,ParamRegistry,Validator,Constraints,UnitConverter,Dispatcher,CallbackRegistry,EventQueue,PriorityManager,ErrorDispatcher,RecoveryManager,ErrorLogger component
+    class StateManager,OSCLayer,Bridge external
+    class ComputeThread,CommThread,BridgeThread,ThreadPool,ThreadSync thread
