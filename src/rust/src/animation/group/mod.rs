@@ -1,11 +1,13 @@
 mod relationship;
 mod formation;
+mod animation;
 
 use std::collections::HashMap;
 use crate::models::Position;
 
 pub use relationship::{Relationship, RelationshipType};
 pub use formation::{Formation, FormationType};
+pub use animation::{AnimationGroup, AnimationGroupManager};
 
 /// Manages track groups and their relationships
 pub struct GroupManager {

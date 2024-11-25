@@ -3,6 +3,8 @@ pub mod models;
 pub mod interpolation;
 pub mod cycle;
 pub mod timeline;
+pub mod animation_group;
+pub mod animation_timeline;
 
 use std::sync::{Arc, Mutex};
 use crate::state::StateManager;
@@ -54,6 +56,9 @@ impl AnimationEngine {
         Ok(())
     }
 }
+
+pub use group::{AnimationGroup, AnimationGroupManager};
+pub use timeline::{AnimationTimeline, TimelineManager};
 
 #[cfg(test)]
 mod tests {
