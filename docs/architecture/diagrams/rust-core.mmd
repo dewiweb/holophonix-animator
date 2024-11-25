@@ -1,135 +1,82 @@
-graph TB
+flowchart TB
     %% Rust Core Architecture
     subgraph RustCore["Rust Core"]
-        subgraph OSCLayer["OSC Communication Layer"]
-            subgraph Server["OSC Server"]
-                OSCServer["Server Socket"]
-                IncomingHandler["Message Handler"]
-                ServerValidator["Message Validator"]
-                StateUpdater["State Updater"]
-                ErrorHandler["Error Handler"]
-                ControlAppHandler["Control App Handler"]
-            end
-
-            subgraph Client["OSC Client"]
-                OSCClient["Client Socket"]
-                RetryManager["Retry Manager"]
-                MessageQueue["Message Queue"]
-                BundleHandler["Bundle Handler"]
-                QueryHandler["Query Handler"]
-                BatchProcessor["Batch Processor"]
-                ClientErrorHandler["Error Handler"]
-                ControlAppResponder["Control App Responder"]
-            end
-
-            subgraph Protocol["Protocol Handler"]
-                MessageParser["Message Parser"]
-                TypeChecker["Type Checker"]
-                ValueValidator["Value Validator"]
-                AddressMapper["Address Mapper"]
-                ArgumentBuilder["Argument Builder"]
-                ControlAppProtocol["Control App Protocol"]
-            end
-
-            %% Server internal connections
+        subgraph OSCLayer["OSC Layer"]
+            OSCServer["Server Socket"]
+            IncomingHandler["Message Handler"]
+            ServerValidator["Message Validator"]
+            StateUpdater["State Updater"]
+            ErrorHandler["Error Handler"]
+            OSCClient["Client Socket"]
+            RetryManager["Retry Manager"]
+            MessageQueue["Message Queue"]
+            Protocol["Protocol Handler"]
+            
             OSCServer --> IncomingHandler
             IncomingHandler --> ServerValidator
             ServerValidator --> Protocol
             Protocol --> StateUpdater
-            IncomingHandler --> ErrorHandler
-            ServerValidator --> ErrorHandler
-            IncomingHandler --> ControlAppHandler
-            ControlAppHandler --> Protocol
-            ControlAppHandler --> ControlAppProtocol
-
-            %% Client internal connections
             OSCClient --> RetryManager
             RetryManager --> MessageQueue
-            MessageQueue --> BundleHandler
-            MessageQueue --> BatchProcessor
-            OSCClient --> QueryHandler
-            BundleHandler --> Protocol
-            QueryHandler --> Protocol
-            BatchProcessor --> Protocol
-            OSCClient --> ClientErrorHandler
-            RetryManager --> ClientErrorHandler
-            OSCClient --> ControlAppResponder
-            ControlAppResponder --> Protocol
-            ControlAppResponder --> ControlAppProtocol
+            MessageQueue --> Protocol
         end
 
-        subgraph NativeBridge["Native Bridge (N-API)"]
+        subgraph NativeBridge["Native Bridge"]
             FFILayer["FFI Interface"]
             DataMarshalling["Data Marshalling"]
             ErrorPropagation["Error Propagation"]
             CallbackRegistry["Callback Registry"]
-            AsyncHandler["Async Handler"]
             
             FFILayer --> DataMarshalling
             DataMarshalling --> ErrorPropagation
             FFILayer --> CallbackRegistry
-            CallbackRegistry --> AsyncHandler
         end
 
         subgraph StateManagement["State Management"]
             StateStore["State Store"]
-            StateSync["State Synchronization"]
-            StatePersistence["State Persistence"]
+            StateSync["State Sync"]
+            GroupState["Group State"]
+            FormationState["Formation State"]
             
             StateStore --> StateSync
-            StateSync --> StatePersistence
+            StateStore --> GroupState
+            GroupState --> FormationState
         end
 
         subgraph AnimationEngine["Animation Engine"]
-            Timeline["Timeline Manager"]
-            MotionModels["Motion Models"]
-            AnimProcessor["Animation Processor"]
+            GroupManager["Group Manager"]
+            AnimModels["Animation Models"]
+            InterpolationSystem["Interpolation"]
+            CycleManager["Cycle Manager"]
+            Timeline["Timeline"]
             
-            Timeline --> MotionModels
-            MotionModels --> AnimProcessor
+            GroupManager --> AnimModels
+            AnimModels --> InterpolationSystem
+            InterpolationSystem --> CycleManager
+            CycleManager --> Timeline
         end
 
         %% Inter-module Communication
-        Protocol <--> StateManagement
-        StateManagement <--> AnimationEngine
-        AnimationEngine <--> NativeBridge
-        StateManagement <--> NativeBridge
-        StateManagement --> Client
-        AnimationEngine --> Client
-        
-        %% N-API specific connections
-        NativeBridge --> OSCLayer
-        OSCLayer --> NativeBridge
+        Protocol --> StateManagement
+        StateManagement --> AnimationEngine
+        AnimationEngine --> NativeBridge
+        StateManagement --> NativeBridge
+        StateManagement --> OSCClient
+        AnimationEngine --> OSCClient
     end
 
     %% External Connections
-    HolophonixIn[("Holophonix Input")] --> OSCServer
-    OSCClient --> HolophonixOut[("Holophonix Output")]
-    ElectronMain["Electron Main Process"] <--> NativeBridge
+    Holophonix["Holophonix"] --> OSCServer
+    OSCClient --> Holophonix
+    ElectronMain["Electron Main"] --> NativeBridge
 
-    %% External Control Apps
-    subgraph ExternalApps["External Control Applications"]
-        TouchOSC["TouchOSC"]
-        MaxMSP["Max/MSP"]
-        PureData["Pure Data"]
-        CustomOSC["Custom OSC Apps"]
-    end
-
-    %% External Apps Connections (Unidirectional)
-    TouchOSC --> |"Animation Control"| OSCServer
-    MaxMSP --> |"Animation Control"| OSCServer
-    PureData --> |"Animation Control"| OSCServer
-    CustomOSC --> |"Animation Control"| OSCServer
+    %% Control Apps
+    TouchOSC["TouchOSC"] --> OSCServer
+    MaxMSP["Max/MSP"] --> OSCServer
+    PureData["Pure Data"] --> OSCServer
 
     %% Styling
-    classDef module fill:#41B883,stroke:#333,stroke-width:2px,color:#fff
-    classDef submodule fill:#34495E,stroke:#41B883,stroke-width:1px,color:#fff
-    classDef component fill:#2C3E50,stroke:#41B883,stroke-width:1px,color:#fff
-    classDef external fill:#1E1E1E,stroke:#41B883,stroke-width:2px,color:#fff
-    classDef externalApps fill:#2C3E50,stroke:#41B883,stroke-width:2px,color:#fff
+    classDef default fill:#2C3E50,stroke:#41B883,color:#fff
+    classDef external fill:#1E1E1E,stroke:#41B883,color:#fff
     
-    class OSCLayer,StateManagement,AnimationEngine,NativeBridge module
-    class Server,Client,Protocol submodule
-    class OSCServer,IncomingHandler,ServerValidator,StateUpdater,ErrorHandler,OSCClient,RetryManager,MessageQueue,BundleHandler,QueryHandler,BatchProcessor,ClientErrorHandler,MessageParser,TypeChecker,ValueValidator,AddressMapper,ArgumentBuilder,FFILayer,DataMarshalling,ErrorPropagation,CallbackRegistry,AsyncHandler,ControlAppHandler,ControlAppResponder,ControlAppProtocol component
-    class HolophonixIn,HolophonixOut,ElectronMain external
-    class TouchOSC,MaxMSP,PureData,CustomOSC,ExternalApps externalApps
+    class Holophonix,ElectronMain,TouchOSC,MaxMSP,PureData external
