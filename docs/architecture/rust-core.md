@@ -51,20 +51,74 @@ Key features:
 - Command validation for control apps
 - Error reporting and handling
 
-### 2. External Control Applications
+### 2. Animation Engine
 
-The Rust core accepts unidirectional OSC messages from various external control applications:
+The Animation Engine provides high-performance, deterministic animation calculations for spatial audio positioning.
 
-- **TouchOSC**: Mobile/tablet control interface
-- **Max/MSP**: Audio/visual programming environment
-- **Pure Data**: Multimedia programming environment
-- **Custom OSC Apps**: Other OSC-compatible applications
+#### Animation Manager
+Core responsibilities:
+- Animation lifecycle management
+- Model registration and instantiation
+- Group and relationship coordination
+- Animation scheduling
+- Resource management
+- Performance optimization
+- Error handling and recovery
 
-External apps can send animation control commands such as:
-- Animation playback control (play/pause/stop)
-- Animation state management (active/inactive)
-- Loop mode control
-- Playback speed adjustment
+#### Group System
+Components:
+- Group Manager
+  - Pattern-based group creation (`[start-end]`, `{track1,track2,...}`)
+  - Relationship type management
+  - Center-based animations
+  - Position synchronization
+- Relationship Manager
+  - Leader-Follower implementation
+  - Isobarycentric relationships
+  - As Individuals mode
+  - Formation maintenance
+
+#### Animation Models
+Provides a modular system for different animation behaviors:
+- Base Model Interface
+  - Behavior control
+  - State management
+  - Parameter handling
+  - Group support
+- Common Components
+  - State tracking
+  - Interpolation
+  - Parameter validation
+  - Coordinate system handling
+- Model Types
+  - Linear Movement
+  - Circular Movement
+  - Pattern Movement
+  - Custom Path Movement
+
+#### Interpolation System
+Handles smooth transitions for all position changes:
+- Start-up interpolation
+  - Absolute mode transition
+  - Relative mode handling
+- Stop behavior
+  - Clean interruption
+  - Return to initial position
+- Movement control
+  - Speed/duration
+  - Update frequency
+  - Smoothing functions
+
+#### Animation Cycle Manager
+Controls animation execution modes:
+- Cyclic Mode
+  - Continuous repetition
+  - Seamless transitions
+  - Loop tracking
+- One-shot Mode
+  - Single execution
+  - Auto-completion
+  - Return behavior
 
 ### 3. State Management
 
@@ -75,6 +129,8 @@ Manages:
 - Timeline state
 - System configuration
 - Runtime parameters
+- Group relationships
+- Formation states
 
 #### State Synchronization
 Features:
@@ -83,93 +139,70 @@ Features:
 - State persistence
 - Recovery mechanisms
 - Change notification system
+- Group state coordination
+- Formation preservation
 
-### 4. Animation Engine
+### 4. Computation Engine
 
-#### Timeline Management
-Features:
-- Time tracking and synchronization
-- Marker management
-- Track synchronization
-- State transitions
-- Playback control
+Handles mathematical calculations and optimizations:
 
-#### Motion Models
-Capabilities:
-- Position calculations (AED/XYZ)
-- Interpolation algorithms
-- Velocity and acceleration handling
-- Path optimization
-- Coordinate system transformations
+#### Vector Operations
+- Position calculations
+- Velocity computations
+- Acceleration handling
+- Formation geometry
+- Center point tracking
 
-#### Animation Processing
-Features:
-- Real-time parameter updates
-- Frame-accurate timing
-- Performance optimization
-- State interpolation
-- Motion smoothing
+#### Optimization Features
+- SIMD operations
+- Cache optimization
+- Memory pooling
+- Batch processing
+- Lock-free algorithms
 
-### 5. Native Bridge (N-API)
-
-#### FFI Interface
-Features:
-- Safe FFI boundary
-- Context management
-- Resource handling
-- Error propagation
-- Event system
-
-#### Data Marshalling
-Capabilities:
-- Zero-copy when possible
-- Type conversion
-- Error handling and propagation
-- Asynchronous operation support
-- Callback registry for JavaScript functions
+#### Group Calculations
+- Center point computation
+- Formation maintenance
+- Position propagation
+- Relationship preservation
+- Synchronized updates
 
 ## Performance Considerations
 
-### 1. Memory Management
-- Custom allocators for real-time operations
-- Memory pooling for frequent allocations
-- Zero-copy message parsing
-- Efficient buffer management for OSC messages
-- Resource cleanup and recycling
+### 1. Computation Efficiency
+- Optimized animation calculations
+- Efficient state synchronization
+- Minimal memory allocation
+- Cache-friendly data structures
+- Batch processing support
+- Formation calculations
+- Group synchronization
 
-### 2. Concurrency
+### 2. Memory Management
+- Resource pooling
+- Smart pointer usage
+- Efficient state updates
+- Minimal cloning
+- Memory mapping for large datasets
+- Formation state caching
+- Group state optimization
+
+### 3. Concurrency
 - Lock-free algorithms where possible
-- Thread pool for message handling
-- Async I/O for network operations
-- Message queuing and batching
-- Resource contention management
+- Efficient thread synchronization
+- Work stealing scheduler
+- Async I/O operations
+- Thread pool management
+- Group update batching
+- Formation update coordination
 
-### 3. Error Handling
+### 4. Error Handling
 - Comprehensive error types
-- Error recovery strategies
-- Logging and monitoring
+- Recovery strategies
 - Graceful degradation
-- Error reporting and notification
+- Error propagation
+- Logging and monitoring
+- Group state recovery
+- Formation restoration
 
-## Integration Points
-
-### 1. Holophonix Communication
-- Bidirectional OSC messaging
-- Parameter querying
-- State synchronization
-- Error recovery
-- Connection management
-
-### 2. External Control
-- Unidirectional message reception
-- Animation control protocol
-- Command validation
-- State updates
-- Error handling
-
-### 3. Electron Integration
-- N-API bindings
-- Event system
-- Configuration management
-- Resource handling
-- Process lifecycle management
+*Last Updated: 2024-11-25*

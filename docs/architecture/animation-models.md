@@ -38,6 +38,7 @@ All animation models adhere to a common interface that ensures consistent behavi
    - Coordinate-specific validations
    - Dimension-specific validations
    - Group parameter sharing
+   - Relationship constraints
 
 ### Common Components
 
@@ -69,8 +70,8 @@ Each model implements:
    - Event generation
    - Error handling
    - Interpolation updates
-   - Coordinate transformations (if supported)
-   - Dimensional transformations (if supported)
+   - Coordinate transformations
+   - Dimensional transformations
    - Group position propagation
 
 ### Group Application Support
@@ -87,15 +88,18 @@ Models support application to track groups with specific behaviors:
    - Leader-Follower support
      - Direct model application to leader
      - Follower position calculation
-     - Offset preservation
+     - Position offset maintenance
+     - Time offset parameters
    - Isobarycentric support
      - Virtual center calculation
      - Formation preservation
      - Weight management
+     - Center point updates
    - As Individuals support
      - Shared parameter values
      - Relative positioning only
      - Synchronized movement
+     - Spatial separation preservation
 
 3. **Parameter Sharing**
    - Group-wide parameter application
@@ -106,9 +110,10 @@ Models support application to track groups with specific behaviors:
 ### Coordinate System Support
 
 1. **Individual Track Application**
-   - Full coordinate system access
+   - Full coordinate system access (AED/XYZ)
    - Mode selection flexibility
-   - Dimensional freedom
+   - Dimensional freedom (1D/2D/3D)
+   - Coordinate transformations
 
 2. **Group Application**
    - Leader-Follower: Full access for leader
@@ -135,12 +140,13 @@ Implements straight-line motion between points with configurable parameters.
 - Full spatial movement in 3D
 
 #### Parameters
-- Start and end positions (dimension-appropriate)
+- Start and end positions
 - Duration or velocity
 - Easing function selection
-- Loop mode configuration
+- Loop mode (cyclic/one-shot)
 - Interpolation settings
 - Dimensional constraints
+- Group behavior options
 
 ### 2. Circular Movement
 
@@ -156,37 +162,42 @@ Implements circular or elliptical motion around a center point.
 - Inherently 2D movement
 - Can be extended to 3D with elevation
 - 1D operation not supported
+- Group formation preservation
 
 #### Parameters
 - Center point coordinates
 - Radius and shape ratio
 - Angular velocity
 - Phase and direction
-- Cycle mode settings
+- Cycle mode (cyclic/one-shot)
 - Elevation for 3D (optional)
+- Formation parameters
+- Group behavior options
 
-### 3. Random Movement
+### 3. Pattern Movement
 
-Implements controlled random movement within defined boundaries.
+Implements predefined movement patterns with group support.
 
 #### Characteristics
-- Bounded random motion
-- Smooth transitions
-- Configurable randomness
-- Predictable seeding
+- Pattern-based movement
+- Formation preservation
+- Group synchronization
+- Scaling support
 - Position interpolation
-- Coordinate system agnostic
-- Supports 1D, 2D, and 3D movement
-- Dimension-specific boundary handling
-- Scale-aware randomization
+- Coordinate system flexible
+- Supports 2D and 3D
+- Formation adaptation
+- Group center tracking
 
 #### Parameters
-- Boundary definitions (per dimension)
-- Speed range limits
-- Direction change frequency
-- Smoothing configuration
-- Cycle behavior settings
-- Dimensional constraints
+- Pattern definition
+- Scale parameters
+- Formation rules
+- Synchronization settings
+- Group behavior options
+- Center point tracking
+- Position constraints
+- Update frequency
 
 ### 4. Custom Path Movement
 
@@ -198,234 +209,42 @@ Implements movement along a user-defined path with automatic smoothing.
 - Variable speed control
 - Loop management
 - Position interpolation
-- Coordinate system determined by path definition
-- Dimensional capabilities based on path definition
-- Path complexity adapts to dimensions
-- Supports 1D, 2D, and 3D paths
+- Coordinate system flexible
+- Formation preservation
+- Group path adaptation
 
 #### Parameters
-- Path point definitions (dimension-appropriate)
-- Speed configuration
-- Smoothing method selection
-- Path tension control
-- Cycle mode settings
-- Dimensional constraints
+- Path definition points
+- Velocity control
+- Loop behavior
+- Smoothing settings
+- Formation parameters
+- Group behavior options
+- Position constraints
+- Update frequency
 
-## Future Model Types
+## Performance Optimization
 
-The animation engine is designed to be extensible, allowing for the addition of more sophisticated models based on natural phenomena and physical behaviors.
+### 1. Computation Efficiency
+- Pre-calculated values
+- Optimized algorithms
+- Memory efficiency
+- Cache optimization
+- Group calculation batching
+- Position update batching
 
-### Planned Models
+### 2. Resource Management
+- Memory pooling
+- State caching
+- Efficient updates
+- Group synchronization
+- Formation preservation
 
-#### 1. Natural Behavior Models
+### 3. Error Handling
+- Parameter validation
+- State verification
+- Recovery procedures
+- Group consistency
+- Formation maintenance
 
-Models that simulate behaviors observed in nature:
-
-##### Boids (Flocking Behavior)
-- **Characteristics**
-  - Group movement coordination
-  - Emergent collective behavior
-  - Based on three basic rules:
-    - Separation: avoid crowding neighbors
-    - Alignment: steer towards average heading
-    - Cohesion: steer towards average position
-  - Natural in XYZ coordinate system
-  - Inherently 2D or 3D operation
-  - Group-aware state management
-
-##### Brownian Motion
-- **Characteristics**
-  - Random walk with physical properties
-  - Temperature-dependent movement
-  - Particle collision simulation
-  - Coordinate system agnostic
-  - Supports 1D, 2D, and 3D movement
-  - Statistical movement patterns
-
-#### 2. Physical Behavior Models
-
-Models based on physics simulations:
-
-##### Spring System
-- **Characteristics**
-  - Mass-spring dynamics
-  - Damping control
-  - Natural oscillation
-  - Force-based movement
-  - Coordinate system agnostic
-  - Full 3D physical simulation
-
-##### Particle System
-- **Characteristics**
-  - Multiple particle interaction
-  - Force field effects
-  - Emission patterns
-  - Life cycle management
-  - Natural in XYZ
-  - 2D or 3D operation
-
-### Extension Considerations
-
-#### Group Behavior Support
-1. **State Management**
-   - Group state tracking
-   - Individual state tracking
-   - Relationship management
-   - Hierarchy handling
-   - Conflict resolution
-
-2. **Performance Optimization**
-   - Spatial partitioning
-   - Neighbor search optimization
-   - Parallel computation
-   - State synchronization
-   - Group update scheduling
-
-3. **Parameter System Extensions**
-   - Group-level parameters
-   - Individual overrides
-   - Relationship parameters
-   - Environmental parameters
-   - Behavioral weights
-
-#### Physical Simulation Support
-1. **Core Extensions**
-   - Physics engine integration
-   - Force system management
-   - Collision detection
-   - Constraint solving
-   - Time step management
-
-2. **Performance Considerations**
-   - Physics calculation optimization
-   - Multi-threading support
-   - State prediction
-   - Collision optimization
-   - Memory pooling
-
-## Model Composition
-
-Models can be composed to create complex behaviors through:
-
-### Composition Mechanisms
-1. **Sequential Composition**
-   - Ordered model execution
-   - Transition management
-   - State preservation
-   - Interpolation handling
-   - Coordinate system compatibility checks
-   - Dimensional compatibility checks
-
-2. **Parallel Composition**
-   - Simultaneous model execution
-   - Weight-based blending
-   - State synchronization
-   - Interpolation blending
-   - Coordinate system alignment
-   - Dimensional alignment
-
-3. **Hierarchical Composition**
-   - Nested model structures
-   - Priority management
-   - State inheritance
-   - Mode propagation
-   - Coordinate system inheritance
-   - Dimensional inheritance
-
-## Integration Points
-
-### State Management
-- Model state serialization
-- Parameter persistence
-- State recovery
-- Configuration management
-- Interpolation state handling
-- Coordinate system state management
-- Dimensional state management
-
-### Event Generation
-- Position updates
-- State changes
-- Parameter modifications
-- Error conditions
-- Cycle completion events
-- Coordinate system transitions
-- Dimensional transitions
-
-### OSC Integration
-- Position broadcasting
-- Parameter updates
-- Control messages
-- Synchronization
-- Mode change notifications
-- Coordinate system conversions
-- Dimensional adaptations
-
-## Performance Considerations
-
-### Optimization Strategies
-1. **Computation Efficiency**
-   - Pre-calculated values
-   - Optimized algorithms
-   - Memory efficiency
-   - Cache optimization
-   - Interpolation caching
-   - Coordinate transformation optimization
-   - Dimensional transformation optimization
-
-2. **Memory Management**
-   - Minimal allocation
-   - State pooling
-   - Buffer reuse
-   - Compact representations
-   - Interpolation buffers
-   - Coordinate system caching
-   - Dimensional state caching
-
-### Thread Safety
-- Immutable parameters
-- Atomic state updates
-- Lock-free operations
-- Thread-local computations
-- Safe mode transitions
-- Safe coordinate transformations
-- Safe dimensional transformations
-
-## Extension Points
-
-### Custom Model Development
-1. **Model Definition**
-   - State structure
-   - Parameter specification
-   - Behavior definition
-   - Integration requirements
-   - Mode support
-   - Coordinate system capabilities
-   - Dimensional capabilities
-
-2. **Registration System**
-   - Model registration
-   - Factory pattern integration
-   - Version management
-   - Dependency resolution
-   - Mode configuration
-   - Coordinate system declaration
-   - Dimensional capabilities declaration
-
-### Parameter System
-- Dynamic parameter registration
-- Type-safe parameter updates
-- Validation rules
-- Default values
-- Mode-specific defaults
-- Coordinate-specific constraints
-- Dimension-specific constraints
-
-### Event System
-- Custom event types
-- Event filtering
-- Priority handling
-- Cycle notifications
-- Mode change events
-- Coordinate system events
-- Dimensional change events
+*Last Updated: 2024-11-25*

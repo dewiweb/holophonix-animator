@@ -22,10 +22,18 @@ Components and responsibilities:
 ### 2. Group Manager
 
 Handles track group operations and relationships:
-- Group creation from track patterns
+- Pattern-based group creation
+  - Range syntax: `[start-end]`
+  - Set syntax: `{track1,track2,...}`
+  - Multiple pattern combination
 - Relationship type management
+  - Leader-Follower implementation
+  - Isobarycentric relationships
+  - As Individuals mode
 - Center-based animation handling
-- Position synchronization
+  - Virtual center calculation
+  - Formation preservation
+  - Position synchronization
 - Group-wide parameter management
 - Formation maintenance
 
@@ -36,23 +44,80 @@ Manages track relationships within groups:
   - Leader track management
   - Follower position calculations
   - Offset maintenance
+  - Time offset parameters
 - Isobarycentric relationship
   - Virtual center calculation
   - Formation preservation
   - Weight management
+  - Center point updates
 - As Individuals relationship
   - Shared parameter application
   - Relative position maintenance
   - Synchronized updates
+  - Spatial separation preservation
 
-### 4. Animation Models
+### 4. Position Interpolation System
 
-The engine supports various animation models, each implementing specific movement patterns and behaviors. Models can be applied to:
-- Individual tracks
-- Group centers (leader/virtual)
-- Track groups with shared parameters
+Handles smooth transitions for all position changes:
 
-### 5. Computation Engine
+#### Start-up Interpolation
+- Absolute Mode:
+  - Initial position capture
+  - Smooth transition to start position
+  - Pre-animation interpolation
+  - Transition completion detection
+- Relative Mode:
+  - Direct animation start
+  - No initial interpolation
+  - Immediate model application
+
+#### Stop Behavior
+- Animation Stop:
+  - Clean interruption
+  - Return interpolation initiation
+  - Position history tracking
+- Return to Initial:
+  - Smooth return path
+  - Consistent movement speed
+  - Position monitoring
+  - Completion detection
+
+#### Interpolation Control
+- Movement parameters:
+  - Speed/duration control
+  - Update frequency
+  - Smoothing functions
+  - Coordinate handling
+- State tracking:
+  - Progress monitoring
+  - Position updates
+  - Transition status
+  - Error handling
+
+### 5. Animation Cycle Manager
+
+Manages animation cycle modes and execution:
+
+#### Mode Types
+- Cyclic Mode:
+  - Continuous repetition
+  - Seamless transitions
+  - Loop count tracking
+  - Stop condition handling
+- One-shot Mode:
+  - Single execution
+  - Auto-completion
+  - Return behavior
+  - Clean termination
+
+#### Execution Control
+- Mode switching
+- Cycle tracking
+- Progress monitoring
+- State management
+- Error handling
+
+### 6. Computation Engine
 
 The computation engine handles all mathematical calculations required for animations.
 
@@ -73,157 +138,6 @@ Key features:
 - Performance monitoring
 - Group synchronization
 - Formation preservation
-
-### 6. Parameter System
-
-Manages all configurable aspects of animations.
-
-Components:
-- Parameter registry
-- Value validation
-- Range constraints
-- Default values
-- Unit conversion
-- Group parameter sharing
-- Relationship-specific constraints
-
-Parameters types:
-- Spatial coordinates
-- Time values
-- Speed settings
-- Acceleration values
-- Custom parameters
-- Group relationships
-- Formation parameters
-
-### 7. Synchronization System
-
-Handles timing and synchronization of animations.
-
-Features:
-- Global clock management
-- Animation scheduling
-- Frame timing
-- Event synchronization
-- External sync support
-- Group position synchronization
-- Center-based update propagation
-
-## Position Processing
-
-### Individual Track Processing
-- Direct model application
-- Independent parameter control
-- Individual position updates
-
-### Group Processing
-1. Center-based relationships (Leader-Follower, Isobarycentric):
-   - Model applied to center/leader
-   - Position updates propagate to members
-   - Relationship preservation during movement
-   - Synchronized position sending
-
-2. As Individuals relationship:
-   - Shared model parameters
-   - Relative positioning only
-   - Independent movement calculation
-   - Synchronized position updates
-
-### Coordinate Systems
-1. For individual tracks:
-   - Full coordinate system access
-   - Mode selection flexibility
-
-2. For groups:
-   - Leader-Follower: Full access for leader
-   - Isobarycentric: Full access for center
-   - As Individuals: Relative only
-
-## Animation Model Application
-
-### Model Selection and Assignment
-
-1. **User Model Selection**
-   - Model chosen through UI
-   - Single model per track (basic case)
-   - Model parameters configurable in UI
-   - Model assigned to specific track
-
-2. **Model Configuration**
-   - Model type identification
-   - Parameter validation
-   - Behavior mode setting (relative/absolute)
-   - Starting position configuration
-
-### Model Processing Pipeline
-
-1. **Model Initialization**
-   - Load selected model type
-   - Apply user configurations
-   - Initialize model parameters
-   - Set up calculation context
-
-2. **Track Association**
-   - Link model to target track
-   - Verify track compatibility
-   - Establish processing context
-   - Prepare state management
-
-3. **Execution Setup**
-   - Configure processing parameters
-   - Set up timing framework
-   - Initialize position calculations
-   - Prepare output handling
-
-### Processing Flow
-
-```
-User Selection → Model Config → Track Association → Execution
-     ↓              ↓               ↓                 ↓
-Model Choice    Parameters     Track Binding      Animation
-     ↓              ↓               ↓                 ↓
-UI Input       Validation     State Setup        Processing
-```
-
-### State Management
-
-1. **Model State**
-   - Current model type
-   - Model parameters
-   - Execution status
-   - Calculation context
-
-2. **Track State**
-   - Track identifier
-   - Current position
-   - Model association
-   - Animation status
-
-3. **Processing State**
-   - Execution phase
-   - Timing information
-   - Position updates
-   - Output status
-
-### Group Model Application
-
-1. **Group Model Selection**
-   - Model chosen through UI
-   - Single model per group (basic case)
-   - Model parameters configurable in UI
-   - Model assigned to specific group
-
-2. **Group Model Configuration**
-   - Model type identification
-   - Parameter validation
-   - Behavior mode setting (relative/absolute)
-   - Starting position configuration
-
-3. **Group Model Processing**
-   - Model applied to group center
-   - Position updates propagate to members
-   - Relationship preservation during movement
-   - Synchronized position sending
 
 ## Performance Considerations
 
@@ -350,4 +264,4 @@ UI Input       Validation     State Setup        Processing
    - Parameter inheritance
    - Chain validation
 
-Note: These additional aspects ensure robust animation execution, proper error handling, and efficient resource utilization. They also prepare the engine for future extensions like model chaining and group animations.
+*Last Updated: 2024-11-25*

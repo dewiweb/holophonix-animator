@@ -1,112 +1,164 @@
 # State Management
 
 ## Overview
-The Holophonix Animator uses a centralized state management system with Rust at its core, handling real-time animations and OSC communication while React manages the UI state.
+The Holophonix Animator implements a high-performance state management system with Rust at its core. The system handles real-time animations, OSC communication, and group relationships while React manages the UI state.
 
 ## Core State Components
 
 ### 1. Connection State
-Manages the network connection configuration and status, including:
-- Remote IP and port settings
-- Local IP configuration
-- Connection status tracking
-- Error state management
+Manages bidirectional OSC communication:
+- Remote device configuration
+  - IP address and port settings
+  - Protocol version
+  - Device capabilities
+- Connection monitoring
+  - Status tracking
+  - Latency measurement
+  - Error detection
+  - Auto-recovery
 
-### 2. Track Management
-Handles the organization and state of tracks and groups:
-- Track registry and identification
-- Track properties and attributes
-- Group management and membership
-- Selection state tracking
+### 2. Track and Group Management
+
+#### Track Registry
+- Unique track identification
+- Position state (AED/XYZ)
+- Track properties
+  - Name and metadata
+  - Type information
+  - Active state
+  - Animation bindings
+
+#### Group System
+- Pattern-based group creation
+- Relationship management
+  - Leader-Follower bindings
+  - Isobarycentric relationships
+  - Formation patterns
+- Group hierarchies
+  - Nested groups
+  - Inheritance rules
+  - Priority resolution
+- Center-based animations
+  - Group center tracking
+  - Relative positioning
+  - Formation maintenance
 
 ### 3. Animation State
-Manages all aspects of animation configuration and execution:
-- Animation model registry
-- Active animation tracking
-- Parameter management
-- Target selection (tracks/groups)
+
+#### Animation Registry
+- Model registration
+- Instance management
+- Resource allocation
+- Performance monitoring
 
 #### Animation Models
-Supported animation model types:
-- Linear Movement
-- Circular Movement
-- Random Movement
-- Custom Path Movement
-
-#### Model Parameters
-Each animation model type has specific parameters:
+Supported model types with deterministic behavior:
 
 **Linear Movement**
-- Start position
-- End position
-- Duration
+- Start/end positions
+- Duration and timing
+- Easing functions
+- Group coordination
 
 **Circular Movement**
-- Center point
-- Radius
-- Speed
-- Rotation direction
+- Center point tracking
+- Radius management
+- Angular velocity
+- Formation preservation
+- Group rotation
 
-**Random Movement**
-- Boundary limits
-- Speed range
-- Update interval
+**Pattern Movement**
+- Pattern definition
+- Scaling parameters
+- Group synchronization
+- Formation rules
 
 **Custom Path**
-- Path points
-- Movement speed
-- Loop behavior
+- Path definition
+- Velocity control
+- Group path following
+- Formation adaptation
+
+#### Parameter Management
+- Real-time updates
+- Validation rules
+- Group parameter inheritance
+- State interpolation
+- Batch processing
 
 ## State Flow
 
-### 1. Connection Flow
-1. User inputs connection parameters
-2. System attempts connection
-3. Connection state updated
-4. UI reflects connection status
+### 1. Connection Management
+1. Configuration validation
+2. Connection establishment
+3. Protocol negotiation
+4. State synchronization
+5. Error recovery
 
-### 2. Track Management Flow
-1. User adds track/group via form
-2. Core validates and stores track
-3. UI updates track list
-4. Selection state managed
+### 2. Track and Group Operations
+1. Track/group creation
+2. Relationship establishment
+3. State validation
+4. Position synchronization
+5. Group behavior coordination
 
-### 3. Animation Flow
-1. User selects track/group from tracklist
-2. Chooses animation model from selector
-3. Animation is applied to selected track or group
-4. Model-specific parameters are configurable in real-time:
-   - Linear Movement: start position, end position, duration
-   - Circular Movement: center point, radius, speed, direction
-   - Random Movement: boundary limits, speed range, update interval
-   - Custom Path: path points, speed, loop behavior
-5. Real-time updates via OSC
+### 3. Animation Processing
+1. Model instantiation
+2. Parameter validation
+3. Group coordination
+4. State calculation
+5. OSC update batching
 
 ## Core Responsibilities
 
-### Core State (Rust)
-- Connection management
-- Track and group state management
-- Animation processing
-- Parameter validation
+### Rust Core
+- High-performance state management
+- Group relationship processing
+- Animation calculations
 - OSC communication
-- Performance monitoring
+- Resource optimization
+- Error recovery
 
-### UI State (React)
-- Form state management
-- Selection tracking
-- Parameter editor states
-- Error display management
-- Loading states
+### React UI
+- User interaction state
+- Visual feedback
+- Form management
+- Error display
+- Loading indicators
+- Group visualization
 
 ## Error Handling
-- Connection failures
-- Invalid track configurations
-- Animation parameter validation
-- OSC communication errors
+- Connection management
+  - Timeout handling
+  - Retry strategies
+  - Fallback modes
+- State validation
+  - Parameter bounds
+  - Group constraints
+  - Animation limits
+- Recovery procedures
+  - State restoration
+  - Group reconciliation
+  - Animation reset
 
 ## Performance Optimization
-- Batch OSC updates
-- Efficient parameter updates
-- Minimal state copying
-- Lock-free operations where possible
+
+### State Updates
+- Lock-free operations
+- Batch processing
+- Memory pooling
+- Cache optimization
+
+### Group Operations
+- Efficient relationship tracking
+- Formation calculations
+- Position updates
+- State synchronization
+
+### Animation Processing
+- Pre-calculation optimization
+- Parameter caching
+- Group update batching
+- Memory efficiency
+
+*Last Updated: 2024-11-25*
