@@ -1,16 +1,7 @@
-// State management tests
-mod state;
-mod state_track;
-mod state_group;
-mod state_animation;
-mod state_timeline;
-mod state_manager;
-mod state_sync;
-mod state_persistence;
+// Test modules for holophonix-animator
+pub mod animation;
+pub mod state;
+pub mod osc;
 
-// OSC tests
-mod protocol_tests;
-mod server_tests;
-
-// Integration tests
-mod integration_tests;
+// Integration tests across subsystems
+pub mod integration_tests;
