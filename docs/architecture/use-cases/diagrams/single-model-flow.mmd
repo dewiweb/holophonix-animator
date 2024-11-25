@@ -1,0 +1,71 @@
+sequenceDiagram
+    participant User
+    participant UI
+    participant Engine
+    participant Model
+    participant OSC
+
+    User->>UI: Select individual track
+    User->>UI: Choose animation model
+    User->>UI: Configure model parameters
+    Note over UI: Configure cycle mode (one-shot/cyclic)
+    Note over UI: Validate inputs
+
+    UI->>Engine: Initialize animation
+    Engine->>OSC: Query initial position
+    OSC-->>Engine: Return position
+
+    alt Absolute Mode
+        User->>UI: Enter start position
+        UI->>Engine: Set start position
+        Note over Engine: Interpolate from initial to start position
+    else Relative Mode
+        Engine->>Engine: Use initial position
+    end
+
+    opt Model supports both AED/XYZ
+        User->>UI: Select coordinate system
+    end
+
+    opt 1D/2D Model
+        User->>UI: Select affected coordinates
+    end
+
+    User->>UI: Start animation
+    UI->>Engine: Begin execution
+
+    alt Absolute Mode
+        Note over Engine: Begin initial interpolation
+        Engine->>Engine: Calculate interpolation step
+        Engine->>OSC: Send interpolated position
+        Engine->>UI: Update display
+    end
+
+    Note over Engine: Begin animation cycle
+    Engine->>Model: Calculate next position
+    Model-->>Engine: Return position
+    Engine->>OSC: Send position update
+    Engine->>UI: Update display
+
+    loop Animation Updates
+        Engine->>Model: Calculate next position
+        Model-->>Engine: Return position
+        Engine->>OSC: Send position update
+        Engine->>UI: Update display
+    end
+
+    alt One-shot Mode
+        Note over Engine: Animation cycle finished
+    else Cyclic Mode
+        Note over Engine: Continue until stopped
+    end
+
+    alt User Stop
+        User->>UI: Stop animation
+        UI->>Engine: End execution
+    end
+
+    Note over Engine: Begin return to initial position
+    Engine->>Engine: Calculate interpolation to initial
+    Engine->>OSC: Send interpolated position
+    Engine->>UI: Update display
