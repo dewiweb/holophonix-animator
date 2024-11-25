@@ -10,7 +10,7 @@ pub enum AnimationType {
     EaseInOut,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Animation {
     pub id: String,
     pub name: String,
@@ -19,8 +19,8 @@ pub struct Animation {
     pub active: bool,
 }
 
-impl Default for Animation {
-    fn default() -> Self {
+impl Animation {
+    pub fn default() -> Self {
         Self {
             id: String::new(),
             name: String::new(),
@@ -31,7 +31,7 @@ impl Default for Animation {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct AnimationState {
     animations: HashMap<String, Animation>,
 }

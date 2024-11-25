@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use crate::osc::types::TrackParameters;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Track {
     pub id: String,
     pub name: String,
@@ -9,7 +10,7 @@ pub struct Track {
     pub active: bool,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct TrackState {
     tracks: HashMap<String, Track>,
 }

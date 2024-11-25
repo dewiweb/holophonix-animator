@@ -9,7 +9,7 @@ pub struct Group {
     pub active: bool,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct GroupState {
     groups: HashMap<String, Group>,
 }
