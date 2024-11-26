@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::state::StateManager;
+use crate::state::core::StateManager;
 use crate::animation::models::AnimationModel;
 
 pub struct AnimationGroup {

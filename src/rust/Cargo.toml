@@ -9,15 +9,23 @@ description = "Core Rust implementation for Holophonix Animator"
 crate-type = ["cdylib"]
 
 [dependencies]
-tokio = { version = "1.28", features = ["full"] }
-rosc = "0.10"  # For OSC implementation
-napi = { version = "2.12", features = ["async"] }
-napi-derive = "2.12"
+tokio = { version = "1.28", features = ["full", "test-util"] }
+async-trait = "0.1.68"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+nalgebra = { version = "0.32", features = ["serde-serialize"] }
+splines = { version = "4.1", features = ["serialization"] }
 thiserror = "1.0"
 log = "0.4"
 env_logger = "0.10"
+napi = { version = "2.12", features = ["async"] }
+napi-derive = "2.12"
+rosc = "0.10"
+
+[dev-dependencies]
+tokio-test = "0.4"
+test-log = "0.2"
+pretty_assertions = "1.3"
 
 [build-dependencies]
 napi-build = "2.0"

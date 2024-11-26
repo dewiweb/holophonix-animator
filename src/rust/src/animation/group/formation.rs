@@ -1,4 +1,4 @@
-use crate::models::Position;
+use crate::models::common::Position;
 
 /// Types of formations that a group can maintain
 #[derive(Debug, Clone, PartialEq)]

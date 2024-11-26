@@ -2,9 +2,9 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::osc::{OSCClient, OSCServer};
+use crate::osc::{client::OSCClient, server::OSCServer};
 use crate::osc::types::{OSCConfig, TrackParameters};
-use crate::state::StateManager;
+use crate::state::core::StateManager;
 use tokio::runtime::Runtime;
 
 #[napi]

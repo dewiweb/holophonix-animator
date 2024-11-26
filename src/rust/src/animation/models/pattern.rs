@@ -1,37 +1,89 @@
 use super::{AnimationModel, AnimationParameters, easing};
 use crate::models::Position;
+use std::fmt;
+use std::sync::Arc;
 
 /// Types of patterns available for animation
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone)]
 pub enum PatternType {
-    /// Figure-8 pattern
-    Figure8,
+    /// Linear pattern
+    Linear,
+    /// Circular pattern
+    Circular { radius: f64 },
     /// Spiral pattern
-    Spiral,
-    /// Lissajous pattern
-    Lissajous,
+    Spiral { radius: f64, turns: f64 },
     /// Custom pattern defined by parametric equations
-    Custom(Box<dyn Fn(f64) -> (f64, f64, f64)>),
+    Custom(Arc<dyn Fn(f64) -> Position + Send + Sync + 'static>),
+}
+
+impl fmt::Debug for PatternType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PatternType::Linear => write!(f, "Linear"),
+            PatternType::Circular { radius } => write!(f, "Circular {{ radius: {} }}", radius),
+            PatternType::Spiral { radius, turns } => write!(f, "Spiral {{ radius: {}, turns: {} }}", radius, turns),
+            PatternType::Custom(_) => write!(f, "Custom(...)"),
+        }
+    }
+}
+
+impl PartialEq for PatternType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (PatternType::Linear, PatternType::Linear) => true,
+            (PatternType::Circular { radius: r1 }, PatternType::Circular { radius: r2 }) => (r1 - r2).abs() < 1e-10,
+            (PatternType::Spiral { radius: r1, turns: t1 }, PatternType::Spiral { radius: r2, turns: t2 }) => (r1 - r2).abs() < 1e-10 && (t1 - t2).abs() < 1e-10,
+            (PatternType::Custom(_), PatternType::Custom(_)) => false, // Custom functions can't be compared
+            _ => false,
+        }
+    }
 }
 
 /// Parameters specific to pattern movement
 #[derive(Debug, Clone)]
 pub struct PatternParams {
     pub pattern_type: PatternType,
+    pub frequency: f64,
+    pub amplitude: f64,
+    pub phase: f64,
     pub scale: Position,
     pub offset: Position,
-    pub frequency: Position,
-    pub phase: Position,
 }
 
-impl Default for PatternParams {
-    fn default() -> Self {
+impl PatternParams {
+    pub fn new(pattern_type: PatternType) -> Self {
         Self {
-            pattern_type: PatternType::Figure8,
+            pattern_type,
+            frequency: 1.0,
+            amplitude: 1.0,
+            phase: 0.0,
             scale: Position { x: 1.0, y: 1.0, z: 1.0 },
             offset: Position::default(),
-            frequency: Position { x: 1.0, y: 1.0, z: 1.0 },
-            phase: Position::default(),
+        }
+    }
+
+    pub fn evaluate(&self, t: f64) -> Position {
+        let t = t * self.frequency + self.phase;
+        let result = match &self.pattern_type {
+            PatternType::Linear => {
+                Position { x: t, y: 0.0, z: 0.0 }
+            },
+            PatternType::Circular { radius } => {
+                let angle = 2.0 * std::f64::consts::PI * t;
+                Position { x: radius * angle.cos(), y: radius * angle.sin(), z: 0.0 }
+            },
+            PatternType::Spiral { radius, turns } => {
+                let angle = 2.0 * std::f64::consts::PI * t * turns;
+                let r = radius * t;
+                Position { x: r * angle.cos(), y: r * angle.sin(), z: 0.0 }
+            },
+            PatternType::Custom(func) => func(t),
+        };
+        
+        Position {
+            x: result.x * self.amplitude,
+            y: result.y * self.amplitude,
+            z: result.z * self.amplitude,
         }
     }
 }
@@ -57,42 +109,14 @@ impl PatternModel {
         self
     }
 
-    fn calculate_figure8(&self, t: f64) -> (f64, f64, f64) {
-        let angle = 2.0 * std::f64::consts::PI * t;
-        let x = angle.sin();
-        let y = angle.sin() * angle.cos();
-        let z = 0.0;
-        (x, y, z)
-    }
-
-    fn calculate_spiral(&self, t: f64) -> (f64, f64, f64) {
-        let angle = 2.0 * std::f64::consts::PI * t;
-        let radius = t;
-        let x = angle.cos() * radius;
-        let y = angle.sin() * radius;
-        let z = t * self.pattern_params.scale.z;
-        (x, y, z)
-    }
-
-    fn calculate_lissajous(&self, t: f64) -> (f64, f64, f64) {
-        let freq = &self.pattern_params.frequency;
-        let phase = &self.pattern_params.phase;
-        let angle = 2.0 * std::f64::consts::PI * t;
-        
-        let x = (angle * freq.x + phase.x).sin();
-        let y = (angle * freq.y + phase.y).sin();
-        let z = (angle * freq.z + phase.z).sin();
-        (x, y, z)
-    }
-
-    fn apply_pattern_transform(&self, pos: (f64, f64, f64)) -> Position {
+    fn apply_pattern_transform(&self, pos: Position) -> Position {
         let scale = &self.pattern_params.scale;
         let offset = &self.pattern_params.offset;
         
         Position {
-            x: pos.0 * scale.x + offset.x,
-            y: pos.1 * scale.y + offset.y,
-            z: pos.2 * scale.z + offset.z,
+            x: pos.x * scale.x + offset.x,
+            y: pos.y * scale.y + offset.y,
+            z: pos.z * scale.z + offset.z,
         }
     }
 }
@@ -102,12 +126,7 @@ impl AnimationModel for PatternModel {
         let t = (time / self.params.duration).min(1.0).max(0.0);
         let eased_t = (self.easing_fn)(t);
         
-        let raw_position = match &self.pattern_params.pattern_type {
-            PatternType::Figure8 => self.calculate_figure8(eased_t),
-            PatternType::Spiral => self.calculate_spiral(eased_t),
-            PatternType::Lissajous => self.calculate_lissajous(eased_t),
-            PatternType::Custom(f) => f(eased_t),
-        };
+        let raw_position = self.pattern_params.evaluate(eased_t);
         
         self.apply_pattern_transform(raw_position)
     }
@@ -135,12 +154,12 @@ mod tests {
             custom_params: vec![],
         };
 
-        let pattern_params = PatternParams::default();
+        let pattern_params = PatternParams::new(PatternType::Linear);
         PatternModel::new(params, pattern_params)
     }
 
     #[test]
-    fn test_figure8_pattern() {
+    fn test_linear_pattern() {
         let model = create_test_model();
         
         // Test start position
@@ -150,16 +169,15 @@ mod tests {
         
         // Test quarter cycle
         let pos = model.calculate_position(0.5);
-        assert!((pos.x - 1.0).abs() < 1e-10);
+        assert!((pos.x - 0.5).abs() < 1e-10);
         assert!(pos.y.abs() < 1e-10);
     }
 
     #[test]
     fn test_custom_pattern() {
-        let mut pattern_params = PatternParams::default();
-        pattern_params.pattern_type = PatternType::Custom(Box::new(|t| {
-            (t, t * t, 0.0)
-        }));
+        let mut pattern_params = PatternParams::new(PatternType::Custom(Arc::new(|t| {
+            Position { x: t, y: t * t, z: 0.0 }
+        })));
         
         let params = AnimationParameters::default();
         let model = PatternModel::new(params, pattern_params);
@@ -171,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_pattern_transform() {
-        let mut pattern_params = PatternParams::default();
+        let mut pattern_params = PatternParams::new(PatternType::Linear);
         pattern_params.scale = Position { x: 2.0, y: 2.0, z: 1.0 };
         pattern_params.offset = Position { x: 1.0, y: 1.0, z: 0.0 };
         

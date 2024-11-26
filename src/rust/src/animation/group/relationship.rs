@@ -1,4 +1,4 @@
-use crate::models::Position;
+use crate::models::common::Position;
 
 /// Types of relationships between tracks in a group
 #[derive(Debug, Clone, PartialEq)]

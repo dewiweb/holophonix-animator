@@ -4,6 +4,7 @@ mod animation;
 
 use std::collections::HashMap;
 use crate::models::Position;
+use crate::error::{AnimatorError, AnimatorResult};
 
 pub use relationship::{Relationship, RelationshipType};
 pub use formation::{Formation, FormationType};
@@ -46,7 +47,7 @@ impl GroupManager {
         let group_id = format!("group_{}", self.groups.len());
         let tracks = Self::parse_pattern(pattern)?;
         
-        let group = Group::new(group_id.clone(), tracks);
+        let group = Group::new(group_id.clone(), "group".to_string());
         self.groups.insert(group_id.clone(), group);
         
         Ok(group_id)
@@ -84,29 +85,77 @@ impl GroupManager {
         
         Ok(tracks)
     }
+
+    pub fn pause_all(&mut self) -> Result<(), String> {
+        for group in self.groups.values_mut() {
+            group.pause();
+        }
+        Ok(())
+    }
+
+    pub fn stop_all(&mut self) -> Result<(), String> {
+        for group in self.groups.values_mut() {
+            group.stop();
+        }
+        Ok(())
+    }
+
+    pub fn clear_buffers(&mut self) -> Result<(), String> {
+        for group in self.groups.values_mut() {
+            group.clear_buffers();
+        }
+        Ok(())
+    }
+
+    pub fn set_reduced_functionality(&mut self, enabled: bool) -> Result<(), String> {
+        for group in self.groups.values_mut() {
+            group.set_reduced_functionality(enabled);
+        }
+        Ok(())
+    }
 }
 
-/// A group of tracks that can be animated together
+#[derive(Debug, Clone)]
 pub struct Group {
-    id: String,
-    tracks: Vec<String>,
-    formation: Formation,
-    center: Position,
+    pub id: String,
+    pub name: String,
+    pub active: bool,
+    pub reduced_functionality: bool,
 }
 
 impl Group {
-    pub fn new(id: String, tracks: Vec<String>) -> Self {
+    pub fn new(id: String, name: String) -> Self {
         Self {
             id,
-            tracks,
-            formation: Formation::new(FormationType::Default),
-            center: Position::default(),
+            name,
+            active: false,
+            reduced_functionality: false,
         }
+    }
+
+    pub fn set_reduced_functionality(&mut self, enabled: bool) {
+        self.reduced_functionality = enabled;
+    }
+
+    pub fn pause(&mut self) {
+        self.active = false;
+    }
+
+    pub fn resume(&mut self) {
+        self.active = true;
+    }
+
+    pub fn stop(&mut self) {
+        self.active = false;
+    }
+
+    pub fn clear_buffers(&mut self) {
+        // Clear any internal buffers
     }
 
     pub fn process_frame(&mut self, delta_time: f64) -> Result<(), String> {
         // Update formation and center
-        self.formation.update(delta_time)?;
+        // self.formation.update(delta_time)?;
         // Process individual track animations within the group
         Ok(())
     }

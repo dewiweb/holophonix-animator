@@ -1,14 +1,16 @@
-mod linear;
-mod circular;
-mod pattern;
-mod custom_path;
+use std::fmt;
+use std::sync::Arc;
+use crate::models::common::Position;
+
+pub mod linear;
+pub mod circular;
+pub mod pattern;
+pub mod custom_path;
 
 pub use linear::LinearModel;
 pub use circular::CircularModel;
 pub use pattern::PatternModel;
 pub use custom_path::CustomPathModel;
-
-use crate::models::Position;
 
 /// Common traits for all animation models
 pub trait AnimationModel {
