@@ -28,8 +28,8 @@ impl TimelineManager {
     }
 
     pub async fn initialize(&self) -> napi::Result<()> {
-        let state = self.state_manager.lock().await;
-        state.load_default_state().await?;
+        let mut state = self.state_manager.lock().await;
+        state.timeline_state().reset();
         Ok(())
     }
 
@@ -97,6 +97,24 @@ impl TimelineManager {
     pub async fn reset_metrics(&self) -> napi::Result<()> {
         let state = self.state_manager.lock().await;
         state.reset_locks().await?;
+        Ok(())
+    }
+
+    pub async fn pause_animation(&self, id: &String) -> napi::Result<()> {
+        let state = self.state_manager.lock().await;
+        state.pause_animation(id).await?;
+        Ok(())
+    }
+
+    pub async fn resume_animation(&self, id: &String) -> napi::Result<()> {
+        let state = self.state_manager.lock().await;
+        state.resume_animation(id).await?;
+        Ok(())
+    }
+
+    pub async fn stop_animation(&self, id: &String) -> napi::Result<()> {
+        let state = self.state_manager.lock().await;
+        state.stop_animation(id).await?;
         Ok(())
     }
 }

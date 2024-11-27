@@ -1,5 +1,5 @@
+use crate::{AnimatorError, AnimatorResult};
 use crate::animation::models::Position;
-use crate::error::{AnimatorError, AnimatorResult};
 
 #[derive(Debug, Clone)]
 pub struct CustomPathModel {

@@ -18,9 +18,11 @@ splines = { version = "4.1", features = ["serialization"] }
 thiserror = "1.0"
 log = "0.4"
 env_logger = "0.10"
-napi = { version = "2.12", features = ["async"] }
-napi-derive = "2.12"
+napi = { version = "2.16", features = ["async", "serde-json"] }
+napi-derive = "2.16"
 rosc = "0.10"
+futures = "0.3"
+uuid = { version = "1.4", features = ["v4", "serde"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

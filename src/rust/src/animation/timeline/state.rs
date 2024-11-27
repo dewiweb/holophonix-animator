@@ -1,6 +1,9 @@
+use napi::bindgen_prelude::*;
+use napi_derive::napi;
 use std::collections::HashMap;
-use std::time::Duration;
 use serde::{Serialize, Deserialize};
+use std::time::Duration;
+use serde::{self, Deserialize, Deserializer, Serializer};
 
 mod duration_ms {
     use serde::{self, Deserialize, Deserializer, Serializer};
@@ -22,6 +25,7 @@ mod duration_ms {
     }
 }
 
+#[napi(object)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimelineMarker {
     #[serde(with = "duration_ms")]
@@ -30,6 +34,7 @@ pub struct TimelineMarker {
     pub color: String,
 }
 
+#[napi(object)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimelineEvent {
     pub id: String,
@@ -41,6 +46,7 @@ pub struct TimelineEvent {
     pub track_id: String,
 }
 
+#[napi(object)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Timeline {
     #[serde(with = "duration_ms")]
@@ -56,6 +62,8 @@ pub struct Timeline {
     pub markers: HashMap<String, TimelineMarker>,
     pub events: HashMap<String, TimelineEvent>,
 }
+
+impl ObjectFinalize for Timeline {}
 
 impl Timeline {
     pub fn new() -> Self {
@@ -209,5 +217,115 @@ impl Timeline {
 
     pub fn get_total_duration_secs(&self) -> f64 {
         Self::duration_to_secs(self.total_duration)
+    }
+}
+
+#[napi]
+#[derive(Debug)]
+pub struct TimelineState {
+    #[napi(skip)]
+    pub timelines: HashMap<String, Timeline>,
+}
+
+#[napi]
+impl TimelineState {
+    #[napi(constructor)]
+    pub fn new() -> napi::Result<Self> {
+        Ok(Self {
+            timelines: HashMap::new(),
+        })
+    }
+
+    #[napi]
+    pub fn add_timeline(&mut self, timeline: Timeline) -> napi::Result<()> {
+        self.timelines.insert(timeline.id.clone(), timeline);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn get_timeline(&self, id: String) -> napi::Result<Option<Timeline>> {
+        Ok(self.timelines.get(&id).cloned())
+    }
+
+    #[napi]
+    pub fn remove_timeline(&mut self, id: String) -> napi::Result<()> {
+        self.timelines.remove(&id);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn get_timeline_count(&self) -> napi::Result<i32> {
+        Ok(self.timelines.len() as i32)
+    }
+
+    #[napi]
+    pub fn get_all_timelines(&self) -> napi::Result<Vec<Timeline>> {
+        Ok(self.timelines.values().cloned().collect())
+    }
+
+    #[napi]
+    pub async fn update(&mut self, delta_time: f64) -> napi::Result<()> {
+        for timeline in self.timelines.values_mut() {
+            if timeline.is_playing {
+                timeline.current_time += Duration::from_secs_f64(delta_time);
+                if timeline.current_time >= timeline.total_duration {
+                    if timeline.loop_enabled {
+                        timeline.current_time = Duration::from_secs(0);
+                    } else {
+                        timeline.is_playing = false;
+                        timeline.current_time = timeline.total_duration;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Default for TimelineState {
+    fn default() -> Self {
+        Self {
+            timelines: HashMap::new(),
+        }
+    }
+}
+
+impl ObjectFinalize for TimelineState {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_timeline_state() {
+        let mut state = TimelineState::new().unwrap();
+
+        let timeline = Timeline {
+            id: "test1".to_string(),
+            name: "Test Timeline".to_string(),
+            active: true,
+            metadata: HashMap::new(),
+            duration: 10.0,
+            current_time: 0.0,
+            loop_enabled: true,
+            track_ids: vec!["track1".to_string()],
+        };
+
+        state.add_timeline(timeline.clone()).unwrap();
+        assert_eq!(state.get_timeline_count().unwrap(), 1);
+        assert_eq!(
+            state.get_timeline("test1".to_string()).unwrap().unwrap().name,
+            "Test Timeline"
+        );
+
+        // Test update
+        state.update(5.0).await.unwrap();
+        let updated_timeline = state.get_timeline("test1".to_string()).unwrap().unwrap();
+        assert_eq!(updated_timeline.current_time, 5.0);
+
+        // Test looping
+        state.update(7.0).await.unwrap();
+        let looped_timeline = state.get_timeline("test1".to_string()).unwrap().unwrap();
+        assert_eq!(looped_timeline.current_time, 2.0); // 12.0 % 10.0 = 2.0
     }
 }

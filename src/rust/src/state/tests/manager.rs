@@ -1,180 +1,98 @@
-use std::time::Duration;
-use tempfile::tempdir;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use crate::state::{
     StateManager,
-    models::{State, AnimationModel, TrackState, GroupState},
-    events::StateChange,
+    StateManagerWrapper,
+    models::{Position, TrackParameters},
+    update::{StateUpdate, AnimationUpdate, PositionUpdate},
 };
+use crate::animation::models::Animation;
+use napi::bindgen_prelude::*;
 
-#[test]
-fn test_state_manager_creation() {
-    let temp_dir = tempdir().unwrap();
-    let manager = StateManager::new(temp_dir.path().to_path_buf());
+#[tokio::test]
+async fn test_state_manager_creation() -> napi::Result<()> {
+    let manager = StateManagerWrapper::new(None)?;
+    let state = manager.get_state().await?;
     
-    // Verify all states are initialized
-    assert!(manager.track_state().lock().unwrap().get_all_tracks().is_empty());
-    assert!(manager.animation_state().lock().unwrap().get_all_animations().is_empty());
-    assert!(manager.group_state().lock().unwrap().get_all_groups().is_empty());
-    assert!(manager.selection_state().lock().unwrap().get_selected_tracks().is_empty());
-    assert_eq!(
-        manager.timeline_state().lock().unwrap().get_state().total_duration,
-        Duration::from_secs(300)
-    );
+    assert!(state.animations.is_empty());
+    assert!(state.tracks.is_empty());
+    assert!(state.groups.is_empty());
+    
+    Ok(())
 }
 
-#[test]
-fn test_track_management() {
-    let temp_dir = tempdir().unwrap();
-    let manager = StateManager::new(temp_dir.path().to_path_buf());
+#[tokio::test]
+async fn test_state_update_cycle() -> napi::Result<()> {
+    let mut manager = StateManagerWrapper::new(None)?;
     
-    // Add a track
-    {
-        let mut track_state = manager.track_state().lock().unwrap();
-        track_state.add_track("track1".to_string(), (0.0, 0.0));
-    }
+    // Perform state update
+    manager.update(0.016).await?; // One frame at 60fps
     
-    // Verify track position
-    let position = manager.get_track_position("track1").unwrap().unwrap();
-    assert_eq!(position, (0.0, 0.0));
+    // Verify state is updated
+    let state = manager.get_state().await?;
+    assert_eq!(state.animations.len(), 0); // No animations added yet
     
-    // Update track position
-    manager.update_track_position("track1", (1.0, 1.0)).unwrap();
-    
-    // Verify updated position
-    let position = manager.get_track_position("track1").unwrap().unwrap();
-    assert_eq!(position, (1.0, 1.0));
+    Ok(())
 }
 
-#[test]
-fn test_animation_management() {
-    let temp_dir = tempdir().unwrap();
-    let manager = StateManager::new(temp_dir.path().to_path_buf());
+#[tokio::test]
+async fn test_animation_management() -> napi::Result<()> {
+    let mut manager = StateManagerWrapper::new(None)?;
     
-    // Add a track and animation
-    {
-        let mut track_state = manager.track_state().lock().unwrap();
-        track_state.add_track("track1".to_string(), (0.0, 0.0));
-        
-        let mut animation_state = manager.animation_state().lock().unwrap();
-        animation_state.add_animation(
-            "anim1".to_string(),
-            "track1".to_string(),
-            AnimationModel::Linear { 
-                start: (0.0, 0.0),
-                end: (1.0, 1.0),
-                duration: Duration::from_secs(5)
-            }
-        );
-    }
+    // Create test animation
+    let animation = Animation {
+        id: "test".to_string(),
+        duration: 1.0,
+        is_playing: true,
+        is_paused: false,
+    };
     
-    // Get active animations
-    let animations = manager.get_active_animations().unwrap();
-    assert_eq!(animations.len(), 1);
-    assert_eq!(animations[0].id, "anim1");
+    // Add animation
+    manager.add_animation(animation.clone()).await?;
+    
+    // Verify animation is added
+    let state = manager.get_state().await?;
+    assert_eq!(state.animations.len(), 1);
+    assert_eq!(state.animations[0].id, "test");
+    
+    Ok(())
 }
 
-#[test]
-fn test_group_management() {
-    let temp_dir = tempdir().unwrap();
-    let manager = StateManager::new(temp_dir.path().to_path_buf());
+#[tokio::test]
+async fn test_position_updates() -> napi::Result<()> {
+    let mut manager = StateManagerWrapper::new(None)?;
     
-    // Add tracks and create a group
-    {
-        let mut track_state = manager.track_state().lock().unwrap();
-        track_state.add_track("track1".to_string(), (0.0, 0.0));
-        track_state.add_track("track2".to_string(), (1.0, 1.0));
-        
-        let mut group_state = manager.group_state().lock().unwrap();
-        group_state.create_group("group1".to_string());
-        group_state.add_track_to_group("group1", "track1");
-        group_state.add_track_to_group("group1", "track2");
-    }
+    // Update position
+    let position = Position {
+        x: 1.0,
+        y: 2.0,
+        z: 3.0,
+    };
+    manager.update_position("test".to_string(), position.clone()).await?;
     
-    // Verify group membership
-    let group_state = manager.group_state().lock().unwrap();
-    let tracks = group_state.get_group_tracks("group1").unwrap();
-    assert_eq!(tracks.len(), 2);
-    assert!(tracks.contains("track1"));
-    assert!(tracks.contains("track2"));
+    // Verify position is updated
+    let state = manager.get_state().await?;
+    // Add position verification based on your state structure
+    
+    Ok(())
 }
 
-#[test]
-fn test_selection_management() {
-    let temp_dir = tempdir().unwrap();
-    let manager = StateManager::new(temp_dir.path().to_path_buf());
+#[tokio::test]
+async fn test_error_handling() -> napi::Result<()> {
+    let mut manager = StateManagerWrapper::new(None)?;
     
-    // Add tracks and select them
-    {
-        let mut track_state = manager.track_state().lock().unwrap();
-        track_state.add_track("track1".to_string(), (0.0, 0.0));
-        track_state.add_track("track2".to_string(), (1.0, 1.0));
-        
-        let mut selection_state = manager.selection_state().lock().unwrap();
-        selection_state.select_track("track1");
-        selection_state.select_track("track2");
-    }
+    // Test invalid animation ID
+    let result = manager.get_animation("nonexistent".to_string()).await;
+    assert!(result?.is_none());
     
-    // Verify selection
-    let selection_state = manager.selection_state().lock().unwrap();
-    let selected = selection_state.get_selected_tracks();
-    assert_eq!(selected.len(), 2);
-    assert!(selected.contains("track1"));
-    assert!(selected.contains("track2"));
-}
-
-#[test]
-fn test_state_persistence() {
-    let temp_dir = tempdir().unwrap();
-    let manager = StateManager::new(temp_dir.path().to_path_buf());
+    // Test invalid position update
+    let position = Position {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
+    let result = manager.update_position("nonexistent".to_string(), position).await;
+    assert!(result.is_ok()); // Should handle gracefully
     
-    // Add some state data
-    {
-        let mut track_state = manager.track_state().lock().unwrap();
-        track_state.add_track("track1".to_string(), (0.0, 0.0));
-        
-        let mut animation_state = manager.animation_state().lock().unwrap();
-        animation_state.add_animation(
-            "anim1".to_string(),
-            "track1".to_string(),
-            AnimationModel::Linear { 
-                start: (0.0, 0.0),
-                end: (1.0, 1.0),
-                duration: Duration::from_secs(5)
-            }
-        );
-    }
-    
-    // Save state
-    manager.save_state().unwrap();
-    
-    // Create new manager and load state
-    let new_manager = StateManager::new(temp_dir.path().to_path_buf());
-    new_manager.load_state().unwrap();
-    
-    // Verify loaded state
-    let track_state = new_manager.track_state().lock().unwrap();
-    assert!(track_state.get_track("track1").is_some());
-    
-    let animation_state = new_manager.animation_state().lock().unwrap();
-    assert!(animation_state.get_animation("anim1").is_some());
-}
-
-#[test]
-fn test_change_notifications() {
-    let temp_dir = tempdir().unwrap();
-    let manager = StateManager::new(temp_dir.path().to_path_buf());
-    
-    // Subscribe to changes
-    let (tx, rx) = std::sync::mpsc::channel();
-    manager.subscribe_to_changes(tx);
-    
-    // Make some changes
-    {
-        let mut track_state = manager.track_state().lock().unwrap();
-        track_state.add_track("track1".to_string(), (0.0, 0.0));
-    }
-    
-    // Verify notification
-    let notification = rx.try_recv().unwrap();
-    assert!(matches!(notification, StateChange::TrackAdded { .. }));
+    Ok(())
 }

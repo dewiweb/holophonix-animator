@@ -44,26 +44,60 @@ impl fmt::Display for AnimatorError {
 
 impl std::error::Error for AnimatorError {}
 
-impl AsRef<str> for AnimatorError {
-    fn as_ref(&self) -> &str {
-        match self {
-            AnimatorError::ValidationError(s) => s.as_str(),
-            AnimatorError::ConfigError(s) => s.as_str(),
-            AnimatorError::RuntimeError(s) => s.as_str(),
-            AnimatorError::NetworkError(s) => s.as_str(),
-            AnimatorError::ResourceError(s) => s.as_str(),
-            AnimatorError::PluginError(s) => s.as_str(),
-            AnimatorError::SyncError(s) => s.as_str(),
-            AnimatorError::UnknownError(s) => s.as_str(),
-            _ => "",
-        }
+// Implement conversion from AnimatorError to NAPI Error
+impl From<AnimatorError> for napi::Error {
+    fn from(err: AnimatorError) -> Self {
+        napi::Error::new(napi::Status::GenericFailure, err.to_string())
     }
 }
 
-impl From<AnimatorError> for napi::Error {
-    fn from(err: AnimatorError) -> Self {
-        napi::Error::from_status(Status::GenericFailure).context(err.to_string())
+// Implement conversion from NAPI Error to AnimatorError
+impl From<napi::Error> for AnimatorError {
+    fn from(err: napi::Error) -> Self {
+        AnimatorError::UnknownError(err.to_string())
     }
 }
 
 pub type AnimatorResult<T> = Result<T, AnimatorError>;
+
+// Helper functions for common error cases
+impl AnimatorError {
+    pub fn validation_error<T: Into<String>>(msg: T) -> Self {
+        AnimatorError::ValidationError(msg.into())
+    }
+
+    pub fn config_error<T: Into<String>>(msg: T) -> Self {
+        AnimatorError::ConfigError(msg.into())
+    }
+
+    pub fn runtime_error<T: Into<String>>(msg: T) -> Self {
+        AnimatorError::RuntimeError(msg.into())
+    }
+
+    pub fn plugin_error<T: Into<String>>(msg: T) -> Self {
+        AnimatorError::PluginError(msg.into())
+    }
+
+    pub fn state_error<T: Into<String>>(msg: T) -> Self {
+        AnimatorError::State(StateError::new(msg))
+    }
+}
+
+// Implement AsRef<str> for AnimatorError
+impl AsRef<str> for AnimatorError {
+    fn as_ref(&self) -> &str {
+        match self {
+            AnimatorError::Animation(err) => err.as_ref(),
+            AnimatorError::OSC(err) => err.as_ref(),
+            AnimatorError::State(err) => err.as_ref(),
+            AnimatorError::ValidationError(msg) => msg.as_str(),
+            AnimatorError::ConfigError(msg) => msg.as_str(),
+            AnimatorError::RuntimeError(msg) => msg.as_str(),
+            AnimatorError::NetworkError(msg) => msg.as_str(),
+            AnimatorError::ResourceError(msg) => msg.as_str(),
+            AnimatorError::PluginError(msg) => msg.as_str(),
+            AnimatorError::SyncError(msg) => msg.as_str(),
+            AnimatorError::UnknownError(msg) => msg.as_str(),
+        }
+    }
+}

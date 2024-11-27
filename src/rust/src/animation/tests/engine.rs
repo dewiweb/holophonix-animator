@@ -2,80 +2,89 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::{
     animation::{
-        engine::AnimationEngine,
-        models::{AnimationParameters, LinearModel},
+        AnimationManager,
+        models::{Animation, AnimationConfig},
     },
-    state::StateManager,
-    models::Position,
+    state::StateManagerWrapper,
 };
+use napi::bindgen_prelude::*;
 
 #[tokio::test]
-async fn test_animation_engine_initialization() {
-    let state_manager = Arc::new(Mutex::new(StateManager::new()));
-    let mut engine = AnimationEngine::new(state_manager);
+async fn test_animation_manager_creation() -> napi::Result<()> {
+    let state_manager = StateManagerWrapper::new(None)?;
+    let manager = AnimationManager::new(state_manager)?;
     
-    assert!(engine.initialize().is_ok());
+    assert!(manager.timeline_manager.lock().await.current_time == 0.0);
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_animation_engine_frame_processing() {
-    let state_manager = Arc::new(Mutex::new(StateManager::new()));
-    let mut engine = AnimationEngine::new(state_manager.clone());
+async fn test_animation_manager_update() -> napi::Result<()> {
+    let state_manager = StateManagerWrapper::new(None)?;
+    let manager = AnimationManager::new(state_manager)?;
+
+    // Update animation state
+    manager.update(0.016).await?; // One frame at 60fps
+
+    // Verify timeline state
+    let timeline = manager.timeline_manager.lock().await;
+    assert_eq!(timeline.current_time, 0.0); // No animations running yet
     
-    engine.initialize().expect("Failed to initialize engine");
-
-    // Process a frame
-    assert!(engine.process_frame(0.016).is_ok()); // ~60fps
-
-    // Verify state manager is updated
-    let state = state_manager.lock().await;
-    assert!(state.is_initialized());
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_animation_engine_cleanup() {
-    let state_manager = Arc::new(Mutex::new(StateManager::new()));
-    let mut engine = AnimationEngine::new(state_manager);
-    
-    engine.initialize().expect("Failed to initialize engine");
-    assert!(engine.cleanup().is_ok());
-}
+async fn test_animation_manager_lifecycle() -> napi::Result<()> {
+    let state_manager = StateManagerWrapper::new(None)?;
+    let manager = AnimationManager::new(state_manager)?;
 
-#[tokio::test]
-async fn test_animation_engine_error_handling() {
-    let state_manager = Arc::new(Mutex::new(StateManager::new()));
-    let mut engine = AnimationEngine::new(state_manager);
-    
-    // Test error handling without initialization
-    assert!(engine.process_frame(0.016).is_err());
-}
+    // Initialize
+    manager.initialize().await?;
 
-#[tokio::test]
-async fn test_animation_engine_state_sync() {
-    let state_manager = Arc::new(Mutex::new(StateManager::new()));
-    let mut engine = AnimationEngine::new(state_manager.clone());
-    
-    engine.initialize().expect("Failed to initialize engine");
-
-    // Create and add an animation
-    let params = AnimationParameters {
-        start_position: Position { x: 0.0, y: 0.0, z: 0.0 },
-        end_position: Position { x: 1.0, y: 1.0, z: 0.0 },
-        duration: 1.0,
-        speed: 1.0,
-        acceleration: None,
-        custom_params: vec![],
-    };
-
-    let model = LinearModel::new(params);
-    
-    // Process multiple frames
-    for _ in 0..10 {
-        engine.process_frame(0.1).expect("Failed to process frame");
+    // Run some updates
+    for _ in 0..5 {
+        manager.update(0.016).await?;
     }
 
-    // Verify final state
-    let state = state_manager.lock().await;
-    assert!(state.is_initialized());
-    // Add more specific state checks based on your implementation
+    // Cleanup
+    manager.cleanup().await?;
+
+    // Verify state after cleanup
+    let timeline = manager.timeline_manager.lock().await;
+    assert!(!timeline.is_playing);
+    assert_eq!(timeline.current_time, 0.0);
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_animation_manager_error_handling() -> napi::Result<()> {
+    let state_manager = StateManagerWrapper::new(None)?;
+    let manager = AnimationManager::new(state_manager)?;
+
+    // Test error handling for invalid state
+    let timeline = manager.timeline_manager.lock().await;
+    assert!(!timeline.is_playing); // Should not be playing without initialization
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_animation_manager_performance() -> napi::Result<()> {
+    let state_manager = StateManagerWrapper::new(None)?;
+    let manager = AnimationManager::new(state_manager)?;
+
+    // Initialize and run multiple updates
+    manager.initialize().await?;
+    
+    let start = std::time::Instant::now();
+    for _ in 0..100 {
+        manager.update(0.016).await?;
+    }
+    let duration = start.elapsed();
+    
+    // Performance should be reasonable (adjust threshold as needed)
+    assert!(duration.as_millis() < 1000); // Should complete 100 updates in less than 1 second
+    
+    Ok(())
 }

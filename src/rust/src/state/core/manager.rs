@@ -61,4 +61,13 @@ impl StateManager {
             Err("Track not found".to_string())
         }
     }
+
+    pub async fn pause_animation(&mut self, id: &String) -> Result<(), String> {
+        if let Some(animation) = self.animations.iter_mut().find(|a| a.id == *id) {
+            animation.is_playing = false;
+            Ok(())
+        } else {
+            Err(format!("Animation with id {} not found", id))
+        }
+    }
 }
