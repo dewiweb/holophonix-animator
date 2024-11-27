@@ -1,6 +1,8 @@
 use std::fmt;
 use std::sync::Arc;
-use crate::models::common::Position;
+use napi::bindgen_prelude::*;
+use serde::{Serialize, Deserialize};
+use crate::models::common::{Position, Animation, AnimationConfig};
 
 pub mod linear;
 pub mod circular;

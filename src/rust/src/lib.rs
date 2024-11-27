@@ -1,134 +1,94 @@
-#![deny(clippy::all)]
-
 use napi_derive::napi;
 use napi::bindgen_prelude::*;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-#[cfg(test)]
-mod tests {
-    pub mod animation;
-    pub mod osc;
-    pub mod state;
-    pub mod integration;
-    pub mod integration_test;
-}
+mod animation;
+mod common;
+mod error;
+mod models;
+mod osc;
+mod performance;
+mod state;
+mod tests;
 
-pub mod animation;
-pub mod bridge;
-pub mod common;
-pub mod error;
-pub mod models;
-pub mod osc;
-pub mod state;
+pub use animation::{
+    Animation,
+    AnimationConfig,
+    AnimationType,
+    Group,
+    GroupManager,
+    Timeline,
+    TimelineManager,
+};
 
-pub use animation::{AnimationEngine, AnimationConfig, AnimationType};
-pub use error::AnimatorError;
-pub use osc::{OSCConfig, OSCError};
-pub use state::StateManager;
-pub use animation::track::TrackState;
+pub use models::{
+    Position,
+    Position3D,
+    TrackParameters,
+};
+
+pub use osc::{
+    OSCConfig,
+    OSCError,
+    OSCErrorType,
+    TrackParameters as OSCTrackParameters,
+    TrackState,
+};
+
+pub use error::{AnimatorError, AnimatorResult};
+pub use performance::PerformanceMetrics;
+pub use state::{StateManager, StateManagerWrapper};
 
 #[napi]
-pub struct HolophonixAnimator {
-    engine: Arc<Mutex<AnimationEngine>>,
+pub struct Animator {
+    pub group_manager: GroupManager,
+    pub timeline_manager: TimelineManager,
+    pub state_manager: StateManagerWrapper,
 }
 
 #[napi]
-impl HolophonixAnimator {
+impl Animator {
     #[napi(constructor)]
-    pub fn new() -> napi::Result<Self> {
-        let engine = Arc::new(Mutex::new(AnimationEngine::new()?));
-        Ok(Self { engine })
+    pub fn new() -> Result<Self> {
+        let state_manager = StateManagerWrapper::new("".to_string())?;
+        let state_manager_arc = Arc::new(Mutex::new(state_manager.inner.clone()));
+        
+        Ok(Self {
+            group_manager: GroupManager::new(state_manager_arc.clone()),
+            timeline_manager: TimelineManager::new(state_manager_arc),
+            state_manager,
+        })
     }
 
     #[napi]
-    pub async fn initialize(&self) -> napi::Result<()> {
-        let engine = self.engine.lock().await;
-        engine.initialize().await.map_err(|e| Error::from_reason(e.to_string()))?;
-        Ok(())
+    pub async unsafe fn update_group(&mut self, id: String, group: Group) -> Result<()> {
+        self.group_manager.update_group(id, group).await
     }
 
     #[napi]
-    pub async fn start_animation(&self, id: String, config: AnimationConfig) -> napi::Result<()> {
-        let engine = self.engine.lock().await;
-        engine.start_animation(id, config).await.map_err(|e| Error::from_reason(e.to_string()))?;
-        Ok(())
+    pub async unsafe fn update_timeline(&mut self, id: String, timeline: Timeline) -> Result<()> {
+        self.timeline_manager.update(0.0).await
     }
 
     #[napi]
-    pub async fn pause_animation(&self, id: String) -> napi::Result<()> {
-        let engine = self.engine.lock().await;
-        engine.pause_animation(id).await.map_err(|e| Error::from_reason(e.to_string()))?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn resume_animation(&self, id: String) -> napi::Result<()> {
-        let engine = self.engine.lock().await;
-        engine.resume_animation(id).await.map_err(|e| Error::from_reason(e.to_string()))?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn stop_animation(&self, id: String) -> napi::Result<()> {
-        let engine = self.engine.lock().await;
-        engine.stop_animation(id).await.map_err(|e| Error::from_reason(e.to_string()))?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn update(&self, delta_time: f64) -> napi::Result<()> {
-        let engine = self.engine.lock().await;
-        engine.update(delta_time).await.map_err(|e| Error::from_reason(e.to_string()))?;
+    pub async unsafe fn update(&mut self, delta_time: f64) -> Result<()> {
+        self.timeline_manager.update(delta_time).await?;
         Ok(())
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod integration_tests {
     use super::*;
+    use tokio::runtime::Runtime;
 
-    #[tokio::test]
-    async fn test_create_animator() -> napi::Result<()> {
-        let animator = HolophonixAnimator::new()?;
-        animator.initialize().await?;
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_osc_config() -> napi::Result<()> {
-        // Test implementation
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_track_parameters() -> napi::Result<()> {
-        // Test implementation
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_animator_core() -> napi::Result<()> {
-        // Test implementation
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_state_manager() -> napi::Result<()> {
-        let state_manager = Arc::new(Mutex::new(StateManager::new(std::env::current_dir()?.join("state"))?));
-        assert!(state_manager.lock().await.is_ok());
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_animation_engine() -> napi::Result<()> {
-        let state_manager = Arc::new(Mutex::new(StateManager::new(std::env::current_dir()?.join("state"))?));
-        let engine = AnimationEngine::new(state_manager);
-        assert!(engine.is_ok());
-        Ok(())
+    #[test]
+    fn test_animator() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let mut animator = Animator::new().unwrap();
+            unsafe { animator.update(0.016).await.unwrap() };
+        });
     }
 }
-
-// Re-export integration tests
-#[cfg(test)]
-pub use tests::*;

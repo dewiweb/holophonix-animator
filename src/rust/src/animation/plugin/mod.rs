@@ -1,226 +1,187 @@
 use std::collections::HashMap;
-use async_trait::async_trait;
+use napi_derive::napi;
+use napi::bindgen_prelude::*;
 use serde::{Serialize, Deserialize};
-use crate::error::{AnimatorError, AnimatorResult};
+use serde_json::Value;
+use crate::{AnimatorError, AnimatorResult, models::position::Position3D, models::common::AnimationConfig};
 
-/// Plugin metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginMetadata {
+#[napi(object)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PluginSettings {
+    pub id: String,
     pub name: String,
-    pub version: String,
-    pub author: String,
-    pub description: String,
+    #[serde(default)]
+    pub settings: HashMap<String, String>, 
 }
 
-/// Plugin configuration
+#[napi(object)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginConfig {
-    pub enabled: bool,
-    pub settings: HashMap<String, serde_json::Value>,
+pub struct PluginState {
+    pub id: String,
+    pub plugin_id: String,
+    pub position: Position3D,
+    pub velocity: Position3D,
+    pub acceleration: Position3D,
+    pub config: Option<AnimationConfig>,
+    #[serde(default)]
+    pub custom_params: HashMap<String, String>, 
 }
 
-/// Animation model interface that plugins must implement
-#[async_trait]
-pub trait AnimationModel: Send + Sync {
-    /// Get plugin metadata
-    fn metadata(&self) -> &PluginMetadata;
-    
-    /// Initialize the plugin
-    async fn initialize(&mut self, config: PluginConfig) -> AnimatorResult<()>;
-    
-    /// Calculate next animation frame
-    async fn next_frame(&mut self, time: f64, params: AnimationParams) -> AnimatorResult<AnimationFrame>;
-    
-    /// Clean up resources
-    async fn cleanup(&mut self) -> AnimatorResult<()>;
+#[napi]
+impl PluginState {
+    #[napi(constructor)]
+    pub fn new(
+        id: String,
+        plugin_id: String,
+        position: Position3D,
+        velocity: Position3D,
+        acceleration: Position3D,
+        config: Option<AnimationConfig>,
+        custom_params: HashMap<String, String>,
+    ) -> Self {
+        Self {
+            id,
+            plugin_id,
+            position,
+            velocity,
+            acceleration,
+            config,
+            custom_params,
+        }
+    }
 }
 
-/// Animation parameters passed to plugins
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnimationParams {
-    pub position: (f64, f64, f64),
-    pub velocity: (f64, f64, f64),
-    pub acceleration: (f64, f64, f64),
-    pub constraints: Vec<AnimationConstraint>,
-    pub custom_params: HashMap<String, serde_json::Value>,
-}
-
-/// Animation constraints
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnimationConstraint {
-    pub constraint_type: ConstraintType,
-    pub value: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ConstraintType {
-    MinPosition,
-    MaxPosition,
-    MinVelocity,
-    MaxVelocity,
-    MinAcceleration,
-    MaxAcceleration,
-}
-
-/// Animation frame output
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnimationFrame {
-    pub position: (f64, f64, f64),
-    pub velocity: (f64, f64, f64),
-    pub acceleration: (f64, f64, f64),
-    pub custom_data: HashMap<String, serde_json::Value>,
-}
-
-/// Plugin manager handles loading and managing animation plugins
+#[napi]
 pub struct PluginManager {
-    plugins: HashMap<String, Box<dyn AnimationModel>>,
-    configs: HashMap<String, PluginConfig>,
+    plugins: HashMap<String, PluginSettings>,
+    states: HashMap<String, PluginState>,
 }
 
+#[napi]
 impl PluginManager {
+    #[napi(constructor)]
     pub fn new() -> Self {
         Self {
             plugins: HashMap::new(),
-            configs: HashMap::new(),
+            states: HashMap::new(),
         }
     }
 
-    /// Register a new plugin
-    pub fn register_plugin(&mut self, plugin: Box<dyn AnimationModel>) -> AnimatorResult<()> {
-        let metadata = plugin.metadata();
-        let name = metadata.name.clone();
-        
-        if self.plugins.contains_key(&name) {
-            return Err(napi::Error::from(AnimatorError::ValidationError(
-                format!("Plugin '{}' is already registered", name)
+    #[napi]
+    pub fn register_plugin(&mut self, settings: PluginSettings) -> napi::Result<()> {
+        self.plugins.insert(settings.id.clone(), settings);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn unregister_plugin(&mut self, id: String) -> napi::Result<()> {
+        self.plugins.remove(&id);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn get_plugin(&self, id: String) -> napi::Result<Option<PluginSettings>> {
+        Ok(self.plugins.get(&id).cloned())
+    }
+
+    #[napi]
+    pub fn create_plugin_state(&mut self, state: PluginState) -> napi::Result<()> {
+        if !self.plugins.contains_key(&state.plugin_id) {
+            return Err(Error::from_reason(format!(
+                "Plugin '{}' not found",
+                state.plugin_id
             )));
         }
-        
-        self.plugins.insert(name, plugin);
+        self.states.insert(state.id.clone(), state);
         Ok(())
     }
 
-    /// Configure a plugin
-    pub async fn configure_plugin(&mut self, name: &str, config: PluginConfig) -> AnimatorResult<()> {
-        if let Some(plugin) = self.plugins.get_mut(name) {
-            plugin.initialize(config).await?;
-            self.configs.insert(name.to_string(), config);
-            Ok(())
-        } else {
-            Err(napi::Error::from(AnimatorError::ValidationError(
-                format!("Plugin '{}' is not registered", name)
-            )))
-        }
-    }
-
-    /// Initialize all plugins
-    pub async fn initialize_plugins(&mut self) -> AnimatorResult<()> {
-        for (_, plugin) in self.plugins.iter_mut() {
-            let config = self.configs
-                .get(plugin.metadata().name.as_str())
-                .cloned()
-                .unwrap_or_else(|| PluginConfig {
-                    enabled: true,
-                    settings: HashMap::new(),
-                });
-                
-            plugin.initialize(config).await?;
-        }
+    #[napi]
+    pub fn remove_plugin_state(&mut self, id: String) -> napi::Result<()> {
+        self.states.remove(&id);
         Ok(())
     }
 
-    /// Get a plugin by name
-    pub fn get_plugin(&mut self, name: &str) -> Option<&mut Box<dyn AnimationModel>> {
-        self.plugins.get_mut(name)
+    #[napi]
+    pub fn get_plugin_state(&self, id: String) -> napi::Result<Option<PluginState>> {
+        Ok(self.states.get(&id).cloned())
     }
 
-    /// Remove a plugin
-    pub async fn remove_plugin(&mut self, name: &str) -> AnimatorResult<()> {
-        if let Some(mut plugin) = self.plugins.remove(name) {
-            plugin.cleanup().await?;
-            self.configs.remove(name);
-            Ok(())
-        } else {
-            Err(napi::Error::from(AnimatorError::ValidationError(
-                format!("Plugin '{}' is not registered", name)
-            )))
+    #[napi]
+    pub fn update_plugin_state(&mut self, id: String, state: PluginState) -> napi::Result<()> {
+        if !self.states.contains_key(&id) {
+            return Err(Error::from_reason(format!(
+                "Plugin state '{}' not found",
+                id
+            )));
         }
-    }
-
-    /// Clean up all plugins
-    pub async fn cleanup(&mut self) -> AnimatorResult<()> {
-        for (_, plugin) in self.plugins.iter_mut() {
-            plugin.cleanup().await?;
-        }
-        self.plugins.clear();
-        self.configs.clear();
+        self.states.insert(id, state);
         Ok(())
+    }
+
+    #[napi]
+    pub fn get_all_plugins(&self) -> napi::Result<Vec<PluginSettings>> {
+        Ok(self.plugins.values().cloned().collect())
+    }
+
+    #[napi]
+    pub fn get_all_plugin_states(&self) -> napi::Result<Vec<PluginState>> {
+        Ok(self.states.values().cloned().collect())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
 
-    // Mock plugin for testing
-    struct MockPlugin {
-        metadata: PluginMetadata,
-    }
-
-    #[async_trait]
-    impl AnimationModel for MockPlugin {
-        fn metadata(&self) -> &PluginMetadata {
-            &self.metadata
-        }
-
-        async fn initialize(&mut self, _config: PluginConfig) -> AnimatorResult<()> {
-            Ok(())
-        }
-
-        async fn next_frame(&mut self, _time: f64, params: AnimationParams) -> AnimatorResult<AnimationFrame> {
-            Ok(AnimationFrame {
-                position: params.position,
-                velocity: params.velocity,
-                acceleration: params.acceleration,
-                custom_data: HashMap::new(),
-            })
-        }
-
-        async fn cleanup(&mut self) -> AnimatorResult<()> {
-            Ok(())
-        }
-    }
-
-    #[tokio::test]
-    async fn test_plugin_manager() {
+    #[test]
+    fn test_plugin_registration() {
         let mut manager = PluginManager::new();
         
-        // Create mock plugin
-        let plugin = MockPlugin {
-            metadata: PluginMetadata {
-                name: "mock".to_string(),
-                version: "1.0".to_string(),
-                author: "test".to_string(),
-                description: "Mock plugin for testing".to_string(),
-            },
-        };
-        
-        // Register plugin
-        manager.register_plugin(Box::new(plugin)).unwrap();
-        
-        // Configure plugin
-        let config = PluginConfig {
-            enabled: true,
+        let settings = PluginSettings {
+            id: "plugin1".to_string(),
+            name: "Test Plugin".to_string(),
             settings: HashMap::new(),
         };
-        manager.configure_plugin("mock", config).await.unwrap();
         
-        // Initialize plugins
-        manager.initialize_plugins().await.unwrap();
+        assert!(manager.register_plugin(settings.clone()).is_ok());
         
-        // Clean up
-        manager.cleanup().await.unwrap();
+        let retrieved = manager.get_plugin("plugin1".to_string()).unwrap().unwrap();
+        assert_eq!(retrieved.id, "plugin1");
+        assert_eq!(retrieved.name, "Test Plugin");
+        
+        assert!(manager.unregister_plugin("plugin1".to_string()).is_ok());
+        assert!(manager.get_plugin("plugin1".to_string()).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_plugin_state() {
+        let mut manager = PluginManager::new();
+        
+        let settings = PluginSettings {
+            id: "plugin1".to_string(),
+            name: "Test Plugin".to_string(),
+            settings: HashMap::new(),
+        };
+        manager.register_plugin(settings).unwrap();
+        
+        let state = PluginState {
+            id: "state1".to_string(),
+            plugin_id: "plugin1".to_string(),
+            position: Position3D { x: 0.0, y: 0.0, z: 0.0 },
+            velocity: Position3D { x: 0.0, y: 0.0, z: 0.0 },
+            acceleration: Position3D { x: 0.0, y: 0.0, z: 0.0 },
+            config: None,
+            custom_params: HashMap::new(),
+        };
+        
+        assert!(manager.create_plugin_state(state.clone()).is_ok());
+        
+        let retrieved = manager.get_plugin_state("state1".to_string()).unwrap().unwrap();
+        assert_eq!(retrieved.id, "state1");
+        assert_eq!(retrieved.plugin_id, "plugin1");
+        
+        assert!(manager.remove_plugin_state("state1".to_string()).is_ok());
+        assert!(manager.get_plugin_state("state1".to_string()).unwrap().is_none());
     }
 }

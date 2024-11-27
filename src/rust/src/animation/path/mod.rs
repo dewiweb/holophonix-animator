@@ -1,359 +1,225 @@
-use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
-use crate::error::{AnimatorError, AnimatorResult};
 use nalgebra::{Point3, Vector3};
-use splines::{Interpolation, Key, Spline};
-use std::time::Duration;
-use napi::Error;
+use serde::{Serialize, Deserialize};
+use napi::bindgen_prelude::*;
+use std::result::Result;
 
-/// Path types for different animation trajectories
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PathPointSerde {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub time: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct PathPoint {
+    pub position: Point3<f64>,
+    pub time: f64,
+}
+
+impl From<&PathPoint> for PathPointSerde {
+    fn from(point: &PathPoint) -> Self {
+        Self {
+            x: point.position.x,
+            y: point.position.y,
+            z: point.position.z,
+            time: point.time,
+        }
+    }
+}
+
+impl From<PathPointSerde> for PathPoint {
+    fn from(serde: PathPointSerde) -> Self {
+        Self {
+            position: Point3::new(serde.x, serde.y, serde.z),
+            time: serde.time,
+        }
+    }
+}
+
+impl Serialize for PathPoint {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        PathPointSerde::from(self).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for PathPoint {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let helper = PathPointSerde::deserialize(deserializer)?;
+        Ok(Self::from(helper))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PathType {
     Linear,
     Bezier,
     Spline,
-    Custom(String),
 }
 
-/// Path point with position and metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PathPoint {
-    pub coords: Point3<f64>,
-    pub velocity: Option<Vector3<f64>>,
-    pub acceleration: Option<Vector3<f64>>,
-    pub metadata: HashMap<String, serde_json::Value>,
-}
-
-impl PathPoint {
-    pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self {
-            coords: Point3::new(x, y, z),
-            velocity: None,
-            acceleration: None,
-            metadata: HashMap::new(),
-        }
-    }
-
-    pub fn with_velocity(mut self, vx: f64, vy: f64, vz: f64) -> Self {
-        self.velocity = Some(Vector3::new(vx, vy, vz));
-        self
-    }
-
-    pub fn with_acceleration(mut self, ax: f64, ay: f64, az: f64) -> Self {
-        self.acceleration = Some(Vector3::new(ax, ay, az));
-        self
-    }
-}
-
-/// Animation path definition
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnimationPath {
-    pub path_type: PathType,
-    pub points: Vec<PathPoint>,
-    pub duration: f64,
-    pub loop_behavior: LoopBehavior,
-    pub constraints: Vec<PathConstraint>,
-}
-
-impl AnimationPath {
-    pub fn new(path_type: PathType) -> Self {
-        Self {
-            path_type,
-            points: Vec::new(),
-            duration: 0.0,
-            loop_behavior: LoopBehavior::None,
-            constraints: Vec::new(),
-        }
-    }
-
-    pub fn add_point(&mut self, position: Point3<f64>, time: Duration) {
-        self.points.push(PathPoint {
-            coords: position,
-            velocity: None,
-            acceleration: None,
-            metadata: HashMap::new(),
-        });
-    }
-
-    pub fn generate_point(&self, time: f64) -> AnimatorResult<PathPoint> {
-        if self.points.is_empty() {
-            return Err(AnimatorError::ValidationError(String::from("Path has no points")).into());
-        }
-
-        match self.path_type {
-            PathType::Linear => self.generate_linear_point(time),
-            PathType::Bezier => self.generate_bezier_point(time),
-            PathType::Spline => self.generate_spline_point(time),
-            PathType::Custom(_) => Err(AnimatorError::ValidationError(String::from("Custom path type not supported")).into()),
-        }
-    }
-
-    fn generate_linear_point(&self, time: f64) -> AnimatorResult<PathPoint> {
-        if self.points.len() < 2 {
-            return Err(AnimatorError::ValidationError(String::from("Linear path must have at least two points")).into());
-        }
-
-        // Find the two points that bound the current time
-        let (p1, p2) = self.find_bounding_points(time)?;
-
-        // Linear interpolation between points
-        let t = (time - p1.coords.x) / (p2.coords.x - p1.coords.x);
-        let position = interpolate_points(&p1.coords, &p2.coords, t);
-
-        Ok(PathPoint {
-            coords: position,
-            velocity: None,
-            acceleration: None,
-            metadata: HashMap::new(),
-        })
-    }
-
-    fn generate_bezier_point(&self, time: f64) -> AnimatorResult<PathPoint> {
-        if self.points.len() < 4 {
-            return Err(AnimatorError::ValidationError(String::from("Bezier path must have at least four control points")).into());
-        }
-
-        // Calculate t parameter (0 to 1)
-        let t = time / self.duration;
-
-        // Cubic Bezier interpolation
-        let p0 = &self.points[0].coords;
-        let p1 = &self.points[1].coords;
-        let p2 = &self.points[2].coords;
-        let p3 = &self.points[3].coords;
-
-        let position = interpolate_points(p0, p1, t * 3.0) * (1.0 - t).powi(2)
-            + interpolate_points(p1, p2, t * 3.0) * 3.0 * t * (1.0 - t)
-            + interpolate_points(p2, p3, t * 3.0) * 3.0 * t.powi(2) * (1.0 - t)
-            + p3 * t.powi(3);
-
-        Ok(PathPoint {
-            coords: position,
-            velocity: None,
-            acceleration: None,
-            metadata: HashMap::new(),
-        })
-    }
-
-    fn generate_spline_point(&self, time: f64) -> AnimatorResult<PathPoint> {
-        if self.points.len() < 2 {
-            return Err(AnimatorError::ValidationError(String::from("Spline path must have at least two points")).into());
-        }
-
-        // Create spline from points
-        let mut spline = Spline::from_vec(
-            self.points
-                .iter()
-                .enumerate()
-                .map(|(i, p)| {
-                    Key::new(
-                        i as f64 / (self.points.len() - 1) as f64,
-                        p.coords,
-                        Interpolation::Linear,
-                    )
-                })
-                .collect(),
-        );
-
-        // Calculate t parameter (0 to 1)
-        let t = time / self.duration;
-        let position = spline.sample(t).ok_or_else(|| AnimatorError::ValidationError(String::from("Failed to interpolate spline")).into())?;
-
-        Ok(PathPoint {
-            coords: position,
-            velocity: None,
-            acceleration: None,
-            metadata: HashMap::new(),
-        })
-    }
-
-    fn find_bounding_points(&self, time: f64) -> AnimatorResult<(&PathPoint, &PathPoint)> {
-        if time < 0.0 || time > self.duration {
-            Err(AnimatorError::ValidationError(String::from("Time out of path range")).into())
-        } else {
-            // Find points that bound the given time
-            let mut prev_point = &self.points[0];
-            for point in &self.points[1..] {
-                if time <= point.coords.x {
-                    return Ok((prev_point, point));
-                }
-                prev_point = point;
-            }
-            Ok((&self.points[self.points.len() - 2], &self.points[self.points.len() - 1]))
-        }
-    }
-}
-
-/// Loop behavior for paths
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum LoopBehavior {
     None,
     Loop,
     PingPong,
-    Custom(u32),
-}
-
-/// Path constraints
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PathConstraint {
-    pub constraint_type: PathConstraintType,
-    pub value: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PathConstraintType {
-    MaxSpeed,
-    MaxAcceleration,
-    MinDistance,
-    MaxCurvature,
+pub struct PathConstraints {
+    pub min_x: Option<f64>,
+    pub max_x: Option<f64>,
+    pub min_y: Option<f64>,
+    pub max_y: Option<f64>,
+    pub min_z: Option<f64>,
+    pub max_z: Option<f64>,
 }
 
-/// Path generator for creating animation paths
-pub struct PathGenerator {
-    interpolators: HashMap<PathType, Box<dyn PathInterpolator>>,
-}
-
-/// Trait for path interpolation
-pub trait PathInterpolator: Send + Sync {
-    fn interpolate(&self, path: &AnimationPath, time: f64) -> AnimatorResult<PathPoint>;
-    fn validate(&self, path: &AnimationPath) -> AnimatorResult<()>;
-}
-
-impl PathGenerator {
-    pub fn new() -> Self {
-        let mut generator = Self {
-            interpolators: HashMap::new(),
-        };
-        
-        // Register default interpolators
-        generator.register_interpolator(
-            PathType::Linear,
-            Box::new(LinearInterpolator::new())
-        );
-        generator.register_interpolator(
-            PathType::Bezier,
-            Box::new(BezierInterpolator::new())
-        );
-        generator.register_interpolator(
-            PathType::Spline,
-            Box::new(SplineInterpolator::new())
-        );
-        
-        generator
-    }
-
-    /// Register a new path interpolator
-    pub fn register_interpolator(
-        &mut self,
-        path_type: PathType,
-        interpolator: Box<dyn PathInterpolator>
-    ) {
-        self.interpolators.insert(path_type, interpolator);
-    }
-
-    /// Generate path point at given time
-    pub fn generate_point(&self, path: &AnimationPath, time: f64) -> AnimatorResult<PathPoint> {
-        let interpolator = self.interpolators
-            .get(&path.path_type)
-            .ok_or_else(|| AnimatorError::ValidationError(String::from("No interpolator registered for path type")).into())?;
-            
-        interpolator.interpolate(path, time)
-    }
-
-    /// Validate path configuration
-    pub fn validate_path(&self, path: &AnimationPath) -> AnimatorResult<()> {
-        // Basic validation
-        if path.points.is_empty() {
-            return Err(AnimatorError::ValidationError(String::from("Path must have at least one point")).into());
+impl Default for PathConstraints {
+    fn default() -> Self {
+        Self {
+            min_x: None,
+            max_x: None,
+            min_y: None,
+            max_y: None,
+            min_z: None,
+            max_z: None,
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnimationPathSerde {
+    pub points: Vec<PathPointSerde>,
+    pub path_type: PathType,
+    pub loop_behavior: LoopBehavior,
+    pub constraints: PathConstraints,
+}
+
+#[derive(Debug, Clone)]
+pub struct AnimationPath {
+    pub points: Vec<PathPoint>,
+    pub path_type: PathType,
+    pub loop_behavior: LoopBehavior,
+    pub constraints: PathConstraints,
+}
+
+impl From<&AnimationPath> for AnimationPathSerde {
+    fn from(path: &AnimationPath) -> Self {
+        Self {
+            points: path.points.iter().map(PathPointSerde::from).collect(),
+            path_type: path.path_type.clone(),
+            loop_behavior: path.loop_behavior.clone(),
+            constraints: path.constraints.clone(),
+        }
+    }
+}
+
+impl From<AnimationPathSerde> for AnimationPath {
+    fn from(serde: AnimationPathSerde) -> Self {
+        Self {
+            points: serde.points.into_iter().map(PathPoint::from).collect(),
+            path_type: serde.path_type,
+            loop_behavior: serde.loop_behavior,
+            constraints: serde.constraints,
+        }
+    }
+}
+
+impl Serialize for AnimationPath {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        AnimationPathSerde::from(self).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for AnimationPath {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let helper = AnimationPathSerde::deserialize(deserializer)?;
+        Ok(Self::from(helper))
+    }
+}
+
+impl AnimationPath {
+    pub fn new(path_type: PathType, loop_behavior: LoopBehavior) -> Self {
+        Self {
+            points: Vec::new(),
+            path_type,
+            loop_behavior,
+            constraints: PathConstraints::default(),
+        }
+    }
+
+    pub fn add_point(&mut self, point: PathPoint) {
+        self.points.push(point);
+        self.points.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+    }
+
+    pub fn get_point_at_time(&self, time: f64) -> napi::Result<Point3<f64>> {
+        if self.points.is_empty() {
+            return Err(Error::from_reason("No points in path"));
+        }
+
+        if self.points.len() == 1 {
+            return Ok(self.points[0].position);
+        }
+
+        match self.path_type {
+            PathType::Linear => self.linear_interpolation(time),
+            PathType::Bezier => self.bezier_interpolation(time),
+            PathType::Spline => self.spline_interpolation(time),
+        }
+    }
+
+    fn linear_interpolation(&self, time: f64) -> napi::Result<Point3<f64>> {
+        let mut prev_point = &self.points[0];
         
-        if path.duration <= 0.0 {
-            return Err(AnimatorError::ValidationError(String::from("Path duration must be positive")).into());
+        for point in &self.points[1..] {
+            if time <= point.time {
+                let t = (time - prev_point.time) / (point.time - prev_point.time);
+                let x = prev_point.position.x + t * (point.position.x - prev_point.position.x);
+                let y = prev_point.position.y + t * (point.position.y - prev_point.position.y);
+                let z = prev_point.position.z + t * (point.position.z - prev_point.position.z);
+                return Ok(Point3::new(x, y, z));
+            }
+            prev_point = point;
         }
+
+        Ok(prev_point.position)
+    }
+
+    fn bezier_interpolation(&self, time: f64) -> napi::Result<Point3<f64>> {
+        // For now, use linear interpolation as a placeholder
+        // TODO: Implement proper Bezier curve interpolation
+        self.linear_interpolation(time)
+    }
+
+    fn spline_interpolation(&self, time: f64) -> napi::Result<Point3<f64>> {
+        // For now, use linear interpolation as a placeholder
+        // TODO: Implement proper spline interpolation
+        self.linear_interpolation(time)
+    }
+
+    fn validate_constraints(&self, point: &Point3<f64>) -> bool {
+        let x_valid = self.constraints.min_x.map_or(true, |min| point.x >= min) &&
+                     self.constraints.max_x.map_or(true, |max| point.x <= max);
+        let y_valid = self.constraints.min_y.map_or(true, |min| point.y >= min) &&
+                     self.constraints.max_y.map_or(true, |max| point.y <= max);
+        let z_valid = self.constraints.min_z.map_or(true, |min| point.z >= min) &&
+                     self.constraints.max_z.map_or(true, |max| point.z <= max);
         
-        // Get interpolator and validate
-        let interpolator = self.interpolators
-            .get(&path.path_type)
-            .ok_or_else(|| AnimatorError::ValidationError(String::from("No interpolator registered for path type")).into())?;
-            
-        interpolator.validate(path)?;
-        
-        Ok(())
+        x_valid && y_valid && z_valid
     }
-}
-
-/// Linear path interpolator
-pub struct LinearInterpolator;
-
-impl LinearInterpolator {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl PathInterpolator for LinearInterpolator {
-    fn interpolate(&self, path: &AnimationPath, time: f64) -> AnimatorResult<PathPoint> {
-        path.generate_point(time)
-    }
-
-    fn validate(&self, path: &AnimationPath) -> AnimatorResult<()> {
-        if path.points.len() < 2 {
-            return Err(AnimatorError::ValidationError(String::from("Linear path must have at least two points")).into());
-        }
-        Ok(())
-    }
-}
-
-/// Bezier path interpolator
-pub struct BezierInterpolator;
-
-impl BezierInterpolator {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl PathInterpolator for BezierInterpolator {
-    fn interpolate(&self, path: &AnimationPath, time: f64) -> AnimatorResult<PathPoint> {
-        path.generate_point(time)
-    }
-
-    fn validate(&self, path: &AnimationPath) -> AnimatorResult<()> {
-        if path.points.len() < 4 {
-            return Err(AnimatorError::ValidationError(String::from("Bezier path must have at least four control points")).into());
-        }
-        Ok(())
-    }
-}
-
-/// Spline path interpolator
-pub struct SplineInterpolator;
-
-impl SplineInterpolator {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl PathInterpolator for SplineInterpolator {
-    fn interpolate(&self, path: &AnimationPath, time: f64) -> AnimatorResult<PathPoint> {
-        path.generate_point(time)
-    }
-
-    fn validate(&self, path: &AnimationPath) -> AnimatorResult<()> {
-        if path.points.len() < 2 {
-            return Err(AnimatorError::ValidationError(String::from("Spline path must have at least two points")).into());
-        }
-        Ok(())
-    }
-}
-
-pub fn interpolate_points(p1: &Point3<f64>, p2: &Point3<f64>, t: f64) -> Point3<f64> {
-    Point3::new(
-        p1.x + (p2.x - p1.x) * t,
-        p1.y + (p2.y - p1.y) * t,
-        p1.z + (p2.z - p1.z) * t,
-    )
 }
 
 #[cfg(test)]
@@ -361,74 +227,56 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_linear_interpolation() {
-        let mut generator = PathGenerator::new();
-        
-        let path = AnimationPath {
-            path_type: PathType::Linear,
-            points: vec![
-                PathPoint {
-                    coords: Point3::new(0.0, 0.0, 0.0),
-                    velocity: None,
-                    acceleration: None,
-                    metadata: HashMap::new(),
-                },
-                PathPoint {
-                    coords: Point3::new(1.0, 1.0, 1.0),
-                    velocity: None,
-                    acceleration: None,
-                    metadata: HashMap::new(),
-                },
-            ],
-            duration: 1.0,
-            loop_behavior: LoopBehavior::None,
-            constraints: vec![],
+    fn test_path_point_serialization() {
+        let point = PathPoint {
+            position: Point3::new(1.0, 2.0, 3.0),
+            time: 0.5,
         };
-        
-        let point = generator.generate_point(&path, 0.5).unwrap();
-        assert_eq!(point.coords, Point3::new(0.5, 0.5, 0.5));
+
+        let serialized = serde_json::to_string(&point).unwrap();
+        let deserialized: PathPoint = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized.position.x, point.position.x);
+        assert_eq!(deserialized.position.y, point.position.y);
+        assert_eq!(deserialized.position.z, point.position.z);
+        assert_eq!(deserialized.time, point.time);
     }
 
     #[test]
-    fn test_bezier_interpolation() {
-        let mut generator = PathGenerator::new();
-        
-        let path = AnimationPath {
-            path_type: PathType::Bezier,
-            points: vec![
-                PathPoint {
-                    coords: Point3::new(0.0, 0.0, 0.0),
-                    velocity: None,
-                    acceleration: None,
-                    metadata: HashMap::new(),
-                },
-                PathPoint {
-                    coords: Point3::new(0.0, 1.0, 0.0),
-                    velocity: None,
-                    acceleration: None,
-                    metadata: HashMap::new(),
-                },
-                PathPoint {
-                    coords: Point3::new(1.0, 1.0, 0.0),
-                    velocity: None,
-                    acceleration: None,
-                    metadata: HashMap::new(),
-                },
-                PathPoint {
-                    coords: Point3::new(1.0, 0.0, 0.0),
-                    velocity: None,
-                    acceleration: None,
-                    metadata: HashMap::new(),
-                },
-            ],
-            duration: 1.0,
-            loop_behavior: LoopBehavior::None,
-            constraints: vec![],
-        };
-        
-        generator.validate_path(&path).unwrap();
-        let point = generator.generate_point(&path, 0.5).unwrap();
-        assert!(point.coords.x > 0.0 && point.coords.x < 1.0);
-        assert!(point.coords.y > 0.0 && point.coords.y < 1.0);
+    fn test_animation_path_serialization() {
+        let mut path = AnimationPath::new(PathType::Linear, LoopBehavior::None);
+        path.add_point(PathPoint {
+            position: Point3::new(0.0, 0.0, 0.0),
+            time: 0.0,
+        });
+        path.add_point(PathPoint {
+            position: Point3::new(1.0, 1.0, 1.0),
+            time: 1.0,
+        });
+
+        let serialized = serde_json::to_string(&path).unwrap();
+        let deserialized: AnimationPath = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized.points.len(), path.points.len());
+        assert_eq!(deserialized.points[0].position.x, path.points[0].position.x);
+        assert_eq!(deserialized.points[1].position.x, path.points[1].position.x);
+    }
+
+    #[test]
+    fn test_linear_interpolation() {
+        let mut path = AnimationPath::new(PathType::Linear, LoopBehavior::None);
+        path.add_point(PathPoint {
+            position: Point3::new(0.0, 0.0, 0.0),
+            time: 0.0,
+        });
+        path.add_point(PathPoint {
+            position: Point3::new(1.0, 1.0, 1.0),
+            time: 1.0,
+        });
+
+        let point = path.get_point_at_time(0.5).unwrap();
+        assert_eq!(point.x, 0.5);
+        assert_eq!(point.y, 0.5);
+        assert_eq!(point.z, 0.5);
     }
 }

@@ -1,9 +1,11 @@
+use napi_derive::napi;
 use napi::bindgen_prelude::*;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::time::{Duration, Instant};
 use crate::error::AnimatorError;
 use crate::state::core::AnimatorState;
+use crate::state::core::StateManager;
 
 /// Recovery strategy types
 #[derive(Debug, Clone, Copy)]
