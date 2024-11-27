@@ -1,290 +1,165 @@
 // Module declarations
-pub mod animation;
 pub mod config;
 pub mod core;
+mod wrapper;
 pub mod models;
+pub mod update;
 
 // Re-exports
-pub use animation::Animation;
-pub use config::Config;
-pub use core::{StateManager, StateUpdates, UpdateBatch};
-pub use models::{Position, TrackParameters};
+pub use core::{StateManager};
+pub use wrapper::StateManagerWrapper;
+pub use models::{Position, TrackParameters, Animation};
+pub use update::{AnimationUpdate, PositionUpdate, StateUpdate};
 
 // External imports
-use std::path::PathBuf;
 use std::sync::Arc;
-use std::collections::HashMap;
 use tokio::sync::Mutex;
-use napi_derive::napi;
 use napi::bindgen_prelude::*;
+use napi_derive::napi;
 use serde::{Serialize, Deserialize};
 
-use crate::animation::track::TrackState;
+use crate::models::common::{Animation as CommonAnimation, Position as CommonPosition};
+use crate::animation::Animation as AnimationImpl;
+use self::core::{StateManager, Position as PositionImpl};
 
 #[napi]
-pub struct StateManager {
-    state_dir: PathBuf,
-    track_state: Arc<Mutex<TrackState>>,
-    animation_cache: Arc<Mutex<HashMap<String, Animation>>>,
-    position_cache: Arc<Mutex<HashMap<String, Position>>>,
-    simplified_updates: bool,
-    safe_mode: bool,
+pub struct State {
+    state_manager: Arc<Mutex<StateManager>>,
 }
 
 #[napi]
-impl StateManager {
-    pub fn new(state_dir: PathBuf) -> napi::Result<Self> {
-        Ok(Self {
-            state_dir,
-            track_state: Arc::new(Mutex::new(TrackState::default())),
-            animation_cache: Arc::new(Mutex::new(HashMap::new())),
-            position_cache: Arc::new(Mutex::new(HashMap::new())),
-            simplified_updates: false,
-            safe_mode: false,
-        })
-    }
-
-    pub async fn update_positions(&self) -> napi::Result<()> {
-        let mut track_state = self.track_state.lock().await;
-        track_state.update_positions().await?;
-        Ok(())
-    }
-
-    pub async fn validate(&self) -> napi::Result<()> {
-        let track_state = self.track_state.lock().await;
-        track_state.validate().await?;
-        Ok(())
-    }
-
-    pub async fn restore_checkpoint(&self) -> napi::Result<()> {
-        let mut track_state = self.track_state.lock().await;
-        track_state.restore_checkpoint().await?;
-        Ok(())
-    }
-
-    pub async fn invalidate_cache(&self, cache_name: &str) -> napi::Result<()> {
-        match cache_name {
-            "animation_cache" => {
-                let mut cache = self.animation_cache.lock().await;
-                cache.clear();
-            },
-            "position_cache" => {
-                let mut cache = self.position_cache.lock().await;
-                cache.clear();
-            },
-            _ => return Err(napi::Error::from_reason(format!("Invalid cache name: {}", cache_name))),
-        }
-        Ok(())
-    }
-
-    pub async fn save_state(&self) -> napi::Result<()> {
-        let track_state = self.track_state.lock().await;
-        track_state.save().await?;
-        Ok(())
-    }
-
-    pub async fn load_default_state(&self) -> napi::Result<()> {
-        let mut track_state = self.track_state.lock().await;
-        track_state.load_default().await?;
-        Ok(())
-    }
-
-    pub fn enable_simplified_updates(&mut self, enable: bool) -> napi::Result<()> {
-        self.simplified_updates = enable;
-        Ok(())
-    }
-
-    pub async fn clear_unused_caches(&self) -> napi::Result<()> {
-        let mut animation_cache = self.animation_cache.lock().await;
-        let mut position_cache = self.position_cache.lock().await;
-        animation_cache.clear();
-        position_cache.clear();
-        Ok(())
-    }
-
-    pub async fn cleanup_unused_animations(&self) -> napi::Result<()> {
-        let mut animation_cache = self.animation_cache.lock().await;
-        animation_cache.retain(|_, _| true); // TODO: Implement cleanup logic
-        Ok(())
-    }
-
-    pub async fn compact_memory(&self) -> napi::Result<()> {
-        self.clear_unused_caches().await?;
-        self.cleanup_unused_animations().await?;
-        Ok(())
-    }
-
-    pub async fn get_active_animation_count(&self) -> napi::Result<usize> {
-        let animation_cache = self.animation_cache.lock().await;
-        Ok(animation_cache.len())
-    }
-
-    pub async fn cleanup_resources(&self) -> napi::Result<()> {
-        self.clear_unused_caches().await?;
-        Ok(())
-    }
-
-    pub async fn reset_locks(&self) -> napi::Result<()> {
-        // No-op for now, locks are handled by Tokio
-        Ok(())
-    }
-
-    pub fn enable_safe_mode(&mut self, enable: bool) -> napi::Result<()> {
-        self.safe_mode = enable;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn apply_batch_update(&self, batch: UpdateBatch) -> napi::Result<()> {
-        let mut track_state = self.track_state.lock().await;
-        
-        // Apply track updates
-        for (id, params) in batch.track_updates {
-            track_state.update_track(&id, params).await?;
-        }
-        
-        Ok(())
-    }
-}
-
-#[napi(object)]
-#[derive(Debug, Clone, Default)]
-pub struct StateUpdates {
-    pub track_updates: Vec<(String, TrackParameters)>,
-    pub animation_updates: Vec<(String, Animation)>,
-    pub position_updates: Vec<(String, Position)>,
-}
-
-#[napi]
-impl StateUpdates {
+impl State {
     #[napi(constructor)]
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(state_dir: Option<String>) -> napi::Result<Self> {
+        let state_manager = Arc::new(Mutex::new(StateManager::new(state_dir)?));
+        Ok(Self { state_manager })
     }
 
     #[napi]
-    pub fn add_track_update(&mut self, id: String, params: TrackParameters) {
-        self.track_updates.push((id, params));
+    pub async fn add_animation(&self, animation: CommonAnimation) -> napi::Result<()> {
+        let mut state = self.state_manager.lock().await;
+        let animation = AnimationImpl::from(animation);
+        state.add_animation(animation).await
     }
 
     #[napi]
-    pub fn add_animation_update(&mut self, id: String, animation: Animation) {
-        self.animation_updates.push((id, animation));
+    pub async fn get_animation(&self, id: String) -> napi::Result<Option<CommonAnimation>> {
+        let state = self.state_manager.lock().await;
+        let animation = state.get_animation(id).await?;
+        Ok(animation.map(|a| CommonAnimation::from(a)))
     }
 
     #[napi]
-    pub fn add_position_update(&mut self, id: String, position: Position) {
-        self.position_updates.push((id, position));
+    pub async fn update_position(&self, id: String, position: CommonPosition) -> napi::Result<()> {
+        let mut state = self.state_manager.lock().await;
+        let position = PositionImpl::from(position);
+        state.update_position(id, position).await
+    }
+
+    #[napi]
+    pub async fn get_state(&self) -> napi::Result<Vec<CommonPosition>> {
+        let state = self.state_manager.lock().await;
+        let positions = state.get_positions().await?;
+        Ok(positions)
+    }
+
+    #[napi]
+    pub async fn update(&self, delta_time: f64) -> napi::Result<()> {
+        let mut state = self.state_manager.lock().await;
+        state.update(delta_time).await
     }
 }
 
-#[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UpdateBatch {
-    pub track_updates: Vec<(String, TrackParameters)>,
-    pub animation_updates: Vec<(String, Animation)>,
-    pub position_updates: Vec<(String, Position)>,
+#[napi]
+#[derive(Debug)]
+pub struct StateManagerWrapper {
+    #[napi(skip)]
+    pub state: Arc<Mutex<StateManager>>,
 }
 
-impl UpdateBatch {
-    pub fn new() -> Self {
-        Self {
-            track_updates: Vec::new(),
-            animation_updates: Vec::new(),
-            position_updates: Vec::new(),
-        }
-    }
-
-    pub fn add_track_update(&mut self, id: String, params: TrackParameters) {
-        self.track_updates.push((id, params));
-    }
-
-    pub fn add_animation_update(&mut self, id: String, animation: Animation) {
-        self.animation_updates.push((id, animation));
-    }
-
-    pub fn add_position_update(&mut self, id: String, position: Position) {
-        self.position_updates.push((id, position));
-    }
-}
-
-impl FromNapiValue for UpdateBatch {
-    unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-        let obj = Object::from_napi_value(env, napi_val)?;
-        
-        let track_updates = obj.get::<_, Vec<(String, TrackParameters)>>("trackUpdates")?
-            .unwrap_or_default();
-        let animation_updates = obj.get::<_, Vec<(String, Animation)>>("animationUpdates")?
-            .unwrap_or_default();
-        let position_updates = obj.get::<_, Vec<(String, Position)>>("positionUpdates")?
-            .unwrap_or_default();
-
+#[napi]
+impl StateManagerWrapper {
+    #[napi(constructor)]
+    pub fn new(state_dir: Option<String>) -> napi::Result<Self> {
+        let state_dir = state_dir.unwrap_or_else(|| "state".to_string());
+        let state_manager = Arc::new(Mutex::new(StateManager::new(state_dir)?));
         Ok(Self {
-            track_updates,
-            animation_updates,
-            position_updates,
+            state: state_manager,
         })
     }
-}
 
-impl ToNapiValue for UpdateBatch {
-    unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
-        let mut obj = Object::new(env)?;
-        obj.set("trackUpdates", val.track_updates)?;
-        obj.set("animationUpdates", val.animation_updates)?;
-        obj.set("positionUpdates", val.position_updates)?;
-        Ok(obj.into_napi_value()?)
+    #[napi]
+    pub async fn add_animation(&mut self, animation: CommonAnimation) -> napi::Result<()> {
+        let mut state = self.state.lock().await;
+        state.add_animation(animation).await
+    }
+
+    #[napi]
+    pub async fn get_animation(&self, id: String) -> napi::Result<Option<CommonAnimation>> {
+        let state = self.state.lock().await;
+        state.get_animation(id).await
+    }
+
+    #[napi]
+    pub async fn add_position(&mut self, id: String, position: CommonPosition) -> napi::Result<()> {
+        let mut state = self.state.lock().await;
+        state.add_position(id, position).await
+    }
+
+    #[napi]
+    pub async fn get_position(&self, id: String) -> napi::Result<Option<CommonPosition>> {
+        let state = self.state.lock().await;
+        state.get_position(id).await
+    }
+
+    #[napi]
+    pub async fn get_all_animations(&self) -> napi::Result<Vec<CommonAnimation>> {
+        let state = self.state.lock().await;
+        state.get_all_animations().await
+    }
+
+    #[napi]
+    pub async fn get_all_positions(&self) -> napi::Result<Vec<CommonPosition>> {
+        let state = self.state.lock().await;
+        state.get_positions().await
     }
 }
 
-#[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Position {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    pub orientation: f64,
-}
-
-impl Default for Position {
+impl Default for StateManagerWrapper {
     fn default() -> Self {
         Self {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-            orientation: 0.0,
+            state: Arc::new(Mutex::new(StateManager::default())),
         }
     }
 }
 
-impl FromNapiValue for StateUpdates {
-    unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-        let obj = Object::from_napi_value(env, napi_val)?;
-        
-        Ok(Self {
-            track_updates: obj.get("trackUpdates")?,
-            animation_updates: obj.get("animationUpdates")?,
-            position_updates: obj.get("positionUpdates")?,
-        })
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl ToNapiValue for StateUpdates {
-    unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
-        let mut obj = Object::new(env)?;
-        
-        obj.set("trackUpdates", val.track_updates)?;
-        obj.set("animationUpdates", val.animation_updates)?;
-        obj.set("positionUpdates", val.position_updates)?;
-        
-        Ok(obj.0)
-    }
-}
+    #[tokio::test]
+    async fn test_state_management() {
+        let state = State::new(None).unwrap();
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Animation {
-    pub id: String,
-    pub duration: f64,
-    pub start_time: f64,
-    pub end_time: f64,
+        let animation = CommonAnimation {
+            id: "test".to_string(),
+            position: CommonPosition { x: 0.0, y: 0.0, z: 0.0 },
+            duration: 0.0,
+            current_time: 0.0,
+            is_playing: false,
+        };
+
+        state.add_animation(animation.clone()).await.unwrap();
+
+        let retrieved = state.get_animation("test".to_string()).await.unwrap();
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().id, "test");
+
+        let new_position = CommonPosition { x: 1.0, y: 1.0, z: 1.0 };
+        state.update_position("test".to_string(), new_position.clone()).await.unwrap();
+
+        let state_data = state.get_state().await.unwrap();
+        assert_eq!(state_data.len(), 1);
+        assert_eq!(state_data[0].x, new_position.x);
+    }
 }
