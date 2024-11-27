@@ -121,107 +121,120 @@ Models support application to track groups with specific behaviors:
    - As Individuals: Relative positioning only
    - Relationship-specific constraints
 
-## Built-in Models
+## Implemented Models
 
 ### 1. Linear Movement
-
-Implements straight-line motion between points with configurable parameters.
-
-#### Characteristics
-- Direct point-to-point movement
+- Direct point-to-point motion
 - Constant or variable velocity
-- Optional easing functions
-- Configurable loop behavior
+- Configurable easing functions
+- Loop behavior options
 - Smooth start/end interpolation
 - Supports both AED and XYZ (natural in XYZ)
-- Supports 1D, 2D, and 3D movement
-- Single axis movement in 1D
-- Planar movement in 2D
-- Full spatial movement in 3D
-
-#### Parameters
-- Start and end positions
-- Duration or velocity
-- Easing function selection
-- Loop mode (cyclic/one-shot)
-- Interpolation settings
-- Dimensional constraints
-- Group behavior options
+- Group formation preservation
+- Batch parameter updates
 
 ### 2. Circular Movement
-
-Implements circular or elliptical motion around a center point.
-
-#### Characteristics
-- Circular or elliptical paths
-- Constant angular velocity
-- Adjustable radius and phase
-- Direction control
-- Position interpolation
-- Natural in AED mode (azimuth-based)
-- Inherently 2D movement
-- Can be extended to 3D with elevation
-- 1D operation not supported
-- Group formation preservation
-
-#### Parameters
-- Center point coordinates
-- Radius and shape ratio
-- Angular velocity
-- Phase and direction
-- Cycle mode (cyclic/one-shot)
-- Elevation for 3D (optional)
-- Formation parameters
-- Group behavior options
+- Circular path around center point
+- Configurable radius and speed
+- Direction control (CW/CCW)
+- Elevation control in 3D
+- Formation preservation during rotation
+- Group center tracking
+- Supports both AED and XYZ
+- Batch parameter updates
 
 ### 3. Pattern Movement
-
-Implements predefined movement patterns with group support.
-
-#### Characteristics
-- Pattern-based movement
-- Formation preservation
+- Predefined movement patterns
+- Configurable scale and speed
+- Pattern rotation and offset
+- Formation integration
 - Group synchronization
-- Scaling support
-- Position interpolation
-- Coordinate system flexible
-- Supports 2D and 3D
-- Formation adaptation
-- Group center tracking
+- Template-based patterns
+- Parameter inheritance
+- Batch updates support
 
-#### Parameters
-- Pattern definition
-- Scale parameters
-- Formation rules
-- Synchronization settings
-- Group behavior options
-- Center point tracking
-- Position constraints
-- Update frequency
-
-### 4. Custom Path Movement
-
-Implements movement along a user-defined path with automatic smoothing.
-
-#### Characteristics
-- Custom path following
-- Automatic path smoothing
-- Variable speed control
-- Loop management
-- Position interpolation
-- Coordinate system flexible
+### 4. Path Following
+- Custom path definition
+- Variable speed profiles
+- Path smoothing options
 - Formation preservation
-- Group path adaptation
+- Group path following
+- Interpolation methods
+- Position synchronization
+- Batch parameter updates
 
-#### Parameters
-- Path definition points
-- Velocity control
-- Loop behavior
-- Smoothing settings
-- Formation parameters
-- Group behavior options
-- Position constraints
-- Update frequency
+### 5. Random Walk
+- Configurable step size
+- Frequency control
+- Boundary constraints
+- Direction bias
+- Reproducible seeds
+- Group coherence
+- Formation preservation
+- Batch updates support
+
+### 6. Formation-based Movement
+- Template-based formations
+- Dynamic scaling
+- Rotation control
+- Center point tracking
+- Member offset management
+- Group hierarchy support
+- Position synchronization
+- Batch parameter updates
+
+### Group Application Modes
+
+1. **Center-Based Application**
+   - Model applied to group center
+   - Position updates propagate to members
+   - Formation preservation during movement
+   - Synchronized position updates
+   - Batch processing support
+   - Health monitoring integration
+   - State subscription support
+   - Error recovery handling
+
+2. **Relationship Types**
+   - Leader-Follower
+     - Direct model application to leader
+     - Follower position calculation
+     - Position offset maintenance
+     - Time offset parameters
+     - Formation preservation
+     - Batch updates support
+     - Health monitoring
+     - State subscription
+   
+   - Formation-Based
+     - Template-based positioning
+     - Dynamic formation scaling
+     - Rotation management
+     - Center point tracking
+     - Member offset control
+     - Batch processing
+     - Health monitoring
+     - State subscription
+   
+   - Individual Mode
+     - Shared parameter values
+     - Independent positioning
+     - Synchronized movement
+     - Formation awareness
+     - Batch parameter updates
+     - Health monitoring
+     - State subscription
+     - Error recovery
+
+3. **Batch Processing**
+   - Parameter updates
+   - Position calculations
+   - State synchronization
+   - Formation preservation
+   - Error handling
+   - Health monitoring
+   - State subscription
+   - Recovery strategies
 
 ## Performance Optimization
 

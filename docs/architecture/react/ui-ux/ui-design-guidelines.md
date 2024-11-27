@@ -10,6 +10,7 @@
   - Local IP input field
   - Connect/Disconnect button
   - Connection status indicator
+  - Health monitoring display
 
 ### 2. Track List Panel
 - Location: Left sidebar
@@ -19,19 +20,32 @@
   - Track creation form:
     - Name input
     - Type selector (Track/Group)
+  - Group creation:
+    - Pattern syntax support:
+      - Range: `[start-end]`
+      - Set: `{track1,track2,...}`
+    - Formation templates
+    - Leader-follower configuration:
+      - Leader selection
+      - Time offset settings
+      - Formation preservation options
   - Selection highlighting for active track/group
 
 ### 3. Animation Models Panel
 - Location: Center main content area
 - Components:
   - Animation model selector dropdown
+  - Coordinate system selector (AED/XYZ)
   - Available models list:
     - Linear Movement
     - Circular Movement
-    - Random Movement
-    - Custom Path
+    - Pattern Movement
+    - Random Walk
+    - Path Following
+    - Formation-based Movement
   - Add animation button
   - Applied animations list for selected track/group
+  - Validation feedback display
 
 ### 4. Animation Parameters Panel
 - Location: Right sidebar
@@ -40,33 +54,83 @@
     
     #### Linear Movement
     - Start Position (numerical inputs or faders)
+      - AED: [Azimuth, Elevation, Distance]
+      - XYZ: [X, Y, Z]
     - End Position (numerical inputs or faders)
     - Duration (fader or input field)
+    - Easing function selector
     - Loop Mode (checkbox)
+    - Validation indicators
     
     #### Circular Movement
     - Center Point (numerical inputs)
     - Radius (fader or input field)
     - Speed (fader or input field)
     - Direction (toggle button)
-    - Continuous (checkbox)
-    
-    #### Random Movement
-    - Bounds (numerical inputs or faders)
-    - Speed Range (fader or input field)
-    - Update Rate (fader or input field)
-    - Seed (numerical input)
-    
-    #### Custom Path
-    - Path points (coordinate inputs)
-    - Speed (fader or input field)
-    - Loop Mode (dropdown)
-    - Interpolation Type (dropdown)
+    - Elevation control (when in 3D mode)
+    - Coordinate system specific controls
+
+    #### Pattern Movement
+    - Pattern type selector
+    - Scale controls
+    - Rotation settings
+    - Speed control
+    - Pattern parameters
+
+    #### Random Walk
+    - Step size control
+    - Frequency adjustment
+    - Boundary constraints
+    - Bias direction
+    - Seed value (for reproducibility)
+
+    #### Path Following
+    - Path editor
+    - Speed profile
+    - Loop settings
+    - Interpolation method
+    - Path smoothing
+
+    #### Formation-based Movement
+    - Formation template
+    - Scale control
+    - Rotation settings
+    - Group center controls
+    - Member offset adjustments
+
+### 5. Performance Monitor
+- Location: Bottom panel
+- Components:
+  - Frame rate display
+  - State sync status
+  - Network latency
+  - Resource usage
+  - Error indicators
+  - Recovery status
+
+### 6. Input Methods
+- Numerical inputs support:
+  - Direct text entry
+  - Horizontal faders
+  - Mouse wheel adjustment
+  - Keyboard shortcuts
+  - Relative/absolute mode toggle
+
+### 7. Validation Feedback
+- Real-time parameter validation
+- Coordinate system constraints
+- Dimensional limits
+- Group relationship rules
+- Visual indicators:
+  - Valid range highlighting
+  - Error markers
+  - Warning tooltips
+  - Constraint visualization
 
 ## Interface Layout
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ Connection Panel: IP, Port, Status                              │
+│ Connection Panel: IP, Port, Status, Health                      │
 ├───────────────┬───────────────────────┬─────────────────────────┤
 │               │                       │                         │
 │ Track List    │  Animation Models     │  Parameters Panel      │
@@ -79,7 +143,6 @@
 │   • Track 2   │  • Custom            │                         │
 │   • Track 3   │                       │                         │
 │               │  [Add Animation]      │                         │
-│               │                       │                         │
 │               │                       │                         │
 │               │  Applied Animations   │                         │
 │               │  • Linear Move [▶]    │                         │
@@ -97,6 +160,7 @@
 │ Remote Port: [8000  ]                 │
 │ Local IP: [192.168.1.10           ]   │
 │ [Connect] Status: Disconnected        │
+│ Health: [OK]                          │
 └─────────────────────────────────────────┘
 ```
 
@@ -122,6 +186,8 @@
 │ • Circular      │
 │ • Random        │
 │ • Custom Path   │
+│ • Pattern       │
+│ • Formation     │
 └──────────────────┘
 ```
 
@@ -140,6 +206,7 @@
 │                            │
 │ Duration: [5.0] or [──○──] │
 │ [✓] Loop Mode              │
+│ Easing: [Linear]          │
 └────────────────────────────┘
 ```
 

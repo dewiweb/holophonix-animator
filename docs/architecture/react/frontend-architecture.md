@@ -17,7 +17,14 @@ The React frontend provides the user interface for the Holophonix Animator, focu
 - IP address and port configuration
 - Connection management
 - Settings access
+  - Auto-save configuration
+  - Theme selection
+  - Language preferences
 - Additional controls toggle
+- Window management controls
+  - New window creation
+  - Window synchronization
+  - Window arrangement presets
 
 #### Status Bar
 - Connection status
@@ -31,14 +38,33 @@ The React frontend provides the user interface for the Holophonix Animator, focu
 - Track expansion/collapse
 - Track addition interface
 - Group management
+  - Pattern-based group creation
+    - Range syntax support `[start-end]`
+    - Set syntax support `{track1,track2,...}`
+  - Group hierarchy visualization
+  - Formation pattern templates
+  - Leader-follower relationships
+    - Time offset configuration
+    - Formation preservation controls
 - Property configuration
+
+#### Performance Monitor
+- Real-time metrics visualization
+  - State synchronization status
+  - Animation frame rates
+  - Network latency
+  - Resource usage
+- Connection timeout indicators
+- System health status
 
 #### Animation Models Panel
 - Available animation models:
   - Linear Movement
   - Circular Motion
-  - Random Movement
+  - Pattern Movement
+  - Random Walk
   - Path Following
+  - Formation-based Movement
 - Active animations management
 - Playback controls
 - Parameter editing with horizontal faders

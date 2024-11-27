@@ -16,40 +16,48 @@ The Holophonix Animator implements a hybrid data flow architecture with Rust at 
 
 ### 1. User Interface → Rust Core
 ```
-User Action → UI Event → IPC → Native Module → Rust State Update
+User Action → React Event → Electron IPC → N-API → Rust Core → State Update
 ```
-- User interactions trigger UI events in React
-- Events are sent through Electron IPC
-- Native module bridges to Rust core
-- Rust processes and validates actions
-- State updates are computed in Rust
+- User interactions trigger React component events
+- Events are serialized and sent through Electron IPC channels
+- N-API bridge handles type conversion and memory management
+- Rust core validates and processes actions
+- State updates are computed with error handling
 
 ### 2. Rust Core → OSC Communication
 ```
-Rust State Change → OSC Message Generation → UDP Socket → Holophonix Device
+Rust State Change → Zero-Copy Buffer → OSC Message → UDP Socket → Holophonix
 ```
-- State changes in Rust trigger OSC messages
-- Zero-copy message generation
-- Direct UDP socket management
-- Efficient message transmission
+- State changes trigger OSC message generation
+- Zero-copy buffer management for performance
+- Direct UDP socket management with error handling
+- Efficient message transmission with retry logic
+- Acknowledgment handling for critical messages
 
 ### 3. External Control → Application
 ```
-External App → OSC Message → Rust Parser → State Update
+External App → OSC → UDP Socket → Rust Parser → Validation → State Update
 ```
-- External apps send OSC messages
-- Rust directly handles UDP communication
-- Messages are parsed and validated
-- State is updated if valid
+- External applications send OSC messages
+- UDP socket managed by Rust with error handling
+- Messages parsed with zero-copy when possible
+- Strict validation of incoming messages
+- State updated only after validation
 
 ### 4. Rust → UI Update
 ```
-Rust State → Native Module → IPC → React State → UI Update
+Rust State → N-API → IPC → React State → UI Update
 ```
-- State changes in Rust core
-- Propagated through native module
-- Sent via IPC to renderer
-- React updates UI accordingly
+- State changes in Rust core trigger update events
+- N-API handles memory management and type conversion
+- IPC messages batched for performance
+- React state updates trigger efficient re-renders
+- Error boundaries catch and handle failures
+
+For implementation details of these patterns, see:
+- [Node Integration](../rust-core/node-bridge/node-integration.md)
+- [Frontend Architecture](../react/frontend-architecture.md)
+- [State Management](../rust-core/state-manager/state-management.md)
 
 ### 5. File Upload Flow
 ```

@@ -1,9 +1,10 @@
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import os
 import json
-import glob
 import markdown
 import re
+from pathlib import Path
+import glob
 import mimetypes
 
 class DocsHandler(SimpleHTTPRequestHandler):
@@ -13,7 +14,9 @@ class DocsHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def do_GET(self):
-        if self.path == '/list-docs':
+        if self.path == '/docs-structure':
+            self.handle_docs_structure()
+        elif self.path == '/list-docs':
             self.handle_list_docs()
         elif self.path == '/list-mmd':
             self.handle_list_mmd()
@@ -44,6 +47,99 @@ class DocsHandler(SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', '*')
 
+    def get_docs_structure(self, base_path='docs/architecture'):
+        structure = []
+        base = Path(base_path)
+        
+        # Define order of main sections
+        section_order = {
+            'common': 0,
+            'react': 1,
+            'electron': 2,
+            'rust-core': 3
+        }
+        
+        # Get all files and directories
+        for path in sorted(base.rglob('*')):
+            if path.name.startswith('.') or path.name.startswith('__'):
+                continue
+                
+            rel_path = str(path.relative_to(base.parent))
+            parts = list(path.relative_to(base).parts)
+            
+            if path.is_file():
+                if path.suffix in ['.md', '.mmd']:
+                    # Default title from filename
+                    title = path.stem.replace('-', ' ').title()
+                    
+                    # For markdown files, try to extract the first heading
+                    if path.suffix == '.md':
+                        try:
+                            with open(path, 'r', encoding='utf-8') as f:
+                                content = f.read()
+                                # Try to find a level 1 heading first
+                                heading = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
+                                if heading:
+                                    title = heading.group(1).strip()
+                                else:
+                                    # If no level 1 heading, try level 2
+                                    heading = re.search(r'^##\s+(.+)$', content, re.MULTILINE)
+                                    if heading:
+                                        title = heading.group(1).strip()
+                                        
+                                # Clean up the title
+                                title = title.replace('\\', '')  # Remove escape characters
+                                if ':' in title:  # Handle subtitles
+                                    main_title = title.split(':')[0].strip()
+                                    if len(main_title) > 3:  # Use main title if it's long enough
+                                        title = main_title
+                        except Exception as e:
+                            print(f"Error reading title from {path}: {e}")
+                            
+                    # For mermaid files, add "Diagram:" prefix if it's not already a diagram title
+                    elif path.suffix == '.mmd':
+                        if not any(word in title.lower() for word in ['diagram', 'flow', 'chart', 'architecture']):
+                            title = f"Diagram: {title}"
+                    
+                    # Create folder path for grouping
+                    section = parts[0]
+                    folder_path = '/'.join(parts[:-1]) if len(parts) > 1 else section
+                    
+                    structure.append({
+                        'type': 'diagram' if path.suffix == '.mmd' else 'doc',
+                        'path': rel_path,
+                        'title': title,
+                        'section': section,
+                        'folder_path': folder_path if len(parts) > 1 else None,
+                        'is_root_file': len(parts) == 1
+                    })
+        
+        # Sort structure by section order and then by title
+        structure.sort(key=lambda x: (
+            section_order.get(x['section'], 999),
+            0 if x['is_root_file'] else 1,  # Root files come first
+            x.get('folder_path', ''),
+            x['title']
+        ))
+        
+        return structure
+
+    def handle_docs_structure(self):
+        try:
+            structure = self.get_docs_structure()
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(structure).encode('utf-8'))
+            
+        except Exception as e:
+            print(f"Error getting docs structure: {str(e)}")
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+
     def handle_read_mmd(self):
         try:
             # Remove /read-mmd/ prefix and decode the path
@@ -51,8 +147,16 @@ class DocsHandler(SimpleHTTPRequestHandler):
             file_path = file_path.replace('%2F', '/')
             
             # Security check: ensure path is within docs directory
-            if not file_path.startswith('docs/') or '..' in file_path:
+            if '..' in file_path:
                 raise ValueError('Invalid file path')
+            
+            # Prepend docs/ if not already present
+            if not file_path.startswith('docs/'):
+                file_path = os.path.join('docs', file_path)
+                
+            # Ensure the file exists
+            if not os.path.isfile(file_path):
+                raise FileNotFoundError(f'File not found: {file_path}')
                 
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -63,7 +167,7 @@ class DocsHandler(SimpleHTTPRequestHandler):
             self.wfile.write(content.encode('utf-8'))
             
         except Exception as e:
-            print(f"Error reading mermaid diagram: {str(e)}")  # Debug output
+            print(f"Error reading mermaid diagram: {str(e)}")
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
@@ -76,8 +180,16 @@ class DocsHandler(SimpleHTTPRequestHandler):
             file_path = file_path.replace('%2F', '/')
             
             # Security check: ensure path is within docs directory
-            if not file_path.startswith('docs/') or '..' in file_path:
+            if '..' in file_path:
                 raise ValueError('Invalid file path')
+            
+            # Prepend docs/ if not already present
+            if not file_path.startswith('docs/'):
+                file_path = os.path.join('docs', file_path)
+                
+            # Ensure the file exists
+            if not os.path.isfile(file_path):
+                raise FileNotFoundError(f'File not found: {file_path}')
                 
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -101,11 +213,10 @@ class DocsHandler(SimpleHTTPRequestHandler):
                 'content': html_content,
                 'path': file_path
             }
-            
             self.wfile.write(json.dumps(response).encode('utf-8'))
             
         except Exception as e:
-            print(f"Error reading document: {str(e)}")  # Debug output
+            print(f"Error reading document: {str(e)}")
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
             self.end_headers()

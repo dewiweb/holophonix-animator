@@ -1,0 +1,131 @@
+---
+title: Holophonix Animator Component Architecture
+---
+%%{init: {'theme': 'dark', 'themeVariables': { 'darkMode': true }}}%%
+flowchart TD
+    %% Main Components
+    subgraph Frontend["Frontend Layer"]
+        direction TB
+        style Frontend fill:#1a1a1a,stroke:#4a4a4a,color:#e0e0e0
+        UI["UI Components<br/>(React/TypeScript)"]
+        Monitor["Performance Monitor"]
+        ErrorBoundary["Error Boundaries"]
+    end
+
+    subgraph Electron["Electron Layer"]
+        direction TB
+        style Electron fill:#1a1a1a,stroke:#4a4a4a,color:#e0e0e0
+        EP["Main Process<br/>(System Integration)"]
+        ErrorHandler["Error Handler"]
+    end
+
+    subgraph RustCore["Rust Core"]
+        direction TB
+        style RustCore fill:#1a1a1a,stroke:#4a4a4a,color:#e0e0e0
+        
+        subgraph Bridge["Node Bridge"]
+            style Bridge fill:#1a1a1a,stroke:#4a4a4a,color:#e0e0e0
+            RN["Rust-Node Bridge<br/>(N-API)"]
+            subgraph NativeAPI["Native API"]
+                style NativeAPI fill:#1a1a1a,stroke:#4a4a4a,color:#e0e0e0
+                Functions["Exposed Rust<br/>Functions"]
+                Types["Type<br/>Definitions"]
+            end
+        end
+
+        subgraph StateSystem["State Management"]
+            style StateSystem fill:#1a1a1a,stroke:#4a4a4a,color:#e0e0e0
+            StateManager["State Manager"]
+            StateSync["State Sync"]
+            ErrorRecovery["Error Recovery"]
+        end
+
+        subgraph OSC["OSC System"]
+            style OSC fill:#1a1a1a,stroke:#4a4a4a,color:#e0e0e0
+            Server["OSC Server"]
+            Client["OSC Client"]
+            Protocol["Protocol Handler"]
+            Retry["Retry Logic"]
+        end
+
+        subgraph Animation["Animation System"]
+            style Animation fill:#1a1a1a,stroke:#4a4a4a,color:#e0e0e0
+            Manager["Animation<br/>Manager"]
+            Groups["Group<br/>System"]
+            Models["Animation<br/>Models"]
+            Compute["Computation<br/>Engine"]
+        end
+
+        %% Connections within Rust Core
+        Manager --> StateManager
+        StateManager --> Protocol
+        Protocol --> Retry
+        Manager --> Groups
+        Groups --> Models
+        Models --> Compute
+        StateSync --> ErrorRecovery
+    end
+
+    %% Cross-layer connections
+    UI --> Monitor
+    UI --> ErrorBoundary
+    ErrorBoundary --> ErrorHandler
+    ErrorHandler --> RN
+    Monitor --> RN
+    EP --> RN
+    RN --> Functions
+    Functions --> Types
+    Server --> Protocol
+    Client --> Protocol
+
+    %% Error handling flow
+    ErrorRecovery --> StateManager
+    ErrorRecovery --> RN
+    Retry --> ErrorRecovery
+
+    %% Performance monitoring flow
+    Compute --> Monitor
+    Protocol --> Monitor
+    StateSync --> Monitor
+
+    %% Device and Control Apps
+    Device["Holophonix<br/>Device"]
+    ControlApps["External OSC<br/>Control Apps<br/>(TouchOSC/Lemur)"]
+    style ControlApps fill:#37474f,stroke:#b0bec5,color:#e0e0e0
+
+    %% Main Flow Connections
+    UI <--> |"IPC"| EP
+    EP <--> |"N-API"| RN
+    RN <--> |"FFI"| Functions
+    Functions <--> |"Direct Calls"| OSC
+    Types <--> |"Type Mapping"| OSC
+    
+    %% OSC Connections
+    Client --> |"OSC/UDP<br/>Commands"| Device
+    Device --> |"OSC/UDP<br/>State Updates"| Server
+    
+    %% Internal Connections
+    Server --> Protocol
+    Protocol --> Client
+    Manager --> Groups
+    Groups --> Models
+    Store --> Sync
+    Sync --> Compute
+
+    %% Control Apps Connection
+    ControlApps --> |"OSC Control<br/>Messages"| Server
+    
+    %% Styling
+    classDef default fill:#2a2a2a,stroke:#666,color:#ddd;
+    classDef highlight fill:#094771,stroke:#666,color:#fff;
+    class RN,Functions,Types highlight;
+    
+    %% Control Apps Note
+    controlNote["External OSC apps send<br/>one-way control messages<br/>to the animator"]
+    style controlNote fill:#1a1a1a,stroke:#4a4a4a,color:#e0e0e0
+    ControlApps --- controlNote
+
+    %% N-API Note
+    note["N-API provides a stable interface<br/>for exposing native Rust functions<br/>and types to Node.js"]
+    style note fill:#1a1a1a,stroke:#4a4a4a,color:#e0e0e0
+    RN --- note

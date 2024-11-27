@@ -15,35 +15,34 @@ The architecture diagram is available in the following formats:
 ## Core Architecture Requirements
 
 1. **User Interface Layer**
-   - [ ] Bilingual support (English and French)
-   - [ ] Accessibility features implementation
-   - [ ] Responsive and intuitive motion control interface
-   - [ ] Real-time preview capabilities
-   - [ ] Configuration management interface
+   - [x] Bilingual support (English and French)
+   - [x] Accessibility features implementation
+   - [x] Responsive and intuitive motion control interface
+   - [x] Real-time preview capabilities
+   - [x] Configuration management interface
 
 2. **Animation Service Architecture**
-   - [ ] Choose optimal programming language (Rust/C++)
-   - [ ] Define service communication protocol (WebSocket/gRPC)
-   - [ ] Design computation modules interfaces
-   - [ ] Specify performance requirements (real-time motion)
-   - [ ] Plan scaling strategy for multiple objects
-   - [ ] Implement state persistence and recovery
+   - [x] Rust implementation with N-API integration
+   - [x] Native module communication via N-API
+   - [x] Modular computation architecture
+   - [x] Real-time motion support (60 FPS target)
+   - [x] Multi-object animation scaling
+   - [x] State persistence and recovery
 
 3. **External Systems Integration**
-   - [ ] Implement bidirectional OSC protocol:
+   - [x] Bidirectional OSC protocol implementation:
      - Send: Motion commands and parameter updates
      - Receive: State queries and responses
      - Default port: 4003 (configurable)
-   - [ ] Support multiple OSC destinations (optional)
-   - [ ] Plan communication between Animation Service and Holophonix:
-     - Real-time state synchronization
-     - Error handling and recovery
-     - Connection monitoring
-   - [ ] Implement network diagnostics and monitoring:
+   - [x] Multiple OSC destination support
+   - [x] Real-time state synchronization
+   - [x] Error handling and recovery
+   - [x] Connection monitoring
+   - [x] Network diagnostics:
      - Connection status
      - Message latency
      - Error rates
-   - [ ] Design error handling and recovery system
+   - [x] Error recovery system
 
 ### OSC Communication Layer
 
@@ -55,57 +54,69 @@ The OSC Handler component manages bidirectional communication between the Holoph
    - Parameter value updates
    - State queries for synchronization
    - Configuration changes
+   - Group control commands
+   - Formation updates
 
 2. **Inbound Communication (Holophonix → Animator)**
    - State query responses
    - Parameter update confirmations
    - Error notifications
    - System status updates
+   - Group state updates
+   - Health check responses
 
 #### Protocol Specifications
 - Transport: UDP
 - Default Port: 4003 (configurable)
 - Message Format: OSC 1.0 compliant
-- Address Patterns: `/track/{id}/...` for source control
+- Address Patterns: 
+  * `/track/{id}/...` for source control
+  * `/group/{id}/...` for group control
+  * `/formation/{id}/...` for formation control
 - Query Format: `/get <parameter_path>`
 - Coordinate Systems:
   * Cartesian (XYZ): Normalized -1.0 to 1.0 range
   * Polar (AED): Azimuth 0-360°, Elevation -90-90°, Distance 0-1
   * Conversions handled by backend for optimal performance
+- State Subscription Format: `/subscribe <parameter_path>`
 
 #### Error Handling
 - Network connectivity monitoring
 - Message validation and error reporting
-- Automatic reconnection on connection loss
+- Automatic reconnection with progressive backoff
 - Timeout handling for unresponsive queries
 - Value range validation for coordinates and parameters
+- Batch error recovery for group operations
 
 #### State Management
-- Periodic state synchronization
+- Real-time state synchronization (60Hz)
+- State subscription system
 - Cache invalidation on parameter changes
 - Conflict resolution for concurrent updates
 - Efficient coordinate system state tracking
+- Group state persistence
+- Formation state tracking
 
 4. **Main Process Architecture**
-   - [ ] Design Animation Bridge implementation
-   - [ ] Define service client requirements
-   - [ ] Plan error handling and recovery strategies
-   - [ ] Implement configuration management system
-   - [ ] Design plugin architecture for motion patterns
+   - [x] Animation Bridge implementation
+   - [x] Service client implementation
+   - [x] Error handling and recovery strategies
+   - [x] Configuration management system
+   - [x] Plugin architecture for motion patterns
 
 5. **Data Flow and State Management**
-   - [ ] Define data models for animation calculations
-   - [ ] Specify state update patterns
-   - [ ] Design high-performance data exchange format
-   - [ ] Implement configuration import/export
-   - [ ] Design backup and restore functionality
+   - [x] Data models for animation calculations
+   - [x] State update patterns
+   - [x] High-performance data exchange format
+   - [x] Configuration import/export
+   - [x] Backup and restore functionality
 
 6. **Performance and Resource Management**
-   - [ ] Define computation performance targets
-   - [ ] Specify maximum latency requirements (<10ms)
-   - [ ] Plan resource allocation strategy
-   - [ ] Define scaling limits
-   - [ ] Implement performance monitoring
+   - [x] Computation performance targets (60 FPS)
+   - [x] Maximum latency requirements (<16.7ms for 60 FPS)
+   - [x] Resource allocation strategy
+   - [x] Scaling limits (up to 128 tracks)
+   - [x] Performance monitoring
 
 ## Technology Stack
 
@@ -114,9 +125,11 @@ The OSC Handler component manages bidirectional communication between the Holoph
 #### 1. Rust Core
 - High-performance computation engine
 - OSC communication layer
-- State management
+- State management and persistence
 - Native module integration
-- Real-time processing
+- Real-time processing (60 FPS)
+- Formation computation engine
+- Group management system
 
 #### 2. Electron
 - Cross-platform desktop framework
@@ -124,12 +137,15 @@ The OSC Handler component manages bidirectional communication between the Holoph
 - IPC management
 - System integration
 - Window management
+- Multi-window synchronization
 
 #### 3. React
 - User interface framework
 - Component architecture
 - State visualization
 - Real-time updates
+- Theme support
+- Accessibility features
 
 ### Key Components
 
@@ -137,31 +153,11 @@ The OSC Handler component manages bidirectional communication between the Holoph
 - UDP socket management
 - Zero-copy message parsing
 - Real-time message routing
-- Input port: 9000 (configurable)
+- Default port: 4003 (configurable)
 - Holophonix device communication
 - External control message handling
-
-#### 2. Native Bridge (Rust + Node.js)
-- N-API bindings
-- Zero-cost abstractions
-- Type-safe FFI
-- Efficient memory management
-- Synchronous operations
-- Asynchronous processing
-
-#### 3. State Management
-- Core state in Rust
-- UI state in React
-- Efficient synchronization
-- Type-safe updates
-- Performance optimization
-
-#### 4. User Interface
-- React components
-- TypeScript for type safety
-- Real-time visualization
-- Responsive design
-- Accessibility support
+- State subscription system
+- Health monitoring
 
 ### Development Tools
 

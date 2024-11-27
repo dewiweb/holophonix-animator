@@ -1,0 +1,124 @@
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'fontSize': '16px',
+    'fontFamily': 'arial',
+    'lineWidth': '2px',
+    'arrowMarkerAbsolute': true,
+    'darkMode': true,
+    'primaryColor': '#fff',
+    'primaryTextColor': '#fff',
+    'primaryBorderColor': '#fff',
+    'lineColor': '#f5f5f5',
+    'textColor': '#f5f5f5'
+  },
+  'sequence': {
+    'messageAlign': 'center',
+    'boxMargin': 10,
+    'boxTextMargin': 5,
+    'noteMargin': 10,
+    'messageMargin': 35,
+    'mirrorActors': false,
+    'bottomMarginAdj': 1,
+    'useMaxWidth': true,
+    'rightAngles': false,
+    'showSequenceNumbers': false
+  }
+} }%%
+
+sequenceDiagram
+    participant App as Holophonix Animator
+    participant Monitor as Performance Monitor
+    participant State as State Manager
+    participant OSC as OSC Handler
+    participant Recovery as Error Recovery
+    participant Holo as Holophonix System
+    
+    %% Initial Connection Scenario
+    Note over App,Holo: Initial Connection Scenario
+    App->>OSC: Initialize OSC connection
+    Note over OSC: Start connection timeout (5s)
+    
+    %% Connection Attempt with Backoff
+    loop Until connected or max retries
+        OSC->>Holo: Connection request (UDP:4003)
+        alt Success
+            Holo-->>OSC: Connection acknowledgment
+            Note over OSC: Start connection monitoring
+            OSC->>App: Connection established
+        else Timeout
+            Note over OSC: Increase backoff (exponential)
+            OSC->>Recovery: Report connection failure
+            Recovery->>OSC: Retry with new timeout
+        end
+    end
+    
+    %% Initial State Synchronization
+    Note over App,Holo: Initial State Synchronization
+    App->>State: Request initial state sync
+    State->>Monitor: Begin sync monitoring
+    State->>OSC: Register state queries
+    
+    Note over State: Track Parameters
+    Note over State: 1. Position & Orientation:<br/>- Position (x,y,z)<br/>- Orientation (azimuth,elevation,distance)<br/>- Coordinate system
+    Note over State: 2. Audio Properties:<br/>- Gain levels<br/>- Mute states<br/>- Channel routing<br/>- Processing settings
+    Note over State: 3. Metadata:<br/>- Track names<br/>- Group assignments<br/>- Custom properties
+    Note over State: 4. Animation State:<br/>- Current animations<br/>- Parameter values<br/>- Playback state
+    
+    %% Parameter Synchronization with Recovery
+    loop For each parameter group
+        State->>OSC: Batch parameter queries
+        OSC->>Holo: /get queries (2s timeout)
+        
+        alt Success
+            Holo-->>OSC: Parameter values
+            OSC->>State: Update state
+            State->>Monitor: Update sync progress
+            State->>App: Notify UI update
+        else Timeout or Error
+            OSC->>Recovery: Report query failure
+            Recovery->>State: Get last known values
+            alt Cache Available
+                State->>App: Update with cached values
+                Recovery->>OSC: Schedule background retry
+            else No Cache
+                Recovery->>App: Notify sync failure
+                Recovery->>OSC: Retry with backoff
+            end
+        end
+    end
+    
+    %% Continuous Monitoring
+    Note over App,Holo: Continuous State Monitoring
+    loop Every 1s
+        OSC->>Holo: Health check
+        alt Connected
+            Holo-->>OSC: Status OK
+            OSC->>Monitor: Update metrics
+        else No Response
+            OSC->>Recovery: Trigger recovery
+            Recovery->>State: Enable offline mode
+            Recovery->>App: Show connection warning
+            Recovery->>OSC: Begin reconnection sequence
+        end
+    end
+    
+    %% Batch Updates
+    Note over App,Holo: Batch Update Handling
+    loop For pending changes
+        App->>State: Queue state changes
+        State->>OSC: Batch updates (max 10ms)
+        OSC->>Holo: Send batched OSC messages
+        
+        alt All Successful
+            Holo-->>OSC: Acknowledgments
+            OSC->>State: Confirm updates
+            State->>Monitor: Update metrics
+            State->>App: Notify success
+        else Partial Failure
+            OSC->>Recovery: Report failed messages
+            Recovery->>State: Mark failed updates
+            Recovery->>OSC: Retry failed only
+            State->>App: Notify partial success
+        end
+    end

@@ -122,45 +122,118 @@
         }
 
         .doc-item {
-            padding: 6px 10px;
+            padding: 8px 16px 8px 32px;
             cursor: pointer;
-            border-radius: 4px;
-            margin: 2px 0;
-            transition: background-color 0.2s;
-            display: flex;
-            align-items: center;
+            transition: background-color 0.2s, color 0.2s;
+            color: var(--text-color);
+            text-decoration: none;
+            display: block;
+            font-size: 0.9em;
+            line-height: 1.4;
+            position: relative;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .doc-item:hover {
             background: var(--hover-color);
+            color: #fff;
         }
 
         .doc-item.active {
             background: var(--active-color);
+            color: #fff;
         }
 
         .doc-item.diagram::before {
-            content: "📊";  /* Diagram icon */
+            content: "📊";
             margin-right: 8px;
             font-size: 0.9em;
+            opacity: 0.8;
         }
 
         .doc-item.doc::before {
-            content: "📄";  /* Document icon */
+            content: "📄";
             margin-right: 8px;
             font-size: 0.9em;
+            opacity: 0.8;
         }
 
         .doc-item.svg::before {
-            content: "🖼️";  /* SVG icon */
+            content: "🖼️";
             margin-right: 8px;
             font-size: 0.9em;
         }
 
         .doc-item.html::before {
-            content: "🌐";  /* HTML icon */
+            content: "🌐";
             margin-right: 8px;
             font-size: 0.9em;
+        }
+
+        .section-content .section-content .doc-item {
+            padding-left: 48px;  /* Additional indent for items in subsections */
+        }
+
+        .section-content .section-header {
+            padding-left: 32px;  /* Indent subsection headers */
+        }
+
+        /* Add styles for collapsible sections */
+        .section-header {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            background: var(--bg-color);
+            border-bottom: 1px solid var(--border-color);
+            user-select: none;
+            font-weight: 600;
+            color: #fff;
+            transition: background-color 0.2s;
+        }
+
+        .section-header:hover {
+            background: var(--hover-color);
+        }
+
+        .section-header .arrow {
+            margin-right: 8px;
+            transition: transform 0.2s ease;
+            display: inline-block;
+            opacity: 0.7;
+        }
+
+        .section-header.collapsed .arrow {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        /* Add tooltip styles */
+        [title] {
+            position: relative;
+        }
+
+        [title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 8px;
+            background: var(--hover-color);
+            color: #fff;
+            border-radius: 4px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0.9;
         }
 
         /* Main Content Styles */
@@ -620,87 +693,181 @@
         // Build document tree
         async function buildDocTree() {
             try {
-                const response = await fetch('/list-docs');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch document list');
-                }
+                const response = await fetch('http://localhost:8080/docs-structure');
+                const data = await response.json();
                 
-                const docs = await response.json();
-                const docTree = document.getElementById('docTree');
-                docTree.innerHTML = ''; // Clear existing content
-                
-                // Group documents by directory
+                // Group items by section and folder path
                 const sections = {};
-                docs.forEach(doc => {
-                    const parts = doc.path.split('/');
-                    const section = parts.length > 1 ? parts[1] : 'Other';
+                data.forEach(item => {
+                    const section = item.section.toLowerCase();
                     if (!sections[section]) {
-                        sections[section] = [];
+                        sections[section] = {
+                            type: 'section',
+                            title: section.charAt(0).toUpperCase() + section.slice(1).replace(/-/g, ' '),
+                            items: []
+                        };
                     }
-                    // Update the type based on file extension
-                    const fileType = getFileType(doc.path);
-                    sections[section].push({
-                        ...doc,
-                        type: fileType
-                    });
-                });
-                
-                // Create sections
-                Object.entries(sections).forEach(([section, docs]) => {
-                    const sectionDiv = document.createElement('div');
-                    sectionDiv.className = 'doc-section';
-                    sectionDiv.innerHTML = `
-                        <div class="doc-section-title">${section.replace('-', ' ').toUpperCase()}</div>
-                        ${docs.map(doc => {
-                            const loadFunction = doc.type === 'diagram' ? 'loadDiagram' : 'loadDocument';
-                            return `
-                                <div class="doc-item ${doc.type}" 
-                                     data-path="${doc.path}"
-                                     onclick="${loadFunction}('${doc.path}')">
-                                    ${doc.name}
-                                </div>
-                            `;
-                        }).join('')}
-                    `;
-                    docTree.appendChild(sectionDiv);
-                });
-                
-                // Load last viewed document if any
-                if (currentDoc) {
-                    const doc = docs.find(d => d.path === currentDoc);
-                    if (doc) {
-                        const fileType = getFileType(doc.path);
-                        if (fileType === 'diagram') {
-                            loadDiagram(doc.path);
-                        } else {
-                            loadDocument(doc.path);
+                    
+                    // Add root files directly to the section
+                    if (item.is_root_file) {
+                        sections[section].items.push({
+                            type: item.type,
+                            title: item.title,
+                            path: item.path
+                        });
+                        return;
+                    }
+                    
+                    // Handle nested folders
+                    if (item.folder_path) {
+                        const folderParts = item.folder_path.split('/');
+                        let currentLevel = sections[section].items;
+                        let currentPath = folderParts[0];
+                        
+                        // Skip the first part as it's the section name
+                        for (let i = 1; i < folderParts.length; i++) {
+                            currentPath += '/' + folderParts[i];
+                            let folder = currentLevel.find(
+                                f => f.type === 'section' && f.path === currentPath
+                            );
+                            
+                            if (!folder) {
+                                folder = {
+                                    type: 'section',
+                                    title: folderParts[i].charAt(0).toUpperCase() + folderParts[i].slice(1).replace(/-/g, ' '),
+                                    path: currentPath,
+                                    items: []
+                                };
+                                currentLevel.push(folder);
+                                currentLevel.sort((a, b) => {
+                                    if (a.type === 'section' && b.type !== 'section') return -1;
+                                    if (a.type !== 'section' && b.type === 'section') return 1;
+                                    return a.title.localeCompare(b.title);
+                                });
+                            }
+                            
+                            currentLevel = folder.items;
+                        }
+                        
+                        // Add the file to the deepest level
+                        if (!currentLevel.some(existing => existing.path === item.path)) {
+                            currentLevel.push({
+                                type: item.type,
+                                title: item.title,
+                                path: item.path
+                            });
+                            currentLevel.sort((a, b) => {
+                                if (a.type === 'section' && b.type !== 'section') return -1;
+                                if (a.type !== 'section' && b.type === 'section') return 1;
+                                return a.title.localeCompare(b.title);
+                            });
                         }
                     }
-                } else if (docs.length > 0) {
-                    // Load first document by default
-                    const firstDoc = docs[0];
-                    const fileType = getFileType(firstDoc.path);
-                    if (fileType === 'diagram') {
-                        loadDiagram(firstDoc.path);
-                    } else {
-                        loadDocument(firstDoc.path);
-                    }
-                }
+                });
+                
+                // Convert sections object to array and sort
+                const sectionOrder = ['common', 'react', 'electron', 'rust-core'];
+                const sortedSections = sectionOrder
+                    .filter(section => sections[section])
+                    .map(section => sections[section]);
+                
+                // Clear existing tree
+                const treeContainer = document.getElementById('docTree');
+                treeContainer.innerHTML = '';
+                
+                // Add sections to tree
+                sortedSections.forEach(section => {
+                    // Sort root items
+                    section.items.sort((a, b) => {
+                        if (a.type === 'section' && b.type !== 'section') return 1;  // Root files first
+                        if (a.type !== 'section' && b.type === 'section') return -1;
+                        return a.title.localeCompare(b.title);
+                    });
+                    
+                    treeContainer.appendChild(createDocItem(section));
+                });
                 
             } catch (error) {
                 console.error('Error building doc tree:', error);
-                document.getElementById('errorDisplay').textContent = 'Failed to load document list';
+                document.getElementById('errorMessage').textContent = 'Failed to load documentation structure';
                 document.getElementById('errorDisplay').style.display = 'block';
             }
         }
 
-        // Helper function to determine file type
-        function getFileType(path) {
-            const ext = path.split('.').pop().toLowerCase();
-            if (ext === 'mmd') return 'diagram';
-            if (ext === 'svg') return 'svg';
-            if (ext === 'html') return 'html';
-            return 'doc';
+        function createDocItem(item) {
+            const container = document.createElement('div');
+            
+            if (item.type === 'section') {
+                const header = document.createElement('div');
+                header.className = 'section-header';
+                header.innerHTML = `<span class="arrow">▼</span>${item.title}`;
+                container.appendChild(header);
+                
+                const content = document.createElement('div');
+                content.className = 'section-content';
+                
+                if (item.items && item.items.length > 0) {
+                    item.items.forEach(subItem => {
+                        content.appendChild(createDocItem(subItem));
+                    });
+                }
+                
+                container.appendChild(content);
+                
+                // Add click handler for collapsing/expanding
+                header.addEventListener('click', () => {
+                    header.classList.toggle('collapsed');
+                    content.style.display = content.style.display === 'none' ? 'block' : 'none';
+                });
+                
+                // Restore collapsed state from localStorage
+                const isCollapsed = localStorage.getItem(`section-${item.path || item.title}`) === 'true';
+                if (isCollapsed) {
+                    header.classList.add('collapsed');
+                    content.style.display = 'none';
+                }
+                
+                // Save collapsed state to localStorage
+                header.addEventListener('click', () => {
+                    localStorage.setItem(
+                        `section-${item.path || item.title}`,
+                        header.classList.contains('collapsed')
+                    );
+                });
+            } else {
+                const link = document.createElement('a');
+                link.className = `doc-item ${item.type}`;
+                link.textContent = item.title;
+                link.href = '#';
+                link.title = item.title;  // Add tooltip
+                
+                // Add click handler for loading content
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    // Remove active class from all items
+                    document.querySelectorAll('.doc-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    
+                    // Add active class to clicked item
+                    link.classList.add('active');
+                    
+                    // Load content based on type
+                    if (item.type === 'diagram') {
+                        loadDiagram(item.path);
+                    } else {
+                        loadDocument(item.path);
+                    }
+                    
+                    // Save last opened document
+                    localStorage.setItem('lastOpenedDoc', item.path);
+                });
+                
+                container.appendChild(link);
+            }
+            
+            return container;
         }
 
         // Initialize on page load

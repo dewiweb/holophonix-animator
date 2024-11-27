@@ -126,7 +126,7 @@ graph TB
     StateSync -->|"State"|NAPI
     NAPI -->|"Sync"|SyncOps
     NAPI -->|"Async"|AsyncOps
-    SyncOps & AsyncOps -->|"FFI"|NativeModule
+    SyncOps & AsyncOps -->|"N-API"|NativeModule
 
     %% Electron to Frontend and Back
     NativeModule -->|"State"|IPCMain
@@ -138,7 +138,7 @@ graph TB
     BridgeHooks -->|"Commands"|Preload
     Preload -->|"IPC"|IPCMain
     IPCMain -->|"Commands"|NativeModule
-    NativeModule -->|"FFI"|AsyncOps
+    NativeModule -->|"N-API"|AsyncOps
     AsyncOps -->|"Commands"|CommandProcessor
 
 %% Link colors

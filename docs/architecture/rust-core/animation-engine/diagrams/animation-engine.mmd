@@ -6,10 +6,13 @@ classDiagram
         -eventSystem
         -parameterSystem
         -errorHandler
+        -stateManager
         +initialize()
         +start()
         +stop()
         +update()
+        +handleError()
+        +recoverState()
     }
 
     class ThreadManager {
@@ -17,18 +20,23 @@ classDiagram
         -commThread
         -bridgeThread
         -threadPool
+        -monitorThread
         +synchronize()
         +schedule()
         +monitor()
+        +handleThreadError()
     }
 
     class ModelManager {
         -registry
         -scheduler
         -resources
+        -stateSync
         +registerModel()
         +unregisterModel()
         +getModel()
+        +validateState()
+        +recoverModel()
     }
 
     class ComputationEngine {
@@ -36,9 +44,12 @@ classDiagram
         -interpEngine
         -timingSystem
         -coordTransform
+        -errorBoundary
         +calculate()
         +interpolate()
         +transform()
+        +validateComputation()
+        +handleComputeError()
     }
 
     class EventSystem {
@@ -46,9 +57,12 @@ classDiagram
         -callbackRegistry
         -eventQueue
         -priorityManager
+        -errorQueue
         +dispatch()
         +register()
         +process()
+        +handleEventError()
+        +retryEvent()
     }
 
     class ParameterSystem {
@@ -62,21 +76,25 @@ classDiagram
     }
 
     class ErrorHandler {
-        -dispatcher
-        -recovery
+        -errorRegistry
+        -recoveryStrategies
         -logger
-        +handle()
-        +recover()
-        +log()
+        -metrics
+        +handleError()
+        +recoverFromError()
+        +logError()
+        +updateMetrics()
     }
 
     class StateManager {
-        -sync
-        -config
-        -persistence
-        +saveState()
-        +loadState()
-        +configure()
+        -currentState
+        -history
+        -validation
+        -syncManager
+        +updateState()
+        +validateState()
+        +rollback()
+        +snapshot()
     }
 
     class OSCLayer {
@@ -108,19 +126,24 @@ classDiagram
         +handleCycle()
     }
 
-    AnimationEngine *-- ThreadManager
-    AnimationEngine *-- ModelManager
-    AnimationEngine *-- ComputationEngine
-    AnimationEngine *-- EventSystem
-    AnimationEngine *-- ParameterSystem
-    AnimationEngine *-- ErrorHandler
-
+    AnimationEngine --> ThreadManager
+    AnimationEngine --> ModelManager
+    AnimationEngine --> ComputationEngine
+    AnimationEngine --> EventSystem
+    AnimationEngine --> ErrorHandler
+    AnimationEngine --> StateManager
+    AnimationEngine --> ParameterSystem
+    
+    ModelManager --> StateManager
+    ComputationEngine --> ErrorHandler
+    EventSystem --> ErrorHandler
+    ThreadManager --> ErrorHandler
+    StateManager --> ErrorHandler
     ModelManager "1" *-- "*" AnimationModel
     ComputationEngine -- AnimationModel
     ParameterSystem -- AnimationModel
     EventSystem -- AnimationModel
 
-    AnimationEngine -- StateManager
     AnimationEngine -- OSCLayer
     AnimationEngine -- Bridge
 

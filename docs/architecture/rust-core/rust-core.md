@@ -6,7 +6,31 @@ The Rust core is the heart of the Holophonix Animator, responsible for high-perf
 
 ## Core Components
 
-### 1. OSC Communication Layer
+### 1. Node.js Bridge
+
+The Node.js Bridge provides seamless integration between the Rust core and Electron's main process, enabling high-performance native functionality while maintaining the benefits of the Node.js ecosystem.
+
+#### Architecture
+- N-API/Node-API implementation for stable ABI compatibility
+- Zero-copy buffer sharing for performance
+- Asynchronous operation support
+- Error handling and type conversion
+- Memory management and cleanup
+- Event system integration
+- State synchronization
+
+#### Key Features
+- Bidirectional communication
+- Native threading support
+- Efficient data serialization
+- Resource management
+- Error propagation
+- Performance monitoring
+- Type safety guarantees
+
+For detailed information about the Node.js integration, see the [Node Integration Guide](../rust-core/node-bridge/node-integration.md).
+
+### 2. OSC Communication Layer
 
 The OSC Communication Layer handles all OSC-based interactions, including communication with Holophonix devices and external control applications.
 
@@ -51,7 +75,7 @@ Key features:
 - Command validation for control apps
 - Error reporting and handling
 
-### 2. Animation Engine
+### 3. Animation Engine
 
 The Animation Engine provides high-performance, deterministic animation calculations for spatial audio positioning.
 
@@ -120,7 +144,7 @@ Controls animation execution modes:
   - Auto-completion
   - Return behavior
 
-### 3. State Management
+### 4. State Management
 
 #### Central State Store
 Manages:
@@ -142,7 +166,7 @@ Features:
 - Group state coordination
 - Formation preservation
 
-### 4. Computation Engine
+### 5. Computation Engine
 
 Handles mathematical calculations and optimizations:
 
