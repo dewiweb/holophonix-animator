@@ -2,22 +2,23 @@
   "name": "holophonix-animator",
   "version": "2.0.0",
   "description": "A tool for creating and managing animations for Holophonix systems",
-  "main": "src/main/main.ts",
+  "main": "src/electron/main.ts",
   "scripts": {
     "start": "electron-forge start",
-    "test": "jest",
+    "test": "jest --config jest.config.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "build": "tsc",
+    "build": "npm run build:rust && tsc",
     "build:watch": "tsc --watch",
+    "build:rust": "cd src/rust && cargo build --release",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "benchmark": "ts-node src/benchmark/index.ts"
   },
-  "author": "L-Acoustics",
-  "license": "UNLICENSED",
+  "author": "dewiweb",
+  "license": "MIT",
   "private": true,
   "devDependencies": {
     "@electron-forge/cli": "^6.4.2",
@@ -25,6 +26,7 @@
     "@electron-forge/maker-rpm": "^6.4.2",
     "@electron-forge/maker-squirrel": "^6.4.2",
     "@electron-forge/maker-zip": "^6.4.2",
+    "@napi-rs/cli": "^2.18.4",
     "@types/jest": "^29.5.11",
     "@types/node": "^20.10.5",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
@@ -39,7 +41,6 @@
   "dependencies": {
     "@types/winston": "^2.4.4",
     "electron-squirrel-startup": "^1.0.0",
-    "osc": "^2.4.5",
     "winston": "^3.17.0"
   }
 }

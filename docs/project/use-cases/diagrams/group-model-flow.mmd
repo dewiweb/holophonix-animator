@@ -1,0 +1,85 @@
+sequenceDiagram
+    participant U as User
+    participant PP as Parameters Panel
+    participant UI as UI Manager
+    participant RM as Relationship Manager
+    participant GM as Group Manager
+    participant TM as Track Manager
+    participant AM as Animation Model
+    participant OSC as OSC Output
+
+    Note over U,OSC: Group Creation via Patterns
+    U->>UI: Add Tracks Form Input
+    U->>UI: Enter Track Pattern [1-n] or {a,b,c}
+    UI->>TM: Create Tracks from Pattern
+    TM-->>UI: Group Created
+
+    Note over U,OSC: Relationship Configuration
+    U->>PP: Select Relationship Type
+    PP->>UI: Update Available Parameters
+    UI->>RM: Initialize Relationship
+    
+    alt Leader-Follower Selected
+        U->>PP: Select Leader Track
+        PP->>UI: Update Follower Parameters
+        UI->>RM: Configure Leader-Follower
+        RM->>TM: Set Track Roles
+        RM->>GM: Set Leader as Center
+        Note over RM,GM: Leader becomes animation target
+    else Isobarycentric Selected
+        U->>PP: Configure Center Calculation
+        PP->>UI: Update Position Parameters
+        UI->>RM: Configure Isobarycentric
+        RM->>TM: Calculate Center Point
+        RM->>GM: Set Virtual Center
+        Note over RM,GM: Virtual center becomes animation target
+    else As Individuals Selected
+        U->>PP: Configure Shared Parameters
+        PP->>UI: Update Model Parameters
+        UI->>RM: Configure Group Parameters
+        RM->>TM: Set Common Model Settings
+        Note over RM,GM: Relative positioning only
+    end
+    
+    Note over U,OSC: Model Configuration
+    U->>PP: Select Animation Model
+    PP->>UI: Update Model Parameters
+    UI->>GM: Configure Model
+
+    alt Has Center (Leader/Isobarycentric)
+        GM->>AM: Apply Model to Center
+        AM-->>GM: Center Position Updates
+        GM->>RM: Calculate Related Positions
+        RM->>TM: Prepare Group Update
+        TM->>OSC: Send All Positions Together
+    else As Individuals
+        GM->>AM: Apply Same Model Parameters
+        AM-->>GM: Calculate All Positions
+        GM->>RM: Prepare Group Update
+        RM->>TM: Apply Relative Positions
+        TM->>OSC: Send All Positions Together
+    end
+
+    loop Animation Cycle
+        alt Leader-Follower
+            GM->>AM: Animate Leader Position
+            AM-->>GM: New Leader Position
+            GM->>RM: Calculate Follower Positions
+            RM->>TM: Prepare Group Update
+            TM->>OSC: Send All Positions Together
+        else Isobarycentric
+            GM->>AM: Animate Center Position
+            AM-->>GM: New Center Position
+            GM->>RM: Calculate Formation Positions
+            RM->>TM: Prepare Group Update
+            TM->>OSC: Send All Positions Together
+        else As Individuals
+            GM->>AM: Animate with Shared Parameters
+            AM-->>GM: Calculate All Positions
+            GM->>RM: Apply Relative Positions
+            RM->>TM: Prepare Group Update
+            TM->>OSC: Send All Positions Together
+        end
+        
+        OSC-->>TM: Update Confirmation
+    end

@@ -1,0 +1,30 @@
+.app-container {
+  display: flex;
+  height: 100vh;
+  background: var(--background-primary);
+}
+
+.sidebar {
+  width: 300px;
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  background: var(--background-secondary);
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+:root {
+  --background-primary: #1e1e1e;
+  --background-secondary: #252526;
+  --border-color: #3c3c3c;
+  --text-primary: #ffffff;
+  --text-muted: #888888;
+  --text-inverse: #000000;
+  --selection-background: #264f78;
+  --hover-background: #2a2d2e;
+  --warning: #cca700;
+}
