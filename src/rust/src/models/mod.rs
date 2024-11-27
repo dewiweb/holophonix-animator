@@ -1,9 +1,11 @@
-mod animation;
-mod common;
-mod osc;
-mod state;
+pub mod common;
+pub mod position;
 
-pub use animation::*;
-pub use common::*;
-pub use osc::*;
-pub use state::*;
+pub use common::{
+    Animation,
+    AnimationConfig,
+    Position,
+    TrackParameters,
+};
+
+pub use position::Position3D;
