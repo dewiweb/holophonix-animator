@@ -38,43 +38,48 @@ impl Bridge {
 
     #[napi]
     pub fn init_client(&mut self, config: OSCConfig) -> Result<()> {
-        let runtime = self.runtime.as_ref().ok_or_else(|| Error::from_reason("Runtime not initialized"))?;
-        let client = runtime.block_on(async {
-            OSCClient::new(config).map_err(|e| Error::from_reason(e.message))
-        })?;
-        self.client = Some(Box::new(client));
+        if self.client.is_some() {
+            return Ok(());
+        }
+
+        self.client = Some(Box::new(
+            OSCClient::new(config.host, config.port)
+                .map_err(|e| Error::from_reason(e.message))?
+        ));
         Ok(())
     }
 
     #[napi]
     pub fn init_server(&mut self, config: OSCConfig) -> Result<()> {
-        let runtime = self.runtime.as_ref().ok_or_else(|| Error::from_reason("Runtime not initialized"))?;
-        let state_manager = self.state_manager.as_ref().ok_or_else(|| Error::from_reason("State manager not initialized"))?.clone();
-        let server = runtime.block_on(async {
-            OSCServer::with_state_manager(config, state_manager)
-                .map_err(|e| Error::from_reason(e.message))
-        })?;
-        self.server = Some(Box::new(server));
+        if self.server.is_some() {
+            return Ok(());
+        }
+
+        let state_manager = Arc::new(Mutex::new(
+            StateManager::new(Some(std::env::current_dir()?.join("state").to_string_lossy().to_string()))?
+        ));
+
+        self.server = Some(Box::new(
+            OSCServer::new(config.host, config.port, state_manager.clone())
+                .map_err(|e| Error::from_reason(e.message))?
+        ));
         Ok(())
     }
 
     #[napi]
-    pub fn start_server(&self) -> Result<()> {
-        let runtime = self.runtime.as_ref().ok_or_else(|| Error::from_reason("Runtime not initialized"))?;
-        let server = self.server.as_ref().ok_or_else(|| Error::from_reason("Server not initialized"))?;
-        runtime.block_on(async {
-            server.start_listening().await
-                .map_err(|e| Error::from_reason(e.message))
-        })
+    pub async fn start_server(&self) -> Result<()> {
+        if let Some(server) = &self.server {
+            server.listen().await.map_err(|e| Error::from_reason(e.message))?;
+        }
+        Ok(())
     }
 
     #[napi]
-    pub fn send_track_parameters(&self, track_id: String, params: TrackParameters) -> Result<()> {
-        let runtime = self.runtime.as_ref().ok_or_else(|| Error::from_reason("Runtime not initialized"))?;
-        let client = self.client.as_ref().ok_or_else(|| Error::from_reason("Client not initialized"))?;
-        runtime.block_on(async {
-            client.send_track_parameters(&track_id, &params).await
-                .map_err(|e| Error::from_reason(e.message))
-        })
+    pub async fn send_track_parameters(&self, track_id: &str, params: &TrackParameters) -> Result<()> {
+        if let Some(client) = &self.client {
+            client.send_parameters(track_id, params).await
+                .map_err(|e| Error::from_reason(e.message))?;
+        }
+        Ok(())
     }
 }

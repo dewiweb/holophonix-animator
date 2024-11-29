@@ -20,8 +20,75 @@ impl Protocol {
         Ok(())
     }
 
-    pub fn validate_coordinate(_value: f64) -> Result<(), OSCError> {
-        // Coordinates are in meters and have no specific range limitation
+    pub fn validate_coordinates(coords: &CartesianCoordinates) -> Result<(), OSCError> {
+        if !(-1000.0..=1000.0).contains(&coords.x) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("X coordinate {} out of range [-1000, 1000]", coords.x),
+            ));
+        }
+        if !(-1000.0..=1000.0).contains(&coords.y) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Y coordinate {} out of range [-1000, 1000]", coords.y),
+            ));
+        }
+        if !(-1000.0..=1000.0).contains(&coords.z) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Z coordinate {} out of range [-1000, 1000]", coords.z),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_polar_coordinates(coords: &PolarCoordinates) -> Result<(), OSCError> {
+        if !(-360.0..=360.0).contains(&coords.azim) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Azimuth {} out of range [-360, 360]", coords.azim),
+            ));
+        }
+        if !(-90.0..=90.0).contains(&coords.elev) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Elevation {} out of range [-90, 90]", coords.elev),
+            ));
+        }
+        if !(-1000.0..=1000.0).contains(&coords.dist) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Radius {} out of range [-1000, 1000]", coords.dist),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_color(color: &Color) -> Result<(), OSCError> {
+        if !(0.0..=1.0).contains(&color.r) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Red component {} out of range [0, 1]", color.r),
+            ));
+        }
+        if !(0.0..=1.0).contains(&color.g) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Green component {} out of range [0, 1]", color.g),
+            ));
+        }
+        if !(0.0..=1.0).contains(&color.b) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Blue component {} out of range [0, 1]", color.b),
+            ));
+        }
+        if !(0.0..=1.0).contains(&color.a) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Alpha component {} out of range [0, 1]", color.a),
+            ));
+        }
         Ok(())
     }
 
@@ -81,40 +148,13 @@ impl Protocol {
         }
     }
 
-    pub fn validate_cartesian_coordinates(coords: &CartesianCoordinates) -> Result<(), OSCError> {
-        Self::validate_coordinate(coords.x)?;
-        Self::validate_coordinate(coords.y)?;
-        Self::validate_coordinate(coords.z)?;
-        Ok(())
-    }
-
-    pub fn validate_polar_coordinates(coords: &PolarCoordinates) -> Result<(), OSCError> {
-        Self::validate_azimuth(coords.azim)?;
-        Self::validate_elevation(coords.elev)?;
-        Self::validate_distance(coords.dist)?;
-        Ok(())
-    }
-
-    pub fn validate_color(color: &Color) -> Result<(), OSCError> {
-        if !(0.0..=1.0).contains(&color.r) ||
-           !(0.0..=1.0).contains(&color.g) ||
-           !(0.0..=1.0).contains(&color.b) ||
-           !(0.0..=1.0).contains(&color.a) {
-            return Err(OSCError::new(
-                OSCErrorType::Validation,
-                "Color values must be between 0 and 1".to_string(),
-            ));
-        }
-        Ok(())
-    }
-
     pub fn validate_track_parameters(track_id: &str, params: &TrackParameters) -> Result<(), OSCError> {
         // Validate track ID
         Self::validate_track_id(track_id)?;
 
         // Validate cartesian coordinates
         if let Some(cart) = &params.cartesian {
-            Self::validate_cartesian_coordinates(cart)?;
+            Self::validate_coordinates(cart)?;
         }
 
         // Validate polar coordinates
@@ -169,7 +209,7 @@ impl Protocol {
     }
 
     pub fn create_position_message(track_id: &str, coords: &CartesianCoordinates) -> Result<OscMessage, OSCError> {
-        Self::validate_cartesian_coordinates(coords)?;
+        Self::validate_coordinates(coords)?;
         
         Ok(OscMessage {
             addr: Self::format_track_position_address(track_id, "cart")?,
@@ -186,12 +226,16 @@ impl Protocol {
         
         Ok(OscMessage {
             addr: Self::format_track_position_address(track_id, "polar")?,
-            args: vec![
-                OscType::Float(coords.azim as f32),
-                OscType::Float(coords.elev as f32),
-                OscType::Float(coords.dist as f32),
-            ],
+            args: Self::encode_position(coords),
         })
+    }
+
+    pub fn encode_position(coords: &PolarCoordinates) -> Vec<OscType> {
+        vec![
+            OscType::Float(coords.azim as f32),
+            OscType::Float(coords.elev as f32),
+            OscType::Float(coords.dist as f32),
+        ]
     }
 
     pub fn create_gain_message(track_id: &str, gain: f64) -> Result<OscMessage, OSCError> {
@@ -226,7 +270,12 @@ impl Protocol {
 
     // Single coordinate messages
     pub fn create_x_message(track_id: &str, x: f64) -> Result<OscMessage, OSCError> {
-        Self::validate_coordinate(x)?;
+        if !(-1000.0..=1000.0).contains(&x) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("X coordinate {} out of range [-1000, 1000]", x),
+            ));
+        }
         
         Ok(OscMessage {
             addr: Self::format_track_address(track_id, "x")?,
@@ -235,7 +284,12 @@ impl Protocol {
     }
 
     pub fn create_y_message(track_id: &str, y: f64) -> Result<OscMessage, OSCError> {
-        Self::validate_coordinate(y)?;
+        if !(-1000.0..=1000.0).contains(&y) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Y coordinate {} out of range [-1000, 1000]", y),
+            ));
+        }
         
         Ok(OscMessage {
             addr: Self::format_track_address(track_id, "y")?,
@@ -244,7 +298,12 @@ impl Protocol {
     }
 
     pub fn create_z_message(track_id: &str, z: f64) -> Result<OscMessage, OSCError> {
-        Self::validate_coordinate(z)?;
+        if !(-1000.0..=1000.0).contains(&z) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Z coordinate {} out of range [-1000, 1000]", z),
+            ));
+        }
         
         Ok(OscMessage {
             addr: Self::format_track_address(track_id, "z")?,
@@ -281,8 +340,18 @@ impl Protocol {
 
     // Coordinate pairs
     pub fn create_xy_message(track_id: &str, x: f64, y: f64) -> Result<OscMessage, OSCError> {
-        Self::validate_coordinate(x)?;
-        Self::validate_coordinate(y)?;
+        if !(-1000.0..=1000.0).contains(&x) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("X coordinate {} out of range [-1000, 1000]", x),
+            ));
+        }
+        if !(-1000.0..=1000.0).contains(&y) {
+            return Err(OSCError::new(
+                OSCErrorType::Validation,
+                format!("Y coordinate {} out of range [-1000, 1000]", y),
+            ));
+        }
         
         Ok(OscMessage {
             addr: Self::format_track_address(track_id, "xy")?,

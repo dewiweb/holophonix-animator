@@ -35,26 +35,24 @@ impl MessageHandler for CartesianHandler {
             )),
         };
 
-        let mut coords = track_state.parameters.cartesian.clone().unwrap_or_default();
         match self.parameter.as_str() {
             "x" => {
-                Protocol::validate_coordinate(value)?;
-                coords.x = value;
+                Protocol::validate_coordinates(&CartesianCoordinates { x: value, y: 0.0, z: 0.0 })?;
+                track_state.position.x = value;
             },
             "y" => {
-                Protocol::validate_coordinate(value)?;
-                coords.y = value;
+                Protocol::validate_coordinates(&CartesianCoordinates { x: 0.0, y: value, z: 0.0 })?;
+                track_state.position.y = value;
             },
             "z" => {
-                Protocol::validate_coordinate(value)?;
-                coords.z = value;
+                Protocol::validate_coordinates(&CartesianCoordinates { x: 0.0, y: 0.0, z: value })?;
+                track_state.position.z = value;
             },
             _ => return Err(OSCError::new(
                 OSCErrorType::Protocol,
-                format!("Unknown cartesian parameter: {}", self.parameter)
+                format!("Invalid coordinate parameter: {}", self.parameter)
             )),
         }
-        track_state.parameters.cartesian = Some(coords);
         Ok(())
     }
 }
@@ -88,26 +86,27 @@ impl MessageHandler for PolarHandler {
             )),
         };
 
-        let mut coords = track_state.parameters.polar.clone().unwrap_or_default();
+        // Convert polar coordinates to cartesian
         match self.parameter.as_str() {
-            "azim" => {
+            "azimuth" => {
                 Protocol::validate_azimuth(value)?;
-                coords.azim = value;
+                // TODO: Implement polar to cartesian conversion
+                // For now, just store in position
+                track_state.position.x = value;
             },
-            "elev" => {
+            "elevation" => {
                 Protocol::validate_elevation(value)?;
-                coords.elev = value;
+                track_state.position.y = value;
             },
-            "dist" => {
+            "distance" => {
                 Protocol::validate_distance(value)?;
-                coords.dist = value;
+                track_state.position.z = value;
             },
             _ => return Err(OSCError::new(
                 OSCErrorType::Protocol,
-                format!("Unknown polar parameter: {}", self.parameter)
+                format!("Invalid polar parameter: {}", self.parameter)
             )),
         }
-        track_state.parameters.polar = Some(coords);
         Ok(())
     }
 }
@@ -119,20 +118,20 @@ impl MessageHandler for GainHandler {
         if args.len() != 1 {
             return Err(OSCError::new(
                 OSCErrorType::Protocol,
-                "Invalid gain value argument".to_string()
+                "Invalid gain argument".to_string()
             ));
         }
 
         let gain = match &args[0] {
             OscType::Float(f) => *f as f64,
             _ => return Err(OSCError::new(
-                OSCErrorType::Validation,
-                "Invalid gain value type".to_string()
+                OSCErrorType::Protocol,
+                "Invalid gain type".to_string()
             )),
         };
 
         Protocol::validate_gain(gain)?;
-        track_state.parameters.gain = Some(gain);
+        track_state.gain = Some(gain);
         Ok(())
     }
 }
@@ -144,19 +143,19 @@ impl MessageHandler for MuteHandler {
         if args.len() != 1 {
             return Err(OSCError::new(
                 OSCErrorType::Protocol,
-                "Invalid mute value argument".to_string()
+                "Invalid mute argument".to_string()
             ));
         }
 
         let value = match &args[0] {
             OscType::Bool(b) => *b,
             _ => return Err(OSCError::new(
-                OSCErrorType::Validation,
-                "Invalid mute value type".to_string()
+                OSCErrorType::Protocol,
+                "Invalid mute type".to_string()
             )),
         };
 
-        track_state.parameters.mute = Some(value);
+        track_state.mute = Some(value);
         Ok(())
     }
 }
@@ -180,7 +179,10 @@ impl MessageHandler for ColorHandler {
         };
 
         Protocol::validate_color(&color)?;
-        track_state.parameters.color = Some(color);
+        // Set the color if provided
+        if let Some(color_value) = Some(color) {
+            track_state.color = color_value;
+        }
         Ok(())
     }
 }
@@ -199,69 +201,77 @@ impl AnimationHandler {
 
 impl MessageHandler for AnimationHandler {
     fn handle(&self, track_state: &mut TrackState, args: &[OscType]) -> Result<(), OSCError> {
-        match self.command.as_str() {
-            "play" => {
-                track_state.animation.playing = true;
-                track_state.animation.paused = false;
-            },
-            "pause" => {
-                track_state.animation.paused = true;
-            },
-            "stop" => {
-                track_state.animation.playing = false;
-                track_state.animation.paused = false;
-            },
-            "active" => {
-                if args.len() != 1 {
-                    return Err(OSCError::new(
-                        OSCErrorType::Protocol,
-                        "Invalid active value argument".to_string()
-                    ));
-                }
-                match &args[0] {
-                    OscType::Bool(value) => track_state.animation.active = *value,
-                    _ => return Err(OSCError::new(
-                        OSCErrorType::Protocol,
-                        "Invalid active value type".to_string()
-                    )),
-                }
-            },
-            "loop" => {
-                if args.len() != 1 {
-                    return Err(OSCError::new(
-                        OSCErrorType::Protocol,
-                        "Invalid loop value argument".to_string()
-                    ));
-                }
-                match &args[0] {
-                    OscType::Bool(value) => track_state.animation.loop_enabled = *value,
-                    _ => return Err(OSCError::new(
-                        OSCErrorType::Protocol,
-                        "Invalid loop value type".to_string()
-                    )),
-                }
-            },
-            "speed" => {
-                if args.len() != 1 {
-                    return Err(OSCError::new(
-                        OSCErrorType::Protocol,
-                        "Invalid speed value argument".to_string()
-                    ));
-                }
-                let speed = match &args[0] {
-                    OscType::Float(f) => *f as f64,
-                    _ => return Err(OSCError::new(
-                        OSCErrorType::Protocol,
-                        "Invalid speed value type".to_string()
-                    )),
-                };
-                Protocol::validate_speed(speed)?;
-                track_state.animation.speed = speed;
-            },
-            _ => return Err(OSCError::new(
+        // Check if animation exists and is active
+        if let Some(animation) = track_state.animation.as_mut() {
+            match self.command.as_str() {
+                "play" => {
+                    animation.set_playing(true);
+                    animation.set_paused(false);
+                },
+                "pause" => {
+                    animation.set_paused(true);
+                },
+                "stop" => {
+                    animation.set_playing(false);
+                    animation.set_paused(false);
+                },
+                "active" => {
+                    if args.len() != 1 {
+                        return Err(OSCError::new(
+                            OSCErrorType::Protocol,
+                            "Invalid active value argument".to_string()
+                        ));
+                    }
+                    match &args[0] {
+                        OscType::Bool(value) => animation.set_active(*value),
+                        _ => return Err(OSCError::new(
+                            OSCErrorType::Protocol,
+                            "Invalid active value type".to_string()
+                        )),
+                    }
+                },
+                "loop" => {
+                    if args.len() != 1 {
+                        return Err(OSCError::new(
+                            OSCErrorType::Protocol,
+                            "Invalid loop value argument".to_string()
+                        ));
+                    }
+                    match &args[0] {
+                        OscType::Bool(value) => animation.set_loop_enabled(*value),
+                        _ => return Err(OSCError::new(
+                            OSCErrorType::Protocol,
+                            "Invalid loop value type".to_string()
+                        )),
+                    }
+                },
+                "speed" => {
+                    if args.len() != 1 {
+                        return Err(OSCError::new(
+                            OSCErrorType::Protocol,
+                            "Invalid speed value argument".to_string()
+                        ));
+                    }
+                    let speed = match &args[0] {
+                        OscType::Float(f) => *f as f64,
+                        _ => return Err(OSCError::new(
+                            OSCErrorType::Protocol,
+                            "Invalid speed value type".to_string()
+                        )),
+                    };
+                    Protocol::validate_speed(speed)?;
+                    animation.set_speed(speed);
+                },
+                _ => return Err(OSCError::new(
+                    OSCErrorType::Protocol,
+                    format!("Unknown animation command: {}", self.command)
+                )),
+            }
+        } else {
+            return Err(OSCError::new(
                 OSCErrorType::Protocol,
-                format!("Unknown animation command: {}", self.command)
-            )),
+                "No animation assigned to track".to_string()
+            ));
         }
         Ok(())
     }

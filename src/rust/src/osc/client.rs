@@ -1,82 +1,268 @@
 use std::net::UdpSocket;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use rosc::{OscMessage, OscPacket};
-use crate::osc::types::{OSCConfig, TrackParameters, OSCError, OSCErrorType};
-use crate::osc::protocol::Protocol;
+use rosc::{OscMessage, OscPacket, OscType};
+use crate::error::AnimatorResult;
+use crate::osc::types::*;
 
 pub struct OSCClient {
-    socket: Arc<Mutex<UdpSocket>>,
-    config: OSCConfig,
+    socket: UdpSocket,
+    host: String,
+    port: u16,
 }
 
 impl OSCClient {
-    pub fn new(config: OSCConfig) -> Result<Self, OSCError> {
-        let socket = UdpSocket::bind("0.0.0.0:0").map_err(|e| 
-            OSCError::new(OSCErrorType::Connection, format!("Failed to bind socket: {}", e))
-        )?;
-
-        socket.connect(format!("{}:{}", config.client_address, config.client_port)).map_err(|e| 
-            OSCError::new(OSCErrorType::Connection, format!("Failed to connect to {}:{} - {}", 
-                config.client_address, config.client_port, e))
-        )?;
-
-        Ok(Self {
-            socket: Arc::new(Mutex::new(socket)),
-            config,
-        })
+    pub fn new(host: String, port: u16) -> AnimatorResult<Self> {
+        let socket = UdpSocket::bind("0.0.0.0:0")?;
+        Ok(Self { socket, host, port })
     }
 
-    pub async fn send_track_parameters(&self, track_id: &str, params: &TrackParameters) -> Result<(), OSCError> {
-        Protocol::validate_track_parameters(track_id, params)?;
-        let messages = self.create_track_messages(track_id, params)?;
-        for msg in messages {
-            self.send_message(&msg).await?;
-        }
+    pub fn send_message(&self, addr: &str, args: Vec<OscType>) -> AnimatorResult<()> {
+        let msg = OscMessage {
+            addr: addr.to_string(),
+            args,
+        };
+        let packet = OscPacket::Message(msg);
+        let mut buf = Vec::new();
+        let encoded = rosc::encoder::encode(&packet)?;
+        buf.extend(encoded);
+        self.socket.send_to(&buf, format!("{}:{}", self.host, self.port))?;
         Ok(())
     }
 
-    async fn send_message(&self, message: &OscMessage) -> Result<(), OSCError> {
-        let packet = OscPacket::Message(message.clone());
-        let buf = rosc::encoder::encode(&packet).map_err(|e| 
-            OSCError::new(OSCErrorType::Encoding, format!("Failed to encode OSC message: {}", e))
-        )?;
+    // Position Control
+    pub fn send_xyz(&self, track_id: &str, x: f64, y: f64, z: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/xyz", track_id),
+            vec![
+                OscType::Float(x as f32),
+                OscType::Float(y as f32),
+                OscType::Float(z as f32),
+            ],
+        )
+    }
 
-        let socket = self.socket.lock().await;
-        socket.send(&buf).map_err(|e| 
-            OSCError::new(OSCErrorType::Network, format!("Failed to send OSC message: {}", e))
-        )?;
+    pub fn send_aed(&self, track_id: &str, azim: f64, elev: f64, dist: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/aed", track_id),
+            vec![
+                OscType::Float(azim as f32),
+                OscType::Float(elev as f32),
+                OscType::Float(dist as f32),
+            ],
+        )
+    }
 
+    // Individual Coordinates
+    pub fn send_x(&self, track_id: &str, value: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/x", track_id),
+            vec![OscType::Float(value as f32)],
+        )
+    }
+
+    pub fn send_y(&self, track_id: &str, value: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/y", track_id),
+            vec![OscType::Float(value as f32)],
+        )
+    }
+
+    pub fn send_z(&self, track_id: &str, value: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/z", track_id),
+            vec![OscType::Float(value as f32)],
+        )
+    }
+
+    pub fn send_azim(&self, track_id: &str, value: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/azim", track_id),
+            vec![OscType::Float(value as f32)],
+        )
+    }
+
+    pub fn send_elev(&self, track_id: &str, value: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/elev", track_id),
+            vec![OscType::Float(value as f32)],
+        )
+    }
+
+    pub fn send_dist(&self, track_id: &str, value: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/dist", track_id),
+            vec![OscType::Float(value as f32)],
+        )
+    }
+
+    // Coordinate Pairs
+    pub fn send_xy(&self, track_id: &str, x: f64, y: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/xy", track_id),
+            vec![OscType::Float(x as f32), OscType::Float(y as f32)],
+        )
+    }
+
+    pub fn send_ae(&self, track_id: &str, azim: f64, elev: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/ae", track_id),
+            vec![OscType::Float(azim as f32), OscType::Float(elev as f32)],
+        )
+    }
+
+    // Relative Movement
+    pub fn send_x_inc(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/x+", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    pub fn send_x_dec(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/x-", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    pub fn send_y_inc(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/y+", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    pub fn send_y_dec(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/y-", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    pub fn send_z_inc(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/z+", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    pub fn send_z_dec(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/z-", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    pub fn send_azim_inc(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/azim+", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    pub fn send_azim_dec(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/azim-", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    pub fn send_elev_inc(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/elev+", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    pub fn send_elev_dec(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/elev-", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    pub fn send_dist_inc(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/dist+", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    pub fn send_dist_dec(&self, track_id: &str, delta: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/dist-", track_id),
+            vec![OscType::Float(delta as f32)],
+        )
+    }
+
+    // Audio Properties
+    pub fn send_gain(&self, track_id: &str, gain: f64) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/gain/value", track_id),
+            vec![OscType::Float(gain as f32)],
+        )
+    }
+
+    pub fn send_mute(&self, track_id: &str, mute: bool) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/mute", track_id),
+            vec![OscType::Int(if mute { 1 } else { 0 })],
+        )
+    }
+
+    // Visual Properties
+    pub fn send_color(&self, track_id: &str, color: &Color) -> AnimatorResult<()> {
+        self.send_message(
+            &format!("/track/{}/color", track_id),
+            vec![
+                OscType::Float(color.r as f32),
+                OscType::Float(color.g as f32),
+                OscType::Float(color.b as f32),
+                OscType::Float(color.a as f32),
+            ],
+        )
+    }
+
+    // State Queries
+    pub fn send_query(&self, parameter_path: &str) -> AnimatorResult<()> {
+        self.send_message(
+            "/get",
+            vec![OscType::String(parameter_path.to_string())],
+        )
+    }
+
+    pub async fn send_parameters(&self, track_id: &str, params: &TrackParameters) -> AnimatorResult<()> {
+        let addr = format!("/track/{}/xyz", track_id);
+        let cartesian = params.cartesian.as_ref().ok_or_else(|| {
+            OSCError::new(
+                OSCErrorType::Protocol,
+                "Cartesian coordinates not available".to_string()
+            )
+        })?;
+        let msg = OscMessage {
+            addr: addr.into(),
+            args: vec![
+                OscType::Float(cartesian.x as f32),
+                OscType::Float(cartesian.y as f32),
+                OscType::Float(cartesian.z as f32),
+            ],
+        };
+        let encoded = rosc::encoder::encode(&OscPacket::Message(msg))?;
+        self.socket.send(&encoded)?;
         Ok(())
     }
 
-    fn create_track_messages(&self, track_id: &str, params: &TrackParameters) -> Result<Vec<OscMessage>, OSCError> {
-        let mut messages = Vec::new();
-
-        // Position messages
-        if let Some(cart) = &params.cartesian {
-            messages.push(Protocol::create_position_message(track_id, cart)?);
-        }
-
-        if let Some(polar) = &params.polar {
-            messages.push(Protocol::create_polar_message(track_id, polar)?);
-        }
-
-        // Gain message
-        if let Some(gain) = params.gain {
-            messages.push(Protocol::create_gain_message(track_id, gain)?);
-        }
-
-        // Mute message
-        if let Some(mute) = params.mute {
-            messages.push(Protocol::create_mute_message(track_id, mute)?);
-        }
-
-        // Color message
-        if let Some(color) = &params.color {
-            messages.push(Protocol::create_color_message(track_id, color)?);
-        }
-
-        Ok(messages)
+    pub async fn send_polar_parameters(&self, track_id: &str, params: &PolarCoordinates) -> AnimatorResult<()> {
+        let addr = format!("/track/{}/aed", track_id);
+        let msg = OscMessage {
+            addr: addr.into(),
+            args: vec![
+                OscType::Float(params.azim as f32),
+                OscType::Float(params.elev as f32),
+                OscType::Float(params.dist as f32),
+            ],
+        };
+        let encoded = rosc::encoder::encode(&OscPacket::Message(msg))?;
+        self.socket.send(&encoded)?;
+        Ok(())
     }
 }
