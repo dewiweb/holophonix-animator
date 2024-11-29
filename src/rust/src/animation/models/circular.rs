@@ -1,170 +1,141 @@
+use napi::bindgen_prelude::*;
+use napi_derive::napi;
+use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
-use super::{AnimationModel, AnimationParameters, easing};
-use crate::models::Position;
+use crate::models::common::{Position, Animation};
+use super::AnimationModel;
 
-/// Parameters specific to circular movement
-#[derive(Debug, Clone)]
-pub struct CircularParams {
+#[napi(object)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircularModel {
+    pub id: String,
+    pub animation: Animation,
+    pub position: Position,
+    pub center: Position,
     pub radius: f64,
     pub start_angle: f64,
     pub end_angle: f64,
-    pub clockwise: bool,
-    pub center: Position,
 }
 
-impl Default for CircularParams {
-    fn default() -> Self {
-        Self {
-            radius: 1.0,
-            start_angle: 0.0,
-            end_angle: 2.0 * PI,
-            clockwise: true,
-            center: Position::default(),
-        }
-    }
-}
+impl ObjectFinalize for CircularModel {}
 
-/// Circular movement animation model
-pub struct CircularModel {
-    params: AnimationParameters,
-    circular_params: CircularParams,
-    easing_fn: fn(f64) -> f64,
-}
-
+#[napi]
 impl CircularModel {
-    pub fn new(params: AnimationParameters, circular_params: CircularParams) -> Self {
+    #[napi(constructor)]
+    pub fn new(id: String, animation: Animation, center: Position, radius: f64, start_angle: f64, end_angle: f64) -> Self {
         Self {
-            params,
-            circular_params,
-            easing_fn: easing::linear,
-        }
-    }
-
-    pub fn with_easing(mut self, easing_fn: fn(f64) -> f64) -> Self {
-        self.easing_fn = easing_fn;
-        self
-    }
-
-    fn calculate_angle(&self, t: f64) -> f64 {
-        let start = self.circular_params.start_angle;
-        let end = self.circular_params.end_angle;
-        let angle_diff = if self.circular_params.clockwise {
-            if end < start { end + 2.0 * PI - start } else { end - start }
-        } else {
-            if start < end { start + 2.0 * PI - end } else { start - end }
-        };
-
-        let current_angle = start + angle_diff * t;
-        if self.circular_params.clockwise {
-            current_angle
-        } else {
-            start - (current_angle - start)
+            id,
+            animation,
+            position: center,  // Start at center
+            center,
+            radius,
+            start_angle,
+            end_angle,
         }
     }
 }
 
 impl AnimationModel for CircularModel {
-    fn calculate_position(&self, time: f64) -> Position {
-        let t = (time / self.params.duration).min(1.0).max(0.0);
-        let eased_t = (self.easing_fn)(t);
-        
-        // Calculate current angle
-        let angle = self.calculate_angle(eased_t);
-        
-        // Calculate position on circle
-        let x = self.circular_params.center.x + 
-                self.circular_params.radius * angle.cos();
-        let y = self.circular_params.center.y + 
-                self.circular_params.radius * angle.sin();
-        
-        Position {
-            x,
-            y,
-            z: self.circular_params.center.z, // Z remains constant in circular motion
-        }
+    fn get_id(&self) -> &str {
+        &self.id
     }
 
-    fn get_duration(&self) -> f64 {
-        self.params.duration
+    fn get_animation(&self) -> &Animation {
+        &self.animation
+    }
+
+    fn get_position(&self) -> Position {
+        self.position
+    }
+
+    fn update(&mut self, delta_time: f64) -> napi::Result<()> {
+        self.animation.update(delta_time)?;
+        if self.animation.is_playing && self.animation.is_active && !self.animation.is_paused {
+            let progress = self.animation.get_progress();
+            let angle = self.start_angle + (self.end_angle - self.start_angle) * progress;
+            self.position = Position {
+                x: self.center.x + self.radius * angle.cos(),
+                y: self.center.y + self.radius * angle.sin(),
+                z: self.center.z,
+            };
+        }
+        Ok(())
+    }
+
+    fn start(&mut self) {
+        self.animation.play();
+    }
+
+    fn stop(&mut self) {
+        self.animation.stop();
+    }
+
+    fn pause(&mut self) {
+        self.animation.pause();
+    }
+
+    fn resume(&mut self) {
+        self.animation.play();
     }
 
     fn reset(&mut self) {
-        // No state to reset for circular model
+        self.animation.stop();
+        self.position = self.center;
+    }
+
+    fn is_complete(&self) -> bool {
+        self.animation.is_complete()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn create_test_model() -> CircularModel {
-        let params = AnimationParameters {
-            start_position: Position::default(),
-            end_position: Position::default(),
-            duration: 2.0,
-            speed: 1.0,
-            acceleration: None,
-            custom_params: vec![],
-        };
-
-        let circular_params = CircularParams {
-            radius: 1.0,
-            start_angle: 0.0,
-            end_angle: PI,
-            clockwise: true,
-            center: Position::default(),
-        };
-
-        CircularModel::new(params, circular_params)
-    }
+    use crate::models::common::AnimationConfig;
 
     #[test]
-    fn test_circular_movement() {
-        let model = create_test_model();
-        
-        // Test start position (radius = 1.0, angle = 0)
-        let pos = model.calculate_position(0.0);
-        assert!((pos.x - 1.0).abs() < 1e-10); // cos(0) = 1
-        assert!(pos.y.abs() < 1e-10);         // sin(0) = 0
-        
-        // Test middle position (radius = 1.0, angle = π/2)
-        let pos = model.calculate_position(1.0);
-        assert!(pos.x.abs() < 1e-10);         // cos(π/2) = 0
-        assert!((pos.y - 1.0).abs() < 1e-10); // sin(π/2) = 1
-        
-        // Test end position (radius = 1.0, angle = π)
-        let pos = model.calculate_position(2.0);
-        assert!((pos.x + 1.0).abs() < 1e-10); // cos(π) = -1
-        assert!(pos.y.abs() < 1e-10);         // sin(π) = 0
-    }
+    fn test_circular_model() -> napi::Result<()> {
+        let config = AnimationConfig::new(
+            0.0,
+            1.0,
+            Position::new(0.0, 0.0, 0.0),
+            Position::new(1.0, 1.0, 0.0),
+            "linear".to_string(),
+        );
 
-    #[test]
-    fn test_counter_clockwise() {
-        let mut circular_params = CircularParams::default();
-        circular_params.clockwise = false;
-        
-        let params = AnimationParameters::default();
-        let model = CircularModel::new(params, circular_params);
-        
-        // Test movement direction
-        let pos1 = model.calculate_position(0.25);
-        let pos2 = model.calculate_position(0.5);
-        
-        // In counter-clockwise motion, y should decrease from pos1 to pos2
-        assert!(pos2.y < pos1.y);
-    }
+        let animation = Animation::new(config, "test".to_string());
+        let center = Position::new(0.0, 0.0, 0.0);
+        let mut model = CircularModel::new(
+            "test".to_string(),
+            animation,
+            center,
+            1.0,
+            0.0,
+            2.0 * PI,
+        );
 
-    #[test]
-    fn test_custom_center() {
-        let mut circular_params = CircularParams::default();
-        circular_params.center = Position { x: 1.0, y: 2.0, z: 3.0 };
+        assert!(!model.is_complete());
+        model.start();
         
-        let params = AnimationParameters::default();
-        let model = CircularModel::new(params, circular_params);
+        // Test at different progress points
+        model.animation.current_time = 0.0;
+        model.update(0.0)?;
+        let pos = model.get_position();
+        assert_eq!(pos.x, 1.0);
+        assert!(pos.y.abs() < 1e-10);
         
-        let pos = model.calculate_position(0.0);
-        assert_eq!(pos.z, 3.0); // Z should match center
-        assert!((pos.x - 2.0).abs() < 1e-10); // Center.x + radius
-        assert_eq!(pos.y, 2.0); // Center.y + 0
+        model.animation.current_time = 0.25;
+        model.update(0.0)?;
+        let pos = model.get_position();
+        assert!(pos.x.abs() < 1e-10);
+        assert_eq!(pos.y, 1.0);
+        
+        model.animation.current_time = 0.5;
+        model.update(0.0)?;
+        let pos = model.get_position();
+        assert_eq!(pos.x, -1.0);
+        assert!(pos.y.abs() < 1e-10);
+
+        Ok(())
     }
 }

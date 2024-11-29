@@ -1,203 +1,178 @@
-use super::{AnimationModel, AnimationParameters, easing};
-use crate::models::Position;
-use std::fmt;
-use std::sync::Arc;
+use napi::bindgen_prelude::*;
+use napi_derive::napi;
+use serde::{Deserialize, Serialize};
+use crate::models::common::{Position, Animation, AnimationConfig};
+use super::{AnimationModel, easing};
 
-/// Types of patterns available for animation
-#[derive(Clone)]
-pub enum PatternType {
-    /// Linear pattern
-    Linear,
-    /// Circular pattern
-    Circular { radius: f64 },
-    /// Spiral pattern
-    Spiral { radius: f64, turns: f64 },
-    /// Custom pattern defined by parametric equations
-    Custom(Arc<dyn Fn(f64) -> Position + Send + Sync + 'static>),
-}
-
-impl fmt::Debug for PatternType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PatternType::Linear => write!(f, "Linear"),
-            PatternType::Circular { radius } => write!(f, "Circular {{ radius: {} }}", radius),
-            PatternType::Spiral { radius, turns } => write!(f, "Spiral {{ radius: {}, turns: {} }}", radius, turns),
-            PatternType::Custom(_) => write!(f, "Custom(...)"),
-        }
-    }
-}
-
-impl PartialEq for PatternType {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (PatternType::Linear, PatternType::Linear) => true,
-            (PatternType::Circular { radius: r1 }, PatternType::Circular { radius: r2 }) => (r1 - r2).abs() < 1e-10,
-            (PatternType::Spiral { radius: r1, turns: t1 }, PatternType::Spiral { radius: r2, turns: t2 }) => (r1 - r2).abs() < 1e-10 && (t1 - t2).abs() < 1e-10,
-            (PatternType::Custom(_), PatternType::Custom(_)) => false, // Custom functions can't be compared
-            _ => false,
-        }
-    }
-}
-
-/// Parameters specific to pattern movement
-#[derive(Debug, Clone)]
-pub struct PatternParams {
-    pub pattern_type: PatternType,
-    pub frequency: f64,
-    pub amplitude: f64,
-    pub phase: f64,
-    pub scale: Position,
-    pub offset: Position,
-}
-
-impl PatternParams {
-    pub fn new(pattern_type: PatternType) -> Self {
-        Self {
-            pattern_type,
-            frequency: 1.0,
-            amplitude: 1.0,
-            phase: 0.0,
-            scale: Position { x: 1.0, y: 1.0, z: 1.0 },
-            offset: Position::default(),
-        }
-    }
-
-    pub fn evaluate(&self, t: f64) -> Position {
-        let t = t * self.frequency + self.phase;
-        let result = match &self.pattern_type {
-            PatternType::Linear => {
-                Position { x: t, y: 0.0, z: 0.0 }
-            },
-            PatternType::Circular { radius } => {
-                let angle = 2.0 * std::f64::consts::PI * t;
-                Position { x: radius * angle.cos(), y: radius * angle.sin(), z: 0.0 }
-            },
-            PatternType::Spiral { radius, turns } => {
-                let angle = 2.0 * std::f64::consts::PI * t * turns;
-                let r = radius * t;
-                Position { x: r * angle.cos(), y: r * angle.sin(), z: 0.0 }
-            },
-            PatternType::Custom(func) => func(t),
-        };
-        
-        Position {
-            x: result.x * self.amplitude,
-            y: result.y * self.amplitude,
-            z: result.z * self.amplitude,
-        }
-    }
-}
-
-/// Pattern-based movement animation model
+#[napi(object)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PatternModel {
-    params: AnimationParameters,
-    pattern_params: PatternParams,
-    easing_fn: fn(f64) -> f64,
+    pub id: String,
+    pub animation: Animation,
+    pub position: Position,
+    pub center: Position,
+    pub scale: f64,
+    pub rotation: f64,
 }
 
+impl ObjectFinalize for PatternModel {}
+
+#[napi]
 impl PatternModel {
-    pub fn new(params: AnimationParameters, pattern_params: PatternParams) -> Self {
+    #[napi(constructor)]
+    pub fn new(id: String, animation: Animation, center: Position, scale: f64, rotation: f64) -> Self {
         Self {
-            params,
-            pattern_params,
-            easing_fn: easing::linear,
+            id,
+            animation,
+            position: center,
+            center,
+            scale,
+            rotation,
         }
     }
 
-    pub fn with_easing(mut self, easing_fn: fn(f64) -> f64) -> Self {
-        self.easing_fn = easing_fn;
-        self
-    }
-
-    fn apply_pattern_transform(&self, pos: Position) -> Position {
-        let scale = &self.pattern_params.scale;
-        let offset = &self.pattern_params.offset;
-        
+    fn apply_pattern_transform(&self, progress: f64) -> Position {
+        let angle = progress * 2.0 * std::f64::consts::PI + self.rotation;
         Position {
-            x: pos.x * scale.x + offset.x,
-            y: pos.y * scale.y + offset.y,
-            z: pos.z * scale.z + offset.z,
+            x: self.center.x + self.scale * angle.cos(),
+            y: self.center.y + self.scale * angle.sin(),
+            z: self.center.z,
         }
     }
 }
 
 impl AnimationModel for PatternModel {
-    fn calculate_position(&self, time: f64) -> Position {
-        let t = (time / self.params.duration).min(1.0).max(0.0);
-        let eased_t = (self.easing_fn)(t);
-        
-        let raw_position = self.pattern_params.evaluate(eased_t);
-        
-        self.apply_pattern_transform(raw_position)
+    fn get_id(&self) -> &str {
+        &self.id
     }
 
-    fn get_duration(&self) -> f64 {
-        self.params.duration
+    fn get_animation(&self) -> &Animation {
+        &self.animation
+    }
+
+    fn get_position(&self) -> Position {
+        self.position
+    }
+
+    fn update(&mut self, delta_time: f64) -> napi::Result<()> {
+        self.animation.update(delta_time)?;
+        if self.animation.is_playing {
+            let progress = self.animation.get_progress();
+            self.position = self.apply_pattern_transform(progress);
+        }
+        Ok(())
+    }
+
+    fn start(&mut self) {
+        self.animation.start();
+    }
+
+    fn stop(&mut self) {
+        self.animation.stop();
+    }
+
+    fn pause(&mut self) {
+        self.animation.pause();
+    }
+
+    fn resume(&mut self) {
+        self.animation.resume();
     }
 
     fn reset(&mut self) {
-        // No state to reset for pattern model
+        self.animation.reset();
+        self.position = self.center;
+    }
+
+    fn is_complete(&self) -> bool {
+        self.animation.is_complete()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::f64::consts::PI;
 
     fn create_test_model() -> PatternModel {
-        let params = AnimationParameters {
-            start_position: Position::default(),
-            end_position: Position::default(),
-            duration: 2.0,
-            speed: 1.0,
-            acceleration: None,
-            custom_params: vec![],
-        };
+        let config = AnimationConfig::new(
+            0.0,
+            1.0,
+            Position::new(0.0, 0.0, 0.0),
+            Position::new(1.0, 1.0, 0.0),
+            "linear".to_string(),
+        );
 
-        let pattern_params = PatternParams::new(PatternType::Linear);
-        PatternModel::new(params, pattern_params)
+        let animation = Animation::new(config, "test".to_string());
+        let center = Position::new(0.0, 0.0, 0.0);
+
+        PatternModel::new(
+            "test".to_string(),
+            animation,
+            center,
+            1.0,
+            0.0,
+        )
     }
 
     #[test]
-    fn test_linear_pattern() {
-        let model = create_test_model();
-        
-        // Test start position
-        let pos = model.calculate_position(0.0);
-        assert_eq!(pos.x, 0.0);
-        assert_eq!(pos.y, 0.0);
-        
-        // Test quarter cycle
-        let pos = model.calculate_position(0.5);
-        assert!((pos.x - 0.5).abs() < 1e-10);
-        assert!(pos.y.abs() < 1e-10);
+    fn test_pattern_movement() -> napi::Result<()> {
+        let mut model = create_test_model();
+        model.start();
+
+        // Test at start (0 radians)
+        model.animation.current_time = 0.0;
+        model.update(0.0)?;
+        let pos = model.get_position();
+        assert_eq!(pos.x, 1.0); // cos(0) = 1
+        assert_eq!(pos.y, 0.0); // sin(0) = 0
+        assert_eq!(pos.z, 0.0);
+
+        // Test at quarter circle (PI/2 radians)
+        model.animation.current_time = 0.25;
+        model.update(0.0)?;
+        let pos = model.get_position();
+        assert!(pos.x.abs() < 1e-10); // cos(PI/2) ≈ 0
+        assert_eq!(pos.y, 1.0);       // sin(PI/2) = 1
+        assert_eq!(pos.z, 0.0);
+
+        // Test at half circle (PI radians)
+        model.animation.current_time = 0.5;
+        model.update(0.0)?;
+        let pos = model.get_position();
+        assert_eq!(pos.x, -1.0);      // cos(PI) = -1
+        assert!(pos.y.abs() < 1e-10); // sin(PI) ≈ 0
+        assert_eq!(pos.z, 0.0);
+
+        Ok(())
     }
 
     #[test]
-    fn test_custom_pattern() {
-        let mut pattern_params = PatternParams::new(PatternType::Custom(Arc::new(|t| {
-            Position { x: t, y: t * t, z: 0.0 }
-        })));
-        
-        let params = AnimationParameters::default();
-        let model = PatternModel::new(params, pattern_params);
-        
-        let pos = model.calculate_position(0.5);
-        assert!((pos.x - 0.5).abs() < 1e-10);
-        assert!((pos.y - 0.25).abs() < 1e-10);
-    }
+    fn test_with_rotation() -> napi::Result<()> {
+        let mut model = PatternModel::new(
+            "test".to_string(),
+            Animation::new(
+                AnimationConfig::new(
+                    0.0,
+                    1.0,
+                    Position::new(0.0, 0.0, 0.0),
+                    Position::new(1.0, 1.0, 0.0),
+                    "linear".to_string(),
+                ),
+                "test".to_string(),
+            ),
+            Position::new(0.0, 0.0, 0.0),
+            1.0,
+            PI / 2.0, // 90 degree rotation
+        );
 
-    #[test]
-    fn test_pattern_transform() {
-        let mut pattern_params = PatternParams::new(PatternType::Linear);
-        pattern_params.scale = Position { x: 2.0, y: 2.0, z: 1.0 };
-        pattern_params.offset = Position { x: 1.0, y: 1.0, z: 0.0 };
-        
-        let params = AnimationParameters::default();
-        let model = PatternModel::new(params, pattern_params);
-        
-        let pos = model.calculate_position(0.25);
-        assert!(pos.x > 1.0); // Should be scaled and offset
-        assert!(pos.y > 1.0);
+        model.start();
+        model.animation.current_time = 0.0;
+        model.update(0.0)?;
+        let pos = model.get_position();
+        assert!(pos.x.abs() < 1e-10); // cos(PI/2) ≈ 0
+        assert_eq!(pos.y, 1.0);       // sin(PI/2) = 1
+
+        Ok(())
     }
 }
