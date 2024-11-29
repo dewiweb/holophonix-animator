@@ -1,303 +1,259 @@
 // Module declarations
-pub mod cycle;
-pub mod engine;
-pub mod group;
-pub mod interpolation;
 pub mod models;
+pub mod timeline;
+pub mod group;
+pub mod track;
 pub mod path;
 pub mod plugin;
-pub mod timeline;
-pub mod track;
+pub mod cycle;
+pub mod interpolation;
 
-// Re-exports from submodules
-pub use cycle::Cycle;
-pub use engine::{AnimationEngine, AnimationManager};
-pub use group::AnimationGroup;
-pub use interpolation::InterpolationType;
-pub use models::*;
+// Re-exports
+pub use models::Animation;
+pub use models::easing::EasingFunction;
+pub use models::linear::LinearModel;
+pub use models::circular::CircularModel;
+pub use models::pattern::PatternModel;
+pub use models::custom_path::CustomPathModel;
+pub use timeline::AnimationTimeline;
+pub use track::TrackState;
 pub use path::Path;
+pub use group::AnimationGroup;
 pub use plugin::Plugin;
-pub use timeline::{Timeline, TimelineManager};
-pub use track::{Track, TrackState};
 
-// External imports
+// Type imports
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use napi::bindgen_prelude::*;
-use napi_derive::napi;
 use serde::{Serialize, Deserialize};
-use crate::state::core::{Position, StateManager};
-use crate::animation::timeline::TimelineManager;
+
+// Internal imports
+use crate::models::position::Position;
+use crate::error::{AnimatorError, AnimatorResult};
 
 #[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+pub struct AnimationConfig {
+    pub id: String,
+    pub start_position: Position,
+    pub end_position: Position,
+    pub duration: f64,
+    pub easing: Option<String>,
+}
+
+#[napi(object)]
+#[derive(Debug, Clone)]
 pub struct Animation {
     pub id: String,
-    pub position: Position,
-    pub duration: f64,
-    pub current_time: f64,
-    pub is_playing: bool,
+    pub config: AnimationConfig,
+    pub is_active: bool,
+    pub is_looping: bool,
+    pub speed: f64,
 }
-
-impl Default for Animation {
-    fn default() -> Self {
-        Self {
-            id: String::new(),
-            position: Position::default(),
-            duration: 0.0,
-            current_time: 0.0,
-            is_playing: false,
-        }
-    }
-}
-
-impl ObjectFinalize for Animation {}
 
 #[napi]
 impl Animation {
     #[napi(constructor)]
     pub fn new(id: String) -> Self {
-        Self {
+        Animation {
             id,
-            position: Position::default(),
-            duration: 0.0,
-            current_time: 0.0,
-            is_playing: false,
+            config: AnimationConfig {
+                id: String::new(),
+                start_position: Position::default(),
+                end_position: Position::default(),
+                duration: 0.0,
+                easing: None,
+            },
+            is_active: false,
+            is_looping: false,
+            speed: 1.0,
         }
     }
 
     #[napi]
-    pub fn update(&mut self, delta_time: f64) -> napi::Result<()> {
-        if self.is_playing {
-            self.current_time += delta_time;
-            if self.current_time >= self.duration {
-                self.current_time = 0.0;
-                self.is_playing = false;
-            }
-        }
-        Ok(())
+    pub fn set_config(&mut self, config: AnimationConfig) {
+        self.config = config;
+    }
+
+    #[napi]
+    pub fn start(&mut self) {
+        self.is_active = true;
+    }
+
+    #[napi]
+    pub fn stop(&mut self) {
+        self.is_active = false;
+    }
+
+    #[napi]
+    pub fn set_looping(&mut self, looping: bool) {
+        self.is_looping = looping;
+    }
+
+    #[napi]
+    pub fn set_speed(&mut self, speed: f64) {
+        self.speed = speed;
     }
 }
 
 #[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PerformanceMetrics {
-    pub frame_time: f64,
-    pub update_time: f64,
-    pub render_time: f64,
-    pub active_animations: u32,
-    pub total_memory: u32,
-}
-
-impl Default for PerformanceMetrics {
-    fn default() -> Self {
-        Self {
-            frame_time: 0.0,
-            update_time: 0.0,
-            render_time: 0.0,
-            active_animations: 0,
-            total_memory: 0,
-        }
-    }
-}
-
-impl ObjectFinalize for PerformanceMetrics {}
-
-#[napi(object)]
-#[derive(Debug)]
-pub struct AnimationEngine {
-    timeline_manager: Arc<Mutex<TimelineManager>>,
-    performance_metrics: Arc<Mutex<PerformanceMetrics>>,
-}
-
-impl Default for AnimationEngine {
-    fn default() -> Self {
-        Self {
-            timeline_manager: Arc::new(Mutex::new(TimelineManager::default())),
-            performance_metrics: Arc::new(Mutex::new(PerformanceMetrics::default())),
-        }
-    }
-}
-
-impl ObjectFinalize for AnimationEngine {}
-
-#[napi]
-impl AnimationEngine {
-    #[napi(constructor)]
-    pub fn new() -> napi::Result<Self> {
-        Ok(Self::default())
-    }
-
-    #[napi]
-    pub async fn initialize(&self) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.initialize()?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn start_animation(&self, id: String, duration: f64, position: Position) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.start_animation(id, crate::models::common::AnimationConfig {
-            start_position: Position { x: 0.0, y: 0.0 },
-            end_position: Position { x: 0.0, y: 0.0 },
-            start_time: 0.0,
-            duration,
-            easing: "linear".to_string(),
-        })?;
-        
-        let mut metrics = self.performance_metrics.lock().await;
-        metrics.active_animations += 1;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn pause_animation(&self, id: String) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.pause_animation(id)?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn resume_animation(&self, id: String) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.resume_animation(id)?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn stop_animation(&self, id: String) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.stop_animation(id)?;
-        
-        let mut metrics = self.performance_metrics.lock().await;
-        if metrics.active_animations > 0 {
-            metrics.active_animations -= 1;
-        }
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn update(&self, delta_time: f64) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.update(delta_time)?;
-        
-        let mut metrics = self.performance_metrics.lock().await;
-        metrics.total_memory = timeline.get_animation_count()? as u32;
-        metrics.active_animations = timeline.get_animation_count()? as u32;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn get_performance_metrics(&self) -> napi::Result<PerformanceMetrics> {
-        let metrics = self.performance_metrics.lock().await;
-        Ok(PerformanceMetrics {
-            active_animations: metrics.active_animations,
-            total_memory: metrics.total_memory,
-            frame_time: metrics.frame_time,
-            update_time: metrics.update_time,
-            render_time: metrics.render_time,
-        })
-    }
-
-    #[napi]
-    pub async fn clear_animations(&self) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.clear_animations()?;
-        
-        let mut metrics = self.performance_metrics.lock().await;
-        metrics.active_animations = 0;
-        metrics.total_memory = 0;
-        Ok(())
-    }
-}
-
-#[napi(object)]
-#[derive(Debug)]
 pub struct AnimationManager {
-    state_manager: Arc<Mutex<StateManager>>,
-    timeline_manager: Arc<Mutex<TimelineManager>>,
+    animations: HashMap<String, Animation>,
 }
-
-impl Default for AnimationManager {
-    fn default() -> Self {
-        let state_manager = Arc::new(Mutex::new(StateManager::default()));
-        let timeline_manager = Arc::new(Mutex::new(TimelineManager::default()));
-        Self {
-            state_manager,
-            timeline_manager,
-        }
-    }
-}
-
-impl ObjectFinalize for AnimationManager {}
 
 #[napi]
 impl AnimationManager {
     #[napi(constructor)]
-    pub fn new() -> napi::Result<Self> {
-        Ok(Self::default())
+    pub fn new() -> Self {
+        AnimationManager {
+            animations: HashMap::new(),
+        }
     }
 
     #[napi]
-    pub async fn initialize(&self) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.initialize()?;
+    pub fn add_animation(&mut self, animation: Animation) -> bool {
+        if self.animations.contains_key(&animation.id) {
+            false
+        } else {
+            self.animations.insert(animation.id.clone(), animation);
+            true
+        }
+    }
+
+    #[napi]
+    pub fn remove_animation(&mut self, id: String) -> bool {
+        self.animations.remove(&id).is_some()
+    }
+
+    #[napi]
+    pub fn get_animation(&self, id: String) -> Option<Animation> {
+        self.animations.get(&id).cloned()
+    }
+
+    #[napi]
+    pub fn get_animations(&self) -> Vec<Animation> {
+        self.animations.values().cloned().collect()
+    }
+
+    #[napi]
+    pub fn start_animation(&mut self, id: String) -> napi::Result<()> {
+        if let Some(animation) = self.animations.get_mut(&id) {
+            animation.start();
+            Ok(())
+        } else {
+            Err(napi::Error::from_reason(format!("Animation {} not found", id)))
+        }
+    }
+
+    #[napi]
+    pub fn stop_animation(&mut self, id: String) -> napi::Result<()> {
+        if let Some(animation) = self.animations.get_mut(&id) {
+            animation.stop();
+            Ok(())
+        } else {
+            Err(napi::Error::from_reason(format!("Animation {} not found", id)))
+        }
+    }
+
+    #[napi]
+    pub fn set_animation_looping(&mut self, id: String, looping: bool) -> napi::Result<()> {
+        if let Some(animation) = self.animations.get_mut(&id) {
+            animation.set_looping(looping);
+            Ok(())
+        } else {
+            Err(napi::Error::from_reason(format!("Animation {} not found", id)))
+        }
+    }
+
+    #[napi]
+    pub fn set_animation_speed(&mut self, id: String, speed: f64) -> napi::Result<()> {
+        if let Some(animation) = self.animations.get_mut(&id) {
+            animation.set_speed(speed);
+            Ok(())
+        } else {
+            Err(napi::Error::from_reason(format!("Animation {} not found", id)))
+        }
+    }
+}
+
+#[napi]
+pub struct AnimationEngine {
+    timeline_manager: Arc<Mutex<TimelineManager>>,
+}
+
+#[napi]
+impl AnimationEngine {
+    #[napi(constructor)]
+    pub fn new() -> Self {
+        Self {
+            timeline_manager: Arc::new(Mutex::new(TimelineManager::new())),
+        }
+    }
+
+    #[napi]
+    pub async fn create_timeline(&self, id: String, name: String) -> napi::Result<()> {
+        let mut manager = self.timeline_manager.lock().await;
+        manager.create_timeline(id, name)
+    }
+
+    #[napi]
+    pub async fn get_timeline(&self, id: String) -> napi::Result<Option<Timeline>> {
+        let manager = self.timeline_manager.lock().await;
+        manager.get_timeline(id)
+    }
+
+    #[napi]
+    pub async fn remove_timeline(&self, id: String) -> napi::Result<()> {
+        let mut manager = self.timeline_manager.lock().await;
+        manager.remove_timeline(id)
+    }
+
+    #[napi]
+    pub async fn start_timeline(&self, id: String) -> napi::Result<()> {
+        let mut manager = self.timeline_manager.lock().await;
+        manager.start_timeline(id)
+    }
+
+    #[napi]
+    pub async fn pause_timeline(&self, id: String) -> napi::Result<()> {
+        let mut manager = self.timeline_manager.lock().await;
+        manager.pause_timeline(id)
+    }
+
+    #[napi]
+    pub async fn resume_timeline(&self, id: String) -> napi::Result<()> {
+        let mut manager = self.timeline_manager.lock().await;
+        manager.resume_timeline(id)
+    }
+
+    #[napi]
+    pub async fn stop_timeline(&self, id: String) -> napi::Result<()> {
+        let mut manager = self.timeline_manager.lock().await;
+        manager.stop_timeline(id)
+    }
+
+    #[napi]
+    pub async fn create_animation(
+        &self,
+        timeline_id: String,
+        animation_id: String,
+        start_pos: Position,
+        end_pos: Position,
+        duration: f64,
+    ) -> napi::Result<()> {
+        let mut manager = self.timeline_manager.lock().await;
+        let timeline = manager.get_timeline(timeline_id.clone())?.ok_or_else(|| Error::from_reason("Timeline not found"))?;
+        let animation = Animation::new(animation_id.clone(), start_pos, end_pos, duration);
+        timeline.add_animation(animation_id, animation)?;
         Ok(())
     }
 
     #[napi]
-    pub async fn update(&self, delta_time: f64) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.update(delta_time)?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn cleanup(&self) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.clear_animations()?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn reset(&self) -> napi::Result<()> {
-        let mut state = self.state_manager.lock().await;
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.clear_animations()?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn reset_to_default(&self) -> napi::Result<()> {
-        self.reset().await
-    }
-
-    #[napi]
-    pub async fn start_animation(&self, id: String, config: crate::models::common::AnimationConfig) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.start_animation(id, config)?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn pause_animation(&self, id: String) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.pause_animation(id)?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn resume_animation(&self, id: String) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.resume_animation(id)?;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn stop_animation(&self, id: String) -> napi::Result<()> {
-        let mut timeline = self.timeline_manager.lock().await;
-        timeline.stop_animation(id)?;
+    pub fn update(&self, delta_time: f64) -> napi::Result<()> {
+        if let Ok(mut manager) = self.timeline_manager.try_lock() {
+            manager.update(delta_time)?;
+        }
         Ok(())
     }
 }
@@ -305,23 +261,30 @@ impl AnimationManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::test;
 
-    #[test]
+    #[tokio::test]
     async fn test_animation_engine() {
-        let engine = AnimationEngine::new().unwrap();
-        engine.initialize().await.unwrap();
+        let engine = AnimationEngine::new();
 
-        // Test animation lifecycle
-        let id = "test_animation".to_string();
-        let position = Position::new(1.0, 2.0, 3.0);
-        engine.start_animation(id.clone(), 1.0, position).await.unwrap();
-        engine.pause_animation(id.clone()).await.unwrap();
-        engine.resume_animation(id.clone()).await.unwrap();
-        engine.stop_animation(id.clone()).await.unwrap();
+        // Test creating a timeline
+        engine.create_timeline("test".to_string(), "Test Timeline".to_string()).await.unwrap();
 
-        // Test performance metrics
-        let metrics = engine.get_performance_metrics().await.unwrap();
-        assert_eq!(metrics.active_animations, 0);
+        // Test creating an animation
+        engine.create_animation(
+            "test".to_string(),
+            "test_anim".to_string(),
+            Position::new(0.0, 0.0, 0.0),
+            Position::new(1.0, 1.0, 1.0),
+            1.0,
+        ).await.unwrap();
+
+        // Test timeline operations
+        engine.start_timeline("test".to_string()).await.unwrap();
+        engine.pause_timeline("test".to_string()).await.unwrap();
+        engine.resume_timeline("test".to_string()).await.unwrap();
+        engine.stop_timeline("test".to_string()).await.unwrap();
+
+        // Test update
+        engine.update(0.016).unwrap();
     }
 }
