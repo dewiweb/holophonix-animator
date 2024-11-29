@@ -1,13 +1,14 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
-use crate::models::common::{Animation, Position};
-use super::core::StateManager;
+use tokio::sync::Mutex;
+use std::sync::Arc;
+use crate::state::core::StateManager;
+use crate::types::AnimatorResult;
 
 #[napi]
-#[derive(Debug)]
 pub struct StateManagerWrapper {
     #[napi(skip)]
-    pub inner: StateManager,
+    pub state_manager: Arc<Mutex<StateManager>>,
 }
 
 impl ObjectFinalize for StateManagerWrapper {}
@@ -15,100 +16,84 @@ impl ObjectFinalize for StateManagerWrapper {}
 #[napi]
 impl StateManagerWrapper {
     #[napi(constructor)]
-    pub fn new(state_dir: String) -> napi::Result<Self> {
+    pub fn new(state_dir: Option<String>) -> napi::Result<Self> {
+        let state_manager = StateManager::new(state_dir)?;
         Ok(Self {
-            inner: StateManager::new(state_dir)?
+            state_manager: Arc::new(Mutex::new(state_manager)),
         })
     }
 
     #[napi]
-    pub async unsafe fn add_position(&mut self, id: String, position: Position) -> napi::Result<()> {
-        self.inner.add_position(id, position).await
+    pub async fn get_state(&self) -> napi::Result<StateManager> {
+        let state = self.state_manager.lock().await;
+        Ok(state.clone())
     }
 
     #[napi]
-    pub async fn get_position(&self, id: String) -> napi::Result<Option<Position>> {
-        self.inner.get_position(&id).await
+    pub async fn update_state(&self, new_state: StateManager) -> napi::Result<()> {
+        let mut state = self.state_manager.lock().await;
+        *state = new_state;
+        Ok(())
     }
 
     #[napi]
-    pub async unsafe fn remove_position(&mut self, id: String) -> napi::Result<()> {
-        self.inner.remove_position(&id).await
+    pub async fn update_position(&self, track_id: String, x: f64, y: f64, z: f64) -> napi::Result<()> {
+        let mut state = self.state_manager.lock().await;
+        state.update_position(track_id, x, y, z)
     }
 
     #[napi]
-    pub fn get_position_count(&self) -> napi::Result<i32> {
-        self.inner.get_position_count()
+    pub async fn add_animation(&self, animation_id: String, animation: Animation) -> napi::Result<()> {
+        let mut state = self.state_manager.lock().await;
+        state.add_animation(animation_id, animation)
     }
 
     #[napi]
-    pub fn get_all_positions(&self) -> napi::Result<Vec<Position>> {
-        self.inner.get_all_positions()
+    pub async fn get_animation(&self, animation_id: String) -> napi::Result<Option<Animation>> {
+        let state = self.state_manager.lock().await;
+        Ok(state.get_animation(animation_id))
     }
 
     #[napi]
-    pub async unsafe fn update_track_position(&mut self, id: String, position: (f64, f64)) -> napi::Result<()> {
-        self.inner.update_track_position(id, position).await
-    }
-
-    #[napi]
-    pub async unsafe fn add_animation(&mut self, animation: Animation) -> napi::Result<()> {
-        self.inner.add_animation(animation).await
-    }
-
-    #[napi]
-    pub async fn get_animation(&self, id: String) -> napi::Result<Option<Animation>> {
-        self.inner.get_animation(id).await
-    }
-
-    #[napi]
-    pub async unsafe fn update_position(&mut self, id: String, position: Position) -> napi::Result<()> {
-        self.inner.update_position(id, position).await
-    }
-
-    #[napi]
-    pub fn get_state(&self) -> napi::Result<Vec<Position>> {
-        self.inner.get_all_positions()
-    }
-
-    #[napi]
-    pub async unsafe fn update(&mut self, delta_time: f64) -> napi::Result<()> {
-        self.inner.update(delta_time).await
-    }
-}
-
-impl Default for StateManagerWrapper {
-    fn default() -> Self {
-        Self {
-            inner: StateManager::default(),
-        }
+    pub async fn remove_animation(&self, animation_id: String) -> napi::Result<()> {
+        let mut state = self.state_manager.lock().await;
+        state.remove_animation(animation_id)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::runtime::Runtime;
 
-    #[test]
-    fn test_state_manager_wrapper() {
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async {
-            let mut wrapper = StateManagerWrapper::new("test".to_string()).unwrap();
-            let position = Position {
-                x: 1.0,
-                y: 2.0,
-                z: 3.0,
-            };
+    #[tokio::test]
+    async fn test_state_manager_wrapper() -> napi::Result<()> {
+        let mut wrapper = StateManagerWrapper::new(None)?;
 
-            unsafe { wrapper.add_position("test".to_string(), position.clone()).await.unwrap() };
-            let retrieved = wrapper.get_position("test".to_string()).await.unwrap();
-            assert!(retrieved.is_some());
-            assert_eq!(retrieved.unwrap().x, position.x);
+        // Test position operations
+        wrapper.update_position("test".to_string(), 1.0, 2.0, 3.0).await?;
 
-            unsafe { wrapper.remove_position("test".to_string()).await.unwrap() };
-            let retrieved = wrapper.get_position("test".to_string()).await.unwrap();
-            assert!(retrieved.is_none());
-        });
+        // Test animation operations
+        let animation = Animation {
+            config: AnimationConfig {
+                start_time: 0.0,
+                start_position: Position { x: 0.0, y: 0.0, z: 0.0 },
+                end_position: Position { x: 1.0, y: 1.0, z: 1.0 },
+                easing: "linear".to_string(),
+                duration: 1.0,
+            },
+            current_time: 0.0,
+            id: "test".to_string(),
+            is_playing: false,
+        };
+
+        wrapper.add_animation("test".to_string(), animation.clone()).await?;
+        let stored_animation = wrapper.get_animation("test".to_string()).await?;
+        assert!(stored_animation.is_some());
+
+        wrapper.remove_animation("test".to_string()).await?;
+        let animation = wrapper.get_animation("test".to_string()).await?;
+        assert!(animation.is_none());
+
+        Ok(())
     }
 }
