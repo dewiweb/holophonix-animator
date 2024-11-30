@@ -1,178 +1,159 @@
-use napi::bindgen_prelude::*;
-use napi_derive::napi;
-use serde::{Deserialize, Serialize};
-use crate::models::common::{Position, Animation, AnimationConfig};
-use super::{AnimationModel, easing};
+use std::time::Instant;
+use napi::Result;
 
-#[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+use crate::position::Position;
+use crate::animation::AnimationModel;
+
+#[derive(Debug)]
 pub struct PatternModel {
-    pub id: String,
-    pub animation: Animation,
-    pub position: Position,
-    pub center: Position,
-    pub scale: f64,
-    pub rotation: f64,
+    points: Vec<Position>,
+    durations: Vec<f64>,
+    current_segment: usize,
+    start_time: Option<Instant>,
+    is_complete: bool,
 }
 
-impl ObjectFinalize for PatternModel {}
-
-#[napi]
 impl PatternModel {
-    #[napi(constructor)]
-    pub fn new(id: String, animation: Animation, center: Position, scale: f64, rotation: f64) -> Self {
+    pub fn new(points: Vec<Position>, durations: Vec<f64>) -> Self {
+        assert!(points.len() >= 2, "Pattern must have at least 2 points");
+        assert_eq!(points.len() - 1, durations.len(), "Number of durations must match number of segments");
+
         Self {
-            id,
-            animation,
-            position: center,
-            center,
-            scale,
-            rotation,
+            points,
+            durations,
+            current_segment: 0,
+            start_time: None,
+            is_complete: false,
         }
     }
 
-    fn apply_pattern_transform(&self, progress: f64) -> Position {
-        let angle = progress * 2.0 * std::f64::consts::PI + self.rotation;
-        Position {
-            x: self.center.x + self.scale * angle.cos(),
-            y: self.center.y + self.scale * angle.sin(),
-            z: self.center.z,
-        }
+    fn get_total_duration(&self) -> f64 {
+        self.durations.iter().sum()
+    }
+
+    fn get_segment_start_time(&self, segment: usize) -> f64 {
+        self.durations.iter().take(segment).sum()
     }
 }
 
 impl AnimationModel for PatternModel {
-    fn get_id(&self) -> &str {
-        &self.id
-    }
-
-    fn get_animation(&self) -> &Animation {
-        &self.animation
-    }
-
-    fn get_position(&self) -> Position {
-        self.position
-    }
-
-    fn update(&mut self, delta_time: f64) -> napi::Result<()> {
-        self.animation.update(delta_time)?;
-        if self.animation.is_playing {
-            let progress = self.animation.get_progress();
-            self.position = self.apply_pattern_transform(progress);
-        }
+    fn start(&mut self) -> Result<()> {
+        self.start_time = Some(Instant::now());
+        self.current_segment = 0;
+        self.is_complete = false;
         Ok(())
     }
 
-    fn start(&mut self) {
-        self.animation.start();
+    fn stop(&mut self) -> Result<()> {
+        self.start_time = None;
+        self.is_complete = true;
+        Ok(())
     }
 
-    fn stop(&mut self) {
-        self.animation.stop();
+    fn update(&mut self, _time: f64) -> Result<Position> {
+        if self.is_complete {
+            return Ok(self.points.last().unwrap().clone());
+        }
+
+        let elapsed = match self.start_time {
+            Some(start) => start.elapsed().as_secs_f64(),
+            None => 0.0,
+        };
+
+        let total_duration = self.get_total_duration();
+        if elapsed >= total_duration {
+            self.is_complete = true;
+            return Ok(self.points.last().unwrap().clone());
+        }
+
+        // Find current segment
+        let mut segment_start_time = 0.0;
+        for (i, &duration) in self.durations.iter().enumerate() {
+            if elapsed >= segment_start_time && elapsed < segment_start_time + duration {
+                self.current_segment = i;
+                let segment_progress = (elapsed - segment_start_time) / duration;
+                return Ok(Position::lerp(
+                    &self.points[i],
+                    &self.points[i + 1],
+                    segment_progress,
+                ));
+            }
+            segment_start_time += duration;
+        }
+
+        // If we get here, we're at the end
+        self.is_complete = true;
+        Ok(self.points.last().unwrap().clone())
     }
 
-    fn pause(&mut self) {
-        self.animation.pause();
-    }
-
-    fn resume(&mut self) {
-        self.animation.resume();
-    }
-
-    fn reset(&mut self) {
-        self.animation.reset();
-        self.position = self.center;
-    }
-
-    fn is_complete(&self) -> bool {
-        self.animation.is_complete()
+    fn is_complete(&self) -> Result<bool> {
+        Ok(self.is_complete)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::f64::consts::PI;
 
-    fn create_test_model() -> PatternModel {
-        let config = AnimationConfig::new(
-            0.0,
-            1.0,
+    #[test]
+    fn test_pattern_model() {
+        let points = vec![
             Position::new(0.0, 0.0, 0.0),
-            Position::new(1.0, 1.0, 0.0),
-            "linear".to_string(),
-        );
+            Position::new(10.0, 0.0, 0.0),
+            Position::new(10.0, 10.0, 0.0),
+        ];
+        let durations = vec![5.0, 5.0];
+        let mut model = PatternModel::new(points, durations);
 
-        let animation = Animation::new(config, "test".to_string());
-        let center = Position::new(0.0, 0.0, 0.0);
+        // Test initial state
+        assert!(!model.is_complete().unwrap());
 
+        // Test start
+        model.start().unwrap();
+        assert!(!model.is_complete().unwrap());
+
+        // Test first segment midpoint
+        let pos = model.update(2.5).unwrap();
+        assert_eq!(pos.x, 5.0);
+        assert_eq!(pos.y, 0.0);
+        assert_eq!(pos.z, 0.0);
+
+        // Test second segment midpoint
+        let pos = model.update(7.5).unwrap();
+        assert_eq!(pos.x, 10.0);
+        assert_eq!(pos.y, 5.0);
+        assert_eq!(pos.z, 0.0);
+
+        // Test completion
+        let pos = model.update(10.0).unwrap();
+        assert_eq!(pos.x, 10.0);
+        assert_eq!(pos.y, 10.0);
+        assert_eq!(pos.z, 0.0);
+        assert!(model.is_complete().unwrap());
+
+        // Test stop
+        model.stop().unwrap();
+        assert!(model.is_complete().unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "Pattern must have at least 2 points")]
+    fn test_pattern_model_invalid_points() {
         PatternModel::new(
-            "test".to_string(),
-            animation,
-            center,
-            1.0,
-            0.0,
-        )
-    }
-
-    #[test]
-    fn test_pattern_movement() -> napi::Result<()> {
-        let mut model = create_test_model();
-        model.start();
-
-        // Test at start (0 radians)
-        model.animation.current_time = 0.0;
-        model.update(0.0)?;
-        let pos = model.get_position();
-        assert_eq!(pos.x, 1.0); // cos(0) = 1
-        assert_eq!(pos.y, 0.0); // sin(0) = 0
-        assert_eq!(pos.z, 0.0);
-
-        // Test at quarter circle (PI/2 radians)
-        model.animation.current_time = 0.25;
-        model.update(0.0)?;
-        let pos = model.get_position();
-        assert!(pos.x.abs() < 1e-10); // cos(PI/2) ≈ 0
-        assert_eq!(pos.y, 1.0);       // sin(PI/2) = 1
-        assert_eq!(pos.z, 0.0);
-
-        // Test at half circle (PI radians)
-        model.animation.current_time = 0.5;
-        model.update(0.0)?;
-        let pos = model.get_position();
-        assert_eq!(pos.x, -1.0);      // cos(PI) = -1
-        assert!(pos.y.abs() < 1e-10); // sin(PI) ≈ 0
-        assert_eq!(pos.z, 0.0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_rotation() -> napi::Result<()> {
-        let mut model = PatternModel::new(
-            "test".to_string(),
-            Animation::new(
-                AnimationConfig::new(
-                    0.0,
-                    1.0,
-                    Position::new(0.0, 0.0, 0.0),
-                    Position::new(1.0, 1.0, 0.0),
-                    "linear".to_string(),
-                ),
-                "test".to_string(),
-            ),
-            Position::new(0.0, 0.0, 0.0),
-            1.0,
-            PI / 2.0, // 90 degree rotation
+            vec![Position::new(0.0, 0.0, 0.0)],
+            vec![],
         );
+    }
 
-        model.start();
-        model.animation.current_time = 0.0;
-        model.update(0.0)?;
-        let pos = model.get_position();
-        assert!(pos.x.abs() < 1e-10); // cos(PI/2) ≈ 0
-        assert_eq!(pos.y, 1.0);       // sin(PI/2) = 1
-
-        Ok(())
+    #[test]
+    #[should_panic(expected = "Number of durations must match number of segments")]
+    fn test_pattern_model_invalid_durations() {
+        PatternModel::new(
+            vec![
+                Position::new(0.0, 0.0, 0.0),
+                Position::new(1.0, 1.0, 1.0),
+            ],
+            vec![1.0, 1.0], // Should only be one duration for two points
+        );
     }
 }

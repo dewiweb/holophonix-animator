@@ -1,232 +1,340 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use serde::{Serialize, Deserialize};
-use crate::models::position::Position;
-use crate::error::AnimatorResult;
+use async_trait::async_trait;
+use napi::Result;
+use std::collections::HashMap;
+use std::fmt::Debug;
 
 pub mod easing;
-pub mod linear;
-pub mod circular;
 pub mod custom_path;
-pub mod pattern;
+
+pub use easing::EasingFunction;
+pub use custom_path::CustomPathModel;
+
+mod linear;
+mod circular;
+mod pattern;
 
 pub use linear::LinearModel;
 pub use circular::CircularModel;
 pub use pattern::PatternModel;
-pub use custom_path::CustomPathModel;
-pub use easing::EasingFunction;
-
-#[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Animation {
-    pub id: String,
-    pub duration: f64,
-    pub model_type: String,
-    pub model_params: serde_json::Value,
-    #[napi(skip)]
-    pub is_running: bool,
-    #[napi(skip)]
-    pub is_looping: bool,
-    #[napi(skip)]
-    pub speed: f64,
-}
-
-impl ObjectFinalize for Animation {}
 
 #[napi]
-impl Animation {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Position {
+    #[napi(js_name = "x")]
+    pub x: f64,
+    #[napi(js_name = "y")]
+    pub y: f64,
+    #[napi(js_name = "z")]
+    pub z: f64,
+}
+
+#[napi]
+impl Position {
     #[napi(constructor)]
-    pub fn new(id: String, duration: f64, model_type: String, model_params: serde_json::Value) -> Self {
-        Self {
-            id,
-            duration,
-            model_type,
-            model_params,
-            is_running: false,
-            is_looping: false,
-            speed: 1.0,
-        }
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
+        Self { x, y, z }
     }
 
     #[napi]
-    pub fn start(&mut self) {
-        self.is_running = true;
-    }
-
-    #[napi]
-    pub fn stop(&mut self) {
-        self.is_running = false;
-    }
-
-    #[napi]
-    pub fn set_looping(&mut self, looping: bool) {
-        self.is_looping = looping;
-    }
-
-    #[napi]
-    pub fn set_speed(&mut self, speed: f64) {
-        self.speed = speed;
-    }
-}
-
-impl Default for Animation {
-    fn default() -> Self {
-        Self {
-            id: String::from("default"),
-            duration: 1.0,
-            model_type: String::from("linear"),
-            model_params: serde_json::Value::Null,
-            is_running: false,
-            is_looping: false,
-            speed: 1.0,
+    pub fn lerp(&self, other: &Position, t: f64) -> Position {
+        Position {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
         }
     }
 }
 
-/// Common traits for all animation models
-pub trait AnimationModel {
-    fn get_id(&self) -> &str;
-    fn get_animation(&self) -> &Animation;
-    fn get_position(&self) -> Position;
-    fn update(&mut self, delta_time: f64) -> AnimatorResult<()>;
+impl ToNapiValue for Position {
+    unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
+        let mut obj = Object::new(env)?;
+        obj.set("x", val.x)?;
+        obj.set("y", val.y)?;
+        obj.set("z", val.z)?;
+        Ok(obj.0)
+    }
+}
+
+impl FromNapiValue for Position {
+    unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
+        let obj = Object(napi_val);
+        let x = f64::from_napi_value(env, obj.get_named_property_unchecked("x")?)?;
+        let y = f64::from_napi_value(env, obj.get_named_property_unchecked("y")?)?;
+        let z = f64::from_napi_value(env, obj.get_named_property_unchecked("z")?)?;
+        Ok(Self { x, y, z })
+    }
+}
+
+pub trait AnimationModel: Debug + Send + Sync {
     fn start(&mut self);
     fn stop(&mut self);
-    fn pause(&mut self);
-    fn resume(&mut self);
-    fn reset(&mut self);
+    fn update(&mut self, time: f64) -> Position;
     fn is_complete(&self) -> bool;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnimationConfig {
+    pub model_type: String,
+    pub start_position: Position,
+    pub end_position: Position,
+    pub duration: f64,
+}
+
+impl AnimationConfig {
+    pub fn new(model_type: String, start_position: Position, end_position: Position, duration: f64) -> Self {
+        Self {
+            model_type,
+            start_position,
+            end_position,
+            duration,
+        }
+    }
+
+    pub fn create_model(&self) -> Box<dyn AnimationModel + Send> {
+        match self.model_type.as_str() {
+            "linear" => Box::new(linear::LinearModel::new(
+                self.start_position.clone(),
+                self.end_position.clone(),
+                self.duration,
+            )),
+            "pattern" => Box::new(pattern::PatternModel::new(
+                self.start_position.clone(),
+                self.end_position.clone(),
+                self.duration,
+                None,
+            )),
+            "circular" => Box::new(circular::CircularModel::new(
+                "circular".to_string(),
+                self.start_position.clone(),
+                self.duration,
+                1.0, // Default frequency
+            )),
+            _ => panic!("Unknown model type"),
+        }
+    }
+}
+
+pub struct LinearModel {
+    start_position: Position,
+    end_position: Position,
+    duration: f64,
+    start_time: Option<f64>,
+    is_complete: bool,
+}
+
+impl LinearModel {
+    pub fn new(start_position: Position, end_position: Position, duration: f64) -> Self {
+        Self {
+            start_position,
+            end_position,
+            duration,
+            start_time: None,
+            is_complete: false,
+        }
+    }
+}
+
+impl AnimationModel for LinearModel {
+    fn start(&mut self) {
+        self.start_time = Some(0.0);
+        self.is_complete = false;
+    }
+
+    fn stop(&mut self) {
+        self.start_time = None;
+        self.is_complete = true;
+    }
+
+    fn update(&mut self, time: f64) -> Position {
+        if let Some(start_time) = self.start_time {
+            let elapsed = time - start_time;
+            if elapsed >= self.duration {
+                self.is_complete = true;
+                self.end_position.clone()
+            } else {
+                let t = elapsed / self.duration;
+                self.start_position.lerp(&self.end_position, t)
+            }
+        } else {
+            self.start_position.clone()
+        }
+    }
+
+    fn is_complete(&self) -> bool {
+        self.is_complete
+    }
+}
+
+pub struct CircularModel {
+    name: String,
+    center: Position,
+    radius: f64,
+    duration: f64,
+    start_time: Option<f64>,
+    is_complete: bool,
+}
+
+impl CircularModel {
+    pub fn new(name: String, center: Position, duration: f64, radius: f64) -> Self {
+        Self {
+            name,
+            center,
+            radius,
+            duration,
+            start_time: None,
+            is_complete: false,
+        }
+    }
+}
+
+impl AnimationModel for CircularModel {
+    fn start(&mut self) {
+        self.start_time = Some(0.0);
+        self.is_complete = false;
+    }
+
+    fn stop(&mut self) {
+        self.start_time = None;
+        self.is_complete = true;
+    }
+
+    fn update(&mut self, time: f64) -> Position {
+        if let Some(start_time) = self.start_time {
+            let elapsed = time - start_time;
+            if elapsed >= self.duration {
+                self.is_complete = true;
+                Position::new(
+                    self.center.x + self.radius,
+                    self.center.y,
+                    self.center.z,
+                )
+            } else {
+                let angle = (elapsed / self.duration) * 2.0 * std::f64::consts::PI;
+                Position::new(
+                    self.center.x + self.radius * angle.cos(),
+                    self.center.y + self.radius * angle.sin(),
+                    self.center.z,
+                )
+            }
+        } else {
+            Position::new(
+                self.center.x + self.radius,
+                self.center.y,
+                self.center.z,
+            )
+        }
+    }
+
+    fn is_complete(&self) -> bool {
+        self.is_complete
+    }
+}
+
+pub struct PatternModel {
+    positions: Vec<Position>,
+    durations: Vec<f64>,
+    current_index: usize,
+    start_time: Option<f64>,
+    is_complete: bool,
+}
+
+impl PatternModel {
+    pub fn new(positions: Vec<Position>, durations: Vec<f64>) -> Self {
+        Self {
+            positions,
+            durations,
+            current_index: 0,
+            start_time: None,
+            is_complete: false,
+        }
+    }
+}
+
+impl AnimationModel for PatternModel {
+    fn start(&mut self) {
+        self.start_time = Some(0.0);
+        self.current_index = 0;
+        self.is_complete = false;
+    }
+
+    fn stop(&mut self) {
+        self.start_time = None;
+        self.is_complete = true;
+    }
+
+    fn update(&mut self, time: f64) -> Position {
+        if let Some(start_time) = self.start_time {
+            let mut elapsed = time - start_time;
+            let mut index = 0;
+            
+            // Find current segment
+            for (i, &duration) in self.durations.iter().enumerate() {
+                if elapsed < duration {
+                    index = i;
+                    break;
+                }
+                elapsed -= duration;
+            }
+
+            if index >= self.positions.len() - 1 {
+                self.is_complete = true;
+                self.positions.last().unwrap().clone()
+            } else {
+                let t = elapsed / self.durations[index];
+                self.positions[index].lerp(&self.positions[index + 1], t)
+            }
+        } else {
+            self.positions.first().unwrap().clone()
+        }
+    }
+
+    fn is_complete(&self) -> bool {
+        self.is_complete
+    }
 }
 
 #[napi(object)]
 #[derive(Debug, Clone)]
-pub struct BaseAnimationModel {
+pub struct Animation {
     pub id: String,
-    #[napi(skip)]
-    pub animation: Animation,
-    pub position: Position,
+    pub config: AnimationConfig,
+    #[serde(skip)]
+    model: Box<dyn AnimationModel + Send>,
 }
-
-impl ObjectFinalize for BaseAnimationModel {}
 
 #[napi]
-impl BaseAnimationModel {
+impl Animation {
     #[napi(constructor)]
-    pub fn new(id: String, animation: Animation, position: Position) -> Self {
-        Self {
+    pub async fn new(id: String, config: AnimationConfig) -> napi::Result<Self> {
+        let model = config.create_model();
+        Ok(Self {
             id,
-            animation,
-            position,
-        }
+            config,
+            model,
+        })
     }
 
     #[napi]
-    pub fn update(&mut self, delta_time: f64) -> napi::Result<()> {
-        Ok(())
+    pub async fn update(&mut self, elapsed_ms: f64) -> napi::Result<()> {
+        self.model.update(elapsed_ms).await.map_err(|e| napi::Error::from_reason(e.to_string()))
     }
 
     #[napi]
-    pub fn start(&mut self) {
-        self.animation.start();
+    pub fn get_id(&self) -> String {
+        self.id.clone()
     }
 
     #[napi]
-    pub fn stop(&mut self) {
-        self.animation.stop();
+    pub fn get_duration(&self) -> f64 {
+        self.config.duration
     }
 
     #[napi]
-    pub fn pause(&mut self) {
-        self.animation.is_running = false;
-    }
-
-    #[napi]
-    pub fn resume(&mut self) {
-        self.animation.is_running = true;
-    }
-
-    #[napi]
-    pub fn reset(&mut self) {
-        self.animation.stop();
-    }
-
-    #[napi]
-    pub fn is_complete(&self) -> bool {
-        !self.animation.is_running
-    }
-}
-
-impl AnimationModel for BaseAnimationModel {
-    fn get_id(&self) -> &str {
-        &self.id
-    }
-
-    fn get_animation(&self) -> &Animation {
-        &self.animation
-    }
-
-    fn get_position(&self) -> Position {
-        self.position.clone()
-    }
-
-    fn update(&mut self, delta_time: f64) -> AnimatorResult<()> {
-        self.update(delta_time).map_err(|e| AnimatorResult::Error(e))
-    }
-
-    fn start(&mut self) {
-        self.start()
-    }
-
-    fn stop(&mut self) {
-        self.stop()
-    }
-
-    fn pause(&mut self) {
-        self.pause()
-    }
-
-    fn resume(&mut self) {
-        self.resume()
-    }
-
-    fn reset(&mut self) {
-        self.reset()
-    }
-
-    fn is_complete(&self) -> bool {
-        self.is_complete()
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LinearParams {
-    pub start_pos: Position,
-    pub end_pos: Position,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircularParams {
-    pub center: Position,
-    pub radius: f64,
-    pub start_angle: f64,
-    pub end_angle: f64,
-}
-
-pub fn interpolate_position(start: &Position, end: &Position, t: f64) -> Position {
-    Position {
-        x: start.x + (end.x - start.x) * t,
-        y: start.y + (end.y - start.y) * t,
-        z: start.z + (end.z - start.z) * t,
-    }
-}
-
-pub fn calculate_circular_position(params: &CircularParams, t: f64) -> Position {
-    let angle = params.start_angle + (params.end_angle - params.start_angle) * t;
-    let angle_rad = angle * std::f64::consts::PI / 180.0;
-    
-    Position {
-        x: params.center.x + params.radius * angle_rad.cos(),
-        y: params.center.y + params.radius * angle_rad.sin(),
-        z: params.center.z,
+    pub async fn is_complete(&self, current_time: f64) -> napi::Result<bool> {
+        self.model.is_complete(current_time).await.map_err(|e| napi::Error::from_reason(e.to_string()))
     }
 }
 
@@ -234,58 +342,59 @@ pub fn calculate_circular_position(params: &CircularParams, t: f64) -> Position 
 mod tests {
     use super::*;
 
-    struct TestModel {
-        id: String,
-        animation: Animation,
-        position: Position,
-    }
-
-    impl AnimationModel for TestModel {
-        fn get_id(&self) -> &str {
-            &self.id
-        }
-
-        fn get_animation(&self) -> &Animation {
-            &self.animation
-        }
-
-        fn get_position(&self) -> Position {
-            self.position.clone()
-        }
-
-        fn update(&mut self, _delta_time: f64) -> AnimatorResult<()> {
-            Ok(())
-        }
-
-        fn start(&mut self) {}
-        fn stop(&mut self) {}
-        fn pause(&mut self) {}
-        fn resume(&mut self) {}
-        fn reset(&mut self) {}
-
-        fn is_complete(&self) -> bool {
-            true
-        }
-    }
-
-    #[test]
-    fn test_is_complete() {
-        let mut model = BaseAnimationModel::new(
-            "test".to_string(),
-            Animation::default(),
-            Position::default(),
+    #[tokio::test]
+    async fn test_linear_model() {
+        let config = AnimationConfig::new(
+            "linear".to_string(),
+            Position::new(0.0, 0.0, 0.0),
+            Position::new(1.0, 1.0, 1.0),
+            1000.0,
         );
+
+        let mut model = config.create_model();
+        model.start();
         assert!(!model.is_complete());
+
+        let pos = model.update(500.0);
+        assert!((pos.x - 0.5).abs() < 1e-10);
+        assert!((pos.y - 0.5).abs() < 1e-10);
+        assert!((pos.z - 0.5).abs() < 1e-10);
+
+        let pos = model.update(1000.0);
+        assert!((pos.x - 1.0).abs() < 1e-10);
+        assert!((pos.y - 1.0).abs() < 1e-10);
+        assert!((pos.z - 1.0).abs() < 1e-10);
+        assert!(model.is_complete());
+
+        model.stop();
+        assert!(model.is_complete());
     }
 
-    #[test]
-    fn test_animation_model() {
-        let model = TestModel {
-            id: "test".to_string(),
-            animation: Animation::default(),
-            position: Position::default(),
-        };
-        assert_eq!(model.get_id(), "test");
+    #[tokio::test]
+    async fn test_pattern_model() {
+        let config = AnimationConfig::new(
+            "pattern".to_string(),
+            Position::new(0.0, 0.0, 0.0),
+            Position::new(1.0, 1.0, 1.0),
+            1000.0,
+        );
+
+        let mut model = config.create_model();
+        model.start();
+        assert!(!model.is_complete());
+
+        let pos = model.update(500.0);
+        assert!((pos.x - 0.5).abs() < 1e-10);
+        assert!((pos.y - 0.5).abs() < 1e-10);
+        assert!((pos.z - 0.5).abs() < 1e-10);
+
+        let pos = model.update(1000.0);
+        assert!((pos.x - 1.0).abs() < 1e-10);
+        assert!((pos.y - 1.0).abs() < 1e-10);
+        assert!((pos.z - 1.0).abs() < 1e-10);
+        assert!(model.is_complete());
+
+        model.stop();
         assert!(model.is_complete());
     }
 }

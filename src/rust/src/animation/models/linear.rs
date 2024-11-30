@@ -1,84 +1,79 @@
-use napi::bindgen_prelude::*;
-use napi_derive::napi;
-use serde::{Deserialize, Serialize};
-use crate::models::common::{Position, Animation, AnimationConfig};
-use super::AnimationModel;
+use std::time::Instant;
+use napi::Result;
+use napi::Error;
 
-#[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+use super::{AnimationModel, Position};
+
+#[derive(Debug)]
 pub struct LinearModel {
-    pub id: String,
-    pub animation: Animation,
-    pub position: Position,
-    pub start_position: Position,
-    pub end_position: Position,
+    start_position: Position,
+    end_position: Position,
+    duration: f64,
+    start_time: Option<Instant>,
+    is_complete: bool,
 }
 
-impl ObjectFinalize for LinearModel {}
-
-#[napi]
 impl LinearModel {
-    #[napi(constructor)]
-    pub fn new(id: String, animation: Animation, start_position: Position, end_position: Position) -> Self {
-        Self {
-            id,
-            animation,
-            position: start_position,
+    pub fn new(start_position: Position, end_position: Position, duration: f64) -> Result<Self> {
+        if duration <= 0.0 {
+            return Err(Error::from_reason("Duration must be positive"));
+        }
+
+        Ok(Self {
             start_position,
             end_position,
-        }
+            duration,
+            start_time: None,
+            is_complete: false,
+        })
     }
 }
 
 impl AnimationModel for LinearModel {
-    fn get_id(&self) -> &str {
-        &self.id
-    }
-
-    fn get_animation(&self) -> &Animation {
-        &self.animation
-    }
-
-    fn get_position(&self) -> Position {
-        self.position
-    }
-
-    fn update(&mut self, delta_time: f64) -> napi::Result<()> {
-        self.animation.update(delta_time)?;
-        if self.animation.is_playing {
-            let progress = self.animation.get_progress();
-            self.position = Position {
-                x: self.start_position.x + (self.end_position.x - self.start_position.x) * progress,
-                y: self.start_position.y + (self.end_position.y - self.start_position.y) * progress,
-                z: self.start_position.z + (self.end_position.z - self.start_position.z) * progress,
-            };
+    fn start(&mut self) -> Result<()> {
+        if self.start_time.is_some() {
+            return Err(Error::from_reason("Animation already running"));
         }
+        self.start_time = Some(Instant::now());
+        self.is_complete = false;
         Ok(())
     }
 
-    fn start(&mut self) {
-        self.animation.start();
+    fn stop(&mut self) -> Result<()> {
+        if self.start_time.is_none() {
+            return Err(Error::from_reason("Animation not running"));
+        }
+        self.start_time = None;
+        self.is_complete = true;
+        Ok(())
     }
 
-    fn stop(&mut self) {
-        self.animation.stop();
+    fn update(&mut self, time: f64) -> Result<Position> {
+        if self.is_complete {
+            return Ok(self.end_position.clone());
+        }
+
+        if time < 0.0 {
+            return Err(Error::from_reason("Time must be non-negative"));
+        }
+
+        let elapsed = match self.start_time {
+            Some(start) => start.elapsed().as_secs_f64(),
+            None => return Err(Error::from_reason("Animation not started")),
+        };
+
+        let progress = (elapsed / self.duration).min(1.0);
+        
+        if progress >= 1.0 {
+            self.is_complete = true;
+            return Ok(self.end_position.clone());
+        }
+
+        Ok(Position::lerp(&self.start_position, &self.end_position, progress))
     }
 
-    fn pause(&mut self) {
-        self.animation.pause();
-    }
-
-    fn resume(&mut self) {
-        self.animation.resume();
-    }
-
-    fn reset(&mut self) {
-        self.animation.reset();
-        self.position = self.start_position;
-    }
-
-    fn is_complete(&self) -> bool {
-        self.animation.is_complete()
+    fn is_complete(&self) -> Result<bool> {
+        Ok(self.is_complete)
     }
 }
 
@@ -86,56 +81,37 @@ impl AnimationModel for LinearModel {
 mod tests {
     use super::*;
 
-    fn create_test_model() -> LinearModel {
-        let config = AnimationConfig::new(
-            0.0,
-            1.0,
-            Position::new(0.0, 0.0, 0.0),
-            Position::new(1.0, 1.0, 0.0),
-            "linear".to_string(),
-        );
-
-        let animation = Animation::new(config, "test".to_string());
-        let start_pos = Position::new(0.0, 0.0, 0.0);
-        let end_pos = Position::new(1.0, 1.0, 0.0);
-
-        LinearModel::new(
-            "test".to_string(),
-            animation,
-            start_pos,
-            end_pos,
-        )
-    }
-
     #[test]
-    fn test_linear_interpolation() -> napi::Result<()> {
-        let mut model = create_test_model();
-        model.start();
+    fn test_linear_model() {
+        let mut model = LinearModel::new(
+            Position::new(0.0, 0.0, 0.0),
+            Position::new(10.0, 10.0, 10.0),
+            10.0,
+        ).unwrap();
 
-        // Test at start
-        model.animation.current_time = 0.0;
-        model.update(0.0)?;
-        let pos = model.get_position();
-        assert_eq!(pos.x, 0.0);
-        assert_eq!(pos.y, 0.0);
-        assert_eq!(pos.z, 0.0);
+        // Test initial state
+        assert!(!model.is_complete().unwrap());
+        
+        // Test start
+        model.start().unwrap();
+        assert!(!model.is_complete().unwrap());
 
-        // Test at middle
-        model.animation.current_time = 0.5;
-        model.update(0.0)?;
-        let pos = model.get_position();
-        assert_eq!(pos.x, 0.5);
-        assert_eq!(pos.y, 0.5);
-        assert_eq!(pos.z, 0.0);
+        // Test update at 50%
+        let pos = model.update(5.0).unwrap();
+        assert_eq!(pos.x, 5.0);
+        assert_eq!(pos.y, 5.0);
+        assert_eq!(pos.z, 5.0);
+        assert!(!model.is_complete().unwrap());
 
-        // Test at end
-        model.animation.current_time = 1.0;
-        model.update(0.0)?;
-        let pos = model.get_position();
-        assert_eq!(pos.x, 1.0);
-        assert_eq!(pos.y, 1.0);
-        assert_eq!(pos.z, 0.0);
+        // Test update at completion
+        let pos = model.update(10.0).unwrap();
+        assert_eq!(pos.x, 10.0);
+        assert_eq!(pos.y, 10.0);
+        assert_eq!(pos.z, 10.0);
+        assert!(model.is_complete().unwrap());
 
-        Ok(())
+        // Test stop
+        model.stop().unwrap();
+        assert!(model.is_complete().unwrap());
     }
 }
