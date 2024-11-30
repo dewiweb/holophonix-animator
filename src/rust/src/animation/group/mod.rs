@@ -55,6 +55,51 @@ impl Group {
 }
 
 #[napi]
+#[derive(Debug, Clone)]
+pub struct Group {
+    pub id: String,
+    pub name: String,
+    pub animations: HashMap<String, Animation>,
+}
+
+impl napi::bindgen_prelude::ObjectFinalize for Group {}
+
+#[napi]
+impl Group {
+    #[napi(constructor)]
+    pub fn new(id: String, name: String) -> Self {
+        Self {
+            id,
+            name,
+            animations: HashMap::new(),
+        }
+    }
+
+    #[napi]
+    pub fn add_animation(&mut self, animation: Animation) -> napi::Result<()> {
+        if self.animations.contains_key(&animation.id) {
+            return Err(AnimatorError::AnimationExists.into());
+        }
+        self.animations.insert(animation.id.clone(), animation);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn remove_animation(&mut self, id: String) -> napi::Result<()> {
+        if !self.animations.contains_key(&id) {
+            return Err(AnimatorError::AnimationNotFound.into());
+        }
+        self.animations.remove(&id);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn get_animation_ids(&self) -> Vec<String> {
+        self.animations.keys().cloned().collect()
+    }
+}
+
+#[napi]
 #[derive(Debug, Default)]
 pub struct GroupManager {
     groups: Arc<Mutex<HashMap<String, Group>>>,
