@@ -1,108 +1,124 @@
+use napi::bindgen_prelude::*;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use napi::bindgen_prelude::*;
-use napi_derive::napi;
-use std::path::PathBuf;
+
+use crate::animation::Animation;
+use crate::error::{AnimatorError, AnimatorResult};
+use crate::position::Position;
 
 // Module declarations
-pub mod config;
 pub mod core;
 pub mod models;
 pub mod update;
 pub mod wrapper;
 
 // Re-exports
-pub use core::{StateManager, StateSync, StatePersistence};
+pub use core::StateManager;
 pub use models::TrackState;
-pub use update::{StateUpdate, BatchStateUpdate};
-pub use wrapper::StateManagerWrapper;
-
-use crate::utils::napi::AsyncMutexWrapper;
 
 #[napi(object)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct State {
-    pub state_manager: AsyncMutexWrapper<StateManager>,
+    positions: HashMap<String, Position>,
 }
-
-impl ObjectFinalize for State {}
 
 #[napi]
 impl State {
     #[napi(constructor)]
-    pub fn new(state_dir: Option<String>) -> napi::Result<Self> {
-        let path = state_dir.map(PathBuf::from);
-        let state_manager = StateManager::new(path)?;
-        Ok(Self {
-            state_manager: AsyncMutexWrapper::new(state_manager)
-        })
+    pub fn new() -> Self {
+        Self::default()
     }
 
     #[napi]
-    pub async fn add_animation(&mut self, id: String, animation: Animation) -> napi::Result<()> {
-        let mut state = self.state_manager.lock().await;
-        state.add_animation(id.clone(), animation)
+    pub fn update_position(&mut self, id: String, position: Position) -> napi::Result<()> {
+        self.positions.insert(id, position);
+        Ok(())
     }
 
     #[napi]
-    pub async fn get_animation(&self, id: String) -> napi::Result<Option<Animation>> {
-        let state = self.state_manager.lock().await;
-        Ok(state.get_animation(&id))
+    pub fn get_position(&self, id: String) -> napi::Result<Option<Position>> {
+        Ok(self.positions.get(&id).cloned())
     }
 
     #[napi]
-    pub async fn update_position(&mut self, id: String, x: f64, y: f64, z: f64) -> napi::Result<()> {
-        let mut state = self.state_manager.lock().await;
-        state.update_position(&id, x, y, z)
-    }
-
-    #[napi]
-    pub async fn get_state(&self) -> napi::Result<Vec<TrackState>> {
-        let state = self.state_manager.lock().await;
-        state.get_state()
-    }
-
-    #[napi]
-    pub async fn update(&mut self, delta_time: f64) -> napi::Result<()> {
-        let mut state = self.state_manager.lock().await;
-        state.update(delta_time)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::models::common::{Position, Animation, AnimationConfig};
-
-    #[tokio::test]
-    async fn test_state_integration() -> napi::Result<()> {
-        let mut wrapper = StateManagerWrapper::new(None)?;
-
-        // Test position operations
-        wrapper.update_position("test".to_string(), 1.0, 2.0, 3.0).await?;
-
-        // Test animation operations
-        let animation = Animation {
-            config: AnimationConfig {
-                start_time: 0.0,
-                start_position: Position::default(),
-                end_position: Position { x: 1.0, y: 1.0, z: 1.0 },
-                easing: "linear".to_string(),
-                duration: 1.0,
-            },
-            current_time: 0.0,
-            id: "test".to_string(),
-            is_playing: false,
-        };
-
-        wrapper.add_animation("test".to_string(), animation.clone()).await?;
-        let stored_animation = wrapper.get_animation("test".to_string()).await?;
-        assert!(stored_animation.is_some());
-
-        wrapper.remove_animation("test".to_string()).await?;
-        let animation = wrapper.get_animation("test".to_string()).await?;
-        assert!(animation.is_none());
-
+    pub fn remove_position(&mut self, id: String) -> napi::Result<()> {
+        self.positions.remove(&id);
         Ok(())
     }
 }
+
+#[napi]
+#[derive(Debug, Default)]
+pub struct StateManager {
+    timeline_manager: Arc<Mutex<TimelineManager>>,
+    tracks: Arc<Mutex<HashMap<String, Track>>>,
+}
+
+#[napi]
+impl StateManager {
+    #[napi(constructor)]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[napi]
+    pub async fn create_timeline(&self, id: String, name: String) -> napi::Result<()> {
+        let mut manager = self.timeline_manager.lock().await;
+        if manager.has_timeline(&id) {
+            return Err(AnimatorError::InvalidState("Timeline already exists".to_string()).into());
+        }
+        manager.create_timeline(id, name)?;
+        Ok(())
+    }
+
+    #[napi]
+    pub async fn remove_timeline(&self, id: String) -> napi::Result<()> {
+        let mut manager = self.timeline_manager.lock().await;
+        manager.remove_timeline(&id)?;
+        Ok(())
+    }
+
+    #[napi]
+    pub async fn start_timeline(&self, id: String) -> napi::Result<()> {
+        let mut manager = self.timeline_manager.lock().await;
+        manager.start_timeline(&id)?;
+        Ok(())
+    }
+
+    #[napi]
+    pub async fn stop_timeline(&self, id: String) -> napi::Result<()> {
+        let mut manager = self.timeline_manager.lock().await;
+        manager.stop_timeline(&id)?;
+        Ok(())
+    }
+
+    #[napi]
+    pub async fn add_track(&self, id: String, name: String) -> napi::Result<()> {
+        let mut tracks = self.tracks.lock().await;
+        if tracks.contains_key(&id) {
+            return Err(AnimatorError::InvalidState("Track already exists".to_string()).into());
+        }
+        tracks.insert(id.clone(), Track::new(id, name));
+        Ok(())
+    }
+
+    #[napi]
+    pub async fn remove_track(&self, id: String) -> napi::Result<()> {
+        let mut tracks = self.tracks.lock().await;
+        if !tracks.contains_key(&id) {
+            return Err(AnimatorError::TimelineNotFound.into());
+        }
+        tracks.remove(&id);
+        Ok(())
+    }
+
+    #[napi]
+    pub async fn get_track(&self, id: String) -> napi::Result<Option<Track>> {
+        let tracks = self.tracks.lock().await;
+        Ok(tracks.get(&id).cloned())
+    }
+}
+
+impl ObjectFinalize for State {}
+impl ObjectFinalize for StateManager {}
