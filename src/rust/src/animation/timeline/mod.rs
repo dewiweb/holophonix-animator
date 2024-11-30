@@ -1,141 +1,220 @@
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use tokio::time::{Duration, Instant};
-use napi::bindgen_prelude::*;
+use napi::{Error, Result};
 use napi_derive::napi;
-use crate::error::AnimatorResult;
-use crate::animation::models::Animation;
-use crate::models::position::Position;
-use crate::state::StateManagerWrapper;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
+use std::sync::Arc;
 
-#[derive(Debug, Clone)]
-pub struct AnimationTimeline {
-    pub id: String,
+use crate::animation::{Animation, AnimatorError, AnimatorResult, Position};
+
+#[napi(object)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimelineState {
     pub name: String,
-    pub timeline: Arc<Mutex<HashMap<String, Animation>>>,
-    pub is_active: bool,
-    pub is_looping: bool,
-    pub speed: f64,
-    pub current_time: f64,
+    pub active_count: i32,
+    pub paused_count: i32,
 }
 
-impl ObjectFinalize for AnimationTimeline {}
+#[napi]
+#[derive(Debug)]
+pub struct Timeline {
+    name: String,
+    animations: Arc<Mutex<HashMap<String, Animation>>>,
+    paused_animations: Arc<Mutex<HashMap<String, Animation>>>,
+}
 
 #[napi]
-impl AnimationTimeline {
+impl Timeline {
     #[napi(constructor)]
-    pub fn new(id: String, name: String) -> Self {
+    pub fn new(name: String) -> Self {
         Self {
-            id,
             name,
-            timeline: Arc::new(Mutex::new(HashMap::new())),
-            is_active: false,
-            is_looping: false,
-            speed: 1.0,
-            current_time: 0.0,
+            animations: Arc::new(Mutex::new(HashMap::new())),
+            paused_animations: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     #[napi]
-    pub async fn start(&mut self) -> napi::Result<()> {
-        self.is_active = true;
-        self.current_time = 0.0;
+    pub async fn add_animation(&self, animation: Animation) -> Result<()> {
+        let id = animation.get_id();
+        let mut animations = self.animations.lock().await;
+        let mut paused = self.paused_animations.lock().await;
+
+        if animations.contains_key(&id) || paused.contains_key(&id) {
+            return Err(Error::from_reason(format!("Animation {} already exists", id)));
+        }
+        animations.insert(id, animation);
         Ok(())
     }
 
     #[napi]
-    pub async fn pause(&mut self) -> napi::Result<()> {
-        self.is_active = false;
+    pub async fn remove_animation(&self, id: String) -> Result<()> {
+        let mut animations = self.animations.lock().await;
+        let mut paused = self.paused_animations.lock().await;
+
+        if animations.remove(&id).is_none() && paused.remove(&id).is_none() {
+            return Err(Error::from_reason(format!("Animation {} not found", id)));
+        }
         Ok(())
     }
 
     #[napi]
-    pub async fn resume(&mut self) -> napi::Result<()> {
-        self.is_active = true;
-        Ok(())
-    }
+    pub async fn start_animation(&self, id: String) -> Result<()> {
+        let mut animations = self.animations.lock().await;
+        let mut paused = self.paused_animations.lock().await;
 
-    #[napi]
-    pub async fn stop(&mut self) -> napi::Result<()> {
-        self.is_active = false;
-        self.current_time = 0.0;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn add_animation(&mut self, animation: Animation) -> napi::Result<()> {
-        let mut timeline = self.timeline.lock().await;
-        timeline.insert(animation.id.clone(), animation);
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn remove_animation(&mut self, id: String) -> napi::Result<()> {
-        let mut timeline = self.timeline.lock().await;
-        timeline.remove(&id);
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn get_animation(&self, id: String) -> napi::Result<Option<Animation>> {
-        let timeline = self.timeline.lock().await;
-        Ok(timeline.get(&id).cloned())
-    }
-
-    #[napi]
-    pub async fn update(&mut self, delta_time: f64) -> napi::Result<()> {
-        if !self.is_active {
+        // Check if animation is paused
+        if let Some(mut animation) = paused.remove(&id) {
+            animation.start().await?;
+            animations.insert(id, animation);
             return Ok(());
         }
 
-        self.current_time += delta_time * self.speed;
-        let mut timeline = self.timeline.lock().await;
-        let mut completed_animations = Vec::new();
+        // Otherwise start from animations map
+        if let Some(animation) = animations.get_mut(&id) {
+            animation.start().await?;
+            Ok(())
+        } else {
+            Err(Error::from_reason(format!("Animation {} not found", id)))
+        }
+    }
 
-        for (id, animation) in timeline.iter_mut() {
-            if animation.is_running {
-                // Calculate normalized progress (0.0 to 1.0)
-                let progress = self.current_time / animation.duration;
+    #[napi]
+    pub async fn stop_animation(&self, id: String) -> Result<()> {
+        let mut animations = self.animations.lock().await;
+        if let Some(animation) = animations.get_mut(&id) {
+            animation.stop().await?;
+            Ok(())
+        } else {
+            Err(Error::from_reason(format!("Animation {} not found", id)))
+        }
+    }
 
-                if progress >= 1.0 {
-                    if animation.is_looping {
-                        // Reset time for looping animations
-                        self.current_time = 0.0;
-                        animation.is_running = true;
-                    } else {
-                        // Mark non-looping animations as complete
-                        completed_animations.push(id.clone());
-                        animation.is_running = false;
+    #[napi]
+    pub async fn pause_animation(&self, id: String) -> Result<()> {
+        let mut animations = self.animations.lock().await;
+        let mut paused = self.paused_animations.lock().await;
+
+        if let Some(mut animation) = animations.remove(&id) {
+            animation.pause().await?;
+            paused.insert(id, animation);
+            Ok(())
+        } else {
+            Err(Error::from_reason(format!("Animation {} not found", id)))
+        }
+    }
+
+    #[napi]
+    pub async fn resume_animation(&self, id: String) -> Result<()> {
+        let mut animations = self.animations.lock().await;
+        let mut paused = self.paused_animations.lock().await;
+
+        if let Some(mut animation) = paused.remove(&id) {
+            animation.resume().await?;
+            animations.insert(id, animation);
+            Ok(())
+        } else {
+            Err(Error::from_reason(format!("Animation {} not found", id)))
+        }
+    }
+
+    #[napi]
+    pub async fn update(&self, time: f64) -> Result<HashMap<String, Position>> {
+        let mut animations = self.animations.lock().await;
+        let mut positions = HashMap::new();
+        let mut completed = Vec::new();
+
+        for (id, animation) in animations.iter_mut() {
+            match animation.update(time).await {
+                Ok(position) => {
+                    positions.insert(id.clone(), position);
+                    if animation.is_complete() {
+                        completed.push(id.clone());
                     }
+                }
+                Err(e) => {
+                    completed.push(id.clone());
+                    eprintln!("Error updating animation {}: {}", id, e);
                 }
             }
         }
 
-        // Remove completed animations if timeline is not looping
-        if !self.is_looping {
-            for id in completed_animations {
-                timeline.remove(&id);
-            }
-
-            // Stop timeline if all animations are complete
-            if timeline.is_empty() {
-                self.is_active = false;
-                self.current_time = 0.0;
-            }
+        // Remove completed animations
+        for id in completed {
+            animations.remove(&id);
         }
 
+        Ok(positions)
+    }
+
+    #[napi]
+    pub async fn get_state(&self) -> Result<TimelineState> {
+        let animations = self.animations.lock().await;
+        let paused = self.paused_animations.lock().await;
+
+        Ok(TimelineState {
+            name: self.name.clone(),
+            active_count: animations.len() as i32,
+            paused_count: paused.len() as i32,
+        })
+    }
+
+    #[napi]
+    pub async fn clear(&self) -> Result<()> {
+        let mut animations = self.animations.lock().await;
+        let mut paused = self.paused_animations.lock().await;
+
+        for animation in animations.values_mut() {
+            animation.stop().await?;
+        }
+        animations.clear();
+        paused.clear();
         Ok(())
     }
+}
 
-    #[napi]
-    pub fn set_speed(&mut self, speed: f64) {
-        self.speed = speed;
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::runtime::Runtime;
 
-    #[napi]
-    pub fn set_looping(&mut self, looping: bool) {
-        self.is_looping = looping;
+    #[test]
+    fn test_timeline() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let timeline = Timeline::new("test".to_string());
+            
+            // Test adding animation
+            let animation = Animation::new("test".to_string());
+            timeline.add_animation(animation).await.unwrap();
+            
+            let state = timeline.get_state().await.unwrap();
+            assert_eq!(state.active_count, 1);
+            assert_eq!(state.paused_count, 0);
+
+            // Test pausing animation
+            timeline.pause_animation("test".to_string()).await.unwrap();
+            let state = timeline.get_state().await.unwrap();
+            assert_eq!(state.active_count, 0);
+            assert_eq!(state.paused_count, 1);
+
+            // Test resuming animation
+            timeline.resume_animation("test".to_string()).await.unwrap();
+            let state = timeline.get_state().await.unwrap();
+            assert_eq!(state.active_count, 1);
+            assert_eq!(state.paused_count, 0);
+
+            // Test stopping animation
+            timeline.stop_animation("test".to_string()).await.unwrap();
+            let state = timeline.get_state().await.unwrap();
+            assert_eq!(state.active_count, 1);
+            assert_eq!(state.paused_count, 0);
+
+            // Test clearing timeline
+            timeline.clear().await.unwrap();
+            let state = timeline.get_state().await.unwrap();
+            assert_eq!(state.active_count, 0);
+            assert_eq!(state.paused_count, 0);
+        });
     }
 }
