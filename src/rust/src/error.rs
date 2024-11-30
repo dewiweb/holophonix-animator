@@ -1,72 +1,45 @@
-use napi::bindgen_prelude::*;
-use std::fmt;
+use thiserror::Error;
 
-pub type AnimatorResult<T> = Result<T, AnimatorError>;
-
-#[napi(object)]
-#[derive(Debug)]
-pub struct AnimatorError {
-    pub code: i32,
-    pub message: String,
-}
-
-impl fmt::Display for AnimatorError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Error {}: {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for AnimatorError {}
-
-impl From<napi::Error> for AnimatorError {
-    fn from(error: napi::Error) -> Self {
-        Self {
-            code: error.status.unwrap_or(-1),
-            message: error.reason,
-        }
-    }
-}
-
-impl From<std::io::Error> for AnimatorError {
-    fn from(error: std::io::Error) -> Self {
-        Self {
-            code: error.raw_os_error().unwrap_or(-1),
-            message: error.to_string(),
-        }
-    }
-}
-
-impl From<&str> for AnimatorError {
-    fn from(message: &str) -> Self {
-        Self {
-            code: -1,
-            message: message.to_string(),
-        }
-    }
-}
-
-impl From<String> for AnimatorError {
-    fn from(message: String) -> Self {
-        Self {
-            code: -1,
-            message,
-        }
-    }
+#[derive(Error, Debug)]
+pub enum AnimatorError {
+    #[error("Animation is already running")]
+    AlreadyRunning,
+    
+    #[error("Animation is not running")]
+    NotRunning,
+    
+    #[error("Animation is not paused")]
+    NotPaused,
+    
+    #[error("Failed to acquire lock")]
+    LockError,
+    
+    #[error("Animation already exists")]
+    AnimationExists,
+    
+    #[error("Animation not found")]
+    AnimationNotFound,
+    
+    #[error("Timeline not found")]
+    TimelineNotFound,
+    
+    #[error("Timeline already exists")]
+    TimelineExists,
+    
+    #[error("Invalid state: {0}")]
+    InvalidState(String),
+    
+    #[error("Validation error: {0}")]
+    ValidationError(&'static str),
+    
+    #[error("Internal error: {0}")]
+    InternalError(String),
 }
 
 impl From<AnimatorError> for napi::Error {
     fn from(error: AnimatorError) -> Self {
-        napi::Error::new(
-            napi::Status::GenericFailure,
-            format!("Error {}: {}", error.code, error.message),
-        )
+        napi::Error::from_reason(error.to_string())
     }
 }
 
-#[napi]
-impl AnimatorError {
-    #[napi(constructor)]
-    pub fn new(code: i32, message: String) -> Self {
-        Self { code, message }
-    }
-}
+pub type AnimatorResult<T> = Result<T, AnimatorError>;

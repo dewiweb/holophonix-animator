@@ -1,103 +1,102 @@
+use napi::Error;
 use napi::bindgen_prelude::*;
 use std::fmt;
+use thiserror::Error;
 
-mod animation;
-mod osc;
-mod state;
-
-pub use animation::AnimationError;
-pub use osc::OSCError;
-pub use state::StateError;
-
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum AnimatorError {
-    Animation(AnimationError),
-    OSC(OSCError),
-    State(StateError),
-    ValidationError(String),
-    ConfigError(String),
-    RuntimeError(String),
-    NetworkError(String),
-    ResourceError(String),
-    PluginError(String),
-    SyncError(String),
-    UnknownError(String),
-}
-
-impl fmt::Display for AnimatorError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            AnimatorError::Animation(err) => write!(f, "Animation error: {}", err),
-            AnimatorError::OSC(err) => write!(f, "OSC error: {}", err),
-            AnimatorError::State(err) => write!(f, "State error: {}", err),
-            AnimatorError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
-            AnimatorError::ConfigError(msg) => write!(f, "Configuration error: {}", msg),
-            AnimatorError::RuntimeError(msg) => write!(f, "Runtime error: {}", msg),
-            AnimatorError::NetworkError(msg) => write!(f, "Network error: {}", msg),
-            AnimatorError::ResourceError(msg) => write!(f, "Resource error: {}", msg),
-            AnimatorError::PluginError(msg) => write!(f, "Plugin error: {}", msg),
-            AnimatorError::SyncError(msg) => write!(f, "Sync error: {}", msg),
-            AnimatorError::UnknownError(msg) => write!(f, "Unknown error: {}", msg),
-        }
-    }
+    #[error("Animation is already running")]
+    AlreadyRunning,
+    #[error("Animation is not running")]
+    NotRunning,
+    #[error("Animation is not paused")]
+    NotPaused,
+    #[error("Failed to acquire lock")]
+    LockError,
+    #[error("Animation already exists")]
+    AnimationExists,
+    #[error("Animation not found")]
+    AnimationNotFound,
+    #[error("Timeline not found")]
+    TimelineNotFound,
+    #[error("Timeline already exists")]
+    TimelineExists,
+    #[error("Invalid state: {0}")]
+    InvalidState(String),
+    #[error("Validation error: {0}")]
+    ValidationError(&'static str),
+    #[error("Internal error: {0}")]
+    InternalError(String),
 }
 
 impl std::error::Error for AnimatorError {}
 
-// Implement conversion from AnimatorError to NAPI Error
-impl From<AnimatorError> for napi::Error {
-    fn from(err: AnimatorError) -> Self {
-        napi::Error::new(napi::Status::GenericFailure, err.to_string())
+impl fmt::Display for AnimatorError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AnimatorError::AlreadyRunning => write!(f, "Animation is already running"),
+            AnimatorError::NotRunning => write!(f, "Animation is not running"),
+            AnimatorError::NotPaused => write!(f, "Animation is not paused"),
+            AnimatorError::LockError => write!(f, "Failed to acquire lock"),
+            AnimatorError::AnimationExists => write!(f, "Animation already exists"),
+            AnimatorError::AnimationNotFound => write!(f, "Animation not found"),
+            AnimatorError::TimelineNotFound => write!(f, "Timeline not found"),
+            AnimatorError::TimelineExists => write!(f, "Timeline already exists"),
+            AnimatorError::InvalidState(msg) => write!(f, "Invalid state: {}", msg),
+            AnimatorError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
+            AnimatorError::InternalError(msg) => write!(f, "Internal error: {}", msg),
+        }
     }
 }
 
-// Implement conversion from NAPI Error to AnimatorError
+impl AsRef<str> for AnimatorError {
+    fn as_ref(&self) -> &str {
+        match self {
+            AnimatorError::AlreadyRunning => "Animation is already running",
+            AnimatorError::NotRunning => "Animation is not running",
+            AnimatorError::NotPaused => "Animation is not paused",
+            AnimatorError::LockError => "Failed to acquire lock",
+            AnimatorError::AnimationExists => "Animation already exists",
+            AnimatorError::AnimationNotFound => "Animation not found",
+            AnimatorError::TimelineNotFound => "Timeline not found",
+            AnimatorError::TimelineExists => "Timeline already exists",
+            AnimatorError::InvalidState(_) => "Invalid state",
+            AnimatorError::ValidationError(_) => "Validation error",
+            AnimatorError::InternalError(_) => "Internal error",
+        }
+    }
+}
+
+impl From<AnimatorError> for napi::Error {
+    fn from(error: AnimatorError) -> Self {
+        napi::Error::from_reason(error.to_string())
+    }
+}
+
 impl From<napi::Error> for AnimatorError {
     fn from(err: napi::Error) -> Self {
-        AnimatorError::UnknownError(err.to_string())
+        AnimatorError::ValidationError(err.to_string())
+    }
+}
+
+impl From<std::io::Error> for AnimatorError {
+    fn from(error: std::io::Error) -> Self {
+        AnimatorError::ValidationError(error.to_string())
     }
 }
 
 pub type AnimatorResult<T> = Result<T, AnimatorError>;
 
-// Helper functions for common error cases
-impl AnimatorError {
-    pub fn validation_error<T: Into<String>>(msg: T) -> Self {
-        AnimatorError::ValidationError(msg.into())
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    pub fn config_error<T: Into<String>>(msg: T) -> Self {
-        AnimatorError::ConfigError(msg.into())
-    }
+    #[test]
+    fn test_animator_error_display() {
+        let error = AnimatorError::AlreadyRunning;
+        assert_eq!(error.to_string(), "Animation is already running");
 
-    pub fn runtime_error<T: Into<String>>(msg: T) -> Self {
-        AnimatorError::RuntimeError(msg.into())
-    }
-
-    pub fn plugin_error<T: Into<String>>(msg: T) -> Self {
-        AnimatorError::PluginError(msg.into())
-    }
-
-    pub fn state_error<T: Into<String>>(msg: T) -> Self {
-        AnimatorError::State(StateError::new(msg))
-    }
-}
-
-// Implement AsRef<str> for AnimatorError
-impl AsRef<str> for AnimatorError {
-    fn as_ref(&self) -> &str {
-        match self {
-            AnimatorError::Animation(err) => err.as_ref(),
-            AnimatorError::OSC(err) => err.as_ref(),
-            AnimatorError::State(err) => err.as_ref(),
-            AnimatorError::ValidationError(msg) => msg.as_str(),
-            AnimatorError::ConfigError(msg) => msg.as_str(),
-            AnimatorError::RuntimeError(msg) => msg.as_str(),
-            AnimatorError::NetworkError(msg) => msg.as_str(),
-            AnimatorError::ResourceError(msg) => msg.as_str(),
-            AnimatorError::PluginError(msg) => msg.as_str(),
-            AnimatorError::SyncError(msg) => msg.as_str(),
-            AnimatorError::UnknownError(msg) => msg.as_str(),
-        }
+        let napi_error: napi::Error = error.into();
+        assert_eq!(napi_error.to_string(), "Animation is already running");
     }
 }
