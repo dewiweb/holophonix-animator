@@ -1,292 +1,176 @@
+// Standard library imports
+use std::{
+    sync::{Arc},
+    time::{Duration, Instant},
+    collections::HashMap,
+};
+use serde::{Serialize, Deserialize};
+use napi_derive::napi;
+use tokio::sync::Mutex;
+
+use crate::{Position, error::{AnimatorResult, AnimatorError}};
+
 // Module declarations
 pub mod models;
 pub mod timeline;
 pub mod plugin;
 
-// Standard library imports
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::sync::Mutex;
-
-// External crate imports
-use napi::bindgen_prelude::*;
-use napi_derive::napi;
-use serde::{Deserialize, Serialize};
-
-// Internal imports
-use models::{AnimationModel, LinearModel, Position};
-
 // Re-exports from models
-pub use crate::models::{AnimationConfig};
+pub use models::{Animation, AnimationConfig, AnimationType};
+pub use timeline::Timeline;
+pub use plugin::AnimationPlugin;
 
-// Re-exports from other modules
-pub use timeline::{AnimationTimeline, TimelineManager};
-
-#[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Position {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+#[derive(Debug, Clone)]
+pub struct AnimationEngine {
+    animations: Arc<Mutex<HashMap<String, models::Animation>>>,
+    groups: Arc<Mutex<HashMap<String, Vec<String>>>>,
 }
 
-#[napi]
-impl Position {
-    #[napi(constructor)]
-    pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self { x, y, z }
-    }
-
-    pub fn lerp(start: &Position, end: &Position, t: f64) -> Position {
-        Position {
-            x: start.x + (end.x - start.x) * t,
-            y: start.y + (end.y - start.y) * t,
-            z: start.z + (end.z - start.z) * t,
-        }
-    }
-}
-
-impl FromNapiValue for Position {
-    unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-        let obj = JsObject::from_napi_value(env, napi_val)?;
-        let x = obj.get_named_property::<f64>("x")?;
-        let y = obj.get_named_property::<f64>("y")?;
-        let z = obj.get_named_property::<f64>("z")?;
-        Ok(Self { x, y, z })
-    }
-}
-
-impl ToNapiValue for Position {
-    unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
-        let mut obj = JsObject::new(env)?;
-        obj.set_named_property("x", val.x)?;
-        obj.set_named_property("y", val.y)?;
-        obj.set_named_property("z", val.z)?;
-        Ok(obj.into_raw())
-    }
-}
-
-/// A trait defining the behavior of an animation model.
-/// 
-/// Animation models are responsible for calculating positions over time based on their specific
-/// movement patterns. All methods return `Result<T>` for consistent error handling.
-pub trait AnimationModel: Debug + Send + Sync {
-    /// Starts the animation, initializing any necessary timing state.
-    /// Returns an error if the animation is already running.
-    fn start(&mut self) -> Result<()>;
-
-    /// Stops the animation, clearing any timing state.
-    /// Returns an error if the animation is not running.
-    fn stop(&mut self) -> Result<()>;
-
-    /// Updates the animation state based on the given time and returns the new position.
-    /// 
-    /// # Arguments
-    /// * `time` - The elapsed time in seconds since the animation started
-    ///
-    /// # Returns
-    /// * `Result<f64>` - The calculated progress at the given time
-    fn update(&mut self, time: f64) -> Result<f64>;
-
-    /// Returns whether the animation has completed.
-    fn is_complete(&self) -> Result<bool>;
-}
-
-#[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnimationConfig {
-    pub start_position: Position,
-    pub end_position: Position,
-    pub duration: f64,
-    pub model_type: String,
-}
-
-impl AnimationConfig {
-    pub fn new(start_position: Position, end_position: Position, duration: f64, model_type: String) -> Self {
+impl AnimationEngine {
+    pub fn new() -> Self {
         Self {
-            start_position,
-            end_position,
-            duration,
-            model_type,
+            animations: Arc::new(Mutex::new(HashMap::new())),
+            groups: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-}
 
-impl FromNapiValue for AnimationConfig {
-    unsafe fn from_napi_value(env: sys::napi_env, napi_val: sys::napi_value) -> Result<Self> {
-        let obj = Object::from_napi_value(env, napi_val)?;
-        
-        let start_position = obj.get_named_property::<Position>("start_position")?;
-        let end_position = obj.get_named_property::<Position>("end_position")?;
-        let duration = obj.get_named_property::<f64>("duration")?;
-        let model_type = obj.get_named_property::<String>("model_type")?;
-
-        Ok(Self {
-            start_position,
-            end_position,
-            duration,
-            model_type,
-        })
-    }
-}
-
-impl ToNapiValue for AnimationConfig {
-    unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
-        let obj = Object::new(env)?;
-        
-        obj.set_named_property("start_position", val.start_position)?;
-        obj.set_named_property("end_position", val.end_position)?;
-        obj.set_named_property("duration", val.duration)?;
-        obj.set_named_property("model_type", val.model_type)?;
-
-        Ok(obj.raw())
-    }
-}
-
-#[napi]
-#[derive(Debug)]
-pub struct Animation {
-    id: String,
-    start_position: Position,
-    end_position: Position,
-    duration: f64,
-    model: Arc<Mutex<Box<dyn AnimationModel>>>,
-    is_running: bool,
-}
-
-#[napi]
-impl Animation {
-    #[napi(constructor)]
-    pub fn new(
-        id: String,
-        start_position: Position,
-        end_position: Position,
-        duration: f64,
-        model_type: String,
-    ) -> Result<Self> {
-        if duration <= 0.0 {
-            return Err(Error::from_reason("Duration must be positive"));
-        }
-
-        let model: Box<dyn AnimationModel> = match model_type.as_str() {
-            "linear" => Box::new(LinearModel::new(start_position.clone(), end_position.clone(), duration)?),
-            _ => return Err(Error::from_reason(format!("Unknown animation model type: {}", model_type))),
-        };
-
-        Ok(Self {
-            id,
-            start_position,
-            end_position,
-            duration,
-            model: Arc::new(Mutex::new(model)),
-            is_running: false,
-        })
-    }
-
-    #[napi]
-    pub async fn start(&mut self) -> Result<()> {
-        if self.is_running {
-            return Err(Error::from_reason("Animation already running"));
-        }
-        self.model.lock().await.start()?;
-        self.is_running = true;
+    pub async fn add_animation<S: AsRef<str>>(&self, id: S, animation: models::Animation) -> AnimatorResult<()> {
+        let mut animations = self.animations.lock().await;
+        animations.insert(id.as_ref().to_string(), animation);
         Ok(())
     }
 
-    #[napi]
-    pub async fn stop(&mut self) -> Result<()> {
-        if !self.is_running {
-            return Err(Error::from_reason("Animation not running"));
-        }
-        self.model.lock().await.stop()?;
-        self.is_running = false;
+    pub async fn add_to_group<S1: Into<String>, S2: Into<String>>(&self, group_id: S1, animation_id: S2, animation: models::Animation) -> AnimatorResult<()> {
+        let group_id = group_id.into();
+        let animation_id = animation_id.into();
+        
+        self.add_animation(&animation_id, animation).await?;
+        
+        let mut groups = self.groups.lock().await;
+        groups.entry(group_id)
+            .or_insert_with(Vec::new)
+            .push(animation_id);
+            
         Ok(())
     }
 
-    #[napi]
-    pub async fn update(&mut self, current_time: f64) -> Result<Position> {
-        if !self.is_running {
-            return Err(Error::from_reason("Animation not running"));
-        }
-
-        let mut model = self.model.lock().await;
-        let position = model.update(current_time)?;
-        
-        if model.is_complete()? {
-            self.is_running = false;
-            Ok(self.end_position.clone())
+    pub async fn start<S: AsRef<str>>(&self, id: S) -> AnimatorResult<()> {
+        let mut animations = self.animations.lock().await;
+        if let Some(animation) = animations.get_mut(id.as_ref()) {
+            animation.start()?;
+            Ok(())
         } else {
-            Ok(position)
+            Err(AnimatorError::IOError(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Animation {} not found", id.as_ref())
+            )))
         }
     }
 
-    #[napi]
-    pub async fn is_complete(&self) -> Result<bool> {
-        self.model.lock().await.is_complete()
+    pub async fn start_group<S: AsRef<str>>(&self, group_id: S) -> AnimatorResult<()> {
+        let groups = self.groups.lock().await;
+        if let Some(animations) = groups.get(group_id.as_ref()) {
+            for id in animations {
+                self.start(id).await?;
+            }
+            Ok(())
+        } else {
+            Err(AnimatorError::IOError(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Group {} not found", group_id.as_ref())
+            )))
+        }
     }
 
-    #[napi]
-    pub fn get_id(&self) -> String {
-        self.id.clone()
-    }
-
-    #[napi]
-    pub fn get_duration(&self) -> f64 {
-        self.duration
+    pub async fn get_position<S: AsRef<str>>(&self, id: S) -> AnimatorResult<Position> {
+        let animations = self.animations.lock().await;
+        if let Some(animation) = animations.get(id.as_ref()) {
+            Ok(animation.current_position.clone())
+        } else {
+            Err(AnimatorError::IOError(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Animation {} not found", id.as_ref())
+            )))
+        }
     }
 }
 
-impl Clone for Animation {
-    fn clone(&self) -> Self {
-        // Create a new instance with the same data but a new Arc<Mutex<...>>
+#[napi]
+pub struct AnimationManager {
+    #[napi(skip)]
+    engine: Arc<Mutex<AnimationEngine>>,
+    #[napi(skip)]
+    animations: Arc<Mutex<HashMap<String, models::Animation>>>,
+}
+
+#[napi]
+impl AnimationManager {
+    #[napi(constructor)]
+    pub fn new() -> Self {
         Self {
-            id: self.id.clone(),
-            start_position: self.start_position.clone(),
-            end_position: self.end_position.clone(),
-            duration: self.duration,
-            model: self.model.clone(),
-            is_running: self.is_running,
+            engine: Arc::new(Mutex::new(AnimationEngine::new())),
+            animations: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    #[napi]
+    pub async fn add_animation(&self, id: String, animation: models::Animation) -> AnimatorResult<()> {
+        let mut animations = self.animations.lock().await;
+        animations.insert(id, animation);
+        Ok(())
+    }
 
-    #[test]
-    fn test_animation() {
-        let config = AnimationConfig::new(
-            Position::new(0.0, 0.0, 0.0),
-            Position::new(10.0, 10.0, 10.0),
-            10.0,
-            "linear".to_string(),
-        );
+    #[napi]
+    pub async fn remove_animation(&self, id: &str) -> AnimatorResult<()> {
+        let mut animations = self.animations.lock().await;
+        animations.remove(id);
+        Ok(())
+    }
 
-        let mut animation = Animation::new("test".to_string(), config.start_position, config.end_position, config.duration, config.model_type).unwrap();
+    #[napi]
+    pub async fn get_animation(&self, id: &str) -> AnimatorResult<Option<models::Animation>> {
+        let animations = self.animations.lock().await;
+        Ok(animations.get(id).cloned())
+    }
 
-        // Test initial state
-        assert!(!animation.is_complete().unwrap());
+    #[napi]
+    pub async fn update_all(&self, dt: f64) -> AnimatorResult<()> {
+        let mut animations = self.animations.lock().await;
+        for animation in animations.values_mut() {
+            if animation.is_running {
+                animation.update(dt)?;
+            }
+        }
+        Ok(())
+    }
 
-        // Test start
-        animation.start().unwrap();
+    #[napi]
+    pub async fn add_animation_to_engine(&self, id: String, animation: models::Animation) -> AnimatorResult<()> {
+        let engine = self.engine.lock().await;
+        engine.add_animation(id, animation).await
+    }
 
-        // Test update
-        let pos = animation.update(5.0).unwrap();
-        assert_eq!(pos.x, 5.0);
-        assert_eq!(pos.y, 5.0);
-        assert_eq!(pos.z, 5.0);
+    #[napi]
+    pub async fn add_to_group(&self, group_id: String, animation_id: String, animation: models::Animation) -> AnimatorResult<()> {
+        let engine = self.engine.lock().await;
+        engine.add_to_group(group_id, animation_id, animation).await
+    }
 
-        // Test completion
-        let pos = animation.update(10.0).unwrap();
-        assert_eq!(pos.x, 10.0);
-        assert_eq!(pos.y, 10.0);
-        assert_eq!(pos.z, 10.0);
-        assert!(animation.is_complete().unwrap());
+    #[napi]
+    pub async fn start(&self, id: String) -> AnimatorResult<()> {
+        let engine = self.engine.lock().await;
+        engine.start(id).await
+    }
 
-        // Test stop
-        animation.stop().unwrap();
-        assert!(animation.is_complete().unwrap());
+    #[napi]
+    pub async fn start_group(&self, group_id: String) -> AnimatorResult<()> {
+        let engine = self.engine.lock().await;
+        engine.start_group(group_id).await
+    }
+
+    #[napi]
+    pub async fn get_position(&self, id: String) -> AnimatorResult<Position> {
+        let engine = self.engine.lock().await;
+        engine.get_position(id).await
     }
 }

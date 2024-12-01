@@ -1,83 +1,87 @@
 #[cfg(test)]
 mod tests {
+    use crate::{
+        test_utils::{
+            TestContext,
+            fixtures::{TestPositions, TestAnimations},
+            assertions::{PositionAssertions, TimingAssertions},
+            mocks::MockTimeProvider,
+        },
+        async_test,
+    };
     use super::*;
-    use tokio::test;
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
-    use crate::state::StateManagerWrapper;
 
-    #[tokio::test]
-    async fn test_timeline_manager_creation() -> napi::Result<()> {
-        let state_manager = StateManagerWrapper::new(None)?;
-        let state_manager = Arc::new(Mutex::new(state_manager));
-        let manager = TimelineManager::new(state_manager);
+    async_test!(test_timeline_manager_creation, |ctx| async {
+        let manager = TimelineManager::new(ctx.state_manager.clone());
         
         assert!(!manager.is_playing);
         assert!(!manager.is_paused);
         assert_eq!(manager.current_time, 0.0);
         Ok(())
-    }
+    });
 
-    #[tokio::test]
-    async fn test_timeline_state_sync() -> napi::Result<()> {
-        let state_manager = StateManagerWrapper::new(None)?;
-        let state_manager = Arc::new(Mutex::new(state_manager));
-        let mut manager = TimelineManager::new(state_manager.clone());
+    async_test!(test_timeline_state_sync, |ctx| async {
+        let mut manager = TimelineManager::new(ctx.state_manager.clone());
+        let config = TestAnimations::linear_1s();
 
-        let config = AnimationConfig::new(1.0, 0.0, "linear".to_string());
+        // Start animation and update one frame
         manager.start_animation("test".to_string(), config).await?;
         manager.update(0.016).await?; // One frame at 60fps
 
         // Verify state is updated
-        let state = state_manager.lock().await;
-        let pos = state.get_position("test".to_string())?;
+        let pos = ctx.state_manager.get_position("test".to_string()).await?;
         assert!(pos.is_some());
 
+        // Verify position interpolation
+        let expected_pos = Position::new(0.016, 0.0, 0.0, 0.0, 0.0, 0.0);
+        pos.unwrap().assert_near(&expected_pos, 1e-6);
         Ok(())
-    }
+    });
 
-    #[tokio::test]
-    async fn test_timeline_animation_control() -> napi::Result<()> {
-        let state_manager = StateManagerWrapper::new(None)?;
-        let state_manager = Arc::new(Mutex::new(state_manager));
-        let mut manager = TimelineManager::new(state_manager);
+    async_test!(test_timeline_animation_control, |ctx| async {
+        let mut manager = TimelineManager::new(ctx.state_manager.clone());
+        let time_provider = MockTimeProvider::new();
 
         // Test animation start
-        let config = AnimationConfig::new(1.0, 0.0, "linear".to_string());
+        let config = TestAnimations::linear_1s();
         manager.start_animation("test".to_string(), config).await?;
         assert!(manager.is_playing);
 
         // Test animation pause
         manager.pause_animation("test".to_string()).await?;
         assert!(manager.is_paused);
+        
+        // Advance time and verify position hasn't changed
+        time_provider.advance(0.5).await;
+        manager.update(0.5).await?;
+        let pos = ctx.state_manager.get_position("test".to_string()).await?;
+        pos.unwrap().assert_near(&TestPositions::origin(), 1e-6);
 
-        // Test animation resume
+        // Resume and verify animation continues
         manager.resume_animation("test".to_string()).await?;
         assert!(!manager.is_paused);
-
-        // Test animation stop
-        manager.stop_animation("test".to_string()).await?;
-        assert!(!manager.is_playing);
-
         Ok(())
-    }
+    });
 
-    #[tokio::test]
-    async fn test_timeline_cleanup() -> napi::Result<()> {
-        let state_manager = StateManagerWrapper::new(None)?;
-        let state_manager = Arc::new(Mutex::new(state_manager));
-        let mut manager = TimelineManager::new(state_manager);
+    async_test!(test_timeline_cleanup, |ctx| async {
+        let mut manager = TimelineManager::new(ctx.state_manager.clone());
+        
+        // Add multiple animations
+        for i in 0..3 {
+            let config = TestAnimations::linear_1s();
+            manager.start_animation(format!("test_{}", i), config).await?;
+        }
 
-        // Initialize and start animation
-        let config = AnimationConfig::new(1.0, 0.0, "linear".to_string());
-        manager.start_animation("test".to_string(), config).await?;
-
-        // Cleanup
+        // Verify cleanup
         manager.cleanup().await?;
         assert!(!manager.is_playing);
-        assert!(!manager.is_paused);
         assert_eq!(manager.current_time, 0.0);
 
+        // Verify all animations are removed
+        for i in 0..3 {
+            let pos = ctx.state_manager.get_position(format!("test_{}", i)).await?;
+            assert!(pos.is_none());
+        }
         Ok(())
-    }
+    });
 }
