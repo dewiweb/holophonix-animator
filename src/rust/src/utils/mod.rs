@@ -1,4 +1,5 @@
 use napi::bindgen_prelude::*;
+use napi_derive::napi;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[napi]
