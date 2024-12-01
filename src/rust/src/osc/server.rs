@@ -1,170 +1,193 @@
+use crate::error::AnimatorError;
+use crate::osc::types::{OSCMessage, OSCMessageArg};
+use rosc::{decoder, OscPacket, OscType};
 use std::net::UdpSocket;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use rosc::{OscMessage, OscPacket, OscType};
-use crate::error::AnimatorResult;
-use crate::state::core::StateManager;
-use crate::osc::types::{OSCError, OSCErrorType, PolarCoordinates, CartesianCoordinates, Position};
-use crate::osc::protocol::Protocol;
-use std::f64::consts::PI;
+use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
+
+pub trait OSCMessageHandler: Send + 'static {
+    fn handle_message(&mut self, message: OSCMessage) -> Result<(), AnimatorError>;
+}
+
+pub trait OSCServerTrait: Send + 'static {
+    fn start(&mut self) -> Result<(), AnimatorError>;
+    fn stop(&mut self) -> Result<(), AnimatorError>;
+}
 
 pub struct OSCServer {
-    socket: UdpSocket,
-    state: Arc<Mutex<StateManager>>,
+    socket: Option<Arc<UdpSocket>>,
+    handler: Arc<Mutex<Box<dyn OSCMessageHandler>>>,
+    thread_handle: Option<JoinHandle<()>>,
+    running: Arc<Mutex<bool>>,
 }
 
 impl OSCServer {
-    pub fn new(host: String, port: u16, state: Arc<Mutex<StateManager>>) -> AnimatorResult<Self> {
-        let addr = format!("{}:{}", host, port);
-        let socket = UdpSocket::bind(&addr)?;
-        Ok(Self { socket, state })
-    }
+    pub fn new(
+        bind_addr: impl Into<String>,
+        handler: Box<dyn OSCMessageHandler>,
+    ) -> Result<Self, AnimatorError> {
+        let socket = UdpSocket::bind(bind_addr.into())?;
+        socket.set_nonblocking(true)?;
 
-    pub async fn start(&self) -> AnimatorResult<()> {
-        let mut buf = [0u8; 1024];
-        loop {
-            match self.socket.recv_from(&mut buf) {
-                Ok((size, _)) => {
-                    let packet = rosc::decoder::decode(&buf[..size])?;
-                    if let OscPacket::Message(msg) = packet {
-                        self.handle_message(msg).await?;
+        Ok(Self {
+            socket: Some(Arc::new(socket)),
+            handler: Arc::new(Mutex::new(handler)),
+            thread_handle: None,
+            running: Arc::new(Mutex::new(false)),
+        })
+    }
+}
+
+impl OSCServerTrait for OSCServer {
+    fn start(&mut self) -> Result<(), AnimatorError> {
+        if self.thread_handle.is_some() {
+            return Err(AnimatorError::State("Server already running".to_string()));
+        }
+
+        let socket = self
+            .socket
+            .as_ref()
+            .ok_or_else(|| AnimatorError::State("Server socket not initialized".to_string()))?
+            .clone();
+        let handler = self.handler.clone();
+        let running = self.running.clone();
+
+        *running.lock().unwrap() = true;
+
+        let handle = thread::spawn(move || {
+            let mut buf = [0u8; 1024];
+            while *running.lock().unwrap() {
+                match socket.recv_from(&mut buf) {
+                    Ok((size, _addr)) => {
+                        if let Ok(packet) = decoder::decode_udp(&buf[..size]) {
+                            if let Err(e) = Self::handle_packet(packet, &handler) {
+                                eprintln!("Error handling OSC packet: {}", e);
+                            }
+                        }
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        // Non-blocking socket, just continue
+                        thread::sleep(std::time::Duration::from_millis(1));
+                    }
+                    Err(e) => {
+                        eprintln!("Error receiving OSC packet: {}", e);
                     }
                 }
-                Err(e) => {
-                    eprintln!("Error receiving OSC message: {}", e);
-                }
             }
-        }
+        });
+
+        self.thread_handle = Some(handle);
+        Ok(())
     }
 
-    async fn handle_message(&self, message: OscMessage) -> AnimatorResult<()> {
-        let addr_parts: Vec<&str> = message.addr.split('/').collect();
-        if addr_parts.len() < 4 || addr_parts[1] != "track" {
-            return Err(OSCError::new(
-                OSCErrorType::Protocol,
-                "Invalid OSC address - must start with /track/".to_string()
-            ));
+    fn stop(&mut self) -> Result<(), AnimatorError> {
+        if let Some(_) = self.thread_handle.take() {
+            *self.running.lock().unwrap() = false;
         }
+        Ok(())
+    }
+}
 
-        let track_id = addr_parts[2].to_string();
-        let command = addr_parts[3];
+impl OSCServer {
+    fn handle_packet(
+        packet: OscPacket,
+        handler: &Arc<Mutex<Box<dyn OSCMessageHandler>>>,
+    ) -> Result<(), AnimatorError> {
+        match packet {
+            OscPacket::Message(msg) => {
+                let args = msg
+                    .args
+                    .into_iter()
+                    .map(|arg| match arg {
+                        OscType::Int(i) => OSCMessageArg::Int(i),
+                        OscType::Float(f) => OSCMessageArg::Float(f),
+                        OscType::String(s) => OSCMessageArg::String(s),
+                        OscType::Bool(b) => OSCMessageArg::Bool(b),
+                        _ => return Err(AnimatorError::OSC("Unsupported OSC type".to_string())),
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
 
-        match command {
-            "xyz" => {
-                self.handle_xyz_message(&track_id, &message.args).await?;
-            }
-            "aed" => {
-                self.handle_aed_message(&track_id, &message.args).await?;
-            }
-            "gain" => {
-                if message.args.len() != 1 {
-                    return Err(OSCError::new(
-                        OSCErrorType::Protocol,
-                        "gain command requires 1 float argument".to_string()
-                    ));
-                }
-                let gain = match &message.args[0] {
-                    OscType::Float(v) => *v as f64,
-                    _ => return Err(OSCError::new(
-                        OSCErrorType::Protocol,
-                        "gain value must be a float".to_string()
-                    )),
+                let message = OSCMessage {
+                    address: msg.addr,
+                    args,
                 };
-                let mut state = self.state.lock().await;
-                state.update_gain(track_id, gain)?;
+
+                handler.lock().unwrap().handle_message(message)?;
             }
-            "mute" => {
-                if message.args.len() != 1 {
-                    return Err(OSCError::new(
-                        OSCErrorType::Protocol,
-                        "mute command requires 1 boolean argument".to_string()
-                    ));
-                }
-                let mute = match &message.args[0] {
-                    OscType::Bool(b) => *b,
-                    _ => return Err(OSCError::new(
-                        OSCErrorType::Protocol,
-                        "mute value must be a boolean".to_string()
-                    )),
-                };
-                let mut state = self.state.lock().await;
-                state.update_mute(track_id, mute)?;
-            }
-            "color" => {
-                if message.args.len() != 4 {
-                    return Err(OSCError::new(
-                        OSCErrorType::Protocol,
-                        "color command requires 4 float arguments (RGBA)".to_string()
-                    ));
-                }
-                let r = message.args[0].float().unwrap_or(0.0) as f64;
-                let g = message.args[1].float().unwrap_or(0.0) as f64;
-                let b = message.args[2].float().unwrap_or(0.0) as f64;
-                let a = message.args[3].float().unwrap_or(1.0) as f64;
-                let mut state = self.state.lock().await;
-                state.update_color(track_id, r, g, b, a)?;
-            }
-            _ => {
-                return Err(OSCError::new(
-                    OSCErrorType::Protocol,
-                    format!("Unknown command: {}", command)
-                ));
+            OscPacket::Bundle(_) => {
+                return Err(AnimatorError::OSC("Bundle packets not supported".to_string()));
             }
         }
         Ok(())
     }
-
-    async fn handle_xyz_message(&self, track_id: &str, args: &[OscType]) -> AnimatorResult<()> {
-        match args {
-            [OscType::Float(x), OscType::Float(y), OscType::Float(z)] => {
-                let cartesian = CartesianCoordinates::new(*x as f64, *y as f64, *z as f64);
-                
-                // Validate cartesian coordinates
-                Protocol::validate_coordinates(&cartesian)?;
-                
-                let mut state = self.state.lock().await;
-                state.update_position(track_id.to_string(), cartesian.x, cartesian.y, cartesian.z)?;
-                Ok(())
-            }
-            _ => Err(OSCError::new(
-                OSCErrorType::Protocol,
-                "Invalid xyz arguments - expected 3 float values".to_string(),
-            )),
-        }
-    }
-
-    async fn handle_aed_message(&self, track_id: &str, args: &[OscType]) -> AnimatorResult<()> {
-        match args {
-            [OscType::Float(a), OscType::Float(e), OscType::Float(r)] => {
-                let polar = PolarCoordinates::new(*a as f64, *e as f64, *r as f64);
-                
-                // Validate polar coordinates
-                Protocol::validate_polar_coordinates(&polar)?;
-                
-                // Convert to Position using the built-in method
-                let position = Position::from_aed(polar.azim, polar.elev, polar.dist);
-                
-                let mut state = self.state.lock().await;
-                state.update_position(track_id.to_string(), position.x, position.y, position.z)?;
-                Ok(())
-            }
-            _ => Err(OSCError::new(
-                OSCErrorType::Protocol,
-                "Invalid aed arguments - expected 3 float values".to_string(),
-            )),
-        }
-    }
 }
 
-// Coordinate conversion function
-fn aed_to_xyz(azim: f64, elev: f64, dist: f64) -> (f64, f64, f64) {
-    let azim_rad = azim * PI / 180.0;
-    let elev_rad = elev * PI / 180.0;
-    
-    // Convert from spherical (azimuth, elevation, distance) to cartesian (x, y, z)
-    let x = dist * azim_rad.cos() * elev_rad.cos();
-    let y = dist * azim_rad.sin() * elev_rad.cos();
-    let z = dist * elev_rad.sin();
-    
-    (x, y, z)
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::osc::client::OSCClient;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    struct TestHandler {
+        sender: mpsc::Sender<OSCMessage>,
+    }
+
+    impl OSCMessageHandler for TestHandler {
+        fn handle_message(&mut self, message: OSCMessage) -> Result<(), AnimatorError> {
+            self.sender.send(message).map_err(|e| {
+                AnimatorError::OSC(format!("Failed to send message to test channel: {}", e))
+            })?;
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_server_lifecycle() {
+        let (tx, _rx) = mpsc::channel();
+        let handler = Box::new(TestHandler { sender: tx });
+        let mut server = OSCServer::new("127.0.0.1:0", handler).unwrap();
+
+        assert!(server.start().is_ok());
+        assert!(server.start().is_err()); // Should fail when already running
+        assert!(server.stop().is_ok());
+    }
+
+    #[test]
+    fn test_message_handling() {
+        let (tx, rx) = mpsc::channel();
+        let handler = Box::new(TestHandler { sender: tx });
+        let mut server = OSCServer::new("127.0.0.1:0", handler).unwrap();
+        let server_addr = server
+            .socket
+            .as_ref()
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .to_string();
+
+        server.start().unwrap();
+
+        // Create a client to send test messages
+        let client = OSCClient::new(server_addr).unwrap();
+        let test_message = OSCMessage::new(
+            "/test/message",
+            vec![
+                OSCMessageArg::Int(42),
+                OSCMessageArg::Float(3.14),
+                OSCMessageArg::String("test".to_string()),
+                OSCMessageArg::Bool(true),
+            ],
+        )
+        .unwrap();
+
+        client.send(test_message.clone()).unwrap();
+
+        // Wait for the message to be processed
+        let received = rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert_eq!(received.address, test_message.address);
+        assert_eq!(received.args.len(), test_message.args.len());
+
+        server.stop().unwrap();
+    }
 }
