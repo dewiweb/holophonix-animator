@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines testing standards and practices for the Holophonix Animator project.
+This document outlines testing standards and practices for the Holophonix Animator project. The project uses a comprehensive testing approach combining Rust and TypeScript testing frameworks.
 
 ## Testing Levels
 
@@ -86,6 +86,91 @@ describe('Motion Animation', () => {
 });
 ```
 
+## Testing Infrastructure
+
+### 1. Test Utilities (`test_utils`)
+
+The Rust codebase includes a robust testing infrastructure in the `test_utils` module:
+
+```rust
+// Test context for managing dependencies
+let ctx = TestContext::new().await?;
+
+// Use fixtures for common test data
+let start_pos = TestPositions::origin();
+let config = TestAnimations::linear_1s();
+
+// Custom assertions for precise comparisons
+position.assert_near(&expected, 1e-6);
+duration.assert_duration_matches(1.0, 1e-3);
+
+// Generate random test data
+let positions = PositionGenerator::random_sequence(5);
+```
+
+#### Components:
+- `TestContext`: Manages test dependencies and cleanup
+- `fixtures`: Provides common test data
+- `assertions`: Custom assertion utilities
+- `generators`: Random test data generation
+- `mocks`: Mock implementations for external dependencies
+
+### 2. Integration Tests
+
+Located in `tests/integration_tests.rs`, these tests verify full system functionality:
+
+```rust
+#[tokio::test]
+async fn test_full_animation_pipeline() -> anyhow::Result<()> {
+    let ctx = TestContext::with_osc().await?;
+    
+    // Test complete animation flow
+    ctx.animation_manager.add_animation("test", config).await?;
+    ctx.animation_manager.play().await?;
+    
+    // Verify results
+    let pos = ctx.state_manager.get_position("test").await?;
+    pos.unwrap().assert_near(&expected_pos, 1e-6);
+    
+    ctx.cleanup().await?;
+    Ok(())
+}
+```
+
+### 3. Property-Based Tests
+
+Located in `tests/property_tests.rs`, these tests verify invariants using random inputs:
+
+```rust
+proptest! {
+    #[test]
+    fn test_position_invariants(
+        x in -1.0..1.0f64,
+        y in -1.0..1.0f64,
+        z in -1.0..1.0f64,
+    ) {
+        let pos = Position::new(x, y, z, 0.0, 0.0, 0.0);
+        let normalized = pos.normalize();
+        prop_assert!((normalized.magnitude() - 1.0).abs() < 1e-6);
+    }
+}
+```
+
+### 4. Performance Benchmarks
+
+Located in `benches/animation_benchmarks.rs`, these measure system performance:
+
+```rust
+fn benchmark_animation_updates(c: &mut Criterion) {
+    let mut group = c.benchmark_group("animation_updates");
+    
+    group.bench_function("update_single_track", |b| {
+        let manager = setup_animation_manager();
+        b.iter(|| black_box(manager.update(0.016)))
+    });
+}
+```
+
 ## Test Organization
 
 ### Directory Structure
@@ -98,15 +183,20 @@ tests/
 ├── integration/       # Integration tests
 │   ├── osc/
 │   └── animation/
-└── e2e/              # End-to-end tests
-    ├── features/
-    └── workflows/
+├── e2e/              # End-to-end tests
+│   ├── features/
+│   └── workflows/
+├── integration_tests.rs  # Rust integration tests
+├── property_tests.rs     # Rust property-based tests
+└── benches/            # Rust performance benchmarks
+    └── animation_benchmarks.rs
 ```
 
 ### File Naming
 - `*.test.ts` for unit tests
 - `*.spec.ts` for integration tests
 - `*.e2e.ts` for end-to-end tests
+- `*.rs` for Rust tests and benchmarks
 
 ## Testing Standards
 
@@ -253,3 +343,83 @@ it('should render correctly', async () => {
     .toMatchImageSnapshot();
 });
 ```
+
+## Running Tests
+
+### 1. Unit and Integration Tests
+```bash
+# Run all tests
+cargo test
+
+# Run specific test categories
+cargo test --test integration_tests
+cargo test --test property_tests
+
+# Run with logging
+RUST_LOG=debug cargo test
+```
+
+### 2. Benchmarks
+```bash
+# Run all benchmarks
+cargo bench
+
+# Run specific benchmark
+cargo bench --bench animation_benchmarks
+```
+
+## Best Practices
+
+### 1. Use Test Context
+```rust
+async_test!(test_name, |ctx| async {
+    // Test setup is handled automatically
+    let result = ctx.animation_manager.do_something().await?;
+    assert!(result.is_ok());
+    Ok(())
+});
+```
+
+### 2. Utilize Fixtures
+```rust
+// Use standard test positions
+let origin = TestPositions::origin();
+let unit_x = TestPositions::unit_x();
+
+// Use common animations
+let config = TestAnimations::linear_1s();
+```
+
+### 3. Custom Assertions
+```rust
+// Position comparisons with tolerance
+position.assert_near(&expected, 1e-6);
+
+// Timing validations
+duration.assert_duration_matches(expected, 1e-3);
+```
+
+### 4. Mock External Dependencies
+```rust
+let mock_osc = MockOscServer::new();
+mock_osc.expect_send_message().times(1).return_const(Ok(()));
+```
+
+## Performance Testing
+
+### 1. Benchmark Categories
+- Position operations
+- Animation updates
+- State synchronization
+- Track scaling
+
+### 2. Performance Targets
+- Position updates: < 1ms
+- Animation frame: < 16ms (60 FPS)
+- State sync: < 5ms
+- Group updates: < 10ms
+
+### 3. Monitoring
+- Regular benchmark runs
+- Performance regression detection
+- Resource usage tracking
