@@ -1,45 +1,55 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React from 'react';
 import { Provider } from 'react-redux';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { MainLayout } from './components/layouts/MainLayout';
+import { Home } from './pages/Home';
+import { Settings } from './pages/Settings';
 import { store } from './store';
-import MainLayout from './components/layouts/MainLayout';
-import Home from './pages/Home';
-import Settings from './pages/Settings';
-import { GroupManager } from '../bindings';
 import { AppProvider } from './context/AppContext';
+import { GroupManager } from '../bindings';
 import { GroupTreeView } from './components/groups/GroupTreeView';
 import '@blueprintjs/core/lib/css/blueprint.css';
 import './styles/global.css';
 import './App.css';
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string>();
   const groupManager = new GroupManager();
 
   return (
     <Provider store={store}>
       <Router>
-        <MainLayout>
-          <AppProvider groupManager={groupManager}>
-            <div className="app-container">
-              <div className="sidebar">
-                <GroupTreeView 
-                  selectedGroupId={selectedGroupId}
-                  onGroupSelect={setSelectedGroupId}
-                />
-              </div>
-              <div className="main-content">
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/settings" element={<Settings />} />
-                </Routes>
-              </div>
-            </div>
-          </AppProvider>
-        </MainLayout>
+        <Routes>
+          <Route path="/" element={<MainLayout />}>
+            <Route
+              index
+              element={
+                <AppProvider groupManager={groupManager}>
+                  <div className="app-container">
+                    <div className="sidebar">
+                      <GroupTreeView
+                        selectedGroupId={selectedGroupId}
+                        onGroupSelect={setSelectedGroupId}
+                      />
+                    </div>
+                    <div className="main-content">
+                      <Home />
+                    </div>
+                  </div>
+                </AppProvider>
+              }
+            />
+            <Route
+              path="settings"
+              element={
+                <AppProvider groupManager={groupManager}>
+                  <Settings />
+                </AppProvider>
+              }
+            />
+          </Route>
+        </Routes>
       </Router>
     </Provider>
   );
 };
-
-export default App;

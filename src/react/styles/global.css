@@ -4,9 +4,9 @@
   --success-color: #34C759;
   --warning-color: #FF9500;
   --danger-color: #FF3B30;
-  --background-color: #000000;
-  --surface-color: #1C1C1E;
-  --text-primary: #FFFFFF;
+  --background-color: #293742;
+  --surface-color: #30404d;
+  --text-primary: #f5f8fa;
   --text-secondary: #EBEBF5;
 }
 
@@ -48,4 +48,90 @@ input, select {
 input:focus, select:focus {
   outline: none;
   border-color: var(--primary-color);
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.bp4-dark {
+  background-color: #293742;
+}
+
+.bp4-card {
+  background-color: #30404d;
+}
+
+.bp4-button {
+  min-height: 30px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #394b59;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #5c7080;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #738694;
+}
+
+.fade-enter {
+  opacity: 0;
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transition: opacity 200ms ease-in;
+}
+
+.fade-exit {
+  opacity: 1;
+}
+
+.fade-exit-active {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 768px) {
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
 }

@@ -1,0 +1,22 @@
+.track-control {
+    margin-bottom: 16px;
+}
+
+.track-control-sliders {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.slider-group label {
+    color: #bfccd6;
+    font-size: 12px;
+    font-weight: 600;
+}

@@ -1,0 +1,15 @@
+.error-notification {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 1000;
+    min-width: 300px;
+    max-width: 500px;
+}
+
+.error-notification .bp4-callout {
+    margin-bottom: 0;
+    box-shadow: 0 0 0 1px rgba(16, 22, 26, 0.1),
+                0 2px 4px rgba(16, 22, 26, 0.2),
+                0 8px 24px rgba(16, 22, 26, 0.2);
+}
