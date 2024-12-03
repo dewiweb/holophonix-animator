@@ -54,8 +54,31 @@ export interface StateUpdate {
 }
 
 export interface ErrorInfo {
-  type: 'STATE_SYNC' | 'VALIDATION' | 'STATE_UPDATE';
+  type: OSCErrorType;
   message: string;
   retryable: boolean;
   data?: unknown;
+}
+
+export enum OSCErrorType {
+  STATE_SYNC = 'STATE_SYNC',
+  VALIDATION = 'VALIDATION',
+  STATE_UPDATE = 'STATE_UPDATE'
+}
+
+export interface OSCMessage {
+  address: string;
+  args: Array<number | string | boolean>;
+}
+
+export interface OSCConfig {
+  host: string;
+  port: number;
+  enabled: boolean;
+}
+
+export const DEFAULT_OSC_CONFIG: OSCConfig = {
+  host: 'localhost',
+  port: 8000,
+  enabled: true,
 }
