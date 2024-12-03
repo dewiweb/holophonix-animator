@@ -10,7 +10,7 @@ use crate::error::AnimatorError;
 pub struct OSCConfig {
     pub host: String,
     pub port: u16,
-    pub timeout: u64,
+    pub timeout_ms: u32,
 }
 
 impl Default for OSCConfig {
@@ -18,23 +18,25 @@ impl Default for OSCConfig {
         Self {
             host: "127.0.0.1".to_string(),
             port: 8000,
-            timeout: 1000,
+            timeout_ms: 1000,
         }
     }
 }
 
+#[napi]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OSCMessage {
     pub address: String,
     pub args: Vec<OSCMessageArg>,
 }
 
+#[napi]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OSCMessageArg {
     Int(i32),
     Float(f32),
     String(String),
-    Bool(bool),
+    Blob(Vec<u8>),
 }
 
 impl OSCMessage {
@@ -61,26 +63,32 @@ impl OSCMessage {
     }
 
     pub fn with_bool(address: impl Into<String>, value: bool) -> Result<Self, AnimatorError> {
-        Self::new(address, vec![OSCMessageArg::Bool(value)])
+        Self::new(address, vec![OSCMessageArg::String(if value { "true".to_string() } else { "false".to_string() })])
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum OSCError {
-    #[error("IO error: {0}")]
-    IO(#[from] std::io::Error),
-    #[error("Protocol error: {0}")]
-    Protocol(String),
-    #[error("Validation error: {0}")]
-    Validation(String),
+    #[error("Connection error: {0}")]
+    ConnectionError(String),
+    #[error("Send error: {0}")]
+    SendError(String),
+    #[error("Receive error: {0}")]
+    ReceiveError(String),
+    #[error("Timeout error")]
+    TimeoutError,
+    #[error("Invalid message: {0}")]
+    InvalidMessage(String),
 }
 
 impl fmt::Display for OSCError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OSCError::IO(err) => write!(f, "IO error: {}", err),
-            OSCError::Protocol(msg) => write!(f, "Protocol error: {}", msg),
-            OSCError::Validation(msg) => write!(f, "Validation error: {}", msg),
+            OSCError::ConnectionError(msg) => write!(f, "Connection error: {}", msg),
+            OSCError::SendError(msg) => write!(f, "Send error: {}", msg),
+            OSCError::ReceiveError(msg) => write!(f, "Receive error: {}", msg),
+            OSCError::TimeoutError => write!(f, "Timeout error"),
+            OSCError::InvalidMessage(msg) => write!(f, "Invalid message: {}", msg),
         }
     }
 }
@@ -208,7 +216,7 @@ mod tests {
                 OSCMessageArg::Int(42),
                 OSCMessageArg::Float(3.14),
                 OSCMessageArg::String("test".to_string()),
-                OSCMessageArg::Bool(true),
+                OSCMessageArg::Blob(vec![1, 2, 3]),
             ],
         )
         .unwrap();

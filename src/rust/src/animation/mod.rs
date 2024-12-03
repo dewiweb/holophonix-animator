@@ -11,12 +11,16 @@ use tokio::sync::Mutex;
 use crate::{Position, error::{AnimatorResult, AnimatorError}};
 
 // Module declarations
+pub mod engine;
+pub mod error;
 pub mod models;
 pub mod timeline;
 pub mod plugin;
 
 // Re-exports from models
-pub use models::{Animation, AnimationConfig, AnimationType};
+pub use engine::AnimationEngine;
+pub use error::AnimatorError;
+pub use models::{Animation, AnimationState, Keyframe, Position, TimelineState};
 pub use timeline::Timeline;
 pub use plugin::AnimationPlugin;
 

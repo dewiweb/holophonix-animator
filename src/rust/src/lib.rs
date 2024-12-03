@@ -1,21 +1,20 @@
-use napi_derive::napi;
-use serde::{Serialize, Deserialize};
-use napi::bindgen_prelude::*;
+#![deny(clippy::all)]
+
+#[macro_use]
+extern crate napi_derive;
 
 pub mod animation;
 pub mod error;
 pub mod osc;
+pub mod state;
 pub mod plugin;
 pub mod test_utils;
 pub mod utils;
 
-// Re-export commonly used types
-pub use animation::models::{Animation, AnimationConfig, AnimationType};
-pub use error::{AnimatorError, AnimatorResult};
-pub use osc::{OSCConfig, OSCError, OSCMessage};
+use napi::bindgen_prelude::*;
 
-#[napi]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[napi(object)]
+#[derive(Clone, Default)]
 pub struct Position {
     pub x: f64,
     pub y: f64,
@@ -23,82 +22,42 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self { x, y, z }
-    }
-}
-
-#[napi]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CartesianCoordinates {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-}
-
-impl From<Position> for CartesianCoordinates {
-    fn from(pos: Position) -> Self {
-        Self {
-            x: pos.x,
-            y: pos.y,
-            z: pos.z,
-        }
-    }
-}
-
-impl From<CartesianCoordinates> for Position {
-    fn from(coords: CartesianCoordinates) -> Self {
-        Self {
-            x: coords.x,
-            y: coords.y,
-            z: coords.z,
+    pub fn lerp(&self, other: &Position, t: f64) -> Position {
+        Position {
+            x: self.x + (other.x - self.x) * t,
+            y: self.y + (other.y - self.y) * t,
+            z: self.z + (other.z - self.z) * t,
         }
     }
 }
 
 #[napi]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PolarCoordinates {
-    pub radius: f64,
-    pub azimuth: f64,
-    pub elevation: f64,
-}
-
-impl PolarCoordinates {
-    pub fn to_cartesian(&self) -> CartesianCoordinates {
-        let x = self.radius * self.azimuth.cos() * self.elevation.cos();
-        let y = self.radius * self.azimuth.sin() * self.elevation.cos();
-        let z = self.radius * self.elevation.sin();
-        CartesianCoordinates { x, y, z }
-    }
-
-    pub fn from_cartesian(cart: &CartesianCoordinates) -> Self {
-        let radius = (cart.x * cart.x + cart.y * cart.y + cart.z * cart.z).sqrt();
-        let azimuth = cart.y.atan2(cart.x);
-        let elevation = if radius == 0.0 {
-            0.0
-        } else {
-            (cart.z / radius).asin()
-        };
-        Self {
-            radius,
-            azimuth,
-            elevation,
-        }
-    }
+pub fn initialize() -> bool {
+    true
 }
 
 #[napi]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub a: u8,
+pub fn cleanup() -> bool {
+    true
 }
 
-impl Color {
-    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self { r, g, b, a }
-    }
-}
+// Re-export main types for easier access
+pub use animation::{
+    Animation,
+    AnimationEngine,
+    AnimationState,
+    Keyframe,
+    Position,
+    TimelineState,
+};
+
+pub use osc::{
+    OSCConfig,
+    OSCManager,
+    OSCMessage,
+    OSCMessageArg,
+};
+
+pub use error::Result;
+pub use osc::manager::{OscConfig, OscManager};
+pub use state::manager::{StateManager, TrackState};

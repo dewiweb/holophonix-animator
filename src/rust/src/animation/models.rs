@@ -36,12 +36,44 @@ impl AnimationConfig {
     }
 }
 
-#[napi(object)]
-#[derive(Debug, Clone)]
+#[napi]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Position {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub rx: f64,
+    pub ry: f64,
+    pub rz: f64,
+}
+
+impl Default for Position {
+    fn default() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            rx: 0.0,
+            ry: 0.0,
+            rz: 0.0,
+        }
+    }
+}
+
+#[napi]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Keyframe {
+    pub time: f64,
+    pub position: Position,
+    pub interpolation: String,
+}
+
+#[napi]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Animation {
-    pub config: AnimationConfig,
-    pub start_position: Position,
-    pub end_position: Position,
+    pub track_id: String,
+    pub duration: f64,
+    pub keyframes: Vec<Keyframe>,
     start_time: Option<Instant>,
     paused_duration: Duration,
     is_paused: bool,
@@ -51,7 +83,9 @@ impl Animation {
     pub fn new(config: AnimationConfig, start: Position, end: Position) -> AnimatorResult<Self> {
         config.validate()?;
         Ok(Self {
-            config,
+            track_id: "".to_string(),
+            duration: config.duration.as_secs_f64(),
+            keyframes: vec![],
             start_position: start,
             end_position: end,
             start_time: None,
@@ -113,7 +147,7 @@ impl Animation {
             return 0.0;
         }
         let elapsed = self.elapsed().as_secs_f32();
-        let duration = self.config.duration.as_secs_f32();
+        let duration = self.duration as f32;
         (elapsed / duration).min(1.0)
     }
 
@@ -132,12 +166,12 @@ impl Animation {
 
     fn interpolate_linear(&self, t: f32) -> Position {
         Position {
-            x: self.start_position.x + (self.end_position.x - self.start_position.x) * t,
-            y: self.start_position.y + (self.end_position.y - self.start_position.y) * t,
-            z: self.start_position.z + (self.end_position.z - self.start_position.z) * t,
-            rx: self.start_position.rx + (self.end_position.rx - self.start_position.rx) * t,
-            ry: self.start_position.ry + (self.end_position.ry - self.start_position.ry) * t,
-            rz: self.start_position.rz + (self.end_position.rz - self.start_position.rz) * t,
+            x: self.start_position.x + (self.end_position.x - self.start_position.x) * t as f64,
+            y: self.start_position.y + (self.end_position.y - self.start_position.y) * t as f64,
+            z: self.start_position.z + (self.end_position.z - self.start_position.z) * t as f64,
+            rx: self.start_position.rx + (self.end_position.rx - self.start_position.rx) * t as f64,
+            ry: self.start_position.ry + (self.end_position.ry - self.start_position.ry) * t as f64,
+            rz: self.start_position.rz + (self.end_position.rz - self.start_position.rz) * t as f64,
         }
     }
 
@@ -154,8 +188,8 @@ impl Animation {
         };
 
         Position {
-            x: center.x + radius * angle.cos(),
-            y: center.y + radius * angle.sin(),
+            x: center.x + radius * angle.cos() as f64,
+            y: center.y + radius * angle.sin() as f64,
             z: center.z,
             rx: self.interpolate_linear(t).rx,
             ry: self.interpolate_linear(t).ry,
@@ -165,7 +199,7 @@ impl Animation {
 
     fn interpolate_spiral(&self, t: f32) -> Position {
         let angle = t * std::f32::consts::PI * 4.0;
-        let radius = self.config.radius * t;
+        let radius = self.config.radius * t as f64;
         let center = Position {
             x: (self.start_position.x + self.end_position.x) * 0.5,
             y: (self.start_position.y + self.end_position.y) * 0.5,
@@ -176,12 +210,87 @@ impl Animation {
         };
 
         Position {
-            x: center.x + radius * angle.cos(),
-            y: center.y + radius * angle.sin(),
+            x: center.x + radius * angle.cos() as f64,
+            y: center.y + radius * angle.sin() as f64,
             z: self.interpolate_linear(t).z,
             rx: self.interpolate_linear(t).rx,
             ry: self.interpolate_linear(t).ry,
             rz: self.interpolate_linear(t).rz,
+        }
+    }
+
+    pub fn get_position_at_time(&self, time: f64) -> Result<Position, AnimatorError> {
+        if self.keyframes.is_empty() {
+            return Ok(Position::default());
+        }
+
+        // Find the keyframes before and after the current time
+        let mut prev_frame = &self.keyframes[0];
+        let mut next_frame = prev_frame;
+
+        for frame in &self.keyframes {
+            if frame.time <= time {
+                prev_frame = frame;
+            } else {
+                next_frame = frame;
+                break;
+            }
+        }
+
+        // If we're at or past the last keyframe, return its position
+        if time >= prev_frame.time && prev_frame.time >= next_frame.time {
+            return Ok(prev_frame.position.clone());
+        }
+
+        // Calculate interpolation factor
+        let factor = (time - prev_frame.time) / (next_frame.time - prev_frame.time);
+
+        // Interpolate between positions based on the interpolation type
+        match prev_frame.interpolation.as_str() {
+            "linear" => Ok(Position {
+                x: prev_frame.position.x + (next_frame.position.x - prev_frame.position.x) * factor,
+                y: prev_frame.position.y + (next_frame.position.y - prev_frame.position.y) * factor,
+                z: prev_frame.position.z + (next_frame.position.z - prev_frame.position.z) * factor,
+                rx: prev_frame.position.rx + (next_frame.position.rx - prev_frame.position.rx) * factor,
+                ry: prev_frame.position.ry + (next_frame.position.ry - prev_frame.position.ry) * factor,
+                rz: prev_frame.position.rz + (next_frame.position.rz - prev_frame.position.rz) * factor,
+            }),
+            "step" => Ok(prev_frame.position.clone()),
+            _ => Err(AnimatorError::InvalidInterpolation(prev_frame.interpolation.clone())),
+        }
+    }
+}
+
+#[napi]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimelineState {
+    pub current_time: f64,
+    pub is_playing: bool,
+    pub loop_enabled: bool,
+}
+
+impl Default for TimelineState {
+    fn default() -> Self {
+        Self {
+            current_time: 0.0,
+            is_playing: false,
+            loop_enabled: false,
+        }
+    }
+}
+
+#[napi]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnimationState {
+    pub current_animation: Option<Animation>,
+    pub timeline: TimelineState,
+}
+
+impl Default for AnimationState {
+    fn default() -> Self {
+        Self {
+            current_animation: None,
+            timeline: TimelineState::default(),
         }
     }
 }
@@ -208,7 +317,9 @@ impl Animation {
     pub fn new(config: AnimationConfig, start: Position, end: Position) -> AnimatorResult<Self> {
         config.validate()?;
         Ok(Self {
-            config,
+            track_id: "".to_string(),
+            duration: config.duration.as_secs_f64(),
+            keyframes: vec![],
             start_position: start,
             end_position: end,
             start_time: None,
