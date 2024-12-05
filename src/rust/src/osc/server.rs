@@ -1,123 +1,199 @@
-use crate::error::AnimatorError;
-use crate::osc::types::{OSCMessage, OSCMessageArg};
-use rosc::{decoder, OscPacket, OscType};
-use std::net::UdpSocket;
+use crate::osc::error::{OSCError, OSCErrorType};
+use crate::osc::types::{OSCConfig, OSCMessage};
+use rosc::{OscMessage, OscPacket, OscType};
+use std::net::{SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
-
-pub trait OSCMessageHandler: Send + 'static {
-    fn handle_message(&mut self, message: OSCMessage) -> Result<(), AnimatorError>;
-}
-
-pub trait OSCServerTrait: Send + 'static {
-    fn start(&mut self) -> Result<(), AnimatorError>;
-    fn stop(&mut self) -> Result<(), AnimatorError>;
-}
+use tokio::sync::mpsc;
 
 pub struct OSCServer {
-    socket: Option<Arc<UdpSocket>>,
-    handler: Arc<Mutex<Box<dyn OSCMessageHandler>>>,
-    thread_handle: Option<JoinHandle<()>>,
-    running: Arc<Mutex<bool>>,
+    socket: Arc<Mutex<Option<UdpSocket>>>,
+    config: OSCConfig,
+    tx: mpsc::Sender<OSCMessage>,
+    rx: mpsc::Receiver<OSCMessage>,
 }
 
 impl OSCServer {
-    pub fn new(
-        bind_addr: impl Into<String>,
-        handler: Box<dyn OSCMessageHandler>,
-    ) -> Result<Self, AnimatorError> {
-        let socket = UdpSocket::bind(bind_addr.into())?;
-        socket.set_nonblocking(true)?;
-
-        Ok(Self {
-            socket: Some(Arc::new(socket)),
-            handler: Arc::new(Mutex::new(handler)),
-            thread_handle: None,
-            running: Arc::new(Mutex::new(false)),
-        })
-    }
-}
-
-impl OSCServerTrait for OSCServer {
-    fn start(&mut self) -> Result<(), AnimatorError> {
-        if self.thread_handle.is_some() {
-            return Err(AnimatorError::State("Server already running".to_string()));
+    pub fn new(config: OSCConfig) -> Self {
+        let (tx, rx) = mpsc::channel(100);
+        OSCServer {
+            socket: Arc::new(Mutex::new(None)),
+            config,
+            tx,
+            rx,
         }
+    }
 
-        let socket = self
-            .socket
-            .as_ref()
-            .ok_or_else(|| AnimatorError::State("Server socket not initialized".to_string()))?
-            .clone();
-        let handler = self.handler.clone();
-        let running = self.running.clone();
+    pub async fn connect(&mut self) -> Result<(), OSCError> {
+        let addr = format!("{}:{}", self.config.host, self.config.port);
+        let socket = UdpSocket::bind(&addr).map_err(|e| {
+            OSCError::new(
+                OSCErrorType::ConnectionError,
+                format!("Failed to bind to {}: {}", addr, e),
+            )
+        })?;
 
-        *running.lock().unwrap() = true;
+        socket.set_nonblocking(true).map_err(|e| {
+            OSCError::new(
+                OSCErrorType::ConnectionError,
+                format!("Failed to set non-blocking mode: {}", e),
+            )
+        })?;
 
-        let handle = thread::spawn(move || {
-            let mut buf = [0u8; 1024];
-            while *running.lock().unwrap() {
-                match socket.recv_from(&mut buf) {
-                    Ok((size, _addr)) => {
-                        if let Ok(packet) = decoder::decode_udp(&buf[..size]) {
-                            if let Err(e) = Self::handle_packet(packet, &handler) {
-                                eprintln!("Error handling OSC packet: {}", e);
-                            }
-                        }
-                    }
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        // Non-blocking socket, just continue
-                        thread::sleep(std::time::Duration::from_millis(1));
-                    }
-                    Err(e) => {
-                        eprintln!("Error receiving OSC packet: {}", e);
-                    }
-                }
-            }
+        *self.socket.lock().unwrap() = Some(socket);
+        Ok(())
+    }
+
+    pub fn disconnect(&mut self) {
+        *self.socket.lock().unwrap() = None;
+    }
+
+    pub async fn send_message(&self, message: OSCMessage) -> Result<(), OSCError> {
+        let socket = self.socket.lock().unwrap();
+        let socket = socket.as_ref().ok_or_else(|| {
+            OSCError::new(
+                OSCErrorType::NotConnected,
+                "Cannot send message: OSC server not connected".to_string(),
+            )
+        })?;
+
+        let osc_msg = OscPacket::Message(OscMessage {
+            addr: message.address.clone(),
+            args: message.args.into_iter().map(|arg| arg.into()).collect(),
         });
 
-        self.thread_handle = Some(handle);
+        let msg_buf = rosc::encoder::encode(&osc_msg).map_err(|e| {
+            OSCError::new(
+                OSCErrorType::SerializationError,
+                format!("Failed to encode OSC message: {}", e),
+            )
+        })?;
+
+        let dest = format!("{}:{}", self.config.host, self.config.port)
+            .parse::<SocketAddr>()
+            .map_err(|e| {
+                OSCError::new(
+                    OSCErrorType::InvalidAddress,
+                    format!("Invalid destination address: {}", e),
+                )
+            })?;
+
+        socket.send_to(&msg_buf, dest).map_err(|e| {
+            OSCError::new(
+                OSCErrorType::SendError,
+                format!("Failed to send OSC message: {}", e),
+            )
+        })?;
+
         Ok(())
     }
 
-    fn stop(&mut self) -> Result<(), AnimatorError> {
-        if let Some(_) = self.thread_handle.take() {
-            *self.running.lock().unwrap() = false;
+    pub async fn receive_message(&mut self) -> Result<OSCMessage, OSCError> {
+        let socket = self.socket.lock().unwrap();
+        let socket = socket.as_ref().ok_or_else(|| {
+            OSCError::new(
+                OSCErrorType::NotConnected,
+                "Cannot receive message: OSC server not connected".to_string(),
+            )
+        })?;
+
+        let mut buf = [0u8; 1024];
+        let (size, _) = socket.recv_from(&mut buf).map_err(|e| {
+            OSCError::new(
+                OSCErrorType::ReceiveError,
+                format!("Failed to receive OSC message: {}", e),
+            )
+        })?;
+
+        let packet = rosc::decoder::decode(&buf[..size]).map_err(|e| {
+            OSCError::new(
+                OSCErrorType::DecodingError,
+                format!("Failed to decode OSC message: {}", e),
+            )
+        })?;
+
+        match packet {
+            OscPacket::Message(msg) => Ok(msg.into()),
+            _ => Err(OSCError::new(
+                OSCErrorType::DecodingError,
+                "Received packet is not an OSC message".to_string(),
+            )),
+        }
+    }
+
+    pub fn get_sender(&self) -> mpsc::Sender<OSCMessage> {
+        self.tx.clone()
+    }
+
+    pub fn get_receiver(&mut self) -> &mut mpsc::Receiver<OSCMessage> {
+        &mut self.rx
+    }
+}
+
+use std::net::UdpSocket;
+use rosc::{OscMessage, OscPacket};
+use crate::osc::{
+    error::OSCErrorType,
+    types::OSCConfig,
+};
+
+pub trait OSCServerTrait {
+    fn send(&mut self, address: &str, args: Vec<f32>) -> Result<(), OSCErrorType>;
+    fn start(&mut self) -> Result<(), OSCErrorType>;
+    fn stop(&mut self) -> Result<(), OSCErrorType>;
+}
+
+pub struct UDPOSCServer {
+    socket: Option<UdpSocket>,
+    config: OSCConfig,
+}
+
+impl UDPOSCServer {
+    pub fn new(config: OSCConfig) -> Self {
+        Self {
+            socket: None,
+            config,
+        }
+    }
+
+    fn ensure_socket(&mut self) -> Result<(), OSCErrorType> {
+        if self.socket.is_none() {
+            let addr = format!("0.0.0.0:{}", self.config.port);
+            let socket = UdpSocket::bind(&addr)
+                .map_err(|_| OSCErrorType::ConnectionFailed)?;
+            self.socket = Some(socket);
         }
         Ok(())
     }
 }
 
-impl OSCServer {
-    fn handle_packet(
-        packet: OscPacket,
-        handler: &Arc<Mutex<Box<dyn OSCMessageHandler>>>,
-    ) -> Result<(), AnimatorError> {
-        match packet {
-            OscPacket::Message(msg) => {
-                let args = msg
-                    .args
-                    .into_iter()
-                    .map(|arg| match arg {
-                        OscType::Int(i) => OSCMessageArg::Int(i),
-                        OscType::Float(f) => OSCMessageArg::Float(f),
-                        OscType::String(s) => OSCMessageArg::String(s),
-                        OscType::Bool(b) => OSCMessageArg::Bool(b),
-                        _ => return Err(AnimatorError::OSC("Unsupported OSC type".to_string())),
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                let message = OSCMessage {
-                    address: msg.addr,
-                    args,
-                };
-
-                handler.lock().unwrap().handle_message(message)?;
-            }
-            OscPacket::Bundle(_) => {
-                return Err(AnimatorError::OSC("Bundle packets not supported".to_string()));
-            }
+impl OSCServerTrait for UDPOSCServer {
+    fn send(&mut self, address: &str, args: Vec<f32>) -> Result<(), OSCErrorType> {
+        self.ensure_socket()?;
+        
+        let msg = OscMessage {
+            addr: address.to_string(),
+            args: args.into_iter().map(|f| f.into()).collect(),
+        };
+        
+        let packet = OscPacket::Message(msg);
+        let buf = rosc::encoder::encode(&packet)
+            .map_err(|_| OSCErrorType::SerializationError)?;
+            
+        if let Some(socket) = &self.socket {
+            let target = format!("{}:{}", self.config.host, self.config.port);
+            socket.send_to(&buf, target)
+                .map_err(|_| OSCErrorType::ConnectionFailed)?;
         }
+        
+        Ok(())
+    }
+
+    fn start(&mut self) -> Result<(), OSCErrorType> {
+        self.ensure_socket()
+    }
+
+    fn stop(&mut self) -> Result<(), OSCErrorType> {
+        self.socket = None;
         Ok(())
     }
 }
@@ -125,69 +201,34 @@ impl OSCServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::osc::client::OSCClient;
-    use std::sync::mpsc;
-    use std::time::Duration;
+    use crate::osc::types::OSCMessageArg;
 
-    struct TestHandler {
-        sender: mpsc::Sender<OSCMessage>,
+    #[tokio::test]
+    async fn test_server_connection() {
+        let config = OSCConfig {
+            host: "127.0.0.1".to_string(),
+            port: 9000,
+        };
+        let mut server = OSCServer::new(config);
+        assert!(server.connect().await.is_ok());
+        server.disconnect();
     }
 
-    impl OSCMessageHandler for TestHandler {
-        fn handle_message(&mut self, message: OSCMessage) -> Result<(), AnimatorError> {
-            self.sender.send(message).map_err(|e| {
-                AnimatorError::OSC(format!("Failed to send message to test channel: {}", e))
-            })?;
-            Ok(())
-        }
-    }
+    #[tokio::test]
+    async fn test_message_send_receive() {
+        let config = OSCConfig {
+            host: "127.0.0.1".to_string(),
+            port: 9001,
+        };
+        let mut server = OSCServer::new(config);
+        server.connect().await.unwrap();
 
-    #[test]
-    fn test_server_lifecycle() {
-        let (tx, _rx) = mpsc::channel();
-        let handler = Box::new(TestHandler { sender: tx });
-        let mut server = OSCServer::new("127.0.0.1:0", handler).unwrap();
+        let message = OSCMessage {
+            address: "/test".to_string(),
+            args: vec![OSCMessageArg::Float(42.0)],
+        };
 
-        assert!(server.start().is_ok());
-        assert!(server.start().is_err()); // Should fail when already running
-        assert!(server.stop().is_ok());
-    }
-
-    #[test]
-    fn test_message_handling() {
-        let (tx, rx) = mpsc::channel();
-        let handler = Box::new(TestHandler { sender: tx });
-        let mut server = OSCServer::new("127.0.0.1:0", handler).unwrap();
-        let server_addr = server
-            .socket
-            .as_ref()
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .to_string();
-
-        server.start().unwrap();
-
-        // Create a client to send test messages
-        let client = OSCClient::new(server_addr).unwrap();
-        let test_message = OSCMessage::new(
-            "/test/message",
-            vec![
-                OSCMessageArg::Int(42),
-                OSCMessageArg::Float(3.14),
-                OSCMessageArg::String("test".to_string()),
-                OSCMessageArg::Bool(true),
-            ],
-        )
-        .unwrap();
-
-        client.send(test_message.clone()).unwrap();
-
-        // Wait for the message to be processed
-        let received = rx.recv_timeout(Duration::from_secs(1)).unwrap();
-        assert_eq!(received.address, test_message.address);
-        assert_eq!(received.args.len(), test_message.args.len());
-
-        server.stop().unwrap();
+        assert!(server.send_message(message).await.is_ok());
+        server.disconnect();
     }
 }

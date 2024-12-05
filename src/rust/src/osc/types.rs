@@ -1,24 +1,54 @@
 use napi::bindgen_prelude::*;
-use napi_derive::napi;
-use serde::{Serialize, Deserialize};
-use std::fmt;
-use thiserror::Error;
-use crate::error::AnimatorError;
+use serde::{Deserialize, Serialize};
+use rosc::{OscMessage, OscPacket, OscType};
+use crate::osc::error::{OSCError, OSCErrorType};
 
 #[napi]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OSCConfig {
+    #[napi]
     pub host: String,
+    #[napi]
     pub port: u16,
-    pub timeout_ms: u32,
 }
 
-impl Default for OSCConfig {
-    fn default() -> Self {
-        Self {
-            host: "127.0.0.1".to_string(),
-            port: 8000,
-            timeout_ms: 1000,
+impl OSCConfig {
+    pub fn new(host: impl Into<String>, port: u16) -> Self {
+        OSCConfig {
+            host: host.into(),
+            port,
+        }
+    }
+}
+
+#[napi]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum OSCMessageArgType {
+    Int(i32),
+    Float(f64),
+    String(String),
+    Bool(bool),
+}
+
+impl From<&OSCMessageArgType> for OscType {
+    fn from(arg: &OSCMessageArgType) -> Self {
+        match arg {
+            OSCMessageArgType::Int(i) => OscType::Int(*i),
+            OSCMessageArgType::Float(f) => OscType::Float(*f as f32),
+            OSCMessageArgType::String(s) => OscType::String(s.clone()),
+            OSCMessageArgType::Bool(b) => OscType::Bool(*b),
+        }
+    }
+}
+
+impl From<OscType> for OSCMessageArgType {
+    fn from(arg: OscType) -> Self {
+        match arg {
+            OscType::Int(i) => OSCMessageArgType::Int(i),
+            OscType::Float(f) => OSCMessageArgType::Float(f as f64),
+            OscType::String(s) => OSCMessageArgType::String(s),
+            OscType::Bool(b) => OSCMessageArgType::Bool(b),
+            _ => OSCMessageArgType::String("Unsupported type".to_string()),
         }
     }
 }
@@ -26,181 +56,83 @@ impl Default for OSCConfig {
 #[napi]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OSCMessage {
+    #[napi]
     pub address: String,
-    pub args: Vec<OSCMessageArg>,
+    #[napi]
+    pub args: Vec<OSCMessageArgType>,
 }
 
 #[napi]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum OSCMessageArg {
-    Int(i32),
-    Float(f32),
-    String(String),
-    Blob(Vec<u8>),
-}
-
 impl OSCMessage {
-    pub fn new(address: impl Into<String>, args: Vec<OSCMessageArg>) -> Result<Self, AnimatorError> {
-        let address = address.into();
+    #[napi]
+    pub fn new(address: String) -> Result<Self> {
         if !address.starts_with('/') {
-            return Err(AnimatorError::InvalidParameter(
-                "OSC address must start with '/'".to_string(),
-            ));
+            return Err(Error::from_reason("OSC address must start with '/'"));
         }
-        Ok(OSCMessage { address, args })
+        Ok(OSCMessage {
+            address,
+            args: Vec::new(),
+        })
     }
 
-    pub fn with_int(address: impl Into<String>, value: i32) -> Result<Self, AnimatorError> {
-        Self::new(address, vec![OSCMessageArg::Int(value)])
+    #[napi]
+    pub fn add_int(&mut self, value: i32) {
+        self.args.push(OSCMessageArgType::Int(value));
     }
 
-    pub fn with_float(address: impl Into<String>, value: f32) -> Result<Self, AnimatorError> {
-        Self::new(address, vec![OSCMessageArg::Float(value)])
+    #[napi]
+    pub fn add_float(&mut self, value: f64) {
+        self.args.push(OSCMessageArgType::Float(value));
     }
 
-    pub fn with_string(address: impl Into<String>, value: impl Into<String>) -> Result<Self, AnimatorError> {
-        Self::new(address, vec![OSCMessageArg::String(value.into())])
+    #[napi]
+    pub fn add_string(&mut self, value: String) {
+        self.args.push(OSCMessageArgType::String(value));
     }
 
-    pub fn with_bool(address: impl Into<String>, value: bool) -> Result<Self, AnimatorError> {
-        Self::new(address, vec![OSCMessageArg::String(if value { "true".to_string() } else { "false".to_string() })])
+    #[napi]
+    pub fn add_bool(&mut self, value: bool) {
+        self.args.push(OSCMessageArgType::Bool(value));
     }
-}
 
-#[derive(Debug, thiserror::Error)]
-pub enum OSCError {
-    #[error("Connection error: {0}")]
-    ConnectionError(String),
-    #[error("Send error: {0}")]
-    SendError(String),
-    #[error("Receive error: {0}")]
-    ReceiveError(String),
-    #[error("Timeout error")]
-    TimeoutError,
-    #[error("Invalid message: {0}")]
-    InvalidMessage(String),
-}
-
-impl fmt::Display for OSCError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            OSCError::ConnectionError(msg) => write!(f, "Connection error: {}", msg),
-            OSCError::SendError(msg) => write!(f, "Send error: {}", msg),
-            OSCError::ReceiveError(msg) => write!(f, "Receive error: {}", msg),
-            OSCError::TimeoutError => write!(f, "Timeout error"),
-            OSCError::InvalidMessage(msg) => write!(f, "Invalid message: {}", msg),
-        }
+    pub fn to_osc_packet(&self) -> OscPacket {
+        OscPacket::Message(OscMessage {
+            addr: self.address.clone(),
+            args: self.args.iter().map(|arg| OscType::from(arg)).collect(),
+        })
     }
-}
 
-impl From<OSCError> for Error {
-    fn from(error: OSCError) -> Self {
-        Error::from_reason(error.to_string())
-    }
-}
-
-#[napi]
-pub struct TrackParameters {
-    pub cartesian: Option<CartesianCoordinates>,
-    pub polar: Option<PolarCoordinates>,
-    pub color: Option<Color>,
-}
-
-impl TrackParameters {
-    pub fn new() -> Self {
-        Self {
-            cartesian: None,
-            polar: None,
-            color: None,
+    pub fn from_osc_packet(packet: OscPacket) -> Result<Self> {
+        match packet {
+            OscPacket::Message(msg) => {
+                Ok(OSCMessage {
+                    address: msg.addr,
+                    args: msg.args.into_iter().map(OSCMessageArgType::from).collect(),
+                })
+            }
+            _ => Err(Error::from_reason("Not an OSC message")),
         }
     }
 
-    pub fn with_cartesian(mut self, coords: CartesianCoordinates) -> Self {
-        self.cartesian = Some(coords);
-        self
+    #[napi]
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
+        let packet = self.to_osc_packet();
+        rosc::encoder::encode(&packet)
+            .map_err(|e| Error::from_reason(format!("Failed to encode message: {}", e)))
     }
 
-    pub fn with_polar(mut self, coords: PolarCoordinates) -> Self {
-        self.polar = Some(coords);
-        self
-    }
-
-    pub fn with_color(mut self, color: Color) -> Self {
-        self.color = Some(color);
-        self
-    }
-}
-
-#[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CartesianCoordinates {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-}
-
-impl ObjectFinalize for CartesianCoordinates {}
-
-#[napi]
-impl CartesianCoordinates {
-    #[napi(constructor)]
-    pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self { x, y, z }
-    }
-}
-
-#[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PolarCoordinates {
-    pub azim: f64,
-    pub elev: f64,
-    pub dist: f64,
-}
-
-impl ObjectFinalize for PolarCoordinates {}
-
-#[napi]
-impl PolarCoordinates {
-    #[napi(constructor)]
-    pub fn new(azim: f64, elev: f64, dist: f64) -> Self {
-        Self { azim, elev, dist }
-    }
-
-    pub fn to_cartesian(&self) -> CartesianCoordinates {
-        let x = self.dist * self.azim.cos() * self.elev.cos();
-        let y = self.dist * self.azim.sin() * self.elev.cos();
-        let z = self.dist * self.elev.sin();
-        CartesianCoordinates { x, y, z }
-    }
-}
-
-#[napi(object)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Color {
-    pub r: f64,
-    pub g: f64,
-    pub b: f64,
-    pub a: f64,
-}
-
-impl Default for Color {
-    fn default() -> Self {
-        Self {
-            r: 1.0,
-            g: 1.0,
-            b: 1.0,
-            a: 1.0,
+    #[napi]
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        match rosc::decoder::decode_udp(bytes) {
+            Ok((_, OscPacket::Message(msg))) => {
+                Ok(OSCMessage {
+                    address: msg.addr,
+                    args: msg.args.into_iter().map(OSCMessageArgType::from).collect(),
+                })
+            }
+            Ok(_) => Err(Error::from_reason("Not an OSC message")),
+            Err(e) => Err(Error::from_reason(e.to_string())),
         }
-    }
-}
-
-impl ObjectFinalize for Color {}
-
-#[napi]
-impl Color {
-    #[napi(constructor)]
-    pub fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
-        Self { r, g, b, a }
     }
 }
 
@@ -209,44 +141,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_osc_message_creation() {
-        let msg = OSCMessage::new(
-            "/test/address",
-            vec![
-                OSCMessageArg::Int(42),
-                OSCMessageArg::Float(3.14),
-                OSCMessageArg::String("test".to_string()),
-                OSCMessageArg::Blob(vec![1, 2, 3]),
-            ],
-        )
-        .unwrap();
-
-        assert_eq!(msg.address, "/test/address");
-        assert_eq!(msg.args.len(), 4);
+    fn test_message_creation() {
+        let result = OSCMessage::new("/test".to_string());
+        assert!(result.is_ok());
+        
+        let result = OSCMessage::new("invalid".to_string());
+        assert!(result.is_err());
     }
 
     #[test]
-    fn test_invalid_address() {
-        let result = OSCMessage::new("invalid_address", vec![]);
-        assert!(result.is_err());
-        match result {
-            Err(AnimatorError::InvalidParameter(msg)) => {
-                assert!(msg.contains("must start with '/'"))
-            }
-            _ => panic!("Expected InvalidParameter error"),
+    fn test_message_args() {
+        let mut msg = OSCMessage::new("/test".to_string()).unwrap();
+        msg.add_int(42);
+        msg.add_float(3.14);
+        msg.add_string("hello".to_string());
+        msg.add_bool(true);
+
+        assert_eq!(msg.args.len(), 4);
+        match &msg.args[0] {
+            OSCMessageArgType::Int(i) => assert_eq!(*i, 42),
+            _ => panic!("Expected Int"),
         }
     }
 
     #[test]
-    fn test_convenience_constructors() {
-        let int_msg = OSCMessage::with_int("/test", 42).unwrap();
-        let float_msg = OSCMessage::with_float("/test", 3.14).unwrap();
-        let string_msg = OSCMessage::with_string("/test", "hello").unwrap();
-        let bool_msg = OSCMessage::with_bool("/test", true).unwrap();
-
-        assert_eq!(int_msg.args.len(), 1);
-        assert_eq!(float_msg.args.len(), 1);
-        assert_eq!(string_msg.args.len(), 1);
-        assert_eq!(bool_msg.args.len(), 1);
+    fn test_message_conversion() {
+        let mut msg = OSCMessage::new("/test".to_string()).unwrap();
+        msg.add_int(42);
+        
+        let bytes = msg.to_bytes().unwrap();
+        let decoded = OSCMessage::from_bytes(&bytes).unwrap();
+        
+        assert_eq!(decoded.address, "/test");
+        match &decoded.args[0] {
+            OSCMessageArgType::Int(i) => assert_eq!(*i, 42),
+            _ => panic!("Expected Int"),
+        }
     }
 }
