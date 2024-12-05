@@ -28,15 +28,18 @@ class MockOSCHandler extends OSCHandler {
   }
 
   private setupMockStates() {
-    // Set up some initial mock states
+    // Initialize with some default states
     this.trackStates.set(1, {
-      lastUpdate: new Date(),
       cartesian: { x: 0, y: 0, z: 0 },
-      polar: { azim: 0, elev: 0, dist: 1 },
-      gain: 0,
-      mute: false,
-      name: 'Track 1',
-      color: { r: 1, g: 0, b: 0, a: 1 }
+      polar: { distance: 0, azimuth: 0, elevation: 0 }
+    });
+    this.trackStates.set(2, {
+      cartesian: { x: 0.5, y: 0.5, z: 0 },
+      polar: { distance: 0.7, azimuth: 45, elevation: 0 }
+    });
+    this.trackStates.set(3, {
+      cartesian: { x: -0.5, y: -0.5, z: 0 },
+      polar: { distance: 0.7, azimuth: -135, elevation: 0 }
     });
   }
 
