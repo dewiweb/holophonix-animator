@@ -102,6 +102,13 @@ describe('Holophonix Animator POC', () => {
     });
 
     it('should send position updates via OSC', async () => {
+      await oscManager.connect(
+        TEST_CONFIG.osc.host,
+        TEST_CONFIG.osc.port,
+        TEST_CONFIG.osc.sendPort,
+        TEST_CONFIG.osc.receivePort
+      );
+      
       await oscManager.send_position(TEST_CONFIG.track.id, positions.front);
       
       expect(oscManager.send_position).toHaveBeenCalledWith(

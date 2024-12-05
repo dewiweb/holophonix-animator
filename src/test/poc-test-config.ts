@@ -52,27 +52,68 @@ export const TEST_CONFIG: TestConfig = {
 
 export const mockStateManager = {
   add_track: jest.fn().mockResolvedValue(true),
-  get_track: jest.fn().mockResolvedValue(TEST_CONFIG.track),
+  get_track: jest.fn().mockImplementation((id) => 
+    id === TEST_CONFIG.track.id 
+      ? Promise.resolve(TEST_CONFIG.track)
+      : Promise.reject(undefined)
+  ),
   update_track_position: jest.fn().mockResolvedValue(true),
   remove_track: jest.fn().mockResolvedValue(true),
 };
 
 export const mockAnimationEngine = {
-  play: jest.fn().mockResolvedValue(true),
-  pause: jest.fn().mockResolvedValue(true),
-  stop: jest.fn().mockResolvedValue(true),
-  is_playing: jest.fn().mockResolvedValue(false),
-  get_current_time: jest.fn().mockResolvedValue(0),
+  play: jest.fn().mockImplementation(() => {
+    mockAnimationEngine.isPlaying = true;
+    return Promise.resolve(true);
+  }),
+  pause: jest.fn().mockImplementation(() => {
+    mockAnimationEngine.isPlaying = false;
+    return Promise.resolve(true);
+  }),
+  stop: jest.fn().mockImplementation(() => {
+    mockAnimationEngine.isPlaying = false;
+    mockAnimationEngine.currentTime = 0;
+    return Promise.resolve(true);
+  }),
+  is_playing: jest.fn().mockImplementation(() => 
+    Promise.resolve(mockAnimationEngine.isPlaying)
+  ),
+  get_current_time: jest.fn().mockImplementation(() =>
+    Promise.resolve(mockAnimationEngine.currentTime)
+  ),
   set_keyframes: jest.fn().mockResolvedValue(true),
   get_keyframes: jest.fn().mockResolvedValue(TEST_CONFIG.animation.keyframes),
-  get_position_at_time: jest.fn().mockResolvedValue(TEST_CONFIG.track.position),
+  get_position_at_time: jest.fn().mockImplementation((time) => 
+    time >= 0 && time <= TEST_CONFIG.animation.duration
+      ? Promise.resolve({
+          x: time / TEST_CONFIG.animation.duration,
+          y: time / TEST_CONFIG.animation.duration,
+          z: 0
+        })
+      : Promise.reject(undefined)
+  ),
+  isPlaying: false,
+  currentTime: 0,
 };
 
 export const mockOscManager = {
-  connect: jest.fn().mockResolvedValue(true),
-  disconnect: jest.fn().mockResolvedValue(true),
-  send_position: jest.fn().mockResolvedValue(true),
-  create_position_message: jest.fn().mockResolvedValue(new Uint8Array()),
+  connect: jest.fn().mockImplementation(() => {
+    mockOscManager.isConnected = true;
+    return Promise.resolve(true);
+  }),
+  disconnect: jest.fn().mockImplementation(() => {
+    mockOscManager.isConnected = false;
+    return Promise.resolve(true);
+  }),
+  send_position: jest.fn().mockImplementation((trackId, position) => 
+    mockOscManager.isConnected 
+      ? Promise.resolve(true)
+      : Promise.reject(undefined)
+  ),
+  create_position_message: jest.fn().mockImplementation((trackId, position) =>
+    Promise.resolve(new Uint8Array([1, 2, 3, 4]))
+  ),
+  isConnected: false,
 };
 
 export const positions = {

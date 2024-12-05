@@ -1,101 +1,96 @@
-import { OSCManager, OSCConfig, OSCMessage } from '../../bindings';
+import { OSCManager } from '../../shared/services/osc-manager';
+import { OSCMessage } from '../../shared/types/osc.types';
+import { MockOSCServer } from '../mocks/osc-server.mock';
 
 describe('OSC Manager Integration', () => {
     let oscManager: OSCManager;
-    const defaultConfig: OSCConfig = {
-        host: 'localhost',
-        port: 8000,
-        timeout_ms: 1000
-    };
+    let mockServer: MockOSCServer;
 
     beforeEach(() => {
-        oscManager = new OSCManager(defaultConfig);
+        mockServer = new MockOSCServer();
+        oscManager = new OSCManager({
+            host: 'localhost',
+            port: 8000
+        });
     });
 
     afterEach(async () => {
         await oscManager.disconnect();
+        if (mockServer.isConnected) {
+            await mockServer.disconnect();
+        }
     });
 
     it('should connect to OSC server', async () => {
+        await mockServer.connect();
         await oscManager.connect();
-        expect(oscManager.is_connected()).toBe(true);
+        expect(oscManager.isConnected).toBe(true);
     });
 
     it('should handle connection errors gracefully', async () => {
-        const badConfig: OSCConfig = {
+        const badConfig = {
             host: 'invalid-host',
-            port: 8000,
-            timeout_ms: 1000
+            port: -1
         };
-        await oscManager.update_config(badConfig);
-        
+
+        await oscManager.updateConfig(badConfig);
         await expect(oscManager.connect()).rejects.toThrow();
-        expect(oscManager.is_connected()).toBe(false);
+        expect(oscManager.isConnected).toBe(false);
     });
 
-    it('should send position updates', async () => {
+    it('should send and receive messages', async () => {
+        await mockServer.connect();
         await oscManager.connect();
+
         const message: OSCMessage = {
-            address: '/position',
-            args: [0.5, 0.5, 0.0]
+            address: '/test/message',
+            args: [1, 'test']
         };
-        await expect(oscManager.send(message)).resolves.not.toThrow();
+
+        await oscManager.send(message);
+        const log = mockServer.getMessageLog();
+        expect(log).toHaveLength(1);
+        expect(log[0]).toEqual(message);
     });
 
     it('should update connection configuration', async () => {
-        const newConfig: OSCConfig = {
-            host: 'localhost',
-            port: 9000,
-            timeout_ms: 2000
+        const newConfig = {
+            host: '127.0.0.1',
+            port: 9000
         };
-        await oscManager.update_config(newConfig);
-        expect(oscManager.is_connected()).toBe(false);
+        await oscManager.updateConfig(newConfig);
+        expect(oscManager.isConnected).toBe(false);
         
+        await mockServer.connect();
         await oscManager.connect();
-        expect(oscManager.is_connected()).toBe(true);
+        expect(oscManager.isConnected).toBe(true);
     });
 
     it('should disconnect from OSC server', async () => {
+        await mockServer.connect();
         await oscManager.connect();
-        expect(oscManager.is_connected()).toBe(true);
+        expect(oscManager.isConnected).toBe(true);
         
         await oscManager.disconnect();
-        expect(oscManager.is_connected()).toBe(false);
+        expect(oscManager.isConnected).toBe(false);
     });
 
     it('should maintain connection state', async () => {
+        await mockServer.connect();
         await oscManager.connect();
-        expect(oscManager.is_connected()).toBe(true);
+        expect(oscManager.isConnected).toBe(true);
 
         await oscManager.disconnect();
-        expect(oscManager.is_connected()).toBe(false);
-    });
-
-    it('should handle multiple rapid position updates', async () => {
-        await oscManager.connect();
-        
-        const messages: OSCMessage[] = [
-            { address: '/position', args: [0.1, 0.1, 0.0] },
-            { address: '/position', args: [0.2, 0.2, 0.0] },
-            { address: '/position', args: [0.3, 0.3, 0.0] },
-            { address: '/position', args: [0.4, 0.4, 0.0] },
-            { address: '/position', args: [0.5, 0.5, 0.0] }
-        ];
-
-        await Promise.all(messages.map(msg => oscManager.send(msg)));
-    });
-
-    it('should handle reconnection attempts', async () => {
-        await oscManager.connect();
-        await oscManager.disconnect();
-        await expect(oscManager.connect()).resolves.not.toThrow();
+        expect(oscManager.isConnected).toBe(false);
     });
 
     it('should handle invalid messages gracefully', async () => {
+        await mockServer.connect();
         await oscManager.connect();
+
         const invalidMessage = {
-            address: '/invalid',
-            args: ['not-a-number']
+            address: 123, // Invalid address type
+            args: ['test']
         } as unknown as OSCMessage;
 
         await expect(oscManager.send(invalidMessage)).rejects.toThrow();

@@ -1,35 +1,27 @@
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
-import MainWindow from '../../react/components/MainWindow';
-import { rootReducer } from '../../react/store/reducers';
+import { MainWindow } from '../../react/components/MainWindow';
+import { trackStateReducer } from '../../react/store/trackStateSlice';
+import { oscConfigReducer } from '../../react/store/oscConfigSlice';
+import { uiReducer } from '../../react/store/uiSlice';
 import { AnimationEngine, OSCManager } from '../../bindings';
 
 // Mock the native modules
 jest.mock('../../bindings');
 
 describe('Core Integration', () => {
-    let store: any;
+    let store;
     let mockAnimationEngine: jest.Mocked<AnimationEngine>;
     let mockOSCManager: jest.Mocked<OSCManager>;
 
     beforeEach(() => {
         store = configureStore({
-            reducer: rootReducer,
-            preloadedState: {
-                animation: {
-                    currentPosition: { x: 0, y: 0, z: 0 },
-                    isPlaying: false,
-                    currentTime: 0
-                },
-                connection: {
-                    status: 'Disconnected',
-                    config: {
-                        host: 'localhost',
-                        port: 8000
-                    }
-                }
+            reducer: {
+                trackState: trackStateReducer,
+                oscConfig: oscConfigReducer,
+                ui: uiReducer
             }
         });
 
@@ -38,95 +30,95 @@ describe('Core Integration', () => {
     });
 
     it('connects to OSC server successfully', async () => {
-        render(
+        const { getByTestId } = render(
             <Provider store={store}>
                 <MainWindow />
             </Provider>
         );
 
-        const connectButton = screen.getByTestId('connect-button');
+        const connectButton = getByTestId('connect-button');
         await act(async () => {
             fireEvent.click(connectButton);
         });
 
         expect(OSCManager.prototype.connect).toHaveBeenCalledWith('localhost', 8000);
-        expect(store.getState().connection.status).toBe('Connected');
+        expect(store.getState().oscConfig.status).toBe('Connected');
     });
 
     it('updates position through track controls', async () => {
-        render(
+        const { getByTestId } = render(
             <Provider store={store}>
                 <MainWindow />
             </Provider>
         );
 
-        const xSlider = screen.getByTestId('x-slider');
+        const xSlider = getByTestId('x-slider');
         await act(async () => {
             fireEvent.change(xSlider, { target: { value: '0.5' } });
         });
 
         expect(AnimationEngine.prototype.update).toHaveBeenCalled();
-        expect(store.getState().animation.currentPosition.x).toBeCloseTo(0.5);
+        expect(store.getState().trackState.currentPosition.x).toBeCloseTo(0.5);
     });
 
     it('plays animation correctly', async () => {
-        render(
+        const { getByTestId } = render(
             <Provider store={store}>
                 <MainWindow />
             </Provider>
         );
 
-        const playButton = screen.getByTestId('play-button');
+        const playButton = getByTestId('play-button');
         await act(async () => {
             fireEvent.click(playButton);
         });
 
         expect(AnimationEngine.prototype.play).toHaveBeenCalled();
-        expect(store.getState().animation.isPlaying).toBe(true);
+        expect(store.getState().trackState.isPlaying).toBe(true);
     });
 
     it('adds and manages keyframes', async () => {
-        render(
+        const { getByTestId } = render(
             <Provider store={store}>
                 <MainWindow />
             </Provider>
         );
 
         // Set position
-        const xSlider = screen.getByTestId('x-slider');
+        const xSlider = getByTestId('x-slider');
         await act(async () => {
             fireEvent.change(xSlider, { target: { value: '0.5' } });
         });
 
         // Add keyframe
-        const addKeyframeButton = screen.getByTestId('add-keyframe-button');
+        const addKeyframeButton = getByTestId('add-keyframe-button');
         await act(async () => {
             fireEvent.click(addKeyframeButton);
         });
 
         expect(AnimationEngine.prototype.update).toHaveBeenCalled();
         const state = store.getState();
-        expect(state.animation.keyframes).toHaveLength(1);
-        expect(state.animation.keyframes[0].position.x).toBeCloseTo(0.5);
+        expect(state.trackState.keyframes).toHaveLength(1);
+        expect(state.trackState.keyframes[0].position.x).toBeCloseTo(0.5);
     });
 
     it('handles connection errors gracefully', async () => {
         // Mock connection error
         (OSCManager.prototype.connect as jest.Mock).mockRejectedValueOnce(new Error('Connection failed'));
 
-        render(
+        const { getByTestId } = render(
             <Provider store={store}>
                 <MainWindow />
             </Provider>
         );
 
-        const connectButton = screen.getByTestId('connect-button');
+        const connectButton = getByTestId('connect-button');
         await act(async () => {
             fireEvent.click(connectButton);
         });
 
-        expect(store.getState().connection.status).toBe('Error');
-        expect(screen.getByTestId('error-notification')).toBeInTheDocument();
+        expect(store.getState().oscConfig.status).toBe('Error');
+        expect(getByTestId('error-notification')).toBeInTheDocument();
     });
 
     it('persists and loads animation state', async () => {
@@ -142,7 +134,7 @@ describe('Core Integration', () => {
 
         (AnimationEngine.prototype.get_state as jest.Mock).mockResolvedValueOnce(mockState);
 
-        render(
+        const { getByTestId } = render(
             <Provider store={store}>
                 <MainWindow />
             </Provider>
@@ -150,12 +142,12 @@ describe('Core Integration', () => {
 
         await act(async () => {
             // Trigger state load (this would typically happen on component mount)
-            store.dispatch({ type: 'animation/loadState' });
+            store.dispatch({ type: 'trackState/loadState' });
         });
 
         const state = store.getState();
-        expect(state.animation.currentPosition).toEqual(mockState.currentPosition);
-        expect(state.animation.currentTime).toBe(mockState.currentTime);
-        expect(state.animation.keyframes).toEqual(mockState.keyframes);
+        expect(state.trackState.currentPosition).toEqual(mockState.currentPosition);
+        expect(state.trackState.currentTime).toBe(mockState.currentTime);
+        expect(state.trackState.keyframes).toEqual(mockState.keyframes);
     });
 });

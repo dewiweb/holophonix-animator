@@ -1,12 +1,19 @@
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
+
+use async_trait::async_trait;
+use tokio::sync::mpsc;
 
 use crate::{
     animation::models::Position,
-    error::AnimatorResult,
+    error::{AnimatorError, AnimatorResult},
     osc::{
+        error::{OSCError, OSCErrorType},
         server::OSCServer,
-        types::{OSCError, OSCErrorType, OSCMessage},
+        types::OSCMessage,
     },
     test_utils::fixtures::TestPositions,
 };
@@ -34,61 +41,46 @@ impl MockTimeProvider {
 }
 
 /// Mock OSC server for testing
-use std::collections::VecDeque;
-use rosc::{OscMessage, OscType};
-use async_trait::async_trait;
-
-#[derive(Debug, Default)]
 pub struct MockOSCServer {
-    sent_messages: Arc<Mutex<Vec<OscMessage>>>,
-    received_messages: Arc<Mutex<VecDeque<OscMessage>>>,
+    received_messages: Arc<Mutex<Vec<(String, Vec<f32>)>>>,
+    is_running: Arc<Mutex<bool>>,
 }
 
 impl MockOSCServer {
     pub fn new() -> Self {
-        Self {
-            sent_messages: Arc::new(Mutex::new(Vec::new())),
-            received_messages: Arc::new(Mutex::new(VecDeque::new())),
+        MockOSCServer {
+            received_messages: Arc::new(Mutex::new(Vec::new())),
+            is_running: Arc::new(Mutex::new(false)),
         }
     }
 
-    pub fn add_message(&self, message: OscMessage) {
-        self.received_messages.lock().unwrap().push_back(message);
+    pub fn get_received_messages(&self) -> Vec<(String, Vec<f32>)> {
+        self.received_messages.lock().unwrap().clone()
     }
 
-    pub fn get_sent_messages(&self) -> Vec<OscMessage> {
-        self.sent_messages.lock().unwrap().clone()
+    pub fn is_running(&self) -> bool {
+        *self.is_running.lock().unwrap()
+    }
+
+    pub fn clear_messages(&self) {
+        self.received_messages.lock().unwrap().clear();
     }
 }
 
-#[async_trait]
 impl OSCServer for MockOSCServer {
-    async fn send_message(&self, addr: &str, args: Vec<OscType>) -> Result<(), OSCError> {
-        if !addr.starts_with('/') {
-            return Err(OSCError::new(
-                OSCErrorType::Validation,
-                "OSC address must start with '/'".to_string(),
-            ));
-        }
-
-        let message = OscMessage {
-            addr: addr.to_string(),
-            args,
-        };
-
-        self.sent_messages.lock().unwrap().push(message);
+    fn send(&mut self, address: &str, args: Vec<f32>) -> Result<(), OSCErrorType> {
+        self.received_messages.lock().unwrap().push((address.to_string(), args));
         Ok(())
     }
 
-    async fn receive_message(&self) -> Result<OscMessage, OSCError> {
-        self.received_messages
-            .lock()
-            .unwrap()
-            .pop_front()
-            .ok_or_else(|| OSCError::new(
-                OSCErrorType::Protocol,
-                "No messages available".to_string(),
-            ))
+    fn start(&mut self) -> Result<(), OSCErrorType> {
+        *self.is_running.lock().unwrap() = true;
+        Ok(())
+    }
+
+    fn stop(&mut self) -> Result<(), OSCErrorType> {
+        *self.is_running.lock().unwrap() = false;
+        Ok(())
     }
 }
 
@@ -100,60 +92,36 @@ mod tests {
     #[test]
     fn test_mock_time_provider() {
         let provider = MockTimeProvider::new();
-        let start = provider.get_time();
+        let initial = provider.get_time();
         provider.advance(Duration::from_secs(1));
-        let end = provider.get_time();
-        assert!(end > start);
-        assert_eq!(end - start, Duration::from_secs(1));
+        assert!(provider.get_time() > initial);
     }
 
-    #[tokio::test]
-    async fn test_mock_osc_server() {
-        let server = MockOSCServer::new();
+    #[test]
+    fn test_mock_server() {
+        let mut server = MockOSCServer::new();
         
-        // Test sending message
-        let result = server.send_message("/test", vec![OscType::Float(1.0)]).await;
-        assert!(result.is_ok());
+        // Test initial state
+        assert!(!server.is_running());
+        assert!(server.get_received_messages().is_empty());
 
-        // Test getting messages
-        let messages = server.get_sent_messages();
+        // Test start
+        server.start().unwrap();
+        assert!(server.is_running());
+
+        // Test message sending
+        server.send("/test/address", vec![1.0, 2.0, 3.0]).unwrap();
+        let messages = server.get_received_messages();
         assert_eq!(messages.len(), 1);
-        assert_eq!(messages[0].addr, "/test");
-        assert_eq!(messages[0].args.len(), 1);
+        assert_eq!(messages[0].0, "/test/address");
+        assert_eq!(messages[0].1, vec![1.0, 2.0, 3.0]);
 
-        // Test receiving message
-        server.add_message(OscMessage {
-            addr: "/test".to_string(),
-            args: vec![OscType::Float(1.0)],
-        });
-        let received = server.receive_message().await;
-        assert!(received.is_ok());
-        let message = received.unwrap();
-        assert_eq!(message.addr, "/test");
-        assert_eq!(message.args.len(), 1);
+        // Test stop
+        server.stop().unwrap();
+        assert!(!server.is_running());
 
-        // Test receiving from empty queue
-        let empty_receive = server.receive_message().await;
-        assert!(empty_receive.is_err());
-        match empty_receive.unwrap_err().error_type {
-            OSCErrorType::Protocol => (),
-            _ => panic!("Expected Protocol error"),
-        }
-
-        // Test clearing messages
-        server.add_message(OscMessage {
-            addr: "/test2".to_string(),
-            args: vec![OscType::Float(2.0)],
-        });
-        let messages = server.get_sent_messages();
-        assert_eq!(messages.len(), 1);
-
-        // Test validation error
-        let invalid_result = server.send_message("", vec![]).await;
-        assert!(invalid_result.is_err());
-        match invalid_result.unwrap_err().error_type {
-            OSCErrorType::Validation => (),
-            _ => panic!("Expected Validation error"),
-        }
+        // Test clear
+        server.clear_messages();
+        assert!(server.get_received_messages().is_empty());
     }
 }

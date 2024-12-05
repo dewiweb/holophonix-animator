@@ -46,7 +46,7 @@ describe('MainWindow', () => {
       }
     });
 
-    const trackControl = screen.getByTestId('track-control');
+    const trackControl = screen.getByTestId('track-control-active');
     expect(trackControl).toBeInTheDocument();
     expect(trackControl.querySelector('h4')).toHaveTextContent('Track test-track');
   });

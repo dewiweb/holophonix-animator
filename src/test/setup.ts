@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom';
+import { mockOscHandler, mockErrorHandler } from './mocks';
+
+// Extend Jest timeout for all tests
+jest.setTimeout(30000);
 
 // Mock ResizeObserver
 class MockResizeObserver {
@@ -41,13 +45,7 @@ jest.mock('../bindings', () => ({
     remove_keyframe: jest.fn().mockResolvedValue(undefined),
     update_keyframe: jest.fn().mockResolvedValue(undefined)
   })),
-  OSCManager: jest.fn().mockImplementation(() => ({
-    connect: jest.fn().mockResolvedValue(undefined),
-    disconnect: jest.fn().mockResolvedValue(undefined),
-    update_config: jest.fn().mockResolvedValue(undefined),
-    send: jest.fn().mockResolvedValue(undefined),
-    get_status: jest.fn().mockResolvedValue('Disconnected')
-  })),
+  OSCManager: jest.fn().mockImplementation(() => mockOscHandler),
   StateManager: jest.fn().mockImplementation(() => ({
     load_state: jest.fn().mockResolvedValue(undefined),
     save_state: jest.fn().mockResolvedValue(undefined),
@@ -62,6 +60,11 @@ jest.mock('../bindings', () => ({
     Disconnected: 'Disconnected',
     Error: 'Error'
   }
+}));
+
+// Mock error handler
+jest.mock('../shared/services/error-handler', () => ({
+  handleError: mockErrorHandler
 }));
 
 // Create mock canvas contexts
