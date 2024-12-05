@@ -1,184 +1,200 @@
-use crate::error::Result;
-use crate::Position;
-use napi::bindgen_prelude::*;
-use napi_derive::napi;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::collections::HashMap;
+use std::time::Duration;
 
-use super::error::AnimatorError;
-use super::models::{Animation, AnimationState, TimelineState};
-use crate::osc::manager::OSCManager;
-use crate::osc::types::OSCMessage;
+use crate::error::{AnimatorError, AnimatorResult};
+use crate::animation::{
+    models::{Animation, AnimationState, Position},
+    AnimationGroup,
+};
 
-#[napi]
+#[derive(Debug, Default)]
 pub struct AnimationEngine {
-    state: Arc<Mutex<AnimationState>>,
-    osc_manager: Arc<Mutex<OSCManager>>,
-    last_update: Arc<Mutex<Instant>>,
-    config: AnimationConfig,
-    current_position: Arc<Mutex<Position>>,
+    animations: HashMap<String, Animation>,
+    groups: HashMap<String, AnimationGroup>,
 }
 
-#[napi]
 impl AnimationEngine {
-    #[napi(constructor)]
-    pub fn new(osc_manager: OSCManager, config: AnimationConfig) -> Self {
+    pub fn new() -> Self {
         Self {
-            state: Arc::new(Mutex::new(AnimationState::default())),
-            osc_manager: Arc::new(Mutex::new(osc_manager)),
-            last_update: Arc::new(Mutex::new(Instant::now())),
-            config,
-            current_position: Arc::new(Mutex::new(Position::default())),
+            animations: HashMap::new(),
+            groups: HashMap::new(),
         }
     }
 
-    #[napi]
-    pub fn load_animation(&self, animation: Animation) -> Result<(), AnimatorError> {
-        let mut state = self.state.lock().unwrap();
-        state.current_animation = Some(animation);
-        state.timeline = TimelineState::default();
-        Ok(())
-    }
-
-    #[napi]
-    pub fn play(&self) -> Result<(), AnimatorError> {
-        let mut state = self.state.lock().unwrap();
-        if state.current_animation.is_none() {
-            return Err(AnimatorError::NoAnimationLoaded);
+    pub fn add_animation(&mut self, id: String, animation: Animation) -> AnimatorResult<()> {
+        if self.animations.contains_key(&id) {
+            return Err(AnimatorError::DuplicateAnimation(id));
         }
-        state.timeline.is_playing = true;
-        *self.last_update.lock().unwrap() = Instant::now();
+        self.animations.insert(id, animation);
         Ok(())
     }
 
-    #[napi]
-    pub fn pause(&self) -> Result<(), AnimatorError> {
-        let mut state = self.state.lock().unwrap();
-        state.timeline.is_playing = false;
+    pub fn remove_animation(&mut self, id: &str) -> AnimatorResult<()> {
+        self.animations
+            .remove(id)
+            .ok_or_else(|| AnimatorError::AnimationNotFound(id.to_string()))?;
         Ok(())
     }
 
-    #[napi]
-    pub fn reset(&self) -> Result<(), AnimatorError> {
-        let mut state = self.state.lock().unwrap();
-        if let Some(animation) = &state.current_animation {
-            state.timeline.current_time = 0.0;
-            state.timeline.is_playing = false;
+    pub fn get_animation(&self, id: &str) -> AnimatorResult<&Animation> {
+        self.animations
+            .get(id)
+            .ok_or_else(|| AnimatorError::AnimationNotFound(id.to_string()))
+    }
+
+    pub fn get_animation_mut(&mut self, id: &str) -> AnimatorResult<&mut Animation> {
+        self.animations
+            .get_mut(id)
+            .ok_or_else(|| AnimatorError::AnimationNotFound(id.to_string()))
+    }
+
+    pub fn add_group(&mut self, id: String) -> AnimatorResult<()> {
+        if self.groups.contains_key(&id) {
+            return Err(AnimatorError::DuplicateAnimation(id));
+        }
+        let group = AnimationGroup::new(id.clone());
+        self.groups.insert(id, group);
+        Ok(())
+    }
+
+    pub fn remove_group(&mut self, id: &str) -> AnimatorResult<()> {
+        self.groups
+            .remove(id)
+            .ok_or_else(|| AnimatorError::GroupNotFound(id.to_string()))?;
+        Ok(())
+    }
+
+    pub fn get_group(&self, id: &str) -> AnimatorResult<&AnimationGroup> {
+        self.groups
+            .get(id)
+            .ok_or_else(|| AnimatorError::GroupNotFound(id.to_string()))
+    }
+
+    pub fn get_group_mut(&mut self, id: &str) -> AnimatorResult<&mut AnimationGroup> {
+        self.groups
+            .get_mut(id)
+            .ok_or_else(|| AnimatorError::GroupNotFound(id.to_string()))
+    }
+
+    pub fn add_to_group(&mut self, group_id: &str, animation_id: &str) -> AnimatorResult<()> {
+        let animation = self.get_animation(animation_id)?.clone();
+        let group = self.get_group_mut(group_id)?;
+        group.add_animation(animation_id.to_string(), animation)
+    }
+
+    pub fn remove_from_group(&mut self, group_id: &str, animation_id: &str) -> AnimatorResult<()> {
+        let group = self.get_group_mut(group_id)?;
+        group.remove_animation(animation_id)
+    }
+
+    pub fn start_group(&mut self, group_id: &str) -> AnimatorResult<()> {
+        let group = self.get_group_mut(group_id)?;
+        for animation in group.animations.values_mut() {
+            animation.state = AnimationState::Playing;
         }
         Ok(())
     }
 
-    #[napi]
-    pub fn seek(&self, time: f64) -> Result<(), AnimatorError> {
-        let mut state = self.state.lock().unwrap();
-        if let Some(animation) = &state.current_animation {
-            state.timeline.current_time = time.max(0.0).min(animation.duration);
+    pub fn stop_group(&mut self, group_id: &str) -> AnimatorResult<()> {
+        let group = self.get_group_mut(group_id)?;
+        for animation in group.animations.values_mut() {
+            animation.state = AnimationState::Stopped;
         }
         Ok(())
     }
 
-    #[napi]
-    pub fn update(&self) -> Result<(), AnimatorError> {
-        let mut state = self.state.lock().unwrap();
-        if !state.timeline.is_playing {
-            return Ok(());
+    pub fn pause_group(&mut self, group_id: &str) -> AnimatorResult<()> {
+        let group = self.get_group_mut(group_id)?;
+        for animation in group.animations.values_mut() {
+            animation.state = AnimationState::Paused;
+        }
+        Ok(())
+    }
+
+    pub fn update(&mut self, dt: Duration) -> AnimatorResult<()> {
+        // Update individual animations
+        for animation in self.animations.values_mut() {
+            if animation.state == AnimationState::Playing {
+                animation.update(dt)?;
+            }
         }
 
-        let now = Instant::now();
-        let delta = now.duration_since(*self.last_update.lock().unwrap());
-        *self.last_update.lock().unwrap() = now;
-
-        if let Some(animation) = &state.current_animation {
-            state.timeline.current_time += delta.as_secs_f64();
-            if state.timeline.current_time >= animation.duration {
-                if state.timeline.loop_enabled {
-                    state.timeline.current_time %= animation.duration;
-                } else {
-                    state.timeline.current_time = animation.duration;
-                    state.timeline.is_playing = false;
+        // Update animation groups
+        for group in self.groups.values_mut() {
+            for animation in group.animations.values_mut() {
+                if animation.state == AnimationState::Playing {
+                    animation.update(dt)?;
                 }
             }
-
-            // Send current position to OSC
-            let position = animation.get_position_at_time(state.timeline.current_time)?;
-            let msg = OSCMessage {
-                address: format!("/source/{}/xyz", animation.track_id),
-                args: vec![
-                    position.x.into(),
-                    position.y.into(),
-                    position.z.into(),
-                ],
-            };
-            self.osc_manager.lock().unwrap().send(msg)?;
-
-            // Update current position
-            let mut current = self.current_position.lock().await;
-            *current = position;
         }
 
         Ok(())
-    }
-
-    #[napi]
-    pub fn get_state(&self) -> Result<AnimationState, AnimatorError> {
-        Ok(self.state.lock().unwrap().clone())
-    }
-
-    #[napi]
-    pub fn set_loop(&self, enabled: bool) -> Result<(), AnimatorError> {
-        let mut state = self.state.lock().unwrap();
-        state.timeline.loop_enabled = enabled;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn calculate_linear_positions(
-        &self,
-        start: Position,
-        end: Position,
-        duration_ms: f64,
-    ) -> Result<Vec<Position>> {
-        let steps = (duration_ms / self.config.update_interval).ceil() as usize;
-        let mut positions = Vec::with_capacity(steps);
-
-        for i in 0..=steps {
-            let t = i as f64 / steps as f64;
-            let current = start.lerp(&end, t);
-            positions.push(current);
-        }
-
-        Ok(positions)
-    }
-
-    #[napi]
-    pub async fn interpolate_position(
-        &self,
-        start: Position,
-        end: Position,
-        progress: f64,
-    ) -> Result<Position> {
-        Ok(start.lerp(&end, progress))
-    }
-
-    #[napi]
-    pub async fn update_position(&self, position: Position) -> Result<()> {
-        let mut current = self.current_position.lock().await;
-        *current = position;
-        Ok(())
-    }
-
-    #[napi]
-    pub async fn get_current_position(&self) -> Result<Position> {
-        let current = self.current_position.lock().await;
-        Ok((*current).clone())
     }
 }
 
-#[napi(object)]
-#[derive(Clone)]
-pub struct AnimationConfig {
-    pub fps: i32,
-    #[napi(ts_type = "number")]
-    pub update_interval: f64,
-    pub interpolation_steps: i32,
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::animation::models::{Keyframe, Position};
+
+    #[test]
+    fn test_animation_lifecycle() {
+        let mut engine = AnimationEngine::new();
+        let animation = Animation::new(
+            "test",
+            vec![
+                Keyframe::new(0.0, Position::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+                Keyframe::new(1.0, Position::new(1.0, 1.0, 1.0, 0.0, 0.0, 0.0)),
+            ],
+            Duration::from_secs(1),
+        );
+
+        // Test adding animation
+        assert!(engine.add_animation("test".to_string(), animation.clone()).is_ok());
+        assert!(engine.add_animation("test".to_string(), animation.clone()).is_err());
+
+        // Test getting animation
+        let stored = engine.get_animation("test");
+        assert!(stored.is_ok());
+        assert_eq!(stored.unwrap().id, "test");
+
+        // Test removing animation
+        assert!(engine.remove_animation("test").is_ok());
+        assert!(engine.remove_animation("test").is_err());
+    }
+
+    #[test]
+    fn test_group_operations() {
+        let mut engine = AnimationEngine::new();
+        
+        // Create a group
+        assert!(engine.add_group("group1".to_string()).is_ok());
+        
+        // Create an animation
+        let animation = Animation::new(
+            "anim1",
+            vec![
+                Keyframe::new(0.0, Position::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+                Keyframe::new(1.0, Position::new(1.0, 1.0, 1.0, 0.0, 0.0, 0.0)),
+            ],
+            Duration::from_secs(1),
+        );
+        
+        // Add animation to engine
+        assert!(engine.add_animation("anim1".to_string(), animation).is_ok());
+        
+        // Add animation to group
+        assert!(engine.add_to_group("group1", "anim1").is_ok());
+        
+        // Test group controls
+        assert!(engine.start_group("group1").is_ok());
+        assert!(engine.pause_group("group1").is_ok());
+        assert!(engine.stop_group("group1").is_ok());
+        
+        // Remove animation from group
+        assert!(engine.remove_from_group("group1", "anim1").is_ok());
+        
+        // Remove group
+        assert!(engine.remove_group("group1").is_ok());
+    }
 }

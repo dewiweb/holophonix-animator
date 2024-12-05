@@ -1,110 +1,38 @@
 // Standard library imports
 use std::{
-    sync::{Arc},
-    time::{Duration, Instant},
     collections::HashMap,
+    sync::Arc,
+    time::Duration,
 };
-use serde::{Serialize, Deserialize};
-use napi_derive::napi;
 use tokio::sync::Mutex;
+use serde::{Serialize, Deserialize};
+use uuid::Uuid;
 
-use crate::{Position, error::{AnimatorResult, AnimatorError}};
+use crate::error::{AnimatorError, AnimatorResult};
 
-// Module declarations
 pub mod engine;
-pub mod error;
 pub mod models;
 pub mod timeline;
 pub mod plugin;
 
-// Re-exports from models
+// Re-export public types and traits
+pub use models::{
+    Animation,
+    AnimationState,
+    TimelineState,
+    Position,
+    Keyframe,
+    AnimationType,
+    AnimationModel,
+    AnimationConfig,
+};
 pub use engine::AnimationEngine;
-pub use error::AnimatorError;
-pub use models::{Animation, AnimationState, Keyframe, Position, TimelineState};
-pub use timeline::Timeline;
 pub use plugin::AnimationPlugin;
 
-#[derive(Debug, Clone)]
-pub struct AnimationEngine {
-    animations: Arc<Mutex<HashMap<String, models::Animation>>>,
-    groups: Arc<Mutex<HashMap<String, Vec<String>>>>,
-}
-
-impl AnimationEngine {
-    pub fn new() -> Self {
-        Self {
-            animations: Arc::new(Mutex::new(HashMap::new())),
-            groups: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    pub async fn add_animation<S: AsRef<str>>(&self, id: S, animation: models::Animation) -> AnimatorResult<()> {
-        let mut animations = self.animations.lock().await;
-        animations.insert(id.as_ref().to_string(), animation);
-        Ok(())
-    }
-
-    pub async fn add_to_group<S1: Into<String>, S2: Into<String>>(&self, group_id: S1, animation_id: S2, animation: models::Animation) -> AnimatorResult<()> {
-        let group_id = group_id.into();
-        let animation_id = animation_id.into();
-        
-        self.add_animation(&animation_id, animation).await?;
-        
-        let mut groups = self.groups.lock().await;
-        groups.entry(group_id)
-            .or_insert_with(Vec::new)
-            .push(animation_id);
-            
-        Ok(())
-    }
-
-    pub async fn start<S: AsRef<str>>(&self, id: S) -> AnimatorResult<()> {
-        let mut animations = self.animations.lock().await;
-        if let Some(animation) = animations.get_mut(id.as_ref()) {
-            animation.start()?;
-            Ok(())
-        } else {
-            Err(AnimatorError::IOError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Animation {} not found", id.as_ref())
-            )))
-        }
-    }
-
-    pub async fn start_group<S: AsRef<str>>(&self, group_id: S) -> AnimatorResult<()> {
-        let groups = self.groups.lock().await;
-        if let Some(animations) = groups.get(group_id.as_ref()) {
-            for id in animations {
-                self.start(id).await?;
-            }
-            Ok(())
-        } else {
-            Err(AnimatorError::IOError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Group {} not found", group_id.as_ref())
-            )))
-        }
-    }
-
-    pub async fn get_position<S: AsRef<str>>(&self, id: S) -> AnimatorResult<Position> {
-        let animations = self.animations.lock().await;
-        if let Some(animation) = animations.get(id.as_ref()) {
-            Ok(animation.current_position.clone())
-        } else {
-            Err(AnimatorError::IOError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Animation {} not found", id.as_ref())
-            )))
-        }
-    }
-}
-
 #[napi]
+#[derive(Debug)]
 pub struct AnimationManager {
-    #[napi(skip)]
     engine: Arc<Mutex<AnimationEngine>>,
-    #[napi(skip)]
-    animations: Arc<Mutex<HashMap<String, models::Animation>>>,
 }
 
 #[napi]
@@ -113,68 +41,127 @@ impl AnimationManager {
     pub fn new() -> Self {
         Self {
             engine: Arc::new(Mutex::new(AnimationEngine::new())),
-            animations: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    #[napi]
-    pub async fn add_animation(&self, id: String, animation: models::Animation) -> AnimatorResult<()> {
-        let mut animations = self.animations.lock().await;
-        animations.insert(id, animation);
-        Ok(())
+    pub async fn create_animation(
+        &self,
+        keyframes: Vec<Keyframe>,
+        duration: Duration,
+    ) -> AnimatorResult<String> {
+        let mut engine = self.engine.lock().await;
+        let id = Uuid::new_v4().to_string();
+        let animation = Animation::new(id.clone(), keyframes, duration);
+        engine.add_animation(id.clone(), animation)?;
+        Ok(id)
     }
 
-    #[napi]
-    pub async fn remove_animation(&self, id: &str) -> AnimatorResult<()> {
-        let mut animations = self.animations.lock().await;
-        animations.remove(id);
-        Ok(())
+    pub async fn remove_animation(&self, animation_id: &str) -> AnimatorResult<()> {
+        let mut engine = self.engine.lock().await;
+        engine.remove_animation(animation_id)
     }
 
-    #[napi]
-    pub async fn get_animation(&self, id: &str) -> AnimatorResult<Option<models::Animation>> {
-        let animations = self.animations.lock().await;
-        Ok(animations.get(id).cloned())
+    pub async fn get_animation(&self, animation_id: &str) -> AnimatorResult<Animation> {
+        let engine = self.engine.lock().await;
+        engine.get_animation(animation_id).cloned()
     }
 
-    #[napi]
-    pub async fn update_all(&self, dt: f64) -> AnimatorResult<()> {
-        let mut animations = self.animations.lock().await;
-        for animation in animations.values_mut() {
-            if animation.is_running {
-                animation.update(dt)?;
-            }
+    pub async fn update(&self, dt: Duration) -> AnimatorResult<()> {
+        let mut engine = self.engine.lock().await;
+        engine.update(dt)
+    }
+
+    pub async fn create_group(&self) -> AnimatorResult<String> {
+        let mut engine = self.engine.lock().await;
+        let id = Uuid::new_v4().to_string();
+        engine.add_group(id.clone())?;
+        Ok(id)
+    }
+
+    pub async fn remove_group(&self, group_id: &str) -> AnimatorResult<()> {
+        let mut engine = self.engine.lock().await;
+        engine.remove_group(group_id)
+    }
+
+    pub async fn add_to_group(
+        &self,
+        group_id: &str,
+        animation_id: &str,
+    ) -> AnimatorResult<()> {
+        let mut engine = self.engine.lock().await;
+        engine.add_to_group(group_id, animation_id)
+    }
+
+    pub async fn remove_from_group(
+        &self,
+        group_id: &str,
+        animation_id: &str,
+    ) -> AnimatorResult<()> {
+        let mut engine = self.engine.lock().await;
+        engine.remove_from_group(group_id, animation_id)
+    }
+
+    pub async fn start_group(&self, group_id: &str) -> AnimatorResult<()> {
+        let mut engine = self.engine.lock().await;
+        engine.start_group(group_id)
+    }
+
+    pub async fn stop_group(&self, group_id: &str) -> AnimatorResult<()> {
+        let mut engine = self.engine.lock().await;
+        engine.stop_group(group_id)
+    }
+
+    pub async fn pause_group(&self, group_id: &str) -> AnimatorResult<()> {
+        let mut engine = self.engine.lock().await;
+        engine.pause_group(group_id)
+    }
+}
+
+#[napi]
+#[derive(Debug, Clone)]
+pub struct AnimationGroup {
+    id: String,
+    animations: HashMap<String, Animation>,
+}
+
+impl AnimationGroup {
+    pub fn new(id: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            animations: HashMap::new(),
         }
+    }
+
+    pub fn add_animation(
+        &mut self,
+        animation_id: impl Into<String>,
+        animation: Animation,
+    ) -> AnimatorResult<()> {
+        let id = animation_id.into();
+        if self.animations.contains_key(&id) {
+            return Err(AnimatorError::DuplicateAnimation(id));
+        }
+        self.animations.insert(id, animation);
         Ok(())
     }
 
-    #[napi]
-    pub async fn add_animation_to_engine(&self, id: String, animation: models::Animation) -> AnimatorResult<()> {
-        let engine = self.engine.lock().await;
-        engine.add_animation(id, animation).await
+    pub fn remove_animation(&mut self, animation_id: &str) -> AnimatorResult<()> {
+        if !self.animations.contains_key(animation_id) {
+            return Err(AnimatorError::AnimationNotFound(animation_id.to_string()));
+        }
+        self.animations.remove(animation_id);
+        Ok(())
     }
 
-    #[napi]
-    pub async fn add_to_group(&self, group_id: String, animation_id: String, animation: models::Animation) -> AnimatorResult<()> {
-        let engine = self.engine.lock().await;
-        engine.add_to_group(group_id, animation_id, animation).await
+    pub fn get_animation(&self, animation_id: &str) -> AnimatorResult<&Animation> {
+        self.animations
+            .get(animation_id)
+            .ok_or_else(|| AnimatorError::AnimationNotFound(animation_id.to_string()))
     }
 
-    #[napi]
-    pub async fn start(&self, id: String) -> AnimatorResult<()> {
-        let engine = self.engine.lock().await;
-        engine.start(id).await
-    }
-
-    #[napi]
-    pub async fn start_group(&self, group_id: String) -> AnimatorResult<()> {
-        let engine = self.engine.lock().await;
-        engine.start_group(group_id).await
-    }
-
-    #[napi]
-    pub async fn get_position(&self, id: String) -> AnimatorResult<Position> {
-        let engine = self.engine.lock().await;
-        engine.get_position(id).await
+    pub fn get_animation_mut(&mut self, animation_id: &str) -> AnimatorResult<&mut Animation> {
+        self.animations
+            .get_mut(animation_id)
+            .ok_or_else(|| AnimatorError::AnimationNotFound(animation_id.to_string()))
     }
 }
