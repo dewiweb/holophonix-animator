@@ -1,36 +1,38 @@
-use std::fmt;
 use thiserror::Error;
-use crate::osc::OSCError;
+use crate::osc::error::OSCError;
 
 pub type AnimatorResult<T> = Result<T, AnimatorError>;
 
 #[derive(Debug, Error)]
 pub enum AnimatorError {
-    #[error("IO error: {0}")]
-    IO(#[from] std::io::Error),
-
+    #[error("Animation not found: {0}")]
+    AnimationNotFound(String),
+    
+    #[error("Animation group not found: {0}")]
+    GroupNotFound(String),
+    
+    #[error("Track not found: {0}")]
+    TrackNotFound(String),
+    
+    #[error("Duplicate track: {0}")]
+    DuplicateTrack(String),
+    
+    #[error("Duplicate animation: {0}")]
+    DuplicateAnimation(String),
+    
     #[error("Invalid parameter: {0}")]
     InvalidParameter(String),
-
-    #[error("State error: {0}")]
-    State(String),
-
-    #[error("Resource error: {0}")]
-    Resource(String),
-
+    
     #[error("OSC error: {0}")]
-    OSC(String),
+    OscError(#[from] OSCError),
+    
+    #[error("Other error: {0}")]
+    Other(String),
 }
 
-impl From<&str> for AnimatorError {
-    fn from(s: &str) -> Self {
-        AnimatorError::State(s.to_string())
-    }
-}
-
-impl From<String> for AnimatorError {
-    fn from(s: String) -> Self {
-        AnimatorError::State(s)
+impl From<std::io::Error> for AnimatorError {
+    fn from(err: std::io::Error) -> Self {
+        AnimatorError::Other(err.to_string())
     }
 }
 
@@ -39,26 +41,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_error_display() {
-        let io_err = AnimatorError::IO(std::io::Error::new(std::io::ErrorKind::Other, "test error"));
-        let param_err = AnimatorError::InvalidParameter("invalid value".to_string());
-        let state_err = AnimatorError::State("invalid state".to_string());
-        let resource_err = AnimatorError::Resource("resource not found".to_string());
-        let osc_err = AnimatorError::OSC("connection failed".to_string());
+    fn test_error_messages() {
+        let err = AnimatorError::AnimationNotFound("test".to_string());
+        assert_eq!(err.to_string(), "Animation not found: test");
 
-        assert!(io_err.to_string().contains("IO error"));
-        assert!(param_err.to_string().contains("Invalid parameter"));
-        assert!(state_err.to_string().contains("State error"));
-        assert!(resource_err.to_string().contains("Resource error"));
-        assert!(osc_err.to_string().contains("OSC error"));
-    }
+        let err = AnimatorError::GroupNotFound("group1".to_string());
+        assert_eq!(err.to_string(), "Animation group not found: group1");
 
-    #[test]
-    fn test_error_conversion() {
-        let str_err: AnimatorError = "test error".into();
-        let string_err: AnimatorError = String::from("test error").into();
-
-        assert_eq!(str_err.to_string(), "State error: test error");
-        assert_eq!(string_err.to_string(), "State error: test error");
+        let err = AnimatorError::TrackNotFound("track1".to_string());
+        assert_eq!(err.to_string(), "Track not found: track1");
     }
 }
