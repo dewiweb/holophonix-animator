@@ -28,15 +28,15 @@ export const TrackControl: React.FC<TrackControlProps> = ({
 
     if (!track) {
         return (
-            <Card className="track-control" data-testid="track-control-empty">
+            <div className="track-control" data-testid="track-control-empty">
                 <H4>No Track Selected</H4>
                 <p>Select a track to control its position</p>
-            </Card>
+            </div>
         );
     }
 
     return (
-        <Card className="track-control" data-testid="track-control">
+        <div className="track-control" data-testid="track-control-active">
             <div className="track-control-content">
                 <H4>Track {track.id}</H4>
                 <div className="track-control-sliders">
@@ -80,6 +80,6 @@ export const TrackControl: React.FC<TrackControlProps> = ({
                     </div>
                 </div>
             </div>
-        </Card>
+        </div>
     );
 };

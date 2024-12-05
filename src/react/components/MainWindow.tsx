@@ -25,7 +25,7 @@ export const MainWindow: React.FC = () => {
 
     // Initialize OSC connection
     useEffect(() => {
-        oscManager.update_config(oscConfig).catch(err => {
+        oscManager.updateConfig(oscConfig).catch(err => {
             setError(`Failed to update OSC config: ${err.message}`);
         });
     }, [oscConfig]);
