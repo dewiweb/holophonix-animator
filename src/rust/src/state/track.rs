@@ -1,105 +1,183 @@
-use napi::bindgen_prelude::*;
-use serde::{Serialize, Deserialize};
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use crate::{
+    animation::models::MotionModel,
+    math::vector::Vector3,
+};
+use std::time::Duration;
 use std::collections::HashMap;
+use std::sync::mpsc::Sender;
+use std::fmt;
+use parking_lot::RwLock;
+use std::collections::BTreeMap;
 
-use crate::error::AnimatorError;
-use super::models::{Position, TrackParameters};
-
-#[derive(Debug, Default)]
-pub struct TrackState {
-    tracks: Arc<RwLock<HashMap<String, TrackData>>>,
+/// Events that can be emitted by a track
+#[derive(Debug, Clone)]
+pub enum TrackEvent {
+    /// Emitted when the track's position changes
+    PositionChanged {
+        track_id: String,
+        position: Vector3,
+    },
+    /// Emitted when the track's active state changes
+    ActiveStateChanged {
+        track_id: String,
+        active: bool,
+    },
+    /// Emitted when an animation is bound to the track
+    AnimationBound {
+        track_id: String,
+    },
+    /// Emitted when an animation is unbound from the track
+    AnimationUnbound {
+        track_id: String,
+    },
+    /// Emitted when metadata is changed
+    MetadataChanged {
+        track_id: String,
+        key: String,
+        value: String,
+    },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TrackData {
-    pub parameters: TrackParameters,
-    pub position: Position,
-    pub last_update: f64,
+/// Represents a track in the system with its state and properties
+#[derive(Clone)]
+pub struct Track {
+    id: String,
+    name: Option<String>,
+    position: Vector3,
+    metadata: HashMap<String, String>,
+    animation: Option<Box<dyn MotionModel + Send + Sync>>,
+    event_sender: Option<Sender<TrackEvent>>,
 }
 
-impl TrackState {
-    pub fn new() -> Self {
-        Self {
-            tracks: Arc::new(RwLock::new(HashMap::new())),
+impl fmt::Debug for Track {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Track")
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("position", &self.position)
+            .field("metadata", &self.metadata)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Track {
+    /// Creates a new track with the given ID and initial position
+    pub fn new(id: &str, initial_position: Vector3) -> Self {
+        Track {
+            id: id.to_string(),
+            name: None,
+            position: initial_position,
+            metadata: HashMap::new(),
+            animation: None,
+            event_sender: None,
         }
     }
 
-    pub async fn update_track(&self, id: &str, params: TrackParameters) -> Result<()> {
-        let mut tracks = self.tracks.write().await;
-        let track = tracks.entry(id.to_string()).or_insert_with(|| TrackData {
-            parameters: params.clone(),
-            position: Position::default(),
-            last_update: 0.0,
-        });
-        
-        track.parameters = params;
-        track.last_update = js_sys::Date::now();
-        
-        Ok(())
+    /// Subscribe to track events
+    pub fn subscribe(&mut self, sender: Sender<TrackEvent>) {
+        self.event_sender = Some(sender);
     }
 
-    pub async fn update_position(&self, id: &str, position: Position) -> Result<()> {
-        let mut tracks = self.tracks.write().await;
-        if let Some(track) = tracks.get_mut(id) {
-            track.position = position;
-            track.last_update = js_sys::Date::now();
-            Ok(())
+    /// Emit an event if there is a subscriber
+    fn emit_event(&self, event: TrackEvent) {
+        if let Some(sender) = &self.event_sender {
+            let _ = sender.send(event);
+        }
+    }
+
+    /// Returns the track's unique identifier
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Returns the track's display name
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    /// Sets the track's display name
+    pub fn set_name(&mut self, name: &str) {
+        self.name = Some(name.to_string());
+    }
+
+    /// Returns the track's current position
+    pub fn position(&self) -> Vector3 {
+        self.position
+    }
+
+    /// Returns the track's position at a given time
+    pub fn position_at(&self, time: Duration) -> Vector3 {
+        if let Some(motion) = &self.animation {
+            motion.calculate_position(time)
         } else {
-            Err(AnimatorError::state_error(
-                format!("Track not found: {}", id)
-            ).into())
+            self.position
         }
     }
 
-    pub async fn get_track(&self, id: &str) -> Result<Option<TrackData>> {
-        let tracks = self.tracks.read().await;
-        Ok(tracks.get(id).cloned())
+    /// Sets the track's current position
+    pub fn set_position(&mut self, position: Vector3) {
+        self.position = position;
+        self.emit_event(TrackEvent::PositionChanged {
+            track_id: self.id.clone(),
+            position,
+        });
     }
 
-    pub async fn remove_track(&self, id: &str) -> Result<()> {
-        let mut tracks = self.tracks.write().await;
-        tracks.remove(id);
-        Ok(())
+    /// Returns a reference to the track's metadata
+    pub fn metadata(&self) -> &HashMap<String, String> {
+        &self.metadata
     }
 
-    pub async fn clear_all(&self) -> Result<()> {
-        let mut tracks = self.tracks.write().await;
-        tracks.clear();
-        Ok(())
+    /// Returns the track's metadata value for a given key
+    pub fn get_metadata(&self, key: &str) -> Option<&str> {
+        self.metadata.get(key).map(|s| s.as_str())
+    }
+
+    /// Sets a metadata value
+    pub fn set_metadata(&mut self, key: &str, value: &str) {
+        self.metadata.insert(key.to_string(), value.to_string());
+        self.emit_event(TrackEvent::MetadataChanged {
+            track_id: self.id.clone(),
+            key: key.to_string(),
+            value: value.to_string(),
+        });
+    }
+
+    /// Removes a metadata value
+    pub fn remove_metadata(&mut self, key: &str) {
+        self.metadata.remove(key);
+    }
+
+    /// Returns a reference to the track's motion if one is bound
+    pub fn motion(&self) -> Option<&(dyn MotionModel + Send + Sync)> {
+        self.animation.as_deref()
+    }
+
+    /// Sets the track's motion
+    pub fn set_motion(&mut self, motion: Option<Box<dyn MotionModel + Send + Sync>>) {
+        let has_motion = motion.is_some();
+        self.animation = motion;
+        if has_motion {
+            self.emit_event(TrackEvent::AnimationBound {
+                track_id: self.id.clone(),
+            });
+        } else {
+            self.emit_event(TrackEvent::AnimationUnbound {
+                track_id: self.id.clone(),
+            });
+        }
+    }
+
+    /// Updates the track's position based on its motion
+    pub fn update_motion(&mut self, time: Duration) {
+        if let Some(motion) = &self.animation {
+            self.position = motion.calculate_position(time);
+        }
     }
 }
 
-#[napi]
-impl TrackState {
-    #[napi(constructor)]
-    pub fn create() -> Self {
-        Self::new()
-    }
-
-    #[napi]
-    pub async fn update(&self, id: String, params: TrackParameters) -> Result<()> {
-        self.update_track(&id, params).await
-    }
-
-    #[napi]
-    pub async fn update_position(&self, id: String, position: Position) -> Result<()> {
-        self.update_position(&id, position).await
-    }
-
-    #[napi]
-    pub async fn get(&self, id: String) -> Result<Option<TrackData>> {
-        self.get_track(&id).await
-    }
-
-    #[napi]
-    pub async fn remove(&self, id: String) -> Result<()> {
-        self.remove_track(&id).await
-    }
-
-    #[napi]
-    pub async fn clear(&self) -> Result<()> {
-        self.clear_all().await
+impl Default for Track {
+    fn default() -> Self {
+        Track::new("default", Vector3::zero())
     }
 }
