@@ -122,110 +122,121 @@ The OSC Handler component manages bidirectional communication between the Holoph
 
 ### Core Technologies
 
-#### 1. Rust Core
-- High-performance computation engine
-- OSC communication layer
-- State management and persistence
-- Native module integration
-- Real-time processing (60 FPS)
-- Formation computation engine
-- Group management system
+#### 1. Node.js Core
+- **Purpose**: OSC Communication and State Management
+- **Key Libraries**:
+  - `osc`: High-performance OSC implementation
+  - `typescript`: Type safety and developer experience
+  - `rxjs`: Reactive state management
+  - `jest`: Testing framework
 
-#### 2. Electron
-- Cross-platform desktop framework
-- Native module loading
-- IPC management
-- System integration
-- Window management
-- Multi-window synchronization
+#### 2. Rust Computation Engine
+- **Purpose**: High-performance mathematical operations
+- **Key Features**:
+  - Vector operations
+  - Trajectory calculations
+  - Motion pattern processing
+  - Performance-critical algorithms
+- **Integration**: Node-API (N-API) for Node.js integration
 
-#### 3. React
-- User interface framework
-- Component architecture
-- State visualization
-- Real-time updates
-- Theme support
-- Accessibility features
+#### 3. Electron
+- **Purpose**: Cross-platform desktop application
+- **Components**:
+  - Main Process: System integration
+  - Renderer Process: UI rendering
+  - IPC: Inter-process communication
 
-### Key Components
+#### 4. React Frontend
+- **Purpose**: User interface
+- **Key Libraries**:
+  - `react`: UI framework
+  - `@emotion/styled`: Styling
+  - `react-testing-library`: Component testing
+  - `three.js`: 3D visualization
 
-#### 1. OSC Communication (Rust)
-- UDP socket management
-- Zero-copy message parsing
-- Real-time message routing
-- Default port: 4003 (configurable)
-- Holophonix device communication
-- External control message handling
-- State subscription system
-- Health monitoring
+## Communication Layer
 
-### Development Tools
+### 1. OSC Protocol
+- **Implementation**: Node.js `osc` module
+- **Features**:
+  - Type-tagged messaging
+  - Bundle support
+  - High-performance UDP
+  - Message optimization
+  - Error handling
 
-#### 1. Build System
-- Rust toolchain
-- Node.js build tools
-- Native module compilation
-- Cross-platform packaging
+### 2. Inter-Process Communication
+- **Main ↔ Renderer**: Electron IPC
+- **Node.js ↔ Rust**: Node-API (N-API)
+- **React ↔ Core**: Event-based communication
 
-#### 2. Development Environment
-- VS Code integration
-- Hot reload support
-- Debug tooling
-- Performance profiling
+## Development Tools
 
-#### 3. Testing Framework
-- Unit testing
-- Integration testing
-- Performance testing
-- Cross-platform testing
+### 1. Build Tools
+- **TypeScript**: `tsc`, `ts-node`
+- **Rust**: `cargo`
+- **Frontend**: `vite`
+- **Testing**: `jest`, `cargo test`
 
-### Performance Considerations
+### 2. Development Environment
+- **Editor Support**:
+  - TypeScript: Language service
+  - Rust: RLS/rust-analyzer
+  - React: DevTools
+- **Debugging**:
+  - Chrome DevTools
+  - VSCode debugger
+  - Rust GDB/LLDB
 
-#### 1. Computation Layer
-- Rust for critical paths
-- Zero-copy operations
-- Lock-free concurrency
-- Memory optimization
+### 3. Quality Assurance
+- **Linting**:
+  - ESLint for TypeScript/JavaScript
+  - Clippy for Rust
+- **Formatting**:
+  - Prettier for TypeScript/JavaScript
+  - rustfmt for Rust
+- **Testing**:
+  - Jest for Node.js/React
+  - cargo test for Rust
+  - Playwright for E2E
 
-#### 2. Communication Layer
-- Direct UDP socket access
-- Efficient message parsing
-- Minimal latency
-- Resource management
+## Performance Monitoring
 
-#### 3. User Interface
-- Efficient rendering
-- State optimization
+### 1. Runtime Metrics
+- **OSC Performance**:
+  - Message throughput
+  - Latency monitoring
+  - Error rates
+- **Computation Performance**:
+  - Algorithm benchmarks
+  - Memory usage
+  - CPU utilization
+
+### 2. Development Metrics
+- **Test Coverage**:
+  - Jest coverage for TypeScript
+  - cargo tarpaulin for Rust
+- **Build Performance**:
+  - Compilation times
+  - Bundle sizes
+  - Load times
+
+## Security Considerations
+
+### 1. Input Validation
+- OSC message validation
+- Type checking
+- Boundary validation
+
+### 2. Error Handling
+- Graceful degradation
+- Error recovery
+- User feedback
+
+### 3. Resource Management
 - Memory management
-- Resource caching
-
-### Security Considerations
-
-#### 1. Network Security
-- Input validation
-- Message sanitization
-- Error handling
-- Resource limits
-
-#### 2. Application Security
-- Sandboxed renderer
-- Secure IPC
-- Resource isolation
-- Error boundaries
-
-### Deployment
-
-#### 1. Packaging
-- Platform-specific builds
-- Native module compilation
-- Resource bundling
-- Update mechanism
-
-#### 2. Distribution
-- Platform packages
-- Auto-updates
-- Version management
-- Crash reporting
+- Connection handling
+- Resource cleanup
 
 ## Support Infrastructure
 

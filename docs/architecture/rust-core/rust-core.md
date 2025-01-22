@@ -2,231 +2,268 @@
 
 ## Overview
 
-The Rust core is the heart of the Holophonix Animator, responsible for high-performance computations, OSC communication, and state management.
+The Rust core is the high-performance computation engine of the Holophonix Animator, working in conjunction with Node.js for OSC communication and state management.
+
+```mermaid
+graph TD
+    subgraph Rust Core
+        Compute[Computation Engine]
+        Models[Animation Models]
+        Bridge[N-API Bridge]
+    end
+    
+    subgraph Node.js Layer
+        OSC[OSC Communication]
+        State[State Management]
+        IPC[IPC Bridge]
+    end
+    
+    subgraph External
+        Device[Holophonix Device]
+        UI[React UI]
+    end
+    
+    UI --> IPC
+    IPC --> State
+    State --> OSC
+    State --> Bridge
+    Bridge --> Compute
+    Compute --> Models
+    OSC --> Device
+```
 
 ## Core Components
 
-### 1. Node.js Bridge
+### 1. Computation Engine
 
-The Node.js Bridge provides seamless integration between the Rust core and Electron's main process, enabling high-performance native functionality while maintaining the benefits of the Node.js ecosystem.
+The computation engine provides high-performance, deterministic calculations for spatial audio animations:
 
-#### Architecture
-- N-API/Node-API implementation for stable ABI compatibility
-- Zero-copy buffer sharing for performance
-- Asynchronous operation support
-- Error handling and type conversion
-- Memory management and cleanup
-- Event system integration
-- State synchronization
+```rust
+pub struct MotionEngine {
+    // Core computation
+    pub fn calculate_position(&self, time: f64) -> Result<Vector3, ComputationError>;
+    pub fn interpolate_trajectory(&self, points: &[Vector3]) -> Result<Vec<Vector3>, ComputationError>;
+    
+    // Pattern generation
+    pub fn create_circular_motion(&self, params: CircularParams) -> Result<Motion, ComputationError>;
+    pub fn create_linear_motion(&self, params: LinearParams) -> Result<Motion, ComputationError>;
+    
+    // Group operations
+    pub fn calculate_group_positions(&self, group: &Group) -> Result<Vec<Vector3>, ComputationError>;
+    pub fn maintain_formation(&self, center: Vector3, members: &[Vector3]) -> Result<Vec<Vector3>, ComputationError>;
+}
 
-#### Key Features
-- Bidirectional communication
-- Native threading support
-- Efficient data serialization
-- Resource management
-- Error propagation
-- Performance monitoring
-- Type safety guarantees
+#[derive(Debug)]
+pub enum ComputationError {
+    InvalidParameter {
+        name: String,
+        value: String,
+        reason: String,
+    },
+    OutOfBounds {
+        value: f64,
+        min: f64,
+        max: f64,
+    },
+    ResourceExhausted {
+        resource: String,
+        limit: u64,
+    },
+    Internal(String),
+}
+```
 
-For detailed information about the Node.js integration, see the [Node Integration Guide](../rust-core/node-bridge/node-integration.md).
+### 2. Animation Models
 
-### 2. OSC Communication Layer
+The animation models define movement patterns and behaviors:
 
-The OSC Communication Layer handles all OSC-based interactions, including communication with Holophonix devices and external control applications.
+```rust
+pub trait AnimationModel {
+    // Core behavior
+    fn calculate_position(&self, time: f64) -> Result<Vector3, ModelError>;
+    fn update_parameters(&mut self, params: ModelParams) -> Result<(), ModelError>;
+    
+    // State management
+    fn get_state(&self) -> ModelState;
+    fn reset(&mut self) -> Result<(), ModelError>;
+    
+    // Group support
+    fn supports_groups(&self) -> bool;
+    fn calculate_group_positions(&self, group: &Group) -> Result<Vec<Vector3>, ModelError>;
+}
 
-#### OSC Server
-Components and responsibilities:
-- UDP socket management for incoming messages
-- Message validation and parsing
-- Concurrent connection handling
-- Error recovery and logging
-- Control app message handling
-- State updates from incoming messages
-- Error handling and recovery
+pub struct LinearMotion {
+    start: Vector3,
+    end: Vector3,
+    duration: f64,
+    easing: EasingFunction,
+}
 
-#### OSC Client
-The OSC client manages outgoing messages to Holophonix devices as part of the bidirectional communication system.
+pub struct CircularMotion {
+    center: Vector3,
+    radius: f64,
+    speed: f64,
+    direction: RotationDirection,
+}
 
-Key features:
-- UDP socket management
-- Message retry mechanism
-- Queue management for outgoing messages
-- Batch processing capabilities
-- Error handling and recovery
-- Parameter query handling
-- Message bundling for efficient transmission
+pub struct PatternMotion {
+    pattern: Pattern,
+    scale: f64,
+    speed: f64,
+    rotation: Quaternion,
+}
+```
 
-#### Protocol Handler
-Manages message formats and validation for both Holophonix and external control applications.
+### 3. Node.js Bridge
 
-Components:
-- Message parser
-- Type checker
-- Value validator
-- Address mapper
-- Argument builder
-- Control app protocol handler
+The N-API bridge enables efficient communication between Rust and Node.js:
 
-Key features:
-- Message format validation
-- Type checking and conversion
-- Value range validation
-- Address pattern matching
-- Command validation for control apps
-- Error reporting and handling
+```rust
+#[napi]
+pub struct Bridge {
+    engine: Arc<MotionEngine>,
+    state: Arc<RwLock<State>>,
+}
 
-### 3. Animation Engine
+#[napi]
+impl Bridge {
+    #[napi]
+    pub async fn calculate_position(
+        &self,
+        pattern: PatternInput,
+        time: f64
+    ) -> Result<Position, Error> {
+        self.engine
+            .calculate_position(pattern.into(), time)
+            .map(Position::from)
+            .map_err(Error::from)
+    }
+    
+    #[napi]
+    pub async fn update_state(
+        &self,
+        update: StateUpdate
+    ) -> Result<(), Error> {
+        let mut state = self.state.write().await;
+        state.apply_update(update)
+            .map_err(Error::from)
+    }
+}
 
-The Animation Engine provides high-performance, deterministic animation calculations for spatial audio positioning.
+#[napi]
+#[derive(Debug)]
+pub struct Error {
+    pub code: String,
+    pub message: String,
+    pub recoverable: bool,
+}
+```
 
-#### Animation Manager
-Core responsibilities:
-- Animation lifecycle management
-- Model registration and instantiation
-- Group and relationship coordination
-- Animation scheduling
-- Resource management
-- Performance optimization
-- Error handling and recovery
+### 4. Performance Optimization
 
-#### Group System
-Components:
-- Group Manager
-  - Pattern-based group creation (`[start-end]`, `{track1,track2,...}`)
-  - Relationship type management
-  - Center-based animations
-  - Position synchronization
-- Relationship Manager
-  - Leader-Follower implementation
-  - Isobarycentric relationships
-  - As Individuals mode
-  - Formation maintenance
+The Rust core implements several optimization strategies:
 
-#### Animation Models
-Provides a modular system for different animation behaviors:
-- Base Model Interface
-  - Behavior control
-  - State management
-  - Parameter handling
-  - Group support
-- Common Components
-  - State tracking
-  - Interpolation
-  - Parameter validation
-  - Coordinate system handling
-- Model Types
-  - Linear Movement
-  - Circular Movement
-  - Pattern Movement
-  - Custom Path Movement
+```rust
+// SIMD Operations
+#[cfg(target_arch = "x86_64")]
+pub use std::arch::x86_64::*;
 
-#### Interpolation System
-Handles smooth transitions for all position changes:
-- Start-up interpolation
-  - Absolute mode transition
-  - Relative mode handling
-- Stop behavior
-  - Clean interruption
-  - Return to initial position
-- Movement control
-  - Speed/duration
-  - Update frequency
-  - Smoothing functions
+impl MotionEngine {
+    #[cfg(target_feature = "avx2")]
+    pub fn calculate_positions_simd(
+        &self,
+        patterns: &[Pattern],
+        time: f64
+    ) -> Vec<Vector3> {
+        // AVX2 optimized batch calculation
+    }
+}
 
-#### Animation Cycle Manager
-Controls animation execution modes:
-- Cyclic Mode
-  - Continuous repetition
-  - Seamless transitions
-  - Loop tracking
-- One-shot Mode
-  - Single execution
-  - Auto-completion
-  - Return behavior
+// Lock-free Operations
+pub struct LockFreeState {
+    positions: Arc<ConcurrentHashMap<TrackId, Vector3>>,
+    parameters: Arc<ConcurrentHashMap<TrackId, Parameters>>,
+}
 
-### 4. State Management
+// Memory Pool
+pub struct MemoryPool<T> {
+    pool: ArrayQueue<T>,
+    capacity: usize,
+}
 
-#### Central State Store
-Manages:
-- Track states and properties
-- Animation configurations
-- Timeline state
-- System configuration
-- Runtime parameters
-- Group relationships
-- Formation states
+impl<T> MemoryPool<T> {
+    pub fn acquire(&self) -> Option<T> {
+        self.pool.pop()
+    }
+    
+    pub fn release(&self, item: T) {
+        let _ = self.pool.push(item);
+    }
+}
+```
 
-#### State Synchronization
-Features:
-- Real-time state updates
-- Conflict resolution
-- State persistence
-- Recovery mechanisms
-- Change notification system
-- Group state coordination
-- Formation preservation
+## Error Handling
 
-### 5. Computation Engine
+The Rust core provides comprehensive error handling:
 
-Handles mathematical calculations and optimizations:
+```rust
+#[derive(Debug)]
+pub enum CoreError {
+    Computation(ComputationError),
+    Model(ModelError),
+    State(StateError),
+    Bridge(BridgeError),
+}
 
-#### Vector Operations
-- Position calculations
-- Velocity computations
-- Acceleration handling
-- Formation geometry
-- Center point tracking
+impl CoreError {
+    pub fn is_recoverable(&self) -> bool {
+        match self {
+            CoreError::Computation(e) => e.is_recoverable(),
+            CoreError::Model(e) => e.is_recoverable(),
+            CoreError::State(e) => e.is_recoverable(),
+            CoreError::Bridge(e) => e.is_recoverable(),
+        }
+    }
+    
+    pub fn handle(&self) -> Result<Recovery, CoreError> {
+        match self {
+            CoreError::Computation(e) => {
+                // Handle computation errors
+                match e {
+                    ComputationError::OutOfBounds { value, min, max } => {
+                        Ok(Recovery::Clamp(*value, *min, *max))
+                    }
+                    _ => Err(CoreError::Computation(*e)),
+                }
+            }
+            // Handle other error types...
+        }
+    }
+}
+```
 
-#### Optimization Features
-- SIMD operations
-- Cache optimization
-- Memory pooling
-- Batch processing
-- Lock-free algorithms
+## Performance Monitoring
 
-#### Group Calculations
-- Center point computation
-- Formation maintenance
-- Position propagation
-- Relationship preservation
-- Synchronized updates
+The Rust core includes performance monitoring capabilities:
 
-## Performance Considerations
+```rust
+pub struct Metrics {
+    computation_time: HistogramTimer,
+    memory_usage: Gauge,
+    error_count: Counter,
+    operation_count: Counter,
+}
 
-### 1. Computation Efficiency
-- Optimized animation calculations
-- Efficient state synchronization
-- Minimal memory allocation
-- Cache-friendly data structures
-- Batch processing support
-- Formation calculations
-- Group synchronization
-
-### 2. Memory Management
-- Resource pooling
-- Smart pointer usage
-- Efficient state updates
-- Minimal cloning
-- Memory mapping for large datasets
-- Formation state caching
-- Group state optimization
-
-### 3. Concurrency
-- Lock-free algorithms where possible
-- Efficient thread synchronization
-- Work stealing scheduler
-- Async I/O operations
-- Thread pool management
-- Group update batching
-- Formation update coordination
-
-### 4. Error Handling
-- Comprehensive error types
-- Recovery strategies
-- Graceful degradation
-- Error propagation
-- Logging and monitoring
-- Group state recovery
-- Formation restoration
-
-*Last Updated: 2024-11-25*
+impl Metrics {
+    pub fn record_computation(&self, duration: Duration) {
+        self.computation_time.record(duration);
+    }
+    
+    pub fn record_memory(&self, bytes: u64) {
+        self.memory_usage.set(bytes as f64);
+    }
+    
+    pub fn record_error(&self) {
+        self.error_count.inc();
+    }
+}

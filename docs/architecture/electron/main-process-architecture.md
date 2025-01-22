@@ -6,35 +6,78 @@ The Electron main process serves as the bridge between the Rust core and the ren
 
 ## Core Components
 
-### 1. Native Module Integration
+### 1. OSC Communication
 
-#### Rust Bridge
-The Rust bridge provides core functionality for animation processing, including initialization, frame processing, and cleanup operations.
+```typescript
+// OSC Controller initialization
+class OSCManager {
+  private controller: OSCController;
+  
+  constructor() {
+    this.controller = new OSCController({
+      localPort: 9000,
+      localAddress: '0.0.0.0',
+      remotePort: 9001,
+      remoteAddress: '127.0.0.1'
+    });
+    
+    this.setupEventHandlers();
+  }
+  
+  private setupEventHandlers(): void {
+    this.controller.on('message', this.handleMessage);
+    this.controller.on('error', this.handleError);
+  }
+}
+```
 
-#### Resource Management
-- Native module lifecycle management
-- Memory management
-- Error propagation from Rust
+### 2. Computation Bridge
 
-### 2. IPC Communication
+```typescript
+// N-API bridge initialization
+class ComputationManager {
+  private engine: MotionEngine;
+  
+  constructor() {
+    this.engine = new MotionEngine();
+    this.setupIPC();
+  }
+  
+  private setupIPC(): void {
+    ipcMain.handle('compute:position', async (event, pattern, time) => {
+      return this.engine.calculatePosition(pattern, time);
+    });
+  }
+}
+```
 
-#### Message Types
-The application uses a structured message system for IPC communication, handling state updates, animation control, track updates, and error reporting.
+### 3. Window Management
 
-#### Channel Management
-- Bidirectional communication with renderer
-- Message validation
-- Error handling
-
-### 3. System Integration
-
-#### Configuration Management
-The application configuration handles OSC port settings, language preferences, theme selection, and auto-save functionality.
-
-#### Window Management
-- Window creation and lifecycle
-- State persistence
-- Multi-window coordination
+```typescript
+class WindowManager {
+  private mainWindow: BrowserWindow;
+  
+  createMainWindow(): void {
+    this.mainWindow = new BrowserWindow({
+      width: 1200,
+      height: 800,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: true,
+        preload: path.join(__dirname, 'preload.js')
+      }
+    });
+    
+    this.setupWindowEvents();
+  }
+  
+  private setupWindowEvents(): void {
+    this.mainWindow.on('closed', () => {
+      this.cleanup();
+    });
+  }
+}
+```
 
 ### 4. File System Operations
 
@@ -48,7 +91,7 @@ The application configuration handles OSC port settings, language preferences, t
 - Cache management
 - Cleanup operations
 
-## Process Communication
+## IPC Communication
 
 ### 1. Renderer Communication
 The main process handles IPC events for animation control, state management, and error handling between the renderer and native modules.
@@ -101,3 +144,203 @@ Unit tests cover core functionality including animation control, IPC communicati
 - IPC communication testing
 - Native module integration
 - System resource handling
+
+## Process Communication
+
+### 1. Message Handling
+```typescript
+// IPC setup
+class IPCManager {
+  setupChannels(): void {
+    // OSC messages
+    ipcMain.handle('osc:send', async (event, address, args) => {
+      return oscManager.sendMessage(address, args);
+    });
+    
+    // Computation requests
+    ipcMain.handle('compute:pattern', async (event, type, params) => {
+      return computeManager.createPattern(type, params);
+    });
+  }
+}
+```
+
+### 2. State Updates
+```typescript
+class StateManager {
+  // Send updates to renderer
+  sendStateUpdate(key: string, value: any): void {
+    this.mainWindow.webContents.send('state:update', {
+      key,
+      value,
+      timestamp: Date.now()
+    });
+  }
+  
+  // Handle state changes
+  handleStateChange(event: IpcMainEvent, update: StateUpdate): void {
+    // Process update
+    // Notify relevant components
+  }
+}
+```
+
+## Resource Management
+
+### 1. Memory Management
+```typescript
+class ResourceManager {
+  private resources: Map<string, Resource>;
+  
+  // Track resource usage
+  trackResource(id: string, resource: Resource): void {
+    this.resources.set(id, resource);
+  }
+  
+  // Cleanup resources
+  cleanup(): void {
+    for (const resource of this.resources.values()) {
+      resource.dispose();
+    }
+    this.resources.clear();
+  }
+}
+```
+
+### 2. Connection Management
+```typescript
+class ConnectionManager {
+  private connections: Set<Connection>;
+  
+  // Monitor connections
+  monitorConnection(connection: Connection): void {
+    connection.on('error', this.handleError);
+    connection.on('close', this.handleClose);
+    this.connections.add(connection);
+  }
+  
+  // Handle cleanup
+  cleanup(): void {
+    for (const connection of this.connections) {
+      connection.close();
+    }
+    this.connections.clear();
+  }
+}
+```
+
+## Error Handling
+
+### 1. Process Errors
+```typescript
+class ErrorHandler {
+  setupProcessErrorHandlers(): void {
+    process.on('uncaughtException', this.handleUncaughtException);
+    process.on('unhandledRejection', this.handleUnhandledRejection);
+  }
+  
+  private handleUncaughtException(error: Error): void {
+    logger.error('Uncaught Exception:', error);
+    this.notifyUser('Critical Error', error.message);
+  }
+}
+```
+
+### 2. Component Errors
+```typescript
+class ComponentErrorHandler {
+  handleComponentError(
+    component: string,
+    error: Error
+  ): void {
+    logger.error(`${component} Error:`, error);
+    
+    if (this.isRecoverable(error)) {
+      this.attemptRecovery(component);
+    } else {
+      this.notifyUser(`${component} Error`, error.message);
+    }
+  }
+}
+```
+
+## Performance Monitoring
+
+### 1. System Metrics
+```typescript
+class SystemMonitor {
+  private metrics: SystemMetrics;
+  
+  // Collect metrics
+  collectMetrics(): void {
+    this.metrics = {
+      memory: process.memoryUsage(),
+      cpu: process.cpuUsage(),
+      uptime: process.uptime()
+    };
+  }
+  
+  // Report metrics
+  reportMetrics(): void {
+    this.mainWindow.webContents.send('metrics:update', this.metrics);
+  }
+}
+```
+
+### 2. Performance Logging
+```typescript
+class PerformanceLogger {
+  // Log performance event
+  logPerformance(
+    event: string,
+    duration: number,
+    context?: any
+  ): void {
+    logger.info('Performance:', {
+      event,
+      duration,
+      context,
+      timestamp: Date.now()
+    });
+  }
+}
+```
+
+## Application Lifecycle
+
+### 1. Startup
+```typescript
+class App {
+  async start(): Promise<void> {
+    // Initialize components
+    await this.initializeComponents();
+    
+    // Create windows
+    this.windowManager.createMainWindow();
+    
+    // Setup IPC
+    this.ipcManager.setupChannels();
+    
+    // Start monitoring
+    this.systemMonitor.start();
+  }
+}
+```
+
+### 2. Shutdown
+```typescript
+class App {
+  async shutdown(): Promise<void> {
+    // Stop monitoring
+    this.systemMonitor.stop();
+    
+    // Cleanup resources
+    this.resourceManager.cleanup();
+    
+    // Close connections
+    this.connectionManager.cleanup();
+    
+    // Close windows
+    this.windowManager.closeAll();
+  }
+}

@@ -1,138 +1,218 @@
-# Data Flow
+# Data Flow Patterns
 
 ## Overview
 
-The Holophonix Animator implements a hybrid data flow architecture with Rust at its core, handling all performance-critical operations and state management. While the internal application maintains unidirectional data flow for UI updates and state management, the system maintains bidirectional OSC communication with Holophonix devices for commands and queries.
+The Holophonix Animator implements a unidirectional data flow pattern with clear boundaries between components:
 
-## Communication Patterns
-
-### Holophonix Communication
-- **Commands**: The application sends OSC commands to control Holophonix parameters
-- **Queries**: The application sends queries to request current state or parameters
-- **Responses**: Holophonix responds to queries with current values and states
-- **State Updates**: All responses are processed by the Rust core and propagated to the UI
-
-### Internal Flow
-
-### 1. User Interface → Rust Core
+```mermaid
+graph TD
+    UI[React UI] --> State[State Management]
+    State --> OSC[Node.js OSC]
+    State --> Compute[Rust Computation]
+    OSC --> Device[Holophonix Device]
+    Compute --> State
 ```
-User Action → React Event → Electron IPC → N-API → Rust Core → State Update
+
+## Core Data Flows
+
+### 1. Position Updates
+```typescript
+interface PositionUpdate {
+  trackId: string;
+  position: Vector3;
+  timestamp: number;
+}
+
+// UI Interaction
+ui.onPositionChange((update: PositionUpdate) => {
+  state.updatePosition(update);
+});
+
+// State Processing
+state.onPositionUpdate((update: PositionUpdate) => {
+  // Validate with computation engine
+  const validated = compute.validatePosition(update.position);
+  
+  // Send to device
+  osc.sendPosition(update.trackId, validated);
+});
 ```
-- User interactions trigger React component events
-- Events are serialized and sent through Electron IPC channels
-- N-API bridge handles type conversion and memory management
-- Rust core validates and processes actions
-- State updates are computed with error handling
 
-### 2. Rust Core → OSC Communication
+### 2. Animation Control
+```typescript
+interface AnimationControl {
+  trackId: string;
+  pattern: MotionPattern;
+  parameters: Record<string, number>;
+}
+
+// Start Animation
+ui.onAnimationStart((control: AnimationControl) => {
+  // Create pattern in computation engine
+  const pattern = compute.createPattern(control.pattern, control.parameters);
+  
+  // Start animation loop
+  state.startAnimation(control.trackId, pattern);
+});
+
+// Animation Loop
+state.onAnimationFrame((time: number) => {
+  // Calculate new position
+  const position = compute.calculatePosition(time);
+  
+  // Send to device
+  osc.sendPosition(trackId, position);
+});
 ```
-Rust State Change → Zero-Copy Buffer → OSC Message → UDP Socket → Holophonix
+
+## State Management
+
+### 1. Central State Store
+```typescript
+interface AppState {
+  tracks: Map<string, Track>;
+  animations: Map<string, Animation>;
+  deviceStatus: DeviceStatus;
+  uiState: UIState;
+}
+
+class StateManager {
+  private state: AppState;
+  private subscribers: Set<StateSubscriber>;
+  
+  // State updates
+  updateState<K extends keyof AppState>(
+    key: K, 
+    value: AppState[K]
+  ): void;
+  
+  // Subscriptions
+  subscribe(callback: StateSubscriber): () => void;
+}
 ```
-- State changes trigger OSC message generation
-- Zero-copy buffer management for performance
-- Direct UDP socket management with error handling
-- Efficient message transmission with retry logic
-- Acknowledgment handling for critical messages
 
-### 3. External Control → Application
+### 2. State Updates
+```typescript
+// Atomic updates
+state.transaction(() => {
+  state.updateTrackPosition(id, position);
+  state.updateAnimationTime(id, time);
+});
+
+// Batched updates
+state.batchUpdate([
+  { type: 'position', payload: position },
+  { type: 'animation', payload: animation }
+]);
 ```
-External App → OSC → UDP Socket → Rust Parser → Validation → State Update
+
+## Performance Optimization
+
+### 1. Message Batching
+```typescript
+// Bundle related messages
+osc.sendBundle({
+  timeTag: osc.timeTag(0),
+  packets: [
+    { address: '/track/1/xyz', args: [1, 2, 3] },
+    { address: '/track/1/gain', args: [0.8] }
+  ]
+});
 ```
-- External applications send OSC messages
-- UDP socket managed by Rust with error handling
-- Messages parsed with zero-copy when possible
-- Strict validation of incoming messages
-- State updated only after validation
 
-### 4. Rust → UI Update
+### 2. Computation Optimization
+```rust
+// Efficient trajectory calculation
+pub fn calculate_batch_positions(
+    &self,
+    pattern: &MotionPattern,
+    times: &[f64]
+) -> Vec<Vector3> {
+    // Use SIMD operations
+    // Minimize allocations
+    // Cache results
+}
 ```
-Rust State → N-API → IPC → React State → UI Update
+
+### 3. State Synchronization
+```typescript
+// Efficient state updates
+class StateSync {
+  private updateQueue: UpdateQueue;
+  private updateScheduler: UpdateScheduler;
+  
+  // Batch updates
+  queueUpdate(update: StateUpdate): void;
+  
+  // Process queue
+  private processQueue(): void;
+}
 ```
-- State changes in Rust core trigger update events
-- N-API handles memory management and type conversion
-- IPC messages batched for performance
-- React state updates trigger efficient re-renders
-- Error boundaries catch and handle failures
-
-For implementation details of these patterns, see:
-- [Node Integration](../rust-core/node-bridge/node-integration.md)
-- [Frontend Architecture](../react/frontend-architecture.md)
-- [State Management](../rust-core/state-manager/state-management.md)
-
-### 5. File Upload Flow
-```
-File Selection → Electron → Native Module → Rust Processing → State Update
-```
-- User selects SVG file through Electron dialog
-- File is read and validated in Electron
-- Content is passed through native module
-- Rust processes SVG data
-- Path is stored in core state
-- UI is updated with new path
-
-## Data Processing
-
-### 1. Input Processing (Rust)
-- Type-safe validation
-- Coordinate system conversions
-- Parameter normalization
-- Error handling
-- SVG path parsing and validation
-
-### 2. State Management (Rust)
-- Centralized state store
-- Atomic state changes
-- Change validation
-- Efficient update propagation
-
-### 3. OSC Processing (Rust)
-- Zero-copy message parsing
-- UDP socket management
-- Message validation
-- Performance optimization
-
-### 4. UI State Management (React)
-- Component state
-- View state
-- User preferences
-- Temporary UI states
-
-## Performance Considerations
-
-### 1. Native Module Bridge
-- Direct memory access
-- Minimal serialization
-- Efficient threading
-- Type safety across boundary
-
-### 2. OSC Communication
-- Zero-copy operations
-- Efficient UDP handling
-- Message batching
-- Real-time processing
-
-### 3. State Updates
-- Lock-free operations
-- Minimal copying
-- Efficient propagation
-- Predictable performance
 
 ## Error Handling
 
-### 1. Rust Core
-- Type-safe error handling
-- Error propagation
-- Recovery mechanisms
-- Performance monitoring
+### 1. Error Propagation
+```typescript
+try {
+  // Attempt operation
+  const result = await operation();
+} catch (error) {
+  if (error instanceof OSCError) {
+    // Handle communication error
+  } else if (error instanceof ComputationError) {
+    // Handle calculation error
+  }
+  // Notify UI
+  ui.showError(error);
+}
+```
 
-### 2. Network Layer
-- Connection monitoring
-- Error recovery
-- Message validation
-- Performance tracking
+### 2. Recovery Strategies
+```typescript
+class ErrorRecovery {
+  // Retry with backoff
+  async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    maxAttempts: number
+  ): Promise<T>;
+  
+  // Fallback operations
+  async withFallback<T>(
+    primary: () => Promise<T>,
+    fallback: () => Promise<T>
+  ): Promise<T>;
+}
+```
 
-### 3. UI Layer
-- Error boundaries
-- User feedback
-- State recovery
-- Graceful degradation
+## Monitoring and Debugging
+
+### 1. Performance Monitoring
+```typescript
+interface PerformanceMetrics {
+  messageLatency: number;
+  computationTime: number;
+  stateUpdateTime: number;
+  frameDrops: number;
+}
+
+class PerformanceMonitor {
+  recordMetric(key: keyof PerformanceMetrics, value: number): void;
+  getMetrics(): PerformanceMetrics;
+}
+```
+
+### 2. Debug Logging
+```typescript
+const logger = new Logger({
+  levels: ['debug', 'info', 'warn', 'error'],
+  context: {
+    component: 'dataflow',
+    version: '1.0.0'
+  }
+});
+
+logger.debug('State update', { 
+  previous: prevState,
+  next: nextState,
+  diff: computeDiff(prevState, nextState)
+});

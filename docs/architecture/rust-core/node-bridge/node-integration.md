@@ -1,91 +1,292 @@
-# Native Bridge (N-API)
+# Node.js Integration
 
 ## Overview
 
-The Native Bridge component provides the interface between our Rust core and Node.js/Electron layers using N-API. This bridge enables efficient, type-safe communication while maintaining memory safety and performance.
+The Node.js bridge provides seamless integration between the Rust computation engine and Node.js OSC communication layer:
 
-## Architecture
+```mermaid
+graph TD
+    subgraph Node.js
+        OSC[OSC Layer]
+        State[State Manager]
+        IPC[IPC Bridge]
+    end
+    
+    subgraph Rust
+        Bridge[N-API Bridge]
+        Compute[Computation Engine]
+        Models[Animation Models]
+    end
+    
+    subgraph Communication
+        Buffer[Zero-Copy Buffer]
+        Events[Event System]
+        Thread[Thread Pool]
+    end
+    
+    OSC --> State
+    State --> Bridge
+    Bridge --> Buffer
+    Buffer --> Compute
+    Compute --> Models
+    Events --> State
+    Thread --> Compute
+```
 
-### N-API Bindings
-- Type-safe function exports
-- Asynchronous operation support
-- Memory management and garbage collection
-- Error handling and propagation
+## Bridge Architecture
 
-### Data Marshalling
-- Zero-copy where possible
-- Efficient type conversion
-- Buffer management
-- Structured data handling
+### 1. N-API Implementation
 
-### Callback System
-- Event registration
-- Asynchronous notifications
-- State change propagation
-- Error callbacks
+```rust
+#[napi]
+pub struct Bridge {
+    engine: Arc<MotionEngine>,
+    state: Arc<RwLock<State>>,
+    thread_pool: ThreadPool,
+    event_bus: EventBus,
+}
 
-## Implementation Details
+#[napi]
+impl Bridge {
+    #[napi(constructor)]
+    pub fn new() -> Self {
+        Bridge {
+            engine: Arc::new(MotionEngine::new()),
+            state: Arc::new(RwLock::new(State::new())),
+            thread_pool: ThreadPool::new(),
+            event_bus: EventBus::new(),
+        }
+    }
+    
+    #[napi]
+    pub async fn calculate_position(
+        &self,
+        pattern: PatternInput,
+        time: f64
+    ) -> Result<Position, Error> {
+        let engine = self.engine.clone();
+        let pattern = pattern.into();
+        
+        self.thread_pool
+            .spawn_async(move || {
+                engine.calculate_position(pattern, time)
+            })
+            .await
+            .map(Position::from)
+            .map_err(Error::from)
+    }
+    
+    #[napi]
+    pub fn subscribe_to_events(
+        &self,
+        callback: JsFunction
+    ) -> Result<(), Error> {
+        let tsfn = ThreadsafeFunction::new(callback)?;
+        
+        self.event_bus.subscribe(move |event| {
+            tsfn.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
+        });
+        
+        Ok(())
+    }
+}
+```
 
-### Synchronous Operations
-- Direct function calls for:
-  - State queries
-  - Configuration updates
-  - Track property updates
-  - Group management operations
-- Immediate results with type safety
-- Critical path optimizations
-- Connection state queries
+### 2. Zero-Copy Buffer Sharing
 
-### Asynchronous Operations
-- Animation frame updates
-- OSC message handling
-- State synchronization
-- Performance metrics collection
-- Resource-intensive computations
-- Background tasks:
-  - Auto-save operations
-  - Connection monitoring
-  - Error recovery
+```rust
+#[napi]
+pub struct SharedBuffer {
+    data: *mut u8,
+    length: usize,
+}
 
-### Error Handling
-- Type-safe error propagation
-- Detailed error information:
-  - Error codes
-  - Stack traces
-  - Context information
-- Recovery mechanisms:
-  - Automatic retry logic
-  - Fallback strategies
-  - State recovery
-- Debug information for development
+#[napi]
+impl SharedBuffer {
+    #[napi(constructor)]
+    pub fn new(capacity: u32) -> Self {
+        let layout = Layout::array::<u8>(capacity as usize).unwrap();
+        let data = unsafe { alloc(layout) };
+        
+        SharedBuffer {
+            data,
+            length: capacity as usize,
+        }
+    }
+    
+    #[napi]
+    pub fn as_slice(&self) -> &[u8] {
+        unsafe {
+            std::slice::from_raw_parts(self.data, self.length)
+        }
+    }
+    
+    #[napi]
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        unsafe {
+            std::slice::from_raw_parts_mut(self.data, self.length)
+        }
+    }
+}
 
-For details on how these operations are reflected in the UI, see [Frontend Architecture](../../react/frontend-architecture.md).
-For information about state management, see [State Management](../../rust-core/state-manager/state-management.md).
+impl Drop for SharedBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            dealloc(
+                self.data,
+                Layout::array::<u8>(self.length).unwrap()
+            );
+        }
+    }
+}
+```
 
-## Performance Considerations
+### 3. Thread Pool Management
 
-### Memory Management
-- Efficient resource cleanup
-- Garbage collection integration
-- Buffer pooling
-- Reference counting
+```rust
+pub struct ThreadPool {
+    workers: Vec<Worker>,
+    sender: mpsc::Sender<Message>,
+}
 
-### Threading
-- Thread safety
-- Worker threads
-- Event loop integration
-- Lock-free operations where possible
+impl ThreadPool {
+    pub fn new() -> Self {
+        let size = num_cpus::get();
+        let (sender, receiver) = mpsc::channel();
+        let receiver = Arc::new(Mutex::new(receiver));
+        
+        let mut workers = Vec::with_capacity(size);
+        
+        for id in 0..size {
+            workers.push(Worker::new(id, Arc::clone(&receiver)));
+        }
+        
+        ThreadPool { workers, sender }
+    }
+    
+    pub async fn spawn_async<F, T>(&self, f: F) -> Result<T, Error>
+    where
+        F: FnOnce() -> Result<T, Error> + Send + 'static,
+        T: Send + 'static,
+    {
+        let (tx, rx) = oneshot::channel();
+        
+        self.sender.send(Message::NewJob(Box::new(move || {
+            let result = f();
+            let _ = tx.send(result);
+        })))?;
+        
+        rx.await?
+    }
+}
+```
 
-## Integration Points
+### 4. Event System
 
-### Electron Integration
-- Main process communication
-- IPC bridge
-- Window management
-- System integration
+```rust
+pub struct EventBus {
+    subscribers: Arc<RwLock<Vec<Box<dyn Fn(Event) + Send + Sync>>>>,
+}
 
-### Rust Core Integration
-- State management
-- Animation engine
-- OSC communication
-- Configuration handling
+impl EventBus {
+    pub fn new() -> Self {
+        EventBus {
+            subscribers: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+    
+    pub fn subscribe<F>(&self, callback: F)
+    where
+        F: Fn(Event) + Send + Sync + 'static,
+    {
+        let mut subscribers = self.subscribers.write().unwrap();
+        subscribers.push(Box::new(callback));
+    }
+    
+    pub fn emit(&self, event: Event) {
+        let subscribers = self.subscribers.read().unwrap();
+        for subscriber in subscribers.iter() {
+            subscriber(event.clone());
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum Event {
+    StateUpdate(StateUpdate),
+    Error(Error),
+    Performance(Metrics),
+}
+```
+
+## Error Handling
+
+```rust
+#[napi]
+#[derive(Debug)]
+pub struct Error {
+    pub code: String,
+    pub message: String,
+    pub recoverable: bool,
+    pub context: Option<String>,
+}
+
+impl From<ComputationError> for Error {
+    fn from(error: ComputationError) -> Self {
+        match error {
+            ComputationError::InvalidParameter { name, value, reason } => {
+                Error {
+                    code: "INVALID_PARAMETER".into(),
+                    message: format!("Invalid parameter {}: {}", name, reason),
+                    recoverable: false,
+                    context: Some(value),
+                }
+            }
+            ComputationError::OutOfBounds { value, min, max } => {
+                Error {
+                    code: "OUT_OF_BOUNDS".into(),
+                    message: format!("Value {} out of bounds [{}, {}]", value, min, max),
+                    recoverable: true,
+                    context: None,
+                }
+            }
+            // Handle other error types...
+        }
+    }
+}
+```
+
+## Performance Monitoring
+
+```rust
+#[napi]
+pub struct BridgeMetrics {
+    computation_time: HistogramTimer,
+    memory_usage: Gauge,
+    thread_pool_size: Gauge,
+    active_workers: Counter,
+    error_count: Counter,
+}
+
+#[napi]
+impl BridgeMetrics {
+    #[napi]
+    pub fn record_computation(&self, duration: f64) {
+        self.computation_time.record(duration);
+    }
+    
+    #[napi]
+    pub fn record_memory(&self, bytes: f64) {
+        self.memory_usage.set(bytes);
+    }
+    
+    #[napi]
+    pub fn record_worker_start(&self) {
+        self.active_workers.inc();
+    }
+    
+    #[napi]
+    pub fn record_worker_stop(&self) {
+        self.active_workers.dec();
+    }
+}

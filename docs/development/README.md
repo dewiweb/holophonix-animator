@@ -29,6 +29,12 @@ This guide provides comprehensive information for developers working on the Holo
 
 ## Development Process
 
+### Test-Driven Development
+- Follow the [TDD workflow](testing-guidelines.md#tdd-workflow)
+- Refer to the [TDD implementation plan](test-driven-development-plan.md)
+- Use test coverage reports to track progress
+- Participate in test review sessions
+
 1. Issue Tracking
    - All work should be tied to an issue
    - Use appropriate labels

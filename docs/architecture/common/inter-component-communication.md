@@ -1,165 +1,226 @@
-# Inter-Component Communications
+# Inter-Component Communication
 
 ## Overview
 
-This document details how different components of the Holophonix Animator communicate with each other. The architecture involves three main layers (Frontend, Electron, and Rust Core) plus external components (Holophonix Device and Control Apps), each with specific communication patterns.
+The Holophonix Animator uses a layered communication architecture:
 
-## Communication Channels
+```mermaid
+graph TD
+    UI[React UI] <--> State[State Management]
+    State <--> OSC[Node.js OSC]
+    State <--> Compute[Rust Computation]
+    OSC <--> Device[Holophonix Device]
+```
 
-### Frontend ↔ Electron
+## Communication Layers
 
-#### Technology: IPC (Inter-Process Communication)
-- **Channel Type**: Bidirectional
-- **Protocol**: Electron IPC
-- **Data Format**: JSON-serialized messages
+### 1. UI ↔ State Management
+```typescript
+// Event-based communication
+interface UIEvents {
+  'position:change': (update: PositionUpdate) => void;
+  'animation:start': (control: AnimationControl) => void;
+  'animation:stop': (trackId: string) => void;
+}
 
-#### Key Interactions
-1. UI Events → Main Process
-   - User input events
-   - Configuration changes
-   - Animation controls
-   - Track management commands
+// State subscription
+interface StateSubscription {
+  subscribe<K extends keyof AppState>(
+    key: K,
+    callback: (value: AppState[K]) => void
+  ): () => void;
+}
+```
 
-2. Main Process → UI
-   - State updates
-   - Animation progress
-     - Frame-by-frame position updates
-     - Timeline progress indicators
-     - Animation parameter feedback
-   - Configuration changes
-   - Error notifications
-   - Device status updates
-   - Performance metrics
-     - State sync status
-     - Network latency
-     - Resource utilization
-     - Frame rates
+### 2. State ↔ OSC
+```typescript
+// OSC message handling
+interface OSCController {
+  // Send messages
+  sendMessage(address: string, args: OSCArgument[]): Promise<void>;
+  sendBundle(messages: OSCMessage[]): Promise<void>;
+  
+  // Receive messages
+  onMessage(callback: (message: OSCMessage) => void): void;
+  onError(callback: (error: OSCError) => void): void;
+}
+```
 
-See [Frontend Architecture](../react/frontend-architecture.md#performance-monitor) for details on how these metrics are visualized in the UI.
+### 3. State ↔ Computation
+```typescript
+// N-API bindings
+interface ComputationBridge {
+  // Vector operations
+  calculatePosition(pattern: MotionPattern, time: number): Vector3;
+  interpolateTrajectory(points: Vector3[]): Vector3[];
+  
+  // Pattern creation
+  createPattern(type: PatternType, params: PatternParams): MotionPattern;
+}
+```
 
-### Electron ↔ Rust Core
+## Message Types
 
-#### Technology: N-API
-- **Channel Type**: Bidirectional
-- **Protocol**: Foreign Function Interface (FFI)
-- **Data Format**: Native types via N-API bindings
+### 1. Position Updates
+```typescript
+interface PositionUpdate {
+  trackId: string;
+  position: Vector3;
+  timestamp: number;
+}
 
-#### Key Interactions
-1. Main Process → Rust Core
-   - Animation commands
-   - Configuration updates
-   - Device control commands
-   - State queries
-   - Resource management
+// UI to State
+ui.emit('position:change', {
+  trackId: '1',
+  position: { x: 1, y: 2, z: 3 },
+  timestamp: Date.now()
+});
 
-2. Rust Core → Main Process
-   - State updates
-   - Computation results
-   - Error notifications
-   - Resource status
-   - Performance metrics
+// State to OSC
+osc.sendMessage('/track/1/xyz', [
+  { type: 'f', value: 1 },
+  { type: 'f', value: 2 },
+  { type: 'f', value: 3 }
+]);
+```
 
-### External Communications
+### 2. Animation Control
+```typescript
+interface AnimationControl {
+  trackId: string;
+  pattern: MotionPattern;
+  parameters: Record<string, number>;
+}
 
-#### OSC Control Apps → Rust Core
-- **Channel Type**: One-way (incoming)
-- **Protocol**: OSC over UDP
-- **Port**: Configurable (default: 8000)
-- **Message Types**:
-  - Control commands
-  - Parameter updates
-  - Animation triggers
-  - Custom messages
+// UI to State
+ui.emit('animation:start', {
+  trackId: '1',
+  pattern: 'circular',
+  parameters: { radius: 2, speed: 1 }
+});
 
-#### Rust Core ↔ Holophonix Device
-- **Channel Type**: Bidirectional
-- **Protocol**: OSC over UDP
-- **Ports**: 
-  - Commands: Device-specific
-  - State Updates: Device-specific
-- **Message Types**:
-  1. Rust Core → Device
-     - Position commands
-     - Parameter updates
-     - Configuration changes
-     - Status queries
-  2. Device → Rust Core
-     - State updates
-     - Parameter values
-     - Status information
-     - Error notifications
+// State to Computation
+const pattern = compute.createPattern('circular', {
+  radius: 2,
+  speed: 1
+});
+```
 
-## Data Flow Examples
+## Performance Optimization
 
-### Animation Control Flow
-1. UI: User initiates animation
-2. Frontend → Electron: Animation command via IPC
-3. Electron → Rust Core: Command via N-API
-4. Rust Core: Processes animation
-5. Rust Core → Holophonix: OSC commands
-6. Holophonix → Rust Core: State updates
-7. Rust Core → Electron → Frontend: Progress updates
+### 1. Message Batching
+```typescript
+// Batch OSC messages
+interface OSCBundle {
+  timeTag: number;
+  packets: OSCMessage[];
+}
 
-### External Control Flow
-1. OSC App: Sends control message
-2. Rust Core: Receives and validates
-3. Rust Core: Updates internal state
-4. Rust Core → Holophonix: Required commands
-5. Rust Core → Electron → Frontend: UI updates
+osc.sendBundle({
+  timeTag: osc.timeTag(0),
+  packets: [
+    { address: '/track/1/xyz', args: [1, 2, 3] },
+    { address: '/track/1/gain', args: [0.8] }
+  ]
+});
+```
+
+### 2. State Updates
+```typescript
+// Batch state updates
+interface StateUpdate {
+  type: string;
+  payload: any;
+}
+
+state.batchUpdate([
+  { type: 'position', payload: position },
+  { type: 'animation', payload: animation }
+]);
+```
 
 ## Error Handling
 
-### Frontend Errors
-- Validation errors shown in UI
-- Network status indicators
-- Connection state feedback
-- User input validation
+### 1. Communication Errors
+```typescript
+// Error handling in OSC layer
+try {
+  await osc.sendMessage(address, args);
+} catch (error) {
+  if (error instanceof OSCError) {
+    if (error.retryable) {
+      await retry(() => osc.sendMessage(address, args));
+    } else {
+      notifyUser('Communication Error', error.message);
+    }
+  }
+}
+```
 
-### Electron Layer Errors
-- IPC communication errors
-- Native module loading issues
-- System resource problems
-- File system errors
+### 2. Computation Errors
+```typescript
+// Error handling in computation
+try {
+  const position = compute.calculatePosition(pattern, time);
+} catch (error) {
+  if (error instanceof ComputationError) {
+    // Handle computation error
+    logger.error('Computation failed', error);
+    notifyUser('Calculation Error', error.message);
+  }
+}
+```
 
-### Rust Core Errors
-- OSC communication failures
-- Animation computation errors
-- State management issues
-- Resource allocation failures
+## Monitoring
 
-### Cross-Layer Error Propagation
-1. Error Detection
-   - Layer-specific error types
-   - Error context preservation
-   - Stack trace maintenance
+### 1. Performance Metrics
+```typescript
+interface CommunicationMetrics {
+  messageLatency: number;
+  messageCount: number;
+  errorCount: number;
+  retryCount: number;
+}
 
-2. Error Reporting
-   - User-friendly messages
-   - Technical details logging
-   - Error metrics collection
+class MetricsCollector {
+  recordMetric(key: keyof CommunicationMetrics, value: number): void;
+  getMetrics(): CommunicationMetrics;
+}
+```
 
-3. Error Recovery
-   - Automatic retry mechanisms
-   - Fallback behaviors
-   - State recovery procedures
-   - Connection re-establishment
+### 2. Debug Logging
+```typescript
+const logger = new Logger({
+  levels: ['debug', 'info', 'warn', 'error'],
+  context: {
+    component: 'communication',
+    version: '1.0.0'
+  }
+});
 
-## Performance Considerations
+logger.debug('Message sent', {
+  address: '/track/1/xyz',
+  args: [1, 2, 3],
+  latency: 5
+});
+```
 
-### Data Transfer Optimization
-- Minimal serialization
+## Best Practices
+
+### 1. Message Design
+- Use typed messages
+- Include timestamps
+- Validate payloads
+- Handle versioning
+
+### 2. Error Recovery
+- Implement retries
+- Use fallbacks
+- Handle timeouts
+- Maintain state
+
+### 3. Performance
 - Batch updates
-- Delta compression
-- Zero-copy where possible
-
-### State Synchronization
-- Efficient update propagation
-- Lock-free algorithms
-- Concurrent processing
-- Update coalescing
-
-### Resource Management
-- Connection pooling
-- Memory management
-- Thread coordination
-- Resource cleanup
+- Minimize latency
+- Monitor metrics
+- Optimize payloads

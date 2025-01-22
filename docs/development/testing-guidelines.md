@@ -2,86 +2,139 @@
 
 ## Overview
 
-This document outlines testing standards and practices for the Holophonix Animator project. The project uses a comprehensive testing approach combining Rust and TypeScript testing frameworks.
+This document outlines the Test-Driven Development (TDD) approach and testing standards for the Holophonix Animator project. For detailed implementation strategy and timeline, see [Test-Driven Development Plan](test-driven-development-plan.md).
 
-## Testing Levels
+## Testing Layers
 
-### 1. Unit Tests
+### 1. Node.js Core Tests
 
-Test individual components and functions in isolation.
+Test OSC communication and state management.
 
 ```typescript
-// Example unit test for motion model
-describe('CircularMotion', () => {
-  it('should calculate correct position for given angle', () => {
-    const motion = new CircularMotion({
-      radius: 1,
-      speed: 1,
-      center: new Vector3(0, 0, 0)
+// Example OSC communication test
+describe('OSCPort', () => {
+  it('should create and bind UDP port', async () => {
+    const port = new osc.UDPPort({
+      localAddress: '0.0.0.0',
+      localPort: 9000
     });
-
-    const position = motion.getPositionAtTime(Math.PI / 2);
-    expect(position.x).toBeCloseTo(1);
-    expect(position.y).toBeCloseTo(0);
-    expect(position.z).toBeCloseTo(0);
-  });
-});
-```
-
-### 2. Integration Tests
-
-Test interactions between components.
-
-```typescript
-describe('OSC Communication', () => {
-  it('should update track position via OSC', async () => {
-    const track = new Track('test-track');
-    const oscHandler = new OSCHandler();
     
-    await oscHandler.connect();
-    await track.updatePosition(new Vector3(1, 2, 3));
-    
-    const position = await oscHandler.queryPosition('test-track');
-    expect(position).toEqual(new Vector3(1, 2, 3));
-  });
-});
-```
-
-### 3. End-to-End Tests
-
-Test complete features from user perspective.
-
-```typescript
-describe('Motion Animation', () => {
-  it('should animate track in circular pattern', async () => {
-    // Setup
-    await page.goto('http://localhost:3000');
-    await page.click('#track-1');
-    await page.click('#add-motion');
-    await page.selectOption('#motion-type', 'circular');
-    
-    // Configure motion
-    await page.fill('#radius', '2');
-    await page.fill('#speed', '1');
-    await page.click('#start-animation');
-    
-    // Verify
-    const positions = await page.evaluate(() => {
-      return new Promise(resolve => {
-        const pos = [];
-        let count = 0;
-        const interval = setInterval(() => {
-          pos.push(getTrackPosition());
-          count++;
-          if (count >= 4) {
-            clearInterval(interval);
-            resolve(pos);
-          }
-        }, 1000);
+    await new Promise((resolve) => {
+      port.on('ready', () => {
+        expect(port.isReady).toBe(true);
+        resolve(true);
       });
+      port.open();
+    });
+  });
+
+  it('should send OSC messages with type tags', async () => {
+    const port = new osc.UDPPort({
+      localAddress: '0.0.0.0',
+      localPort: 9000,
+      remoteAddress: '127.0.0.1',
+      remotePort: 9001
+    });
+
+    const message = {
+      address: '/track/1/xyz',
+      args: [
+        {
+          type: 'f',
+          value: 1.0
+        },
+        {
+          type: 'f',
+          value: 2.0
+        },
+        {
+          type: 'f',
+          value: 3.0
+        }
+      ]
+    };
+    
+    await new Promise((resolve) => {
+      port.on('ready', () => {
+        port.send(message);
+        resolve(true);
+      });
+      port.open();
+    });
+  });
+
+  it('should handle OSC bundles', async () => {
+    const port = new osc.UDPPort();
+    const bundle = {
+      timeTag: osc.timeTag(0),
+      packets: [
+        {
+          address: '/track/1/xyz',
+          args: [
+            { type: 'f', value: 1.0 },
+            { type: 'f', value: 2.0 },
+            { type: 'f', value: 3.0 }
+          ]
+        },
+        {
+          address: '/track/1/gain',
+          args: [{ type: 'f', value: 0.8 }]
+        }
+      ]
+    };
+
+    await new Promise((resolve) => {
+      port.on('ready', () => {
+        port.send(bundle);
+        resolve(true);
+      });
+      port.open();
+    });
+  });
+});
+```
+
+### 2. Rust Computation Tests
+
+Test mathematical operations and motion calculations.
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_circular_motion() {
+        let params = CircularMotion {
+            radius: 1.0,
+            frequency: 1.0,
+            center: Vector3::new(0.0, 0.0, 0.0),
+        };
+
+        let position = params.calculate_position(std::f64::consts::PI / 2.0);
+        assert_relative_eq!(position.x, 1.0, epsilon = 1e-7);
+        assert_relative_eq!(position.y, 0.0, epsilon = 1e-7);
+        assert_relative_eq!(position.z, 0.0, epsilon = 1e-7);
+    }
+}
+```
+
+### 3. Integration Tests
+
+Test interaction between Node.js and Rust layers.
+
+```typescript
+describe('Motion Engine Integration', () => {
+  it('should compute positions through Rust engine', async () => {
+    const engine = await MotionEngine.create();
+    const trajectory = await engine.computeCircularMotion({
+      radius: 1,
+      frequency: 1,
+      center: [0, 0, 0]
     });
     
-    expect(positions).toDescribeCircularMotion();
+    expect(trajectory).toBeDefined();
+    expect(trajectory.length).toBeGreaterThan(0);
   });
 });
 ```
