@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Holophonix Animator - UI Guide</title>
+    <style>
+        /* Dark theme colors */
+        :root {
+            --bg-color: #1e1e1e;
+            --panel-bg: #2d2d2d;
+            --border-color: #4a4a4a;
+            --text-color: #ffffff;
+            --accent-color: #64b5f6;
+            --success-color: #81c784;
+            --header-color: #1a1a1a;
+            --tooltip-bg: rgba(0, 0, 0, 0.9);
+            --dark-bg: #1a1a1a;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-family: Arial, sans-serif;
+        }
+
+        /* Modified styles for floating note blocks */
+        .note-block {
+            position: absolute;
+            background: var(--panel-bg);
+            border: 1px solid var(--accent-color);
+            padding: 15px;
+            border-radius: 4px;
+            width: 180px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 2;
+            transition: all 0.3s ease;
+        }
+
+        .note-block:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .note-block h3 {
+            margin: 0 0 10px 0;
+            color: var(--accent-color);
+            font-size: 14px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 6px;
+        }
+
+        .note-block p {
+            margin: 0 0 10px 0;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .note-block ul {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 12px;
+        }
+
+        .note-block li {
+            margin: 6px 0;
+        }
+
+        /* Optimized positions to minimize crossing lines */
+        #title-note {
+            top: 20px;
+            left: 0;
+        }
+
+        #controls-note {
+            top: 180px;
+            left: 0;
+        }
+
+        #tracks-note {
+            top: 340px;
+            left: 0;
+        }
+
+        #animation-models-note {
+            top: 260px;
+            right: 0;
+        }
+
+        #preview-note {
+            top: 460px;
+            right: 0;
+        }
+
+        #logger-note {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Enhanced active states with smoother transitions */
+        .note-block.active {
+            border-color: var(--success-color);
+            background: var(--bg-color);
+            z-index: 3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .highlight-target.active {
+            outline: 2px solid var(--success-color);
+            outline-offset: -1px;
+            z-index: 1;
+        }
+
+        /* Better tooltips */
+        [data-tooltip]:hover::after {
+            z-index: 4;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 3px;
+            white-space: normal;
+            max-width: 200px;
+            line-height: 1.4;
+            background: var(--tooltip-bg);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Better app window definition */
+        .app-container {
+            position: relative;
+            width: fit-content;
+            margin: 80px auto;
+            padding: 150px 300px;
+            background: var(--bg-color);
+            border-radius: 12px;
+        }
+
+        .app-window {
+            position: relative;
+            margin: 0;
+            width: 1000px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            background: var(--panel-bg);
+        }
+
+        /* Improved connector styling for better visibility */
+        .connector {
+            stroke: var(--accent-color);
+            stroke-width: 1.5;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .connector.active {
+            stroke: var(--success-color);
+            opacity: 0.8;
+            stroke-width: 2;
+        }
+
+        /* Content panel improvements */
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1px;
+            background: var(--border-color);
+            min-height: 600px;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            padding: 15px;
+            overflow: auto;
+            position: relative;
+        }
+
+        /* Rest of the existing styles */
+        .title-bar {
+            background: var(--header-color);
+            color: var(--text-color);
+            padding: 8px 15px;
+            display: grid;
+            grid-template-columns: 100px 1fr 100px;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .title-bar .window-title {
+            justify-self: center;
+            text-align: center;
+        }
+
+        .title-bar .window-controls {
+            justify-self: end;
+        }
+
+        .controls {
+            background: var(--header-color);
+            padding: 12px 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .input-field {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .button {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .button.connect {
+            background: var(--success-color);
+        }
+
+        .button.settings {
+            background: var(--accent-color);
+        }
+
+        .panel-title {
+            color: var(--accent-color);
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Status bar styling */
+        .status-bar-container {
+            position: relative;
+            transition: height 0.3s ease;
+        }
+
+        .status-bar-header {
+            background: var(--dark-bg);
+            border-top: 1px solid var(--border-color);
+            padding: 4px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .status-bar-header:hover {
+            background: var(--header-color);
+        }
+
+        .status-bar-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .status-bar-toggle {
+            color: var(--text-color);
+            font-size: 16px;
+            transition: transform 0.3s ease;
+        }
+
+        .status-bar-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .status-bar {
+            background: var(--dark-bg);
+            padding: 8px;
+            font-family: monospace;
+            height: 100px;
+            overflow-y: auto;
+            transition: height 0.3s ease;
+        }
+
+        .status-bar.collapsed {
+            height: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .osc-message {
+            color: var(--text-color);
+            margin: 2px 0;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        .osc-message .direction {
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        .osc-message.incoming .direction {
+            color: #81c784;  /* Green for incoming */
+        }
+
+        .osc-message.outgoing .direction {
+            color: #e57373;  /* Red for outgoing */
+        }
+
+        .osc-message .timestamp {
+            color: var(--accent-color);
+            margin-right: 10px;
+        }
+
+        .osc-message .address {
+            color: #88c0d0;
+            margin-right: 10px;
+        }
+
+        .osc-message .value {
+            color: #a3be8c;
+        }
+
+        /* Highlight interactive areas */
+        .interactive {
+            border: 1px dashed var(--accent-color);
+            padding: 4px;
+            margin: 2px;
+            border-radius: 4px;
+        }
+
+        /* Added styles for connectors */
+        .connector-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- SVG Definitions for connectors -->
+    <svg style="width: 0; height: 0; position: absolute;" aria-hidden="true" focusable="false">
+        <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="var(--accent-color)" />
+            </marker>
+        </defs>
+    </svg>
+
+    <!-- Main container -->
+    <div class="app-container">
+        <!-- Connector container -->
+        <div class="connector-container">
+            <svg width="100%" height="100%" id="connectors"></svg>
+        </div>
+
+        <!-- Note blocks -->
+        <div class="note-block" id="title-note" data-target="title-bar">
+            <h3>Title Bar</h3>
+            <p>The main application window header showing:</p>
+            <ul>
+                <li>Application name</li>
+                <li>Window controls</li>
+            </ul>
+        </div>
+
+        <div class="note-block" id="controls-note" data-target="controls">
+            <h3>Connection Controls</h3>
+            <p>Configure Holophonix connection:</p>
+            <ul>
+                <li>IP Address input</li>
+                <li>Connect/Disconnect button</li>
+                <li>Settings access</li>
+            </ul>
+        </div>
+
+        <div class="note-block" id="tracks-note" data-target="tracks-panel">
+            <h3>Tracks Panel</h3>
+            <p>Manage sound tracks:</p>
+            <ul>
+                <li>Add/Remove tracks</li>
+                <li>Configure properties</li>
+                <li>Group management</li>
+            </ul>
+        </div>
+
+        <div class="note-block" id="animation-models-note" data-target="animation-models-panel">
+            <h3>Animation Models Panel</h3>
+            <p>Create movement patterns:</p>
+            <ul>
+                <li>Create animation models</li>
+                <li>Edit parameters</li>
+                <li>Apply to tracks</li>
+            </ul>
+        </div>
+
+        <div class="note-block" id="preview-note" data-target="preview-panel">
+            <h3>Parameters Panel</h3>
+            <p>Control and visualize movements:</p>
+            <ul>
+                <li>Interactive positioning</li>
+                <li>Parameter adjustments</li>
+                <li>Animation model visualization</li>
+            </ul>
+        </div>
+
+        <div class="note-block" id="logger-note" data-target="status-bar">
+            <h3>OSC Logger</h3>
+            <p>Monitor OSC communications:</p>
+            <ul>
+                <li>Real-time message logging</li>
+                <li>OSC address patterns</li>
+                <li>Parameter values</li>
+                <li>Timestamps</li>
+            </ul>
+        </div>
+
+        <!-- Main application window -->
+        <div class="app-window">
+            <!-- Title bar (OS window title bar) -->
+            <div class="title-bar highlight-target" id="title-bar" data-tooltip="Window title bar">
+                <div></div>
+                <div class="window-title">Holophonix Animator</div>
+                <div class="window-controls">_ □ ×</div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls" id="controls" data-tooltip="Connection and general settings">
+                <input type="text" class="input-field" value="127.0.0.1" data-tooltip="Remote IP address">
+                <input type="text" class="input-field" value="3000" data-tooltip="Remote port number">
+                <input type="text" class="input-field" value="8000" data-tooltip="Local port number">
+                <button class="button connect" data-tooltip="Connect to Holophonix">Connect</button>
+                <button class="button" data-tooltip="Show/hide additional controls">▼</button>
+                <button class="button settings" data-tooltip="Open settings">⚙</button>
+            </div>
+
+            <!-- Main content -->
+            <div class="content">
+                <!-- Tracks panel -->
+                <div class="panel" id="tracks-panel" data-tooltip="Manage sound tracks">
+                    <div class="panel-title">Tracks</div>
+                    <div class="interactive" data-tooltip="Click to expand track">▶ Track 1</div>
+                    <div class="interactive" data-tooltip="Click to expand track">▶ Track 2</div>
+                    <div class="interactive" data-tooltip="Click to expand track">▶ Track 3</div>
+                    <div class="interactive" data-tooltip="Add a new sound track">+ Add Track</div>
+                </div>
+
+                <!-- Animation Models panel -->
+                <div class="panel" id="animation-models-panel" data-tooltip="Configure movement animation models">
+                    <div class="panel-title">Animation Models</div>
+                    <div data-tooltip="Available animation model types">
+                        Available Models
+                        <div class="interactive">⬡ Linear Move</div>
+                        <div class="interactive">⬡ Circular Path</div>
+                        <div class="interactive">⬡ Random Walk</div>
+                        <div class="interactive">⬡ Follow Path</div>
+                    </div>
+                    <br>
+                    <div data-tooltip="Currently active animation models">
+                        Active Models
+                        <div class="interactive">
+                            Linear Move 1
+                            <div>⏮ ⏯ ⏭ ✕</div>
+                        </div>
+                        <div class="interactive">
+                            Circular Path 1
+                            <div>⏮ ⏯ ⏭ ✕</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parameters panel -->
+                <div class="panel" id="preview-panel" data-tooltip="Control and adjust parameters">
+                    <div class="panel-title">Parameters</div>
+                    <div class="interactive" data-tooltip="Adjust animation model parameters">
+                        Parameters
+                    </div>
+                    <div class="interactive" data-tooltip="Timeline of all active animation models">
+                        Timeline
+                    </div>
+                    <div class="interactive" data-tooltip="2D visualization of track positions">
+                        2D Preview
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status bar -->
+            <div class="status-bar-container" data-tooltip="OSC message logger">
+                <div class="status-bar-header">
+                    <span class="status-bar-title">OSC Messages</span>
+                    <span class="status-bar-toggle">▼</span>
+                </div>
+                <div class="status-bar">
+                    <div class="osc-message incoming">
+                        <span class="direction">→</span>
+                        <span class="timestamp">14:32:45.234</span>
+                        <span class="address">/track/1/xy</span>
+                        <span class="value">x: 0.5, y: 0.3</span>
+                    </div>
+                    <div class="osc-message outgoing">
+                        <span class="direction">←</span>
+                        <span class="timestamp">14:32:45.235</span>
+                        <span class="address">/track/2/gain/value</span>
+                        <span class="value">0.8</span>
+                    </div>
+                    <div class="osc-message incoming">
+                        <span class="direction">→</span>
+                        <span class="timestamp">14:32:45.236</span>
+                        <span class="address">/animation/circle/speed</span>
+                        <span class="value">120.0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to create and update connectors
+        function updateConnectors() {
+            const svg = document.getElementById('connectors');
+            svg.innerHTML = ''; // Clear existing connectors
+            
+            // Get all note blocks
+            const notes = document.querySelectorAll('.note-block');
+            
+            notes.forEach(note => {
+                const targetId = note.getAttribute('data-target');
+                const target = document.getElementById(targetId);
+                
+                if (target) {
+                    // Calculate positions
+                    const noteRect = note.getBoundingClientRect();
+                    const targetRect = target.getBoundingClientRect();
+                    const containerRect = document.querySelector('.app-container').getBoundingClientRect();
+                    
+                    // Calculate start and end points
+                    const noteCenter = {
+                        x: noteRect.left + noteRect.width / 2 - containerRect.left,
+                        y: noteRect.top + noteRect.height / 2 - containerRect.top
+                    };
+                    
+                    const targetCenter = {
+                        x: targetRect.left + targetRect.width / 2 - containerRect.left,
+                        y: targetRect.top + targetRect.height / 2 - containerRect.top
+                    };
+
+                    // Adjust connection points based on note position relative to target
+                    let startX, startY, endX, endY;
+                    
+                    if (noteRect.right < targetRect.left) {
+                        // Note is on the left
+                        startX = noteRect.right - containerRect.left;
+                        startY = noteCenter.y;
+                        endX = targetRect.left - containerRect.left;
+                        endY = targetCenter.y;
+                    } else if (noteRect.left > targetRect.right) {
+                        // Note is on the right
+                        startX = noteRect.left - containerRect.left;
+                        startY = noteCenter.y;
+                        endX = targetRect.right - containerRect.left;
+                        endY = targetCenter.y;
+                    } else if (noteRect.bottom < targetRect.top) {
+                        // Note is above
+                        startX = noteCenter.x;
+                        startY = noteRect.bottom - containerRect.top;
+                        endX = targetCenter.x;
+                        endY = targetRect.top - containerRect.top;
+                    } else {
+                        // Note is below
+                        startX = noteCenter.x;
+                        startY = noteRect.top - containerRect.top;
+                        endX = targetCenter.x;
+                        endY = targetRect.bottom - containerRect.top;
+                    }
+                    
+                    // Create SVG line
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.classList.add('connector');
+                    line.setAttribute('x1', startX);
+                    line.setAttribute('y1', startY);
+                    line.setAttribute('x2', endX);
+                    line.setAttribute('y2', endY);
+                    
+                    // Store reference to the line for hover effects
+                    note.setAttribute('data-connector', svg.children.length);
+                    svg.appendChild(line);
+                }
+            });
+        }
+
+        // Add hover effects
+        const notes = document.querySelectorAll('.note-block');
+        notes.forEach(note => {
+            note.addEventListener('mouseenter', () => {
+                const targetId = note.getAttribute('data-target');
+                const target = document.getElementById(targetId);
+                const connectorIndex = note.getAttribute('data-connector');
+                const connector = document.querySelectorAll('.connector')[connectorIndex];
+                
+                if (target && connector) {
+                    note.classList.add('active');
+                    target.classList.add('active');
+                    connector.classList.add('active');
+                }
+            });
+            
+            note.addEventListener('mouseleave', () => {
+                const targetId = note.getAttribute('data-target');
+                const target = document.getElementById(targetId);
+                const connectorIndex = note.getAttribute('data-connector');
+                const connector = document.querySelectorAll('.connector')[connectorIndex];
+                
+                if (target && connector) {
+                    note.classList.remove('active');
+                    target.classList.remove('active');
+                    connector.classList.remove('active');
+                }
+            });
+        });
+
+        // Toggle OSC logger
+        const statusBarToggle = document.querySelector('.status-bar-toggle');
+        const statusBar = document.querySelector('.status-bar');
+        const statusBarContainer = document.querySelector('.status-bar-container');
+
+        statusBarToggle.addEventListener('click', () => {
+            if (statusBar.classList.contains('collapsed')) {
+                statusBar.classList.remove('collapsed');
+                statusBarContainer.style.height = 'auto';
+                statusBarToggle.classList.remove('collapsed');
+            } else {
+                statusBar.classList.add('collapsed');
+                statusBarContainer.style.height = '24px';
+                statusBarToggle.classList.add('collapsed');
+            }
+        });
+
+        // Update connectors on load and resize
+        window.addEventListener('load', updateConnectors);
+        window.addEventListener('resize', updateConnectors);
+    </script>
+</body>
+</html>
