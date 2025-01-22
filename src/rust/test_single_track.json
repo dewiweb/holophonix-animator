@@ -1,0 +1,15 @@
+{
+  "tracks": [
+    {
+      "id": "test_track",
+      "name": null,
+      "position": {
+        "x": 0.5,
+        "y": 0.5,
+        "z": 0.5
+      },
+      "metadata": {},
+      "animation": null
+    }
+  ]
+}
