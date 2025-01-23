@@ -1,0 +1,25 @@
+.App {
+  text-align: center;
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: white;
+  padding: 20px;
+}
+
+.timeline-container {
+  margin-bottom: 20px;
+  padding: 20px;
+  background-color: #1e2127;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.track-list-container {
+  flex: 1;
+  background-color: #1e2127;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}

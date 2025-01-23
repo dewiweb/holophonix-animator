@@ -1,0 +1,253 @@
+.animation-timeline {
+  width: 100%;
+  height: 100px;
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  overflow: hidden;
+  user-select: none;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background-color: #252525;
+  border-bottom: 1px solid #333;
+}
+
+.timeline-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.time-display {
+  font-family: monospace;
+  font-size: 14px;
+  color: #333;
+}
+
+.control-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.control-button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background-color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.control-button:hover {
+  background-color: #e0e0e0;
+}
+
+.control-button.active {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.timeline {
+  position: relative;
+  height: 40px;
+  background-color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.timeline-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    #f0f0f0,
+    #f0f0f0 1px,
+    transparent 1px,
+    transparent 10%
+  );
+}
+
+.loop-region {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background-color: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  pointer-events: none;
+}
+
+.keyframe-marker {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  transition: transform 0.1s;
+  z-index: 2;
+}
+
+.keyframe-marker:hover {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.keyframe-marker:active {
+  cursor: grabbing;
+}
+
+.custom-marker {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  transform: translateX(-50%);
+  cursor: grab;
+  z-index: 1;
+}
+
+.custom-marker:hover {
+  width: 4px;
+}
+
+.custom-marker:active {
+  cursor: grabbing;
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background-color: #f44336;
+  transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.playhead::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -4px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #f44336;
+}
+
+.hover-time {
+  position: absolute;
+  top: -25px;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Keyframe type-specific styles */
+.position-keyframe {
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+}
+
+.rotation-keyframe {
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.3);
+}
+
+.scale-keyframe {
+  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.3);
+}
+
+.color-keyframe {
+  box-shadow: 0 0 0 2px rgba(156, 39, 176, 0.3);
+}
+
+.time-marker {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  color: #888;
+  font-size: 10px;
+  font-family: monospace;
+  pointer-events: none;
+}
+
+.grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: #333;
+  pointer-events: none;
+}
+
+.keyframe-tooltip {
+  display: none;
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #252525;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.keyframe-marker:hover .keyframe-tooltip {
+  display: block;
+}
+
+.marker-label {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  color: #fff;
+  font-size: 10px;
+  background-color: inherit;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+.context-menu {
+  position: fixed;
+  background-color: #252525;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 4px;
+  z-index: 1000;
+}
+
+.context-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-menu button:hover {
+  background-color: #333;
+}

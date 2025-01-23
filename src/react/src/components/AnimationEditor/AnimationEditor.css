@@ -1,0 +1,183 @@
+.animation-editor {
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 16px;
+  color: #ffffff;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.basic-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-grow: 1;
+}
+
+.name-input {
+  font-size: 1.2em;
+  padding: 8px;
+  border: none;
+  border-radius: 4px;
+  background: #444;
+  color: #fff;
+  width: 100%;
+}
+
+.type-select {
+  padding: 6px;
+  border: none;
+  border-radius: 4px;
+  background: #444;
+  color: #fff;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.duration-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.duration-input input {
+  width: 120px;
+  padding: 6px;
+  border: none;
+  border-radius: 4px;
+  background: #444;
+  color: #fff;
+}
+
+.parameters-container {
+  background: #333;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.parameters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.parameters-header h3 {
+  margin: 0;
+  font-size: 1.1em;
+  font-weight: 500;
+}
+
+.presets-button {
+  background: #555;
+  border: none;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.presets-button:hover {
+  background: #666;
+}
+
+.presets-menu {
+  background: #444;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.presets-menu h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.9em;
+  color: #aaa;
+}
+
+.preset-option {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  margin: 4px 0;
+  border: none;
+  border-radius: 4px;
+  background: #555;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.preset-option:hover {
+  background: #666;
+}
+
+.parameters-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.parameter-group {
+  background: #3a3a3a;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.parameter-group h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.9em;
+  color: #aaa;
+}
+
+.position-inputs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.position-inputs label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9em;
+}
+
+.position-inputs input,
+.parameter-group input,
+.parameter-group select {
+  width: 100%;
+  padding: 6px;
+  border: none;
+  border-radius: 4px;
+  background: #444;
+  color: #fff;
+}
+
+.error {
+  color: #ff6b6b;
+  font-size: 0.8em;
+  margin-top: 4px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .editor-header {
+    flex-direction: column;
+  }
+
+  .duration-input {
+    width: 100%;
+  }
+
+  .duration-input input {
+    width: 100%;
+  }
+}
