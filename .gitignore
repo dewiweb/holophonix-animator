@@ -127,3 +127,4 @@ local.settings.json
 src/rust/target/
 src/rust/*/target/
 src/rust/Cargo.lock
+.windsurfrules
