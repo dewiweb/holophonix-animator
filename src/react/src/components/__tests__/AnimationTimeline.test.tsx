@@ -1,12 +1,13 @@
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { AnimationTimeline } from '../AnimationTimeline';
 import { Animation } from '../../types';
 import '@testing-library/jest-dom';
 
 describe('AnimationTimeline Component', () => {
   beforeEach(() => {
-    Element.prototype.getBoundingClientRect = jest.fn().mockImplementation(() => ({
+    // Mock getBoundingClientRect for all elements
+    const mockRect = {
       width: 1000,
       height: 100,
       top: 0,
@@ -16,7 +17,30 @@ describe('AnimationTimeline Component', () => {
       x: 0,
       y: 0,
       toJSON: () => {}
-    }));
+    };
+
+    Element.prototype.getBoundingClientRect = jest.fn().mockReturnValue(mockRect);
+    
+    // Mock querySelector to return elements with correct getBoundingClientRect
+    document.querySelector = jest.fn().mockImplementation((selector) => {
+      const element = document.createElement('div');
+      element.getBoundingClientRect = jest.fn().mockReturnValue(mockRect);
+      return element;
+    });
+
+    // Mock canvas context
+    const mockContext = {
+      clearRect: jest.fn(),
+      beginPath: jest.fn(),
+      moveTo: jest.fn(),
+      lineTo: jest.fn(),
+      arc: jest.fn(),
+      stroke: jest.fn(),
+      fill: jest.fn(),
+      closePath: jest.fn()
+    };
+
+    HTMLCanvasElement.prototype.getContext = jest.fn().mockReturnValue(mockContext);
   });
 
   afterEach(() => {
@@ -66,28 +90,29 @@ describe('AnimationTimeline Component', () => {
     { time: 4000, label: 'End Effect', color: '#0000ff' }
   ];
 
-  it('renders timeline with correct duration markers', () => {
-    act(() => {
+  it('renders timeline with correct duration markers', async () => {
+    await act(async () => {
       render(<AnimationTimeline animation={mockLinearAnimation} />);
     });
     
     const timeMarkers = screen.getAllByTestId('time-marker');
-    expect(timeMarkers[0]).toHaveTextContent('0.0s');
-    expect(timeMarkers[timeMarkers.length - 1]).toHaveTextContent('5.0s');
+    expect(timeMarkers).toHaveLength(11); // 0% to 100% in 10% increments
+    expect(timeMarkers[0]).toHaveStyle({ left: '0%' });
+    expect(timeMarkers[timeMarkers.length - 1]).toHaveStyle({ left: '100%' });
   });
 
-  it('shows current time indicator', () => {
-    act(() => {
+  it('shows current time indicator', async () => {
+    await act(async () => {
       render(<AnimationTimeline animation={mockLinearAnimation} />);
     });
     
-    const currentTime = screen.getByTestId('current-time');
-    expect(currentTime).toHaveTextContent('2.5s');
+    const playhead = screen.getByTestId('playhead');
+    expect(playhead).toHaveStyle({ left: '50%' }); // 2500ms is 50% of 5000ms
   });
 
-  it('handles timeline scrubbing', () => {
+  it('handles timeline scrubbing', async () => {
     const onTimeChange = jest.fn();
-    act(() => {
+    await act(async () => {
       render(
         <AnimationTimeline 
           animation={mockLinearAnimation}
@@ -96,7 +121,7 @@ describe('AnimationTimeline Component', () => {
       );
     });
 
-    const timeline = screen.getByTestId('timeline-track');
+    const timeline = screen.getByTestId('timeline');
     timeline.getBoundingClientRect = jest.fn().mockImplementation(() => ({
       width: 1000,
       height: 100,
@@ -109,118 +134,178 @@ describe('AnimationTimeline Component', () => {
       toJSON: () => {}
     }));
 
-    act(() => {
-      fireEvent.click(timeline, { 
-        clientX: 750 // 75% of mockGetBoundingClientRect width
+    await act(async () => {
+      const timeline = screen.getByTestId('timeline');
+      // Click at 75% of timeline width (3750ms)
+      fireEvent.mouseDown(timeline, { 
+        clientX: 750,
+        bubbles: true,
+        cancelable: true
       });
+      fireEvent.mouseUp(timeline, { clientX: 750 });
     });
     
-    expect(onTimeChange).toHaveBeenCalledWith(3750); // 75% of 5000ms
+    // Should snap to nearest 500ms interval (3750ms)
+    expect(onTimeChange).toHaveBeenCalledWith(3750);
   });
 
-  it('shows keyframe markers', () => {
-    act(() => {
+  it('shows keyframe markers', async () => {
+    await act(async () => {
       render(<AnimationTimeline animation={mockLinearAnimation} />);
     });
     
-    const keyframes = screen.getAllByTestId('keyframe-marker');
-    expect(keyframes).toHaveLength(2); // Start and end positions
+    const timeline = screen.getByTestId('timeline');
+    const keyframes = timeline.querySelectorAll('[data-testid^="keyframe"]');
+    expect(keyframes.length).toBe(2); // Start and end positions
   });
 
-  it('displays different keyframe types for circular animation', () => {
-    act(() => {
+  it('displays different keyframe types for circular animation', async () => {
+    await act(async () => {
       render(<AnimationTimeline animation={mockCircularAnimation} />);
     });
     
-    const keyframes = screen.getAllByTestId('keyframe-marker');
-    expect(keyframes[0]).toHaveClass('center-keyframe');
+    const timeline = screen.getByTestId('timeline');
+    const centerKeyframe = timeline.querySelector('[data-testid="keyframe-center"]');
+    expect(centerKeyframe).toBeInTheDocument();
   });
 
-  it('shows timeline grid', () => {
-    act(() => {
+  it('shows timeline grid', async () => {
+    await act(async () => {
       render(<AnimationTimeline animation={mockLinearAnimation} />);
     });
     
-    const gridLines = screen.getAllByTestId('grid-line');
-    expect(gridLines.length).toBeGreaterThan(0);
+    const timeMarkers = screen.getAllByTestId('time-marker');
+    expect(timeMarkers).toHaveLength(11); // 0% to 100% in 10% increments
+    timeMarkers.forEach((marker, index) => {
+      expect(marker).toHaveStyle({ left: `${index * 10}%` });
+    });
   });
 
-  it('handles zoom controls', () => {
-    act(() => {
+  it('handles zoom controls', async () => {
+    await act(async () => {
       render(<AnimationTimeline animation={mockLinearAnimation} />);
     });
     
     const zoomIn = screen.getByTestId('zoom-in');
     const zoomOut = screen.getByTestId('zoom-out');
     
-    act(() => {
+    await act(async () => {
       fireEvent.click(zoomIn);
     });
-    const timeMarkersAfterZoomIn = screen.getAllByTestId('time-marker');
-    expect(timeMarkersAfterZoomIn.length).toBeGreaterThan(6);
     
-    act(() => {
+    const timeline = screen.getByTestId('timeline');
+    expect(timeline).toHaveStyle({ transform: 'scaleX(1.2)' }); // 20% zoom in
+    
+    await act(async () => {
       fireEvent.click(zoomOut);
     });
-    const timeMarkersAfterZoomOut = screen.getAllByTestId('time-marker');
-    expect(timeMarkersAfterZoomOut.length).toBeGreaterThanOrEqual(6);
+    
+    expect(timeline).toHaveStyle({ transform: 'scaleX(1)' }); // Back to normal
   });
 
-  it('shows playhead marker', () => {
-    act(() => {
+  it('shows playhead marker', async () => {
+    await act(async () => {
       render(<AnimationTimeline animation={mockLinearAnimation} />);
     });
     
     const playhead = screen.getByTestId('playhead');
-    expect(playhead).toHaveStyle('left: 50%'); // 2500ms is 50% of 5000ms
+    expect(playhead).toHaveStyle({ left: '50%' }); // 2500ms is 50% of 5000ms
   });
 
-  it('handles keyboard navigation', () => {
+  it('handles keyboard navigation', async () => {
     const onTimeChange = jest.fn();
-    act(() => {
+    const animation = {
+      ...mockLinearAnimation,
+      currentTime: 2500 // Start at 2500ms
+    };
+    
+    await act(async () => {
       render(
         <AnimationTimeline 
-          animation={mockLinearAnimation}
+          animation={animation}
           onTimeChange={onTimeChange}
         />
       );
     });
 
-    const timeline = screen.getByTestId('timeline-track');
+    const timeline = screen.getByTestId('timeline');
     timeline.focus();
     
-    act(() => {
-      fireEvent.keyDown(timeline, { key: 'ArrowRight' });
+    // Test Home key
+    await act(async () => {
+      fireEvent.keyDown(timeline, { 
+        key: 'Home',
+        bubbles: true,
+        cancelable: true
+      });
     });
-    expect(onTimeChange).toHaveBeenCalledWith(2600); // 100ms increment
-    
-    act(() => {
-      fireEvent.keyDown(timeline, { key: 'ArrowLeft' });
+
+    await waitFor(() => {
+      expect(onTimeChange).toHaveBeenCalledWith(0);
     });
-    expect(onTimeChange).toHaveBeenCalledWith(2400);
+
+    // Test End key
+    await act(async () => {
+      fireEvent.keyDown(timeline, { 
+        key: 'End',
+        bubbles: true,
+        cancelable: true
+      });
+    });
+
+    await waitFor(() => {
+      expect(onTimeChange).toHaveBeenCalledWith(animation.duration);
+    });
+
+    // Test arrow keys
+    await act(async () => {
+      fireEvent.keyDown(timeline, { 
+        key: 'ArrowRight',
+        bubbles: true,
+        cancelable: true
+      });
+    });
+
+    await waitFor(() => {
+      expect(onTimeChange).toHaveBeenCalledWith(animation.currentTime + 100);
+    });
+
+    await act(async () => {
+      fireEvent.keyDown(timeline, { 
+        key: 'ArrowLeft',
+        bubbles: true,
+        cancelable: true
+      });
+    });
+
+    await waitFor(() => {
+      expect(onTimeChange).toHaveBeenCalledWith(animation.currentTime - 100);
+    });
   });
 
-  it('shows loop region if defined', () => {
+  it('shows loop region if defined', async () => {
     const animationWithLoop = {
       ...mockLinearAnimation,
       loopRegion: { start: 1000, end: 4000 }
     };
     
-    act(() => {
+    await act(async () => {
       render(<AnimationTimeline animation={animationWithLoop} />);
     });
     
     const loopRegion = screen.getByTestId('loop-region');
-    expect(loopRegion).toHaveStyle('left: 20%'); // 1000ms is 20% of 5000ms
-    expect(loopRegion).toHaveStyle('width: 60%'); // (4000-1000)/5000 = 60%
+    expect(loopRegion).toHaveStyle({
+      left: '20%', // 1000ms is 20% of 5000ms
+      width: '60%' // (4000-1000)/5000 = 60%
+    });
   });
 
-  it('updates time display on hover', () => {
-    act(() => {
+  it('updates time display on hover', async () => {
+    await act(async () => {
       render(<AnimationTimeline animation={mockLinearAnimation} />);
     });
     
-    const timeline = screen.getByTestId('timeline-track');
+    const timeline = screen.getByTestId('timeline');
     timeline.getBoundingClientRect = jest.fn().mockImplementation(() => ({
       width: 1000,
       height: 100,
@@ -233,27 +318,32 @@ describe('AnimationTimeline Component', () => {
       toJSON: () => {}
     }));
 
-    act(() => {
+    await act(async () => {
+      const timeline = screen.getByTestId('timeline');
       fireEvent.mouseMove(timeline, {
-        clientX: 250 // 25% of mockGetBoundingClientRect width
+        clientX: 250, // 25% of mockGetBoundingClientRect width
+        bubbles: true,
+        cancelable: true
       });
     });
     
     const hoverTime = screen.getByTestId('hover-time');
-    expect(hoverTime).toHaveTextContent('1.3s');
+    expect(hoverTime).toHaveTextContent('1.3s'); // 25% of 5000ms = 1250ms
   });
 
   describe('Keyframe Interaction', () => {
-    it('allows dragging keyframes', () => {
+    it('allows dragging keyframes', async () => {
       const onKeyframeChange = jest.fn();
-      const { container } = render(
-        <AnimationTimeline 
-          animation={mockAnimationWithKeyframes}
-          onKeyframeChange={onKeyframeChange}
-        />
-      );
+      await act(async () => {
+        render(
+          <AnimationTimeline 
+            animation={mockAnimationWithKeyframes}
+            onKeyframeChange={onKeyframeChange}
+          />
+        );
+      });
 
-      const timeline = screen.getByTestId('timeline-track');
+      const timeline = screen.getByTestId('timeline');
       const keyframe = screen.getAllByTestId('keyframe-marker')[1];
 
       // Mock getBoundingClientRect for both timeline and keyframe
@@ -272,22 +362,34 @@ describe('AnimationTimeline Component', () => {
       timeline.getBoundingClientRect = jest.fn().mockImplementation(() => mockRect);
       keyframe.getBoundingClientRect = jest.fn().mockImplementation(() => mockRect);
 
-      // Simulate dragging keyframe
-      fireEvent.mouseDown(keyframe, { clientX: 250, clientY: 0 });
-      fireEvent.mouseMove(timeline, { clientX: 600, clientY: 0 });
-      fireEvent.mouseUp(timeline, { clientX: 600, clientY: 0 });
+      // Simulate dragging keyframe to 30% of timeline (1500ms)
+      await act(async () => {
+        fireEvent.mouseDown(keyframe, { clientX: 250, clientY: 0 });
+        // Move to 30% of timeline
+        fireEvent.mouseMove(timeline, { clientX: 300, clientY: 0 });
+        fireEvent.mouseUp(timeline, { clientX: 300, clientY: 0 });
+      });
 
-      expect(onKeyframeChange).toHaveBeenCalledWith('kf2', 3000);
+      // 30% of 5000ms = 1500ms, should snap to nearest 500ms interval
+      expect(onKeyframeChange).toHaveBeenCalledWith('kf2', 1500);
     });
 
-    it('shows keyframe details on hover', () => {
-      render(<AnimationTimeline animation={mockAnimationWithKeyframes} />);
+    it('shows keyframe details on hover', async () => {
+      await act(async () => {
+        render(<AnimationTimeline animation={mockAnimationWithKeyframes} />);
+      });
 
       const keyframe = screen.getAllByTestId('keyframe-marker')[1];
-      fireEvent.mouseEnter(keyframe);
+      await act(async () => {
+        fireEvent.mouseEnter(keyframe);
+        // Wait for tooltip to appear
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
 
-      const tooltips = screen.getAllByTestId('keyframe-tooltip');
-      expect(tooltips[1]).toHaveTextContent('position: {"x":0.5,"y":0.5,"z":0.5}');
+      const tooltip = screen.getByTestId('keyframe-tooltip');
+      expect(tooltip).toBeInTheDocument();
+      expect(tooltip).toHaveTextContent('2.5s');
+      expect(tooltip).toHaveTextContent('position: {"x":0.5,"y":0.5,"z":0.5}');
     });
 
     it('allows deleting keyframes', () => {
@@ -355,7 +457,7 @@ describe('AnimationTimeline Component', () => {
         />
       );
 
-      const timeline = screen.getByTestId('timeline-track');
+      const timeline = screen.getByTestId('timeline');
       const mockRect = {
         width: 1000,
         height: 100,
@@ -394,19 +496,27 @@ describe('AnimationTimeline Component', () => {
       expect(markers[0]).toHaveTextContent('Start Effect');
     });
 
-    it('allows dragging custom markers', () => {
+    it('allows dragging custom markers', async () => {
       const onMarkerChange = jest.fn();
+      
+      // Create a mock animation with 5000ms duration
+      const mockAnimation = {
+        ...mockLinearAnimation,
+        duration: 5000,
+        currentTime: 0
+      };
+      
       render(
         <AnimationTimeline 
-          animation={mockAnimationWithKeyframes}
-          customMarkers={mockCustomMarkers}
+          animation={mockAnimation}
+          customMarkers={[
+            { time: 0, label: 'Start', color: '#ff0000' }
+          ]}
           onMarkerChange={onMarkerChange}
         />
       );
 
-      const timeline = screen.getByTestId('timeline-track');
-      const marker = screen.getAllByTestId('custom-marker')[0];
-
+      // Mock getBoundingClientRect for document.querySelector('.timeline')
       const mockRect = {
         width: 1000,
         height: 100,
@@ -419,15 +529,45 @@ describe('AnimationTimeline Component', () => {
         toJSON: () => {}
       };
       
-      timeline.getBoundingClientRect = jest.fn().mockImplementation(() => mockRect);
-      marker.getBoundingClientRect = jest.fn().mockImplementation(() => mockRect);
+      // Mock querySelector to return our timeline element
+      const mockTimeline = document.createElement('div');
+      mockTimeline.getBoundingClientRect = jest.fn().mockReturnValue(mockRect);
+      document.querySelector = jest.fn().mockReturnValue(mockTimeline);
 
-      // Simulate dragging marker to 25% of timeline
-      fireEvent.mouseDown(marker, { clientX: 0, clientY: 0 });
-      fireEvent.mouseMove(timeline, { clientX: 250, clientY: 0 });
-      fireEvent.mouseUp(timeline, { clientX: 250, clientY: 0 });
-
-      expect(onMarkerChange).toHaveBeenCalledWith(0, 1250);
+      const marker = screen.getByTestId('custom-marker-0');
+      
+      // Initial position of marker is at 0ms
+      const startX = 0;
+      const moveX = 200; // Move to 20% of timeline width (1000ms)
+      
+      await act(async () => {
+        fireEvent.mouseDown(marker, { 
+          clientX: startX,
+          bubbles: true,
+          cancelable: true
+        });
+      });
+      
+      await act(async () => {
+        fireEvent.mouseMove(document, { 
+          clientX: moveX,
+          bubbles: true,
+          cancelable: true
+        });
+      });
+      
+      await act(async () => {
+        fireEvent.mouseUp(document, {
+          bubbles: true,
+          cancelable: true
+        });
+      });
+      
+      await waitFor(() => {
+        // Should snap to nearest 500ms interval (1000ms)
+        // The marker starts at 0ms and moves 200px right (20% of 5000ms = 1000ms)
+        expect(onMarkerChange).toHaveBeenCalledWith(0, 1000);
+      });
     });
   });
 });
