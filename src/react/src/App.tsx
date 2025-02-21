@@ -11,6 +11,7 @@ const sampleAnimation: Animation = {
   isPlaying: false,
   duration: 5000,
   currentTime: 2500,
+  tracks: [],
   parameters: {
     startPosition: { x: 0, y: 0, z: 0 },
     endPosition: { x: 1, y: 1, z: 1 }
