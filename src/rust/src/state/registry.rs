@@ -6,6 +6,7 @@ use crate::state::Track;
 
 /// Registry managing all tracks in the system
 #[derive(Debug)]
+#[derive(Clone)]
 pub struct TrackRegistry {
     tracks: HashMap<String, Track>,
 }

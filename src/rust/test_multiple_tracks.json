@@ -1,6 +1,17 @@
 {
   "tracks": [
     {
+      "id": "track_2",
+      "name": null,
+      "position": {
+        "x": 2.0,
+        "y": 2.0,
+        "z": 2.0
+      },
+      "metadata": {},
+      "animation": null
+    },
+    {
       "id": "track_0",
       "name": null,
       "position": {
@@ -18,17 +29,6 @@
         "x": 1.0,
         "y": 1.0,
         "z": 1.0
-      },
-      "metadata": {},
-      "animation": null
-    },
-    {
-      "id": "track_2",
-      "name": null,
-      "position": {
-        "x": 2.0,
-        "y": 2.0,
-        "z": 2.0
       },
       "metadata": {},
       "animation": null

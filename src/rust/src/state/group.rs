@@ -1,16 +1,15 @@
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
-use crate::state::{Track, TrackRegistry};
+use crate::state::TrackRegistry;
+use rand::Rng;
 use crate::math::vector::Vector3;
 
 /// Represents different ways to specify group members
 #[derive(Debug, Clone)]
 pub enum GroupPattern {
     All,
-    Prefix(String),
-    Suffix(String),
-    Contains(String),
-    Regex(String),
+    Pattern(String),
+    List(Vec<String>),
 }
 
 /// Defines how tracks in a group relate to each other
@@ -19,161 +18,268 @@ pub enum GroupRelation {
     None,
     Follow(String),
     Offset(Vector3),
-    Rotate(f64, Vector3),
+    Rotate {
+        angle: f64,
+        axis: Vector3,
+        center: Option<Vector3>,
+    },
+    Phase(f64), // Phase offset in degrees for cyclic animations
+    Isobarycentric {
+        reference_distance: Option<f64>, // If None, use initial distances
+        maintain_plane: bool, // If true, maintain the plane formed by the points
+    },
 }
 
-/// Represents a group of tracks with a specific relationship
+/// A group of tracks with a specific relationship between them
+#[derive(Clone)]
 pub struct Group {
-    id: String,
-    name: Option<String>,
+    name: String,
     pattern: GroupPattern,
     tracks: HashSet<String>,
     relations: HashMap<String, GroupRelation>,
+    scale_factor: f64,
+    speed_factor: f64,
+    time_offset: Duration,
 }
 
 impl Group {
-    /// Creates a new group with the given ID and pattern
-    pub fn new(id: &str, pattern: GroupPattern) -> Self {
-        Self {
-            id: id.to_string(),
-            name: None,
+    /// Creates a new group with the given name and pattern
+    pub fn new(name: &str, pattern: GroupPattern) -> Self {
+        Group {
+            name: name.to_string(),
             pattern,
             tracks: HashSet::new(),
             relations: HashMap::new(),
+            scale_factor: 1.0,
+            speed_factor: 1.0,
+            time_offset: Duration::from_secs(0),
         }
     }
 
-    /// Returns the group's ID
-    pub fn id(&self) -> &str {
-        &self.id
+    /// Gets the name of the group
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
-    /// Returns the name of the group
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Sets the name of the group
-    pub fn set_name(&mut self, name: &str) {
-        self.name = Some(name.to_string());
-    }
-
-    /// Returns the pattern of the group
+    /// Gets the pattern used to match tracks
     pub fn pattern(&self) -> &GroupPattern {
         &self.pattern
     }
 
-    /// Returns the members of the group
-    pub fn members(&self) -> &HashSet<String> {
+    /// Gets the tracks in this group
+    pub fn tracks(&self) -> &HashSet<String> {
         &self.tracks
     }
 
-    /// Adds a track to the group
-    pub fn add_track(&mut self, track_id: String) -> bool {
-        self.tracks.insert(track_id)
+    /// Gets the relation for a track
+    pub fn relation(&self, track_id: &str) -> Option<&GroupRelation> {
+        self.relations.get(track_id)
     }
 
-    /// Removes a track from the group
-    pub fn remove_track(&mut self, track_id: &str) -> bool {
-        self.tracks.remove(track_id)
-    }
-
-    /// Sets the relation of a track in the group
+    /// Sets the relation for a track
     pub fn set_relation(&mut self, track_id: &str, relation: GroupRelation) {
         self.relations.insert(track_id.to_string(), relation);
     }
 
-    /// Returns the relation of a track in the group
-    pub fn get_relation(&self, track_id: &str) -> Option<&GroupRelation> {
-        self.relations.get(track_id)
+    /// Gets the group-wide scale factor
+    pub fn scale_factor(&self) -> f64 {
+        self.scale_factor
     }
 
-    /// Updates the members of the group based on the pattern
+    /// Sets the group-wide scale factor
+    pub fn set_scale_factor(&mut self, scale: f64) {
+        self.scale_factor = scale;
+    }
+
+    /// Gets the group-wide speed factor
+    pub fn speed_factor(&self) -> f64 {
+        self.speed_factor
+    }
+
+    /// Sets the group-wide speed factor
+    pub fn set_speed_factor(&mut self, speed: f64) {
+        self.speed_factor = speed;
+    }
+
+    /// Gets the group-wide time offset
+    pub fn time_offset(&self) -> Duration {
+        self.time_offset
+    }
+
+    /// Sets the group-wide time offset
+    pub fn set_time_offset(&mut self, offset: Duration) {
+        self.time_offset = offset;
+    }
+
+    /// Updates the list of tracks in this group based on the pattern
     pub fn update_members(&mut self, registry: &TrackRegistry) {
-        let mut new_members = HashSet::new();
-        
-        for track_id in registry.get_track_ids() {
-            match &self.pattern {
-                GroupPattern::All => {
-                    new_members.insert(track_id.clone());
+        self.tracks.clear();
+        match &self.pattern {
+            GroupPattern::All => {
+                for id in registry.track_ids() {
+                    self.tracks.insert(id.to_string());
                 }
-                GroupPattern::Prefix(prefix) => {
-                    if track_id.starts_with(prefix) {
-                        new_members.insert(track_id.clone());
+            },
+            GroupPattern::Pattern(pattern) => {
+                for id in registry.track_ids() {
+                    if id.contains(pattern) {
+                        self.tracks.insert(id.to_string());
                     }
                 }
-                GroupPattern::Suffix(suffix) => {
-                    if track_id.ends_with(suffix) {
-                        new_members.insert(track_id.clone());
+            },
+            GroupPattern::List(ids) => {
+                for id in ids {
+                    if registry.get_track(id).is_some() {
+                        self.tracks.insert(id.to_string());
                     }
                 }
-                GroupPattern::Contains(pattern) => {
-                    if track_id.contains(pattern) {
-                        new_members.insert(track_id.clone());
-                    }
-                }
-                GroupPattern::Regex(pattern) => {
-                    if let Ok(re) = regex::Regex::new(pattern) {
-                        if re.is_match(&track_id) {
-                            new_members.insert(track_id.clone());
-                        }
-                    }
-                }
-            }
+            },
         }
-
-        self.tracks = new_members;
     }
 
-    /// Updates the positions of the group members
+    /// Updates the positions of all tracks in this group
     pub fn update_positions(&self, registry: &mut TrackRegistry, time: Duration) {
-        for track_id in &self.tracks {
-            if let Some(relation) = self.relations.get(track_id) {
-                match relation {
-                    GroupRelation::None => {},
-                    GroupRelation::Follow(target_id) => {
-                        if let Some(target) = registry.get_track(target_id) {
-                            let target_pos = target.position();
-                            registry.update_track_position(track_id, target_pos);
-                        }
-                    },
-                    GroupRelation::Offset(offset) => {
-                        if let Some(track) = registry.get_track(track_id) {
-                            let pos = if let Some(motion) = track.motion() {
-                                motion.calculate_position(time)
-                            } else {
-                                track.position()
-                            };
-                            registry.update_track_position(track_id, pos + *offset);
-                        }
-                    },
-                    GroupRelation::Rotate(_angle, _axis) => {
-                        // TODO: Implement rotation
-                    },
-                }
-            }
-        }
-    }
-
-    /// Returns the positions of the group members
-    pub fn get_positions(&self, registry: &TrackRegistry, time: Duration) -> Vec<(String, Vector3)> {
-        let mut positions = Vec::new();
+        let scaled_time = time + self.time_offset;
+        
+        // First collect all current positions
+        let mut track_positions = HashMap::new();
         for track_id in &self.tracks {
             if let Some(track) = registry.get_track(track_id) {
-                let pos = if let Some(motion) = track.motion() {
-                    motion.calculate_position(time)
+                let pos = if let Some(m) = track.motion() {
+                    m.calculate_position(scaled_time)
                 } else {
                     track.position()
                 };
-                positions.push((track_id.clone(), pos));
+                track_positions.insert(track_id.clone(), pos);
             }
         }
-        positions
+        
+        // Calculate new positions
+        let mut new_positions = HashMap::new();
+        for track_id in &self.tracks {
+            let base_pos = match track_positions.get(track_id) {
+                Some(pos) => pos.clone(),
+                None => continue,
+            };
+            
+            let updated_pos = match &self.relation(track_id) {
+                None => base_pos,
+                Some(relation) => match relation {
+                    GroupRelation::None => base_pos,
+                    GroupRelation::Follow(target_id) => {
+                        track_positions.get(target_id).cloned().unwrap_or(base_pos)
+                    },
+                    GroupRelation::Offset(offset) => base_pos + *offset,
+                    GroupRelation::Rotate { angle, axis, center } => {
+                        let rotation_center = center.clone().unwrap_or_else(|| {
+                            let mut sum = Vector3::zero();
+                            let mut count = 0;
+                            for pos in track_positions.values() {
+                                sum = sum + *pos;
+                                count += 1;
+                            }
+                            if count > 0 {
+                                sum / count as f64
+                            } else {
+                                Vector3::zero()
+                            }
+                        });
+
+                        let relative_pos = base_pos - rotation_center;
+                        let rotated_pos = relative_pos.rotate(*angle, axis);
+                        rotation_center + rotated_pos
+                    },
+                    GroupRelation::Phase(_) => base_pos,
+                    GroupRelation::Isobarycentric { reference_distance, maintain_plane } => {
+                        let mut center = Vector3::zero();
+                        let mut count = 0;
+                        
+                        // Calculate center of mass
+                        for pos in track_positions.values() {
+                            center = center + *pos;
+                            count += 1;
+                        }
+                        
+                        if count == 0 {
+                            base_pos
+                        } else {
+                            center = center / count as f64;
+                            
+                            let target_distance = reference_distance.unwrap_or_else(|| {
+                                let mut sum_dist = 0.0;
+                                for pos in track_positions.values() {
+                                    sum_dist += (*pos - center).magnitude();
+                                }
+                                sum_dist / count as f64
+                            });
+                            
+                            let current_vec = base_pos - center;
+                            let current_dist = current_vec.magnitude();
+                            
+                            if current_dist < 1e-10 {
+                                let random_vec = Vector3::new(
+                                    rand::random::<f64>() * 2.0 - 1.0,
+                                    rand::random::<f64>() * 2.0 - 1.0,
+                                    rand::random::<f64>() * 2.0 - 1.0
+                                ).normalize();
+                                center + random_vec * target_distance
+                            } else {
+                                let direction = current_vec / current_dist;
+                                
+                                if *maintain_plane {
+                                    let mut normal = Vector3::zero();
+                                    let positions: Vec<_> = track_positions.values().collect();
+                                    for i in 0..positions.len() {
+                                        let p1 = positions[i];
+                                        let p2 = positions[(i + 1) % positions.len()];
+                                        let v1 = *p1 - center;
+                                        let v2 = *p2 - center;
+                                        normal = normal + v1.cross(&v2);
+                                    }
+                                    
+                                    if normal.magnitude() > 1e-10 {
+                                        normal = normal.normalize();
+                                        let projected = direction - normal * direction.dot(&normal);
+                                        if projected.magnitude() > 1e-10 {
+                                            center + projected.normalize() * target_distance
+                                        } else {
+                                            center + direction * target_distance
+                                        }
+                                    } else {
+                                        center + direction * target_distance
+                                    }
+                                } else {
+                                    center + direction * target_distance
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            let final_pos = updated_pos * self.scale_factor;
+            new_positions.insert(track_id.clone(), final_pos);
+        }
+        
+        // Apply new positions
+        for (track_id, new_pos) in new_positions {
+            if let Some(track) = registry.get_track_mut(&track_id) {
+                track.set_position(new_pos);
+            }
+        }
     }
 }
 
 impl Default for Group {
     fn default() -> Self {
-        Self::new("default", GroupPattern::All)
+        Self {
+            name: String::new(),
+            pattern: GroupPattern::All,
+            tracks: HashSet::new(),
+            relations: HashMap::new(),
+            scale_factor: 1.0,
+            speed_factor: 1.0,
+            time_offset: Duration::from_secs(0),
+        }
     }
 }
