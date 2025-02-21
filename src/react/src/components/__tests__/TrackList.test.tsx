@@ -10,31 +10,20 @@ describe('TrackList Component', () => {
     {
       id: 'track1',
       name: 'Track 1',
-      groupId: 'group1',
-      type: 'source',
-      position: { x: 0, y: 0, z: 0 },
-      isSelected: false,
-      isMuted: false,
-      isSolo: false
+      position: { x: 0, y: 0, z: 0 }
     },
     {
       id: 'track2',
       name: 'Track 2',
-      groupId: 'group1',
-      type: 'source',
-      position: { x: 1, y: 1, z: 1 },
-      isSelected: true,
-      isMuted: true,
-      isSolo: false
+      position: { x: 1, y: 1, z: 1 }
     }
   ];
 
   const mockGroup: Group = {
     id: 'group1',
     name: 'Group 1',
-    type: 'source',
-    isExpanded: true,
-    tracks: ['track1', 'track2']
+    tracks: ['track1', 'track2'],
+    pattern: 'linear'
   };
 
   it('renders track list correctly', () => {
