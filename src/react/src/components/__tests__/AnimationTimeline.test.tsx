@@ -3,44 +3,18 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { AnimationTimeline } from '../AnimationTimeline';
 import { Animation } from '../../types';
 import '@testing-library/jest-dom';
+import { MockContext2D, mockGetBoundingClientRect } from '../../test-utils';
 
 describe('AnimationTimeline Component', () => {
   beforeEach(() => {
-    // Mock getBoundingClientRect for all elements
-    const mockRect = {
-      width: 1000,
-      height: 100,
-      top: 0,
-      left: 0,
-      bottom: 100,
-      right: 1000,
-      x: 0,
-      y: 0,
-      toJSON: () => {}
-    };
-
-    Element.prototype.getBoundingClientRect = jest.fn().mockReturnValue(mockRect);
-    
-    // Mock querySelector to return elements with correct getBoundingClientRect
-    document.querySelector = jest.fn().mockImplementation((selector) => {
-      const element = document.createElement('div');
-      element.getBoundingClientRect = jest.fn().mockReturnValue(mockRect);
-      return element;
-    });
-
     // Mock canvas context
-    const mockContext = {
-      clearRect: jest.fn(),
-      beginPath: jest.fn(),
-      moveTo: jest.fn(),
-      lineTo: jest.fn(),
-      arc: jest.fn(),
-      stroke: jest.fn(),
-      fill: jest.fn(),
-      closePath: jest.fn()
-    };
-
+    const mockContext = new MockContext2D();
     HTMLCanvasElement.prototype.getContext = jest.fn().mockReturnValue(mockContext);
+
+    // Mock getBoundingClientRect for all elements
+    const element = document.createElement('div');
+    mockGetBoundingClientRect(element);
+    document.querySelector = jest.fn().mockReturnValue(element);
   });
 
   afterEach(() => {
@@ -529,12 +503,11 @@ describe('AnimationTimeline Component', () => {
         toJSON: () => {}
       };
       
-      // Mock querySelector to return our timeline element
-      const mockTimeline = document.createElement('div');
-      mockTimeline.getBoundingClientRect = jest.fn().mockReturnValue(mockRect);
-      document.querySelector = jest.fn().mockReturnValue(mockTimeline);
+      // Get timeline and marker elements
+      const timeline = screen.getByTestId('timeline');
+      timeline.getBoundingClientRect = jest.fn().mockReturnValue(mockRect);
 
-      const marker = screen.getByTestId('custom-marker-0');
+      const marker = screen.getByTestId('custom-marker');
       
       // Initial position of marker is at 0ms
       const startX = 0;

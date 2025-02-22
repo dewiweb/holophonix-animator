@@ -4,8 +4,33 @@ import { act } from 'react';
 import { TrackList } from '../TrackList';
 import { Track, Group, LinearAnimation, CircularAnimation } from '../../types';
 import '@testing-library/jest-dom';
+import { MockContext2D, mockGetBoundingClientRect } from '../../test-utils';
 
 describe('Animation-Track Integration', () => {
+  beforeEach(() => {
+    // Mock canvas context
+    const mockContext = new MockContext2D();
+    HTMLCanvasElement.prototype.getContext = jest.fn().mockReturnValue(mockContext);
+
+    // Mock canvas dimensions
+    Object.defineProperty(HTMLCanvasElement.prototype, 'offsetWidth', {
+      configurable: true,
+      value: 200
+    });
+    Object.defineProperty(HTMLCanvasElement.prototype, 'offsetHeight', {
+      configurable: true,
+      value: 100
+    });
+
+    // Mock getBoundingClientRect for all elements
+    const element = document.createElement('div');
+    mockGetBoundingClientRect(element);
+    document.querySelector = jest.fn().mockReturnValue(element);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
   const mockTracks: Track[] = [
     {
       id: 'track1',
