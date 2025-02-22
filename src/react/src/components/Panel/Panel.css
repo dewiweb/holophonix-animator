@@ -1,0 +1,91 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--header-color);
+  border-bottom: 1px solid var(--border-color);
+  user-select: none;
+}
+
+.panel__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.panel__collapse-button {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.panel__collapse-button:hover {
+  color: var(--accent-color);
+}
+
+.panel__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel__content {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  transition: height 0.2s ease;
+}
+
+.panel--collapsed .panel__content {
+  height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.panel__resize-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+  background: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.panel__resize-handle:hover,
+.panel__resize-handle:active {
+  background-color: var(--accent-color);
+  opacity: 0.2;
+}
+
+/* Ensure smooth transitions */
+.panel {
+  transition: width 0.1s ease;
+}
+
+/* Prevent text selection during resize */
+.panel--resizable {
+  user-select: none;
+}

@@ -1,0 +1,192 @@
+.connection-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 15px;
+}
+
+.connection-form {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.form-group label {
+  font-size: 12px;
+  margin-bottom: 4px;
+  color: var(--text-color);
+}
+
+.form-group input {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-color);
+  padding: 6px 10px;
+  font-size: 14px;
+  width: 140px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.form-group input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.error-message {
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+  font-size: 11px;
+  color: #ff6b6b;
+}
+
+.connect-button,
+.disconnect-button {
+  padding: 6px 15px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 17px;
+}
+
+.connect-button {
+  background-color: var(--success-color);
+  border: none;
+  color: #000000;
+}
+
+.connect-button:hover:not(:disabled) {
+  background-color: #66bb6a;
+}
+
+.connect-button:disabled,
+.disconnect-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.connect-button:disabled::after,
+.disconnect-button:disabled::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.disconnect-button {
+  background-color: #ff5252;
+  border: none;
+  color: white;
+}
+
+.disconnect-button:hover {
+  background-color: #ff1744;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.connection-status::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.connection-status.connected {
+  color: var(--success-color);
+}
+
+.connection-status.connected::before {
+  background-color: var(--success-color);
+}
+
+.connection-status.disconnected {
+  color: #ff6b6b;
+}
+
+.connection-status.disconnected::before {
+  background-color: #ff6b6b;
+}
+
+.connection-status.reconnecting {
+  color: #ffd700;
+}
+
+.connection-status.reconnecting::before {
+  background-color: #ffd700;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.error-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--tooltip-bg);
+  color: #ff6b6b;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-top: 8px;
+  white-space: nowrap;
+  z-index: 1000;
+}
+
+.error-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid var(--tooltip-bg);
+}
+
+.connection-controls {
+  position: relative;
+}
