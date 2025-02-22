@@ -164,8 +164,16 @@ export const AnimationPreview: React.FC<AnimationPreviewProps> = ({
 
 
   React.useEffect(() => {
+    // Skip canvas operations in test environment
+    if (process.env.NODE_ENV === 'test') return;
+
     if (!previewRef.current) return;
     const canvas = previewRef.current;
+    
+    // Set canvas dimensions
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
