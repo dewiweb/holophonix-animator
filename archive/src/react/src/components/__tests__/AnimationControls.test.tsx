@@ -12,6 +12,11 @@ describe('AnimationControls Component', () => {
     isPlaying: false,
     duration: 5000, // 5 seconds
     currentTime: 0,
+    tracks: ['track1'],
+    keyframes: [
+      { id: 'kf1', time: 0, type: 'position', value: { x: 0, y: 0, z: 0 } },
+      { id: 'kf2', time: 5000, type: 'position', value: { x: 1, y: 1, z: 1 } }
+    ],
     parameters: {
       startPosition: { x: 0, y: 0, z: 0 },
       endPosition: { x: 1, y: 1, z: 1 }

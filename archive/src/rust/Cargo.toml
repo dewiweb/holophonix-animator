@@ -8,10 +8,15 @@ description = "Core computation engine for Holophonix Animator"
 name = "holophonix_animator_core"
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = []
+node-api = ["napi", "napi-derive"]
+
 [dependencies]
-# For N-API bindings
-napi = "2.12.2"
-napi-derive = "2.12.2"
+rand = "0.8"
+# For Node.js bindings
+napi = { version = "2.16", features = ["napi4", "napi5", "napi6", "napi7", "napi8", "tokio_rt", "serde-json"], optional = true }
+napi-derive = { version = "2.16", optional = true }
 approx = "0.5"
 rayon = "1.8"
 serde = { version = "1.0", features = ["derive"] }
@@ -41,4 +46,4 @@ name = "group_benchmarks"
 harness = false
 
 [build-dependencies]
-napi-build = "2.0.1"
+napi-build = "1.2.1"

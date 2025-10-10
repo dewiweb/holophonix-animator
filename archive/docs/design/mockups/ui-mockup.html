@@ -15,6 +15,12 @@
             --header-color: #1a1a1a;
             --tooltip-bg: rgba(0, 0, 0, 0.9);
             --dark-bg: #1a1a1a;
+            --timeline-bg: #252525;
+            --timeline-grid: #333333;
+            --timeline-marker: #ff6b6b;
+            --timeline-text: #aaaaaa;
+            --button-hover: #3d3d3d;
+            --shadow-color: rgba(0, 0, 0, 0.3);
         }
 
         body {
@@ -166,7 +172,7 @@
         /* Content panel improvements */
         .content {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 300px 1fr 300px;
             gap: 1px;
             background: var(--border-color);
             min-height: 600px;
@@ -177,6 +183,156 @@
             padding: 15px;
             overflow: auto;
             position: relative;
+        }
+
+        /* Timeline panel styles */
+        .timeline-panel {
+            background: var(--timeline-bg);
+            border-top: 1px solid var(--border-color);
+            padding: 10px;
+            min-height: 150px;
+        }
+
+        .timeline-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .timeline-controls .button {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .timeline-controls .button:hover {
+            background: var(--button-hover);
+        }
+
+        .time-display {
+            font-family: monospace;
+            color: var(--timeline-text);
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        .timeline-track {
+            position: relative;
+            height: 100px;
+            background: var(--timeline-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .timeline-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-size: 50px 50px;
+            background-image: linear-gradient(to right, var(--timeline-grid) 1px, transparent 1px),
+                          linear-gradient(to bottom, var(--timeline-grid) 1px, transparent 1px);
+        }
+
+        .timeline-marker {
+            position: absolute;
+            top: 0;
+            left: 100px;
+            width: 2px;
+            height: 100%;
+            background: var(--timeline-marker);
+            cursor: ew-resize;
+        }
+
+        .timeline-marker::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -4px;
+            width: 10px;
+            height: 10px;
+            background: var(--timeline-marker);
+            border-radius: 50%;
+        }
+
+        /* Floating preview window */
+        .preview-window {
+            position: absolute;
+            top: 100px;
+            right: -280px;
+            width: 250px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            overflow: hidden;
+            z-index: 1000;
+        }
+
+        .preview-window .title-bar {
+            padding: 8px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+        }
+
+        .preview-window .title-bar .controls {
+            display: flex;
+            gap: 4px;
+        }
+
+        .preview-window .title-bar .controls button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 2px 4px;
+            font-size: 12px;
+        }
+
+        .preview-window .preview-content {
+            padding: 10px;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .preview-canvas {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            height: 200px;
+            position: relative;
+        }
+
+        .preview-canvas .source {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .preview-canvas .path {
+            position: absolute;
+            border: 1px dashed var(--accent-color);
+            opacity: 0.5;
+            border-radius: 50%;
+            width: 100px;
+            height: 100px;
+            left: 75px;
+            top: 50px;
         }
 
         /* Rest of the existing styles */
@@ -362,6 +518,23 @@
 
     <!-- Main container -->
     <div class="app-container">
+        <!-- Floating preview window -->
+        <div class="preview-window" data-tooltip="Drag to move window">
+            <div class="title-bar">
+                <span>Animation Preview</span>
+                <div class="controls">
+                    <button data-tooltip="Minimize">_</button>
+                    <button data-tooltip="Close">×</button>
+                </div>
+            </div>
+            <div class="preview-content">
+                <div class="preview-canvas">
+                    <div class="source" style="left: 125px; top: 100px;"></div>
+                    <div class="path"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Connector container -->
         <div class="connector-container">
             <svg width="100%" height="100%" id="connectors"></svg>
@@ -483,17 +656,25 @@
                 </div>
 
                 <!-- Parameters panel -->
-                <div class="panel" id="preview-panel" data-tooltip="Control and adjust parameters">
+                <div class="panel" id="parameters-panel" data-tooltip="Control and adjust parameters">
                     <div class="panel-title">Parameters</div>
                     <div class="interactive" data-tooltip="Adjust animation model parameters">
                         Parameters
                     </div>
-                    <div class="interactive" data-tooltip="Timeline of all active animation models">
-                        Timeline
-                    </div>
-                    <div class="interactive" data-tooltip="2D visualization of track positions">
-                        2D Preview
-                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline panel -->
+            <div class="timeline-panel" data-tooltip="Animation timeline controls">
+                <div class="timeline-controls">
+                    <button class="button" data-tooltip="Play/Pause animation">⏯</button>
+                    <button class="button" data-tooltip="Stop animation">⏹</button>
+                    <button class="button" data-tooltip="Reset to start">⏮</button>
+                    <span class="time-display">00:00.000</span>
+                </div>
+                <div class="timeline-track">
+                    <div class="timeline-grid"></div>
+                    <div class="timeline-marker" data-tooltip="Current time"></div>
                 </div>
             </div>
 

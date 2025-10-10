@@ -32,7 +32,7 @@ fn test_track_registry() {
 #[test]
 fn test_group_pattern_matching() {
     let mut registry = TrackRegistry::new();
-    let mut group = Group::new("test_group", GroupPattern::Prefix("test".to_string()));
+    let mut group = Group::new("test_group", GroupPattern::Pattern("test".to_string()));
     
     // Add test tracks
     registry.add_track("test1".to_string());
@@ -43,10 +43,10 @@ fn test_group_pattern_matching() {
     group.update_members(&registry);
     
     // Check that only tracks with prefix "test" are included
-    let members = group.members();
-    assert!(members.contains("test1"));
-    assert!(members.contains("test2"));
-    assert!(!members.contains("other"));
+    let tracks = group.tracks();
+    assert!(tracks.contains("test1"));
+    assert!(tracks.contains("test2"));
+    assert!(!tracks.contains("other"));
 }
 
 #[test]

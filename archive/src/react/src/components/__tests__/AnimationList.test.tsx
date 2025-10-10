@@ -144,8 +144,8 @@ describe('AnimationList Component', () => {
     });
     
     const durations = screen.getAllByTestId('animation-duration');
-    expect(durations[0]).toHaveTextContent('5s');
-    expect(durations[1]).toHaveTextContent('5s');
+    expect(durations[0]).toHaveTextContent('0:05');
+    expect(durations[1]).toHaveTextContent('0:05');
   });
 
   it('handles animation reordering', () => {
@@ -159,7 +159,7 @@ describe('AnimationList Component', () => {
       );
     });
 
-    const moveUpButton = screen.getAllByTestId('move-up-button')[0];
+    const moveUpButton = screen.getAllByTestId('move-up-button')[1];
     act(() => {
       fireEvent.click(moveUpButton);
     });

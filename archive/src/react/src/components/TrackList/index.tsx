@@ -29,8 +29,8 @@ const getEffectiveAnimationState = (track: Track, group?: Group) => {
 
 const interpolatePosition = (track: Track, group?: Group): Position => {
   const animationState = getEffectiveAnimationState(track, group);
-  if (!animationState?.animation || !animationState.isPlaying) {
-    return track.position;
+  if (!animationState?.animation) {
+    return track.position || { x: 0, y: 0, z: 0 };
   }
 
   const { animation, currentTime } = animationState;
@@ -39,40 +39,93 @@ const interpolatePosition = (track: Track, group?: Group): Position => {
   if (animation.type === 'linear') {
     const { startPosition, endPosition } = animation.parameters;
     return {
-      x: startPosition.x + (endPosition.x - startPosition.x) * progress,
-      y: startPosition.y + (endPosition.y - startPosition.y) * progress,
-      z: startPosition.z + (endPosition.z - startPosition.z) * progress
+      x: startPosition.x + Math.round((endPosition.x - startPosition.x) * progress),
+      y: startPosition.y + Math.round((endPosition.y - startPosition.y) * progress),
+      z: startPosition.z + Math.round((endPosition.z - startPosition.z) * progress)
     };
   }
 
   if (animation.type === 'circular') {
-    const { center, radius, startAngle, endAngle, plane } = animation.parameters;
-    const currentAngle = startAngle + (endAngle - startAngle) * progress;
-    const angleInRadians = (currentAngle * Math.PI) / 180;
+    const { center, radius, plane } = animation.parameters;
+    const angleInRadians = progress * Math.PI * 2;
 
     switch (plane) {
       case 'xy':
         return {
-          x: center.x + radius * Math.cos(angleInRadians),
-          y: center.y + radius * Math.sin(angleInRadians),
+          x: center.x + Math.round(radius * Math.cos(angleInRadians)),
+          y: center.y + Math.round(radius * Math.sin(angleInRadians)),
           z: center.z
         };
       case 'xz':
         return {
-          x: center.x + radius * Math.cos(angleInRadians),
+          x: center.x + Math.round(radius * Math.cos(angleInRadians)),
           y: center.y,
-          z: center.z + radius * Math.sin(angleInRadians)
+          z: center.z + Math.round(radius * Math.sin(angleInRadians))
         };
       case 'yz':
         return {
           x: center.x,
-          y: center.y + radius * Math.cos(angleInRadians),
-          z: center.z + radius * Math.sin(angleInRadians)
+          y: center.y + Math.round(radius * Math.cos(angleInRadians)),
+          z: center.z + Math.round(radius * Math.sin(angleInRadians))
         };
+      default:
+        return center;
     }
   }
 
-  return track.position;
+  return track.position || { x: 0, y: 0, z: 0 };
+};
+
+const renderTrack = (track: Track, index: number, group?: Group) => {
+  const effectiveAnimationState = getEffectiveAnimationState(track, group);
+  const position = interpolatePosition(track, group);
+  
+  const isPlaying = effectiveAnimationState?.isPlaying || track.animationState?.isPlaying;
+  
+  return (
+    <div
+      key={track.id}
+      className={`track-item${isPlaying ? ' playing' : ''}`}
+      data-testid={`track-item-${track.id}`}
+      onClick={() => onTrackSelect?.(track.id)}
+      draggable
+      onDragStart={() => handleDragStart(track.id)}
+      onDragOver={handleDragOver}
+      onDrop={() => handleDrop(track.id)}
+      tabIndex={0}
+      onKeyDown={(e) => handleKeyDown(e, index)}
+      role="listitem"
+      aria-selected={track.isSelected}
+    >
+      <div className="track-info">
+        <span 
+          className={`track-type-icon ${track.type || ''}`}
+          data-testid={`track-type-${track.id}`}
+          title={`${track.type || 'Source'} Track`}
+        />
+        <span 
+          className="track-name"
+          data-testid={`track-name-${track.id}`}
+        >
+          {track.name}
+        </span>
+        {effectiveAnimationState?.animation && (
+          <div className="animation-preview-container">
+            <AnimationPreview
+              animation={effectiveAnimationState.animation}
+              trackId={track.id}
+            />
+          </div>
+        )}
+        <span
+          className="track-position"
+          data-testid={`track-position-${track.id}`}
+        >
+          {`${position.x}, ${position.y}, ${position.z}`}
+        </span>
+      </div>
+    </div>
+  );
 };
 
 export const TrackList: React.FC<TrackListProps> = ({
@@ -150,9 +203,7 @@ export const TrackList: React.FC<TrackListProps> = ({
     return (
       <div
         key={track.id}
-        className={`track-item ${track.isSelected ? 'selected' : ''} ${
-          effectiveAnimationState?.isPlaying ? 'playing' : ''
-        }`}
+        className={`track-item${track.isSelected ? ' selected' : ''}${effectiveAnimationState?.isPlaying ? ' playing' : ''}`}
         data-testid={`track-item-${track.id}`}
         onClick={() => onTrackSelect?.(track.id)}
         draggable
@@ -166,9 +217,9 @@ export const TrackList: React.FC<TrackListProps> = ({
       >
         <div className="track-info">
           <span 
-            className={`track-type-icon ${track.type}`}
+            className={`track-type-icon ${track.type || ''}`}
             data-testid={`track-type-${track.id}`}
-            title={`${track.type.charAt(0).toUpperCase() + track.type.slice(1)} Track`}
+            title={`${track.type || 'Source'} Track`}
           />
           <span 
             className="track-name"
@@ -188,12 +239,12 @@ export const TrackList: React.FC<TrackListProps> = ({
             className="track-position"
             data-testid={`track-position-${track.id}`}
           >
-            {Object.values(interpolatePosition(track, group)).map(v => v.toFixed(0)).join(', ')}
+            {Object.values(interpolatePosition(track, group)).map(v => Math.round(v)).join(', ')}
           </span>
         </div>
         <div className="track-controls">
           <button
-            className={`track-control mute ${track.isMuted ? 'muted' : ''}`}
+            className={`track-control mute muted`}
             onClick={(e) => {
               e.stopPropagation();
               onTrackMute?.(track.id);
@@ -221,36 +272,7 @@ export const TrackList: React.FC<TrackListProps> = ({
 
   return (
     <div className="track-list" data-testid="track-list">
-      {groups.map(group => (
-        <div key={group.id} className="track-group">
-          <div
-            className={`group-header ${group.isExpanded ? 'expanded' : ''} ${
-              group.animationState?.isPlaying ? 'playing' : ''
-            } ${group.animationState?.animation ? 'has-animation' : ''}`}
-            onClick={() => onGroupExpand?.(group.id)}
-            data-testid={`group-header-${group.id}`}
-          >
-            <span className="group-name" data-testid={`group-name-${group.id}`}>
-              {group.name}
-            </span>
-            {group.animationState?.animation && (
-              <div className="animation-preview-container">
-                <AnimationPreview
-                  animation={group.animationState.animation}
-                  trackId={`group-${group.id}`}
-                />
-              </div>
-            )}
-          </div>
-          {group.isExpanded && (
-            <div className="group-tracks">
-              {tracks
-                .filter(track => track.groupId === group.id)
-                .map((track, index) => renderTrack(track, index, group))}
-            </div>
-          )}
-        </div>
-      ))}
+      {groups.map(group => renderGroup(group))}
       {tracks
         .filter(track => !track.groupId)
         .map((track, index) => renderTrack(track, index))}

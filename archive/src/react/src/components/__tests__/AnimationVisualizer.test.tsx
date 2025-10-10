@@ -6,15 +6,15 @@ import { AnimationVisualizer } from '../AnimationVisualizer';
 import { Animation } from '../../types';
 
 describe('AnimationVisualizer', () => {
-  const mockLinearAnimation = {
+  const mockLinearAnimation: Animation = {
     id: 'anim1',
     name: 'Test Animation',
     type: 'linear',
     duration: 5000,
     tracks: ['track1'],
     keyframes: [
-      { id: 'kf1', time: 0, position: { x: 0, y: 0 } },
-      { id: 'kf2', time: 5000, position: { x: 100, y: 100 } }
+      { id: 'kf1', time: 0, type: 'position', value: { x: 0, y: 0, z: 0 } },
+      { id: 'kf2', time: 5000, type: 'position', value: { x: 100, y: 100, z: 0 } }
     ],
     currentTime: 2500,
     isPlaying: false,
@@ -24,13 +24,14 @@ describe('AnimationVisualizer', () => {
     }
   };
 
-  const mockCircularAnimation = {
+  const mockCircularAnimation: Animation = {
     ...mockLinearAnimation,
     type: 'circular',
     parameters: {
       center: { x: 50, y: 50, z: 0 },
       radius: 25,
-      speed: 1,
+      startAngle: 0,
+      endAngle: 360,
       direction: 'clockwise'
     }
   };

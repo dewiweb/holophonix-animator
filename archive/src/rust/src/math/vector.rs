@@ -9,6 +9,29 @@ pub struct Vector3 {
 }
 
 impl Vector3 {
+    /// Rotates the vector around an axis by an angle (in radians)
+    pub fn rotate(&self, angle: f64, axis: &Vector3) -> Vector3 {
+        // Normalize the axis
+        let axis_len = (axis.x * axis.x + axis.y * axis.y + axis.z * axis.z).sqrt();
+        if axis_len == 0.0 {
+            return *self;
+        }
+        let axis = Vector3::new(axis.x / axis_len, axis.y / axis_len, axis.z / axis_len);
+
+        // Rodrigues rotation formula
+        let cos_angle = angle.cos();
+        let sin_angle = angle.sin();
+
+        // v * cos(θ) + (k × v) * sin(θ) + k * (k · v) * (1 - cos(θ))
+        let dot = self.dot(&axis);
+        let cross = axis.cross(self);
+
+        Vector3::new(
+            self.x * cos_angle + cross.x * sin_angle + axis.x * dot * (1.0 - cos_angle),
+            self.y * cos_angle + cross.y * sin_angle + axis.y * dot * (1.0 - cos_angle),
+            self.z * cos_angle + cross.z * sin_angle + axis.z * dot * (1.0 - cos_angle)
+        )
+    }
     #[inline(always)]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
         Vector3 { x, y, z }
