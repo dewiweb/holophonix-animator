@@ -1,0 +1,952 @@
+import { Animation, Position } from '@/types'
+
+// Helper functions for position calculation
+
+export function calculateLinearPosition(params: any, time: number, duration: number): Position {
+  const t = Math.min(time / (duration || 1), 1)
+  const start = params?.startPosition || { x: 0, y: 0, z: 0 }
+  const end = params?.endPosition || { x: 5, y: 5, z: 5 }
+  
+  const result = {
+    x: start.x + (end.x - start.x) * t,
+    y: start.y + (end.y - start.y) * t,
+    z: start.z + (end.z - start.z) * t
+  }
+  
+  console.log('🔵 Linear calc:', { t, start, end, result })
+  return result
+}
+
+export function calculateCircularPosition(params: any, time: number, duration: number): Position {
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const radius = Number(params?.radius) || 3
+  const startAngle = (Number(params?.startAngle) || 0) * (Math.PI / 180)
+  const endAngle = (Number(params?.endAngle) || 360) * (Math.PI / 180)
+  const plane = params?.plane || 'xy'
+  
+  const t = Math.min(time / (duration || 1), 1)
+  const angle = startAngle + (endAngle - startAngle) * t
+  
+  let posX = center.x
+  let posY = center.y
+  let posZ = center.z
+  
+  if (plane === 'xy') {
+    posX = center.x + radius * Math.cos(angle)
+    posY = center.y + radius * Math.sin(angle)
+  } else if (plane === 'xz') {
+    posX = center.x + radius * Math.cos(angle)
+    posZ = center.z + radius * Math.sin(angle)
+  } else if (plane === 'yz') {
+    posY = center.y + radius * Math.cos(angle)
+    posZ = center.z + radius * Math.sin(angle)
+  }
+  
+  const result = { x: posX, y: posY, z: posZ }
+  console.log('🟢 Circular calc:', { t, center, radius, angle, plane, result })
+  return result
+}
+
+export function calculateEllipticalPosition(params: any, time: number, duration: number): Position {
+  console.log('🟡 Elliptical params raw:', params)
+  
+  const radiusX = Number(params?.radiusX) || 3
+  const radiusY = Number(params?.radiusY) || 2
+  const radiusZ = Number(params?.radiusZ) || 1
+  const plane = params?.plane || 'xy'
+  
+  const centerX = Number(params?.centerX) || 0
+  const centerY = Number(params?.centerY) || 0
+  const centerZ = Number(params?.centerZ) || 0
+  
+  console.log('🟡 Elliptical parsed:', { centerX, centerY, centerZ, radiusX, radiusY, radiusZ, plane })
+  
+  const startAngleDeg = Number(params?.startAngle) || 0
+  const endAngleDeg = Number(params?.endAngle) !== undefined ? Number(params.endAngle) : 360
+  const startAngle = (startAngleDeg * Math.PI) / 180
+  const endAngle = (endAngleDeg * Math.PI) / 180
+  
+  const t = Math.min(time / (duration || 1), 1)
+  const angle = startAngle + t * (endAngle - startAngle)
+  
+  let posX = centerX
+  let posY = centerY
+  let posZ = centerZ
+  
+  if (plane === 'xy') {
+    posX = centerX + radiusX * Math.cos(angle)
+    posY = centerY + radiusY * Math.sin(angle)
+  } else if (plane === 'xz') {
+    posX = centerX + radiusX * Math.cos(angle)
+    posZ = centerZ + radiusZ * Math.sin(angle)
+  } else if (plane === 'yz') {
+    posY = centerY + radiusY * Math.cos(angle)
+    posZ = centerZ + radiusZ * Math.sin(angle)
+  }
+  
+  const result = { x: posX, y: posY, z: posZ }
+  console.log('🟡 Elliptical result:', { t, angle, result })
+  return result
+}
+
+export function calculateSpiralPosition(params: any, time: number, duration: number): Position {
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const startRadius = Number(params?.startRadius) || 1
+  const endRadius = Number(params?.endRadius) || 5
+  const rotations = Number(params?.rotations) || 3
+  const direction = params?.direction || 'clockwise'
+  const plane = params?.plane || 'xy'
+  
+  const t = time / (duration || 1)
+  const radius = startRadius + (endRadius - startRadius) * t
+  const angle = t * rotations * 2 * Math.PI * (direction === 'clockwise' ? 1 : -1)
+  
+  let posX = center.x
+  let posY = center.y
+  let posZ = center.z
+  
+  if (plane === 'xy') {
+    posX = center.x + radius * Math.cos(angle)
+    posY = center.y + radius * Math.sin(angle)
+  } else if (plane === 'xz') {
+    posX = center.x + radius * Math.cos(angle)
+    posZ = center.z + radius * Math.sin(angle)
+  } else if (plane === 'yz') {
+    posY = center.y + radius * Math.cos(angle)
+    posZ = center.z + radius * Math.sin(angle)
+  }
+  
+  return { x: posX, y: posY, z: posZ }
+}
+
+// Random motion state (shared across calls)
+let randomTarget: Position | null = null
+let randomCurrent: Position | null = null
+let randomLastUpdate = 0
+
+export function calculateRandomPosition(params: any, time: number, duration: number): Position {
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const bounds = params?.bounds || { x: 5, y: 5, z: 5 }
+  const speed = Number(params?.speed) || 1
+  const smoothness = Math.max(0, Math.min(1, Number(params?.smoothness) || 0.5))
+  const updateFrequency = Number(params?.updateFrequency) || 10
+  
+  const updateInterval = 1000 / updateFrequency
+  const now = Date.now()
+  
+  if (!randomCurrent) {
+    randomCurrent = { x: center.x, y: center.y, z: center.z }
+  }
+  
+  if (!randomTarget || (now - randomLastUpdate) > updateInterval) {
+    randomTarget = {
+      x: center.x + (Math.random() * 2 - 1) * bounds.x,
+      y: center.y + (Math.random() * 2 - 1) * bounds.y,
+      z: center.z + (Math.random() * 2 - 1) * bounds.z
+    }
+    randomLastUpdate = now
+  }
+  
+  const interpolationFactor = (1 - smoothness) * speed * 0.1
+  
+  randomCurrent = {
+    x: randomCurrent.x + (randomTarget.x - randomCurrent.x) * interpolationFactor,
+    y: randomCurrent.y + (randomTarget.y - randomCurrent.y) * interpolationFactor,
+    z: randomCurrent.z + (randomTarget.z - randomCurrent.z) * interpolationFactor,
+  }
+  
+  return randomCurrent
+}
+
+export function calculateCustomPosition(parameters: any, time: number, duration: number, loopCount: number = 0): Position {
+  const keyframes = parameters.keyframes || []
+  const interpolation = parameters.interpolation || 'linear'
+  const initialPosition = parameters.initialPosition || { x: 0, y: 0, z: 0 }
+  const isFirstRide = loopCount === 0
+  
+  if (keyframes.length === 0) {
+    return initialPosition
+  }
+  
+  const sortedKeyframes = [...keyframes].sort((a: any, b: any) => a.time - b.time)
+  const firstKeyframe = sortedKeyframes[0]
+  const lastKeyframe = sortedKeyframes[sortedKeyframes.length - 1]
+  
+  if (keyframes.length === 1) {
+    if (isFirstRide && time < firstKeyframe.time) {
+      const t = Math.min(time / Math.max(firstKeyframe.time, 0.001), 1)
+      return {
+        x: initialPosition.x + (firstKeyframe.position.x - initialPosition.x) * t,
+        y: initialPosition.y + (firstKeyframe.position.y - initialPosition.y) * t,
+        z: initialPosition.z + (firstKeyframe.position.z - initialPosition.z) * t,
+      }
+    }
+    return firstKeyframe.position
+  }
+  
+  if (time < firstKeyframe.time && isFirstRide) {
+    const t = Math.min(time / Math.max(firstKeyframe.time, 0.001), 1)
+    return {
+      x: initialPosition.x + (firstKeyframe.position.x - initialPosition.x) * t,
+      y: initialPosition.y + (firstKeyframe.position.y - initialPosition.y) * t,
+      z: initialPosition.z + (firstKeyframe.position.z - initialPosition.z) * t,
+    }
+  }
+  
+  let effectiveTime = time
+  if (!isFirstRide) {
+    const transitionTime = firstKeyframe.time
+    const totalKeyframeTime = lastKeyframe.time - firstKeyframe.time + transitionTime
+    effectiveTime = firstKeyframe.time + (time / duration) * totalKeyframeTime
+  }
+  
+  if (effectiveTime > lastKeyframe.time) {
+    const transitionTime = firstKeyframe.time || 1
+    const t = Math.min((effectiveTime - lastKeyframe.time) / transitionTime, 1)
+    return {
+      x: lastKeyframe.position.x + (firstKeyframe.position.x - lastKeyframe.position.x) * t,
+      y: lastKeyframe.position.y + (firstKeyframe.position.y - lastKeyframe.position.y) * t,
+      z: lastKeyframe.position.z + (firstKeyframe.position.z - lastKeyframe.position.z) * t,
+    }
+  }
+  
+  let prevKeyframe = firstKeyframe
+  let nextKeyframe = lastKeyframe
+  
+  for (let i = 0; i < sortedKeyframes.length - 1; i++) {
+    if (effectiveTime >= sortedKeyframes[i].time && effectiveTime <= sortedKeyframes[i + 1].time) {
+      prevKeyframe = sortedKeyframes[i]
+      nextKeyframe = sortedKeyframes[i + 1]
+      break
+    }
+  }
+  
+  const timeDiff = nextKeyframe.time - prevKeyframe.time
+  const t = timeDiff > 0 ? (effectiveTime - prevKeyframe.time) / timeDiff : 0
+  
+  let factor = t
+  if (interpolation === 'bezier') {
+    factor = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+  } else if (interpolation === 'step') {
+    factor = t < 1 ? 0 : 1
+  }
+  
+  return {
+    x: prevKeyframe.position.x + (nextKeyframe.position.x - prevKeyframe.position.x) * factor,
+    y: prevKeyframe.position.y + (nextKeyframe.position.y - prevKeyframe.position.y) * factor,
+    z: prevKeyframe.position.z + (nextKeyframe.position.z - prevKeyframe.position.z) * factor,
+  }
+}
+
+// ========================================
+// PHYSICS-BASED ANIMATIONS
+// ========================================
+
+// State for physics simulations
+let pendulumState = { angle: 0, angularVelocity: 0, lastTime: 0 }
+let springState = { position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, lastTime: 0 }
+
+export function calculatePendulumPosition(params: any, time: number, duration: number): Position {
+  const anchorPoint = params?.anchorPoint || { x: 0, y: 5, z: 0 }
+  const length = Number(params?.pendulumLength) || 3
+  const initialAngleDeg = Number(params?.initialAngle) || 45
+  const damping = Number(params?.damping) || 0.02
+  const gravity = Number(params?.gravity) || 9.81
+  
+  // Initialize on first call or reset
+  if (time < 0.1 && pendulumState.lastTime > time) {
+    pendulumState.angle = (initialAngleDeg * Math.PI) / 180
+    pendulumState.angularVelocity = 0
+  }
+  
+  const dt = Math.min(time - pendulumState.lastTime, 0.1)
+  if (dt > 0) {
+    // Angular acceleration: α = -(g/L) * sin(θ) - damping * ω
+    const angularAcceleration = -(gravity / length) * Math.sin(pendulumState.angle) - damping * pendulumState.angularVelocity
+    
+    pendulumState.angularVelocity += angularAcceleration * dt
+    pendulumState.angle += pendulumState.angularVelocity * dt
+  }
+  pendulumState.lastTime = time
+  
+  // Convert angle to position
+  const x = anchorPoint.x + length * Math.sin(pendulumState.angle)
+  const y = anchorPoint.y - length * Math.cos(pendulumState.angle)
+  const z = anchorPoint.z
+  
+  return { x, y, z }
+}
+
+export function calculateBouncePosition(params: any, time: number, duration: number): Position {
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const startHeight = Number(params?.startHeight) || 10
+  const groundLevel = Number(params?.groundLevel) || 0
+  const bounciness = Math.max(0, Math.min(1, Number(params?.bounciness) || 0.8))
+  const dampingPerBounce = Number(params?.dampingPerBounce) || 0.1
+  const gravity = Number(params?.gravity) || 9.81
+  
+  let currentHeight = startHeight
+  let currentVelocity = 0
+  let currentTime = 0
+  let bounceCount = 0
+  
+  while (currentTime < time) {
+    // Time to hit ground: solve h = h0 - 0.5*g*t^2 + v0*t
+    const a = -0.5 * gravity
+    const b = currentVelocity
+    const c = currentHeight - groundLevel
+    const discriminant = b * b - 4 * a * c
+    
+    if (discriminant < 0 || currentHeight <= groundLevel + 0.01) break
+    
+    const timeToGround = (-b - Math.sqrt(discriminant)) / (2 * a)
+    
+    if (currentTime + timeToGround >= time) {
+      // Ball is in flight
+      const dt = time - currentTime
+      const y = currentHeight + currentVelocity * dt - 0.5 * gravity * dt * dt
+      return { x: center.x, y: Math.max(y, groundLevel), z: center.z }
+    }
+    
+    // Ball hit ground
+    currentTime += timeToGround
+    currentVelocity = -currentVelocity * bounciness * (1 - dampingPerBounce * bounceCount)
+    currentHeight = groundLevel
+    bounceCount++
+  }
+  
+  return { x: center.x, y: groundLevel, z: center.z }
+}
+
+export function calculateSpringPosition(params: any, time: number, duration: number): Position {
+  const restPosition = params?.restPosition || { x: 0, y: 0, z: 0 }
+  const stiffness = Number(params?.springStiffness) || 10
+  const dampingCoef = Number(params?.dampingCoefficient) || 0.5
+  const displacement = params?.initialDisplacement || { x: 5, y: 5, z: 0 }
+  const mass = Number(params?.mass) || 1
+  
+  // Initialize on first call
+  if (time < 0.1 && springState.lastTime > time) {
+    springState.position = {
+      x: restPosition.x + displacement.x,
+      y: restPosition.y + displacement.y,
+      z: restPosition.z + displacement.z
+    }
+    springState.velocity = { x: 0, y: 0, z: 0 }
+  }
+  
+  const dt = Math.min(time - springState.lastTime, 0.1)
+  if (dt > 0) {
+    // Spring force: F = -k * x - c * v
+    const forceX = -stiffness * (springState.position.x - restPosition.x) - dampingCoef * springState.velocity.x
+    const forceY = -stiffness * (springState.position.y - restPosition.y) - dampingCoef * springState.velocity.y
+    const forceZ = -stiffness * (springState.position.z - restPosition.z) - dampingCoef * springState.velocity.z
+    
+    // Update velocity: v = v + (F/m) * dt
+    springState.velocity.x += (forceX / mass) * dt
+    springState.velocity.y += (forceY / mass) * dt
+    springState.velocity.z += (forceZ / mass) * dt
+    
+    // Update position: p = p + v * dt
+    springState.position.x += springState.velocity.x * dt
+    springState.position.y += springState.velocity.y * dt
+    springState.position.z += springState.velocity.z * dt
+  }
+  springState.lastTime = time
+  
+  return { ...springState.position }
+}
+
+// ========================================
+// WAVE-BASED ANIMATIONS
+// ========================================
+
+export function calculateWavePosition(params: any, time: number, duration: number): Position {
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const amplitude = params?.amplitude || { x: 2, y: 2, z: 1 }
+  const frequency = Number(params?.frequency) || 1
+  const phaseOffset = Number(params?.phaseOffset) || 0
+  const waveType = params?.waveType || 'sine'
+  
+  const t = time * frequency * 2 * Math.PI + phaseOffset
+  
+  let waveValue = 0
+  switch (waveType) {
+    case 'sine':
+      waveValue = Math.sin(t)
+      break
+    case 'square':
+      waveValue = Math.sin(t) >= 0 ? 1 : -1
+      break
+    case 'triangle':
+      waveValue = (2 / Math.PI) * Math.asin(Math.sin(t))
+      break
+    case 'sawtooth':
+      waveValue = 2 * ((t / (2 * Math.PI)) - Math.floor((t / (2 * Math.PI)) + 0.5))
+      break
+  }
+  
+  return {
+    x: center.x + amplitude.x * waveValue,
+    y: center.y + amplitude.y * waveValue,
+    z: center.z + amplitude.z * waveValue
+  }
+}
+
+export function calculateLissajousPosition(params: any, time: number, duration: number): Position {
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const freqA = Number(params?.frequencyRatioA) || 3
+  const freqB = Number(params?.frequencyRatioB) || 2
+  const phaseDiff = (Number(params?.phaseDifference) || 0) * (Math.PI / 180)
+  const ampX = Number(params?.amplitudeX) || 3
+  const ampY = Number(params?.amplitudeY) || 3
+  const ampZ = Number(params?.amplitudeZ) || 1
+  
+  const t = (time / duration) * 2 * Math.PI
+  
+  return {
+    x: center.x + ampX * Math.sin(freqA * t),
+    y: center.y + ampY * Math.sin(freqB * t + phaseDiff),
+    z: center.z + ampZ * Math.sin((freqA + freqB) / 2 * t)
+  }
+}
+
+export function calculateHelixPosition(params: any, time: number, duration: number): Position {
+  const axisStart = params?.axisStart || { x: 0, y: -5, z: 0 }
+  const axisEnd = params?.axisEnd || { x: 0, y: 5, z: 0 }
+  const radius = Number(params?.helixRadius) || 2
+  const rotations = Number(params?.helixRotations) || 5
+  const direction = params?.direction || 'clockwise'
+  
+  const t = time / duration
+  const angle = t * rotations * 2 * Math.PI * (direction === 'clockwise' ? 1 : -1)
+  
+  // Linear interpolation along axis
+  const axisX = axisStart.x + (axisEnd.x - axisStart.x) * t
+  const axisY = axisStart.y + (axisEnd.y - axisStart.y) * t
+  const axisZ = axisStart.z + (axisEnd.z - axisStart.z) * t
+  
+  // Circular motion perpendicular to axis (assuming vertical axis for simplicity)
+  return {
+    x: axisX + radius * Math.cos(angle),
+    y: axisY,
+    z: axisZ + radius * Math.sin(angle)
+  }
+}
+
+// ========================================
+// CURVE & PATH-BASED ANIMATIONS
+// ========================================
+
+export function calculateBezierPosition(params: any, time: number, duration: number): Position {
+  const start = params?.bezierStart || { x: -5, y: 0, z: 0 }
+  const control1 = params?.bezierControl1 || { x: -2, y: 5, z: 2 }
+  const control2 = params?.bezierControl2 || { x: 2, y: 5, z: -2 }
+  const end = params?.bezierEnd || { x: 5, y: 0, z: 0 }
+  const easing = params?.easingFunction || 'linear'
+  
+  let t = time / duration
+  
+  // Apply easing
+  switch (easing) {
+    case 'ease-in':
+      t = t * t
+      break
+    case 'ease-out':
+      t = t * (2 - t)
+      break
+    case 'ease-in-out':
+      t = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+      break
+  }
+  
+  // Cubic Bézier formula
+  const mt = 1 - t
+  const mt2 = mt * mt
+  const mt3 = mt2 * mt
+  const t2 = t * t
+  const t3 = t2 * t
+  
+  return {
+    x: mt3 * start.x + 3 * mt2 * t * control1.x + 3 * mt * t2 * control2.x + t3 * end.x,
+    y: mt3 * start.y + 3 * mt2 * t * control1.y + 3 * mt * t2 * control2.y + t3 * end.y,
+    z: mt3 * start.z + 3 * mt2 * t * control1.z + 3 * mt * t2 * control2.z + t3 * end.z
+  }
+}
+
+export function calculateCatmullRomPosition(params: any, time: number, duration: number): Position {
+  const points = params?.controlPoints || [
+    { x: -5, y: 0, z: 0 },
+    { x: -2, y: 3, z: 2 },
+    { x: 2, y: 3, z: -2 },
+    { x: 5, y: 0, z: 0 }
+  ]
+  const tension = Number(params?.tension) || 0.5
+  const closedLoop = params?.closedLoop || false
+  
+  if (points.length < 2) return points[0] || { x: 0, y: 0, z: 0 }
+  
+  const t = (time / duration) * (closedLoop ? points.length : points.length - 1)
+  const segment = Math.floor(t)
+  const local_t = t - segment
+  
+  const getPoint = (index: number) => {
+    if (closedLoop) {
+      return points[((index % points.length) + points.length) % points.length]
+    }
+    return points[Math.max(0, Math.min(points.length - 1, index))]
+  }
+  
+  const p0 = getPoint(segment - 1)
+  const p1 = getPoint(segment)
+  const p2 = getPoint(segment + 1)
+  const p3 = getPoint(segment + 2)
+  
+  const t2 = local_t * local_t
+  const t3 = t2 * local_t
+  
+  const interpolate = (v0: number, v1: number, v2: number, v3: number) => {
+    return tension * (
+      v1 +
+      (-v0 + v2) * local_t +
+      (2 * v0 - 5 * v1 + 4 * v2 - v3) * t2 +
+      (-v0 + 3 * v1 - 3 * v2 + v3) * t3
+    ) + (1 - tension) * (v1 + (v2 - v1) * local_t)
+  }
+  
+  return {
+    x: interpolate(p0.x, p1.x, p2.x, p3.x),
+    y: interpolate(p0.y, p1.y, p2.y, p3.y),
+    z: interpolate(p0.z, p1.z, p2.z, p3.z)
+  }
+}
+
+export function calculateZigzagPosition(params: any, time: number, duration: number): Position {
+  const start = params?.zigzagStart || { x: -5, y: 0, z: 0 }
+  const end = params?.zigzagEnd || { x: 5, y: 0, z: 0 }
+  const zigzagCount = Number(params?.zigzagCount) || 5
+  const amplitude = Number(params?.zigzagAmplitude) || 2
+  const plane = params?.zigzagPlane || 'xy'
+  
+  const t = time / duration
+  const zigzagProgress = t * zigzagCount
+  const zigzagT = (zigzagProgress % 1)
+  const zigzagValue = (zigzagT < 0.5 ? zigzagT * 2 : 2 - zigzagT * 2) * 2 - 1
+  
+  // Base position along path
+  const baseX = start.x + (end.x - start.x) * t
+  const baseY = start.y + (end.y - start.y) * t
+  const baseZ = start.z + (end.z - start.z) * t
+  
+  // Add zigzag perpendicular to path
+  if (plane === 'xy') {
+    return { x: baseX, y: baseY + amplitude * zigzagValue, z: baseZ }
+  } else if (plane === 'xz') {
+    return { x: baseX, y: baseY, z: baseZ + amplitude * zigzagValue }
+  } else {
+    return { x: baseX + amplitude * zigzagValue, y: baseY, z: baseZ }
+  }
+}
+
+// ========================================
+// ADVANCED PROCEDURAL ANIMATIONS
+// ========================================
+
+// Simple Perlin-like noise implementation
+class SimplexNoise {
+  private perm: number[] = []
+  
+  constructor(seed: number = 0) {
+    const p = []
+    for (let i = 0; i < 256; i++) {
+      p[i] = i
+    }
+    // Shuffle based on seed
+    for (let i = 255; i > 0; i--) {
+      const n = Math.floor(((seed * 9301 + 49297) % 233280) / 233280 * (i + 1))
+      seed = (seed * 9301 + 49297) % 233280
+      const q: number = p[i]
+      p[i] = p[n]
+      p[n] = q
+    }
+    this.perm = [...p, ...p]
+  }
+  
+  private fade(t: number): number {
+    return t * t * t * (t * (t * 6 - 15) + 10)
+  }
+  
+  private lerp(t: number, a: number, b: number): number {
+    return a + t * (b - a)
+  }
+  
+  private grad(hash: number, x: number, y: number, z: number): number {
+    const h = hash & 15
+    const u = h < 8 ? x : y
+    const v = h < 4 ? y : h === 12 || h === 14 ? x : z
+    return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v)
+  }
+  
+  noise(x: number, y: number, z: number): number {
+    const X = Math.floor(x) & 255
+    const Y = Math.floor(y) & 255
+    const Z = Math.floor(z) & 255
+    
+    x -= Math.floor(x)
+    y -= Math.floor(y)
+    z -= Math.floor(z)
+    
+    const u = this.fade(x)
+    const v = this.fade(y)
+    const w = this.fade(z)
+    
+    const A = this.perm[X] + Y
+    const AA = this.perm[A] + Z
+    const AB = this.perm[A + 1] + Z
+    const B = this.perm[X + 1] + Y
+    const BA = this.perm[B] + Z
+    const BB = this.perm[B + 1] + Z
+    
+    return this.lerp(w,
+      this.lerp(v,
+        this.lerp(u, this.grad(this.perm[AA], x, y, z), this.grad(this.perm[BA], x - 1, y, z)),
+        this.lerp(u, this.grad(this.perm[AB], x, y - 1, z), this.grad(this.perm[BB], x - 1, y - 1, z))
+      ),
+      this.lerp(v,
+        this.lerp(u, this.grad(this.perm[AA + 1], x, y, z - 1), this.grad(this.perm[BA + 1], x - 1, y, z - 1)),
+        this.lerp(u, this.grad(this.perm[AB + 1], x, y - 1, z - 1), this.grad(this.perm[BB + 1], x - 1, y - 1, z - 1))
+      )
+    )
+  }
+}
+
+let noiseGenerator: SimplexNoise | null = null
+let lastNoiseSeed = 0
+
+export function calculatePerlinNoisePosition(params: any, time: number, duration: number): Position {
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const bounds = params?.bounds || { x: 5, y: 5, z: 5 }
+  const frequency = Number(params?.noiseFrequency) || 1
+  const octaves = Number(params?.noiseOctaves) || 3
+  const persistence = Number(params?.noisePersistence) || 0.5
+  const scale = Number(params?.noiseScale) || 1
+  const seed = Number(params?.noiseSeed) || 12345
+  
+  // Initialize noise generator
+  if (!noiseGenerator || seed !== lastNoiseSeed) {
+    noiseGenerator = new SimplexNoise(seed)
+    lastNoiseSeed = seed
+  }
+  
+  const t = time * frequency
+  
+  // Multi-octave noise
+  let noiseX = 0, noiseY = 0, noiseZ = 0
+  let amplitude = 1
+  let maxAmplitude = 0
+  
+  for (let i = 0; i < octaves; i++) {
+    const freq = Math.pow(2, i)
+    noiseX += noiseGenerator.noise(t * freq, 0, 0) * amplitude
+    noiseY += noiseGenerator.noise(0, t * freq, 100) * amplitude
+    noiseZ += noiseGenerator.noise(100, 0, t * freq) * amplitude
+    maxAmplitude += amplitude
+    amplitude *= persistence
+  }
+  
+  // Normalize and scale
+  noiseX = (noiseX / maxAmplitude) * bounds.x * scale
+  noiseY = (noiseY / maxAmplitude) * bounds.y * scale
+  noiseZ = (noiseZ / maxAmplitude) * bounds.z * scale
+  
+  return {
+    x: center.x + noiseX,
+    y: center.y + noiseY,
+    z: center.z + noiseZ
+  }
+}
+
+export function calculateRoseCurvePosition(params: any, time: number, duration: number): Position {
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const radius = Number(params?.roseRadius) || 3
+  const k = Number(params?.petalCount) || 5
+  const rotation = (Number(params?.roseRotation) || 0) * (Math.PI / 180)
+  const plane = params?.plane || 'xy'
+  
+  const t = (time / duration) * 2 * Math.PI
+  const r = radius * Math.cos(k * t)
+  
+  const x = r * Math.cos(t + rotation)
+  const y = r * Math.sin(t + rotation)
+  
+  if (plane === 'xy') {
+    return { x: center.x + x, y: center.y + y, z: center.z }
+  } else if (plane === 'xz') {
+    return { x: center.x + x, y: center.y, z: center.z + y }
+  } else {
+    return { x: center.x, y: center.y + x, z: center.z + y }
+  }
+}
+
+export function calculateEpicycloidPosition(params: any, time: number, duration: number): Position {
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const R = Number(params?.fixedCircleRadius) || 3  // Fixed circle radius
+  const r = Number(params?.rollingCircleRadius) || 1 // Rolling circle radius
+  const speed = Number(params?.rollingSpeed) || 1
+  const type = params?.rollingType || 'epicycloid'
+  const plane = params?.plane || 'xy'
+  
+  const t = (time / duration) * speed * 2 * Math.PI
+  
+  let x, y
+  if (type === 'epicycloid') {
+    // Epicycloid (rolling outside)
+    x = (R + r) * Math.cos(t) - r * Math.cos(((R + r) / r) * t)
+    y = (R + r) * Math.sin(t) - r * Math.sin(((R + r) / r) * t)
+  } else {
+    // Hypocycloid (rolling inside)
+    x = (R - r) * Math.cos(t) + r * Math.cos(((R - r) / r) * t)
+    y = (R - r) * Math.sin(t) - r * Math.sin(((R - r) / r) * t)
+  }
+  
+  if (plane === 'xy') {
+    return { x: center.x + x, y: center.y + y, z: center.z }
+  } else if (plane === 'xz') {
+    return { x: center.x + x, y: center.y, z: center.z + y }
+  } else {
+    return { x: center.x, y: center.y + x, z: center.z + y }
+  }
+}
+
+// ========================================
+// MULTI-OBJECT & INTERACTIVE ANIMATIONS
+// ========================================
+
+export function calculateOrbitPosition(params: any, time: number, duration: number): Position {
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const radius = Number(params?.orbitalRadius) || 4
+  const speed = Number(params?.orbitalSpeed) || 1
+  const phase = (Number(params?.orbitalPhase) || 0) * (Math.PI / 180)
+  const inclination = (Number(params?.inclination) || 0) * (Math.PI / 180)
+  
+  const t = (time / duration) * speed * 2 * Math.PI + phase
+  
+  const x = radius * Math.cos(t)
+  const y = radius * Math.sin(t) * Math.cos(inclination)
+  const z = radius * Math.sin(t) * Math.sin(inclination)
+  
+  return {
+    x: center.x + x,
+    y: center.y + y,
+    z: center.z + z
+  }
+}
+
+// Formation animation requires track context, simplified version
+export function calculateFormationPosition(params: any, time: number, duration: number): Position {
+  // This is a simplified version - full implementation needs track list access
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const spacing = Number(params?.formationSpacing) || 2
+  const shape = params?.formationShape || 'line'
+  
+  // For demo: just return offset positions
+  return { x: center.x + spacing, y: center.y, z: center.z }
+}
+
+// Attract/repel with simple physics
+let attractState = { position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, lastTime: 0 }
+
+export function calculateAttractRepelPosition(params: any, time: number, duration: number): Position {
+  const target = params?.targetPosition || { x: 0, y: 0, z: 0 }
+  const attractionStrength = Number(params?.attractionStrength) || 5
+  const repulsionRadius = Number(params?.repulsionRadius) || 1
+  const maxSpeed = Number(params?.maxSpeed) || 10
+  const initialPos = params?.center || { x: 5, y: 5, z: 5 }
+  
+  // Initialize
+  if (time < 0.1 && attractState.lastTime > time) {
+    attractState.position = { ...initialPos }
+    attractState.velocity = { x: 0, y: 0, z: 0 }
+  }
+  
+  const dt = Math.min(time - attractState.lastTime, 0.1)
+  if (dt > 0) {
+    const dx = target.x - attractState.position.x
+    const dy = target.y - attractState.position.y
+    const dz = target.z - attractState.position.z
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+    
+    if (distance > 0.01) {
+      let force = attractionStrength
+      if (distance < repulsionRadius) {
+        force = -attractionStrength * 2 // Repel when too close
+      }
+      
+      const forceX = (dx / distance) * force
+      const forceY = (dy / distance) * force
+      const forceZ = (dz / distance) * force
+      
+      attractState.velocity.x += forceX * dt
+      attractState.velocity.y += forceY * dt
+      attractState.velocity.z += forceZ * dt
+      
+      // Limit speed
+      const speed = Math.sqrt(
+        attractState.velocity.x ** 2 + 
+        attractState.velocity.y ** 2 + 
+        attractState.velocity.z ** 2
+      )
+      if (speed > maxSpeed) {
+        attractState.velocity.x = (attractState.velocity.x / speed) * maxSpeed
+        attractState.velocity.y = (attractState.velocity.y / speed) * maxSpeed
+        attractState.velocity.z = (attractState.velocity.z / speed) * maxSpeed
+      }
+      
+      attractState.position.x += attractState.velocity.x * dt
+      attractState.position.y += attractState.velocity.y * dt
+      attractState.position.z += attractState.velocity.z * dt
+    }
+  }
+  attractState.lastTime = time
+  
+  return { ...attractState.position }
+}
+
+// ========================================
+// SPECIALIZED SPATIAL AUDIO ANIMATIONS
+// ========================================
+
+export function calculateDopplerPosition(params: any, time: number, duration: number): Position {
+  const pathStart = params?.pathStart || { x: -10, y: 0, z: 5 }
+  const pathEnd = params?.pathEnd || { x: 10, y: 0, z: 5 }
+  const speed = Number(params?.passBySpeed) || 1
+  
+  const t = (time / duration) * speed
+  const clampedT = Math.max(0, Math.min(1, t))
+  
+  return {
+    x: pathStart.x + (pathEnd.x - pathStart.x) * clampedT,
+    y: pathStart.y + (pathEnd.y - pathStart.y) * clampedT,
+    z: pathStart.z + (pathEnd.z - pathStart.z) * clampedT
+  }
+}
+
+export function calculateCircularScanPosition(params: any, time: number, duration: number): Position {
+  const center = params?.center || { x: 0, y: 0, z: 0 }
+  const radius = Number(params?.scanRadius) || 5
+  const height = Number(params?.scanHeight) || 0
+  const sweepCount = Number(params?.sweepCount) || 1
+  const startAngle = (Number(params?.startAngleOffset) || 0) * (Math.PI / 180)
+  
+  const t = (time / duration) * sweepCount * 2 * Math.PI + startAngle
+  
+  return {
+    x: center.x + radius * Math.cos(t),
+    y: center.y + height,
+    z: center.z + radius * Math.sin(t)
+  }
+}
+
+export function calculateZoomPosition(params: any, time: number, duration: number): Position {
+  const zoomCenter = params?.zoomCenter || { x: 0, y: 0, z: 0 }
+  const startDist = Number(params?.startDistance) || 10
+  const endDist = Number(params?.endDistance) || 1
+  const curve = params?.accelerationCurve || 'linear'
+  
+  let t = time / duration
+  
+  // Apply easing curve
+  switch (curve) {
+    case 'ease-in':
+      t = t * t
+      break
+    case 'ease-out':
+      t = t * (2 - t)
+      break
+    case 'ease-in-out':
+      t = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+      break
+  }
+  
+  const distance = startDist + (endDist - startDist) * t
+  const angle = (time / duration) * 2 * Math.PI  // Optional: rotate while zooming
+  
+  return {
+    x: zoomCenter.x + distance * Math.cos(angle),
+    y: zoomCenter.y,
+    z: zoomCenter.z + distance * Math.sin(angle)
+  }
+}
+
+export function calculatePosition(animation: Animation, time: number, loopCount: number = 0): Position {
+  const { type, parameters, duration } = animation
+  
+  const effectiveTime = duration > 0 ? time % duration : time
+  
+  switch (type) {
+    // Original animations
+    case 'linear':
+      return calculateLinearPosition(parameters, effectiveTime, duration)
+    case 'circular':
+      return calculateCircularPosition(parameters, effectiveTime, duration)
+    case 'elliptical':
+      return calculateEllipticalPosition(parameters, effectiveTime, duration)
+    case 'spiral':
+      return calculateSpiralPosition(parameters, effectiveTime, duration)
+    case 'random':
+      return calculateRandomPosition(parameters, effectiveTime, duration)
+    case 'custom':
+      return calculateCustomPosition(parameters, effectiveTime, duration, loopCount)
+    
+    // Physics-based animations
+    case 'pendulum':
+      return calculatePendulumPosition(parameters, time, duration)
+    case 'bounce':
+      return calculateBouncePosition(parameters, time, duration)
+    case 'spring':
+      return calculateSpringPosition(parameters, time, duration)
+    
+    // Wave-based animations
+    case 'wave':
+      return calculateWavePosition(parameters, effectiveTime, duration)
+    case 'lissajous':
+      return calculateLissajousPosition(parameters, effectiveTime, duration)
+    case 'helix':
+      return calculateHelixPosition(parameters, effectiveTime, duration)
+    
+    // Curve & path-based animations
+    case 'bezier':
+      return calculateBezierPosition(parameters, effectiveTime, duration)
+    case 'catmull-rom':
+      return calculateCatmullRomPosition(parameters, effectiveTime, duration)
+    case 'zigzag':
+      return calculateZigzagPosition(parameters, effectiveTime, duration)
+    
+    // Advanced procedural animations
+    case 'perlin-noise':
+      return calculatePerlinNoisePosition(parameters, time, duration)
+    case 'rose-curve':
+      return calculateRoseCurvePosition(parameters, effectiveTime, duration)
+    case 'epicycloid':
+      return calculateEpicycloidPosition(parameters, effectiveTime, duration)
+    
+    // Multi-object & interactive animations
+    case 'orbit':
+      return calculateOrbitPosition(parameters, effectiveTime, duration)
+    case 'formation':
+      return calculateFormationPosition(parameters, effectiveTime, duration)
+    case 'attract-repel':
+      return calculateAttractRepelPosition(parameters, time, duration)
+    
+    // Specialized spatial audio animations
+    case 'doppler':
+      return calculateDopplerPosition(parameters, effectiveTime, duration)
+    case 'circular-scan':
+      return calculateCircularScanPosition(parameters, effectiveTime, duration)
+    case 'zoom':
+      return calculateZoomPosition(parameters, effectiveTime, duration)
+    
+    default:
+      return { x: 0, y: 0, z: 0 }
+  }
+}

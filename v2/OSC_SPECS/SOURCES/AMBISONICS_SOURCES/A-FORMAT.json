@@ -1,0 +1,542 @@
+[
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/name",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/lock",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/trim",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/gain",
+    "args": "integer",
+    "scale": "-60, 12",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/gain/ramptime",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/mute",
+    "args": "string",
+    "scale": "0, 2",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/solo",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/delay",
+    "args": "integer",
+    "scale": "0, 5000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/filtering",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/highcut",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/equalizer/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/equalizer/gain",
+    "args": "integer",
+    "scale": "-20, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/equalizer/filter/{filterIndex}/active",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/equalizer/filter/{filterIndex}/freq",
+    "args": "integer",
+    "scale": "30, 22000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/equalizer/filter/{filterIndex}/order",
+    "args": "integer",
+    "scale": "2, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/attack",
+    "args": "decimal",
+    "scale": "0.01, 3000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/release",
+    "args": "integer",
+    "scale": "0, 7000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/lookahead",
+    "args": "integer",
+    "scale": "0, 50",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/compressor/threshold",
+    "args": "integer",
+    "scale": "-60, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/compressor/ratio",
+    "args": "integer",
+    "scale": "1, 100",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/expander/threshold",
+    "args": "integer",
+    "scale": "-60, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/expander/ratio",
+    "args": "decimal",
+    "scale": "0.01, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/makeup",
+    "args": "integer",
+    "scale": "-40, 40",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/link",
+    "args": "string",
+    "scale": "\"multi mono\", \"link all\", \"link to 1st\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/reduction",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/grid/visible",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/grid/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/curve/fill",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/curve/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/curve/thickness",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/background/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/foreground/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/dynamics/title",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/levels/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/levels/input",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/levels/input/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/levels/output",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/levels/output/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/bus/[A-B-C-D-E-F-G-H]/destination",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/bus/[A-B-C-D-E-F-G-H]/mute",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/bus/[A-B-C-D-E-F-G-H]/gain",
+    "args": "integer",
+    "scale": "-80, 6",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/bus/[A-B-C-D-E-F-G-H]/delay",
+    "args": "integer",
+    "scale": "0, 5000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/bus/[A-B-C-D-E-F-G-H]/early/delays",
+    "args": "array",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/bus/[A-B-C-D-E-F-G-H]/early/gains",
+    "args": "array",
+    "scale": "-1, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/lfe/send",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/lfe/mute",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/delay/linkedtodistance",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/delay/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/reverb/mute",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/reverb/send/value",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/ambisonic_sources/a-format",
+    "section": "A-Format",
+    "Parameter": "/aformat/{index}/reverb/send/ramptime",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  }
+]

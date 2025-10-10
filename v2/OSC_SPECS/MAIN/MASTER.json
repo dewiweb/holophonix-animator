@@ -1,0 +1,432 @@
+[
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/name",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/lock",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/trim",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/mute",
+    "args": "string",
+    "scale": "0, 2",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/output/mode",
+    "args": "string",
+    "scale": "\"everything\", \"only monitoring\", \"no monitoring\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dim",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/equalizer/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/equalizer/gain",
+    "args": "integer",
+    "scale": "-20, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/equalizer/filter/{filterIndex}/active",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/equalizer/filter/{filterIndex}/freq",
+    "args": "integer",
+    "scale": "30, 22000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/equalizer/filter/{filterIndex}/order",
+    "args": "integer",
+    "scale": "2, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/attack",
+    "args": "decimal",
+    "scale": "0.01, 3000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/release",
+    "args": "integer",
+    "scale": "0, 7000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/lookahead",
+    "args": "integer",
+    "scale": "0, 50",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/compressor/threshold",
+    "args": "integer",
+    "scale": "-60, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/compressor/ratio",
+    "args": "integer",
+    "scale": "1, 100",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/expander/threshold",
+    "args": "integer",
+    "scale": "-60, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/expander/ratio",
+    "args": "decimal",
+    "scale": "0.01, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/makeup",
+    "args": "integer",
+    "scale": "-40, 40",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/link",
+    "args": "string",
+    "scale": "\"multi mono\", \"link all\", \"link to 1st\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/reduction",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/grid/visible",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/grid/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/curve/fill",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/curve/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/curve/thickness",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/background/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/foreground/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/dynamics/title",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/levels/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/levels/input",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/levels/input/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/levels/output",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/levels/output/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/channel/{channelIndex}/equalizer/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/channel/{channelIndex}/equalizer/gain",
+    "args": "integer",
+    "scale": "-20, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/channel/{channelIndex}/equalizer/filter/{filterIndex}/active",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/channel/{channelIndex}/equalizer/filter/{filterIndex}/freq",
+    "args": "integer",
+    "scale": "30, 22000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/channel/{channelIndex}/equalizer/filter/{filterIndex}/order",
+    "args": "integer",
+    "scale": "2, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/main/master",
+    "section": "Master",
+    "Parameter": "/master/channel/{channelIndex}/delay",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  }
+]

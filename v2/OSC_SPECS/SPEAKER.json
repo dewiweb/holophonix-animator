@@ -1,0 +1,222 @@
+[
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/name",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/lock",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/azim",
+    "args": "integer",
+    "scale": "-180, 180",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/elev",
+    "args": "integer",
+    "scale": "-90, 90",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/dist",
+    "args": "integer",
+    "scale": "0, 100",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/admObjectNumber",
+    "args": "string",
+    "scale": "-1, 256",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/routing/output/{index}/master",
+    "args": "array",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/levels/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/levels/input",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/levels/input/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/levels/output",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/levels/output/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/view3D/autoOrientation",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/view3D/file3D",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/view3D/scale",
+    "args": "decimal",
+    "scale": "0.01, 10",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/view3D/roll90deg",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/view3D/tilt",
+    "args": "integer",
+    "scale": "-90, 90",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/view3D/pan",
+    "args": "integer",
+    "scale": "-180, 180",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/view3D/visible",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/speaker",
+    "section": "Speaker",
+    "Parameter": "/speaker/{speakerIndex}/view3D/label",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  }
+]

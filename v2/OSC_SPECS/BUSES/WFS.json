@@ -1,0 +1,492 @@
+[
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/name",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/lock",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/trim",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/gain",
+    "args": "integer",
+    "scale": "-60, 12",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/mute",
+    "args": "string",
+    "scale": "0, 2",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/solo",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/format",
+    "args": "string",
+    "scale": "\"HOA\", \"HOA2D\", \"Binaural\", \"Transaural\", \"KNN\", \"Angular 2D\", \"LBAP\", \"Stereo AB\", \"Stereo XY\", \"Stereo Pan\", \"Thru\", \"VBAP\", \"VBAP2D\", \"VBIP\", \"VBIP2D\", \"WFS\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/delay",
+    "args": "integer",
+    "scale": "0, 5000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/monitor",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/ramp/time",
+    "args": "integer",
+    "scale": "1, 500",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/ignorez",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/prefilter",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/window",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/window/size",
+    "args": "integer",
+    "scale": "0, 100",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/linkedToSpeaker",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/equalizer/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/equalizer/gain",
+    "args": "integer",
+    "scale": "-20, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/equalizer/filter/{filterIndex}/active",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/equalizer/filter/{filterIndex}/freq",
+    "args": "integer",
+    "scale": "30, 22000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/equalizer/filter/{filterIndex}/order",
+    "args": "integer",
+    "scale": "2, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/attack",
+    "args": "decimal",
+    "scale": "0.01, 3000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/release",
+    "args": "integer",
+    "scale": "0, 7000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/lookahead",
+    "args": "integer",
+    "scale": "0, 50",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/compressor/threshold",
+    "args": "integer",
+    "scale": "-60, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/compressor/ratio",
+    "args": "integer",
+    "scale": "1, 100",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/expander/threshold",
+    "args": "integer",
+    "scale": "-60, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/expander/ratio",
+    "args": "decimal",
+    "scale": "0.01, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/makeup",
+    "args": "integer",
+    "scale": "-40, 40",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/link",
+    "args": "string",
+    "scale": "\"multi mono\", \"link all\", \"link to 1st\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/reduction",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/grid/visible",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/grid/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/curve/fill",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/curve/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/curve/thickness",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/background/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/foreground/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/dynamics/title",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/levels/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/levels/input",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/levels/input/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/levels/output",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/levels/output/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/speaker/number",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/speakers/correction/delay",
+    "args": "string",
+    "scale": "\"off\", \"auto\", \"manual\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/buses/wfs",
+    "section": "Wave Field Synthesis (WFS)",
+    "Parameter": "/bus/{busIndex}/speakers/correction/gain",
+    "args": "string",
+    "scale": "\"off\", \"auto\", \"manual\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  }
+]

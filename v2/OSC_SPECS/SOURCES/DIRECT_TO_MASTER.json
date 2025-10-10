@@ -1,0 +1,422 @@
+[
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/name",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/lock",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/trim",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/gain",
+    "args": "integer",
+    "scale": "-60, 12",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/gain/ramptime",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/mute",
+    "args": "string",
+    "scale": "0, 2",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/solo",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/delay",
+    "args": "integer",
+    "scale": "0, 5000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/delay/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/equalizer/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/equalizer/gain",
+    "args": "integer",
+    "scale": "-20, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/equalizer/filter/{filterIndex}/active",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/equalizer/filter/{filterIndex}/freq",
+    "args": "integer",
+    "scale": "30, 22000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/equalizer/filter/{filterIndex}/order",
+    "args": "integer",
+    "scale": "2, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/attack",
+    "args": "decimal",
+    "scale": "0.01, 3000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/release",
+    "args": "integer",
+    "scale": "0, 7000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/lookahead",
+    "args": "integer",
+    "scale": "0, 50",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/compressor/threshold",
+    "args": "integer",
+    "scale": "-60, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/compressor/ratio",
+    "args": "integer",
+    "scale": "1, 100",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/expander/threshold",
+    "args": "integer",
+    "scale": "-60, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/expander/ratio",
+    "args": "decimal",
+    "scale": "0.01, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/makeup",
+    "args": "integer",
+    "scale": "-40, 40",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/link",
+    "args": "string",
+    "scale": "\"multi mono\", \"link all\", \"link to 1st\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/reduction",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/grid/visible",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/grid/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/curve/fill",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/curve/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/curve/thickness",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/background/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/foreground/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/dynamics/title",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/levels/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/levels/input",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/levels/input/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/levels/output",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/levels/output/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/lfe/send",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/d2m",
+    "section": "Direct-to-Master",
+    "Parameter": "/d2m/{index}/lfe/mute",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  }
+]

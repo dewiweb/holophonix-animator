@@ -1,0 +1,782 @@
+[
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/name",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/lock",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/trim",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/gain",
+    "args": "integer",
+    "scale": "-60, 12",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/gain/ramptime",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/mute",
+    "args": "string",
+    "scale": "0, 2",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/azim",
+    "args": "integer",
+    "scale": "-180, 180",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/elev",
+    "args": "integer",
+    "scale": "-90, 90",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dist",
+    "args": "decimal",
+    "scale": "0.1, 100",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/solo",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/delay",
+    "args": "integer",
+    "scale": "0, 5000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/doppler",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/air",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/phaseinvert",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/admObjectNumber",
+    "args": "string",
+    "scale": "-1, 256",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/file3D",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/equalizer/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/equalizer/gain",
+    "args": "integer",
+    "scale": "-20, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/equalizer/filter/{filterIndex}/active",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/equalizer/filter/{filterIndex}/freq",
+    "args": "integer",
+    "scale": "30, 22000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/equalizer/filter/{filterIndex}/order",
+    "args": "integer",
+    "scale": "2, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/attack",
+    "args": "decimal",
+    "scale": "0.01, 3000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/release",
+    "args": "integer",
+    "scale": "0, 7000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/lookahead",
+    "args": "integer",
+    "scale": "0, 50",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/compressor/threshold",
+    "args": "integer",
+    "scale": "-60, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/compressor/ratio",
+    "args": "integer",
+    "scale": "1, 100",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/expander/threshold",
+    "args": "integer",
+    "scale": "-60, 20",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/expander/ratio",
+    "args": "decimal",
+    "scale": "0.01, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/makeup",
+    "args": "integer",
+    "scale": "-40, 40",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/link",
+    "args": "string",
+    "scale": "\"multi mono\", \"link all\", \"link to 1st\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/reduction",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/grid/visible",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/grid/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/curve/fill",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/curve/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/curve/thickness",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/background/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/foreground/color",
+    "args": "[decimal, decimal, decimal, decimal]",
+    "scale": "0, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/dynamics/title",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/levels/preOrPost",
+    "args": "string",
+    "scale": "\"post\", \"pre\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/levels/input",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/levels/input/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/levels/output",
+    "args": "array",
+    "scale": "-120, 12",
+    "unit": "--",
+    "description": "--",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/levels/output/mode",
+    "args": "string",
+    "scale": "\"rms\", \"peak\"",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/bus/[A-B-C-D-E-F-G-H]/destination",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/bus/[A-B-C-D-E-F-G-H]/mute",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/bus/[A-B-C-D-E-F-G-H]/gain",
+    "args": "integer",
+    "scale": "-80, 6",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/bus/[A-B-C-D-E-F-G-H]/delay",
+    "args": "integer",
+    "scale": "0, 5000",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/bus/[A-B-C-D-E-F-G-H]/early/delays",
+    "args": "array",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/bus/[A-B-C-D-E-F-G-H]/early/gains",
+    "args": "array",
+    "scale": "-1, 1",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/lfe/send",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/lfe/mute",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/delay/linkedtodistance",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/delay/bypass",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/reverb/mute",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/reverb/linkedtodistance",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/reverb/send/value",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/reverb/send/offset",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/direct/mute",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/direct/linkedtodistance",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/direct/gain",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/direct/gain/offset",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/early/mute",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/early/linkedtodistance",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/early/gain",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/early/gain/offset",
+    "args": "integer",
+    "scale": "-80, 30",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/early/width",
+    "args": "decimal",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/view3D/autoOrientation",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/view3D/file3D",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/view3D/scale",
+    "args": "decimal",
+    "scale": "0.01, 10",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/view3D/roll90deg",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/view3D/tilt",
+    "args": "integer",
+    "scale": "-90, 90",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/view3D/pan",
+    "args": "integer",
+    "scale": "-180, 180",
+    "unit": "m",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/view3D/visible",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/sources/virtual_sources/multichannel",
+    "section": "Multichannel",
+    "Parameter": "/multi/{index}/view3D/label",
+    "args": "boolean",
+    "scale": "--",
+    "unit": "--",
+    "description": "--",
+    "Settable": true
+  }
+]

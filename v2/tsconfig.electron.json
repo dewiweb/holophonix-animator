@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "outDir": "./",
+    "rootDir": "./",
+    "sourceMap": true,
+    "target": "ES2022",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "typeRoots": ["./types", "./node_modules/@types"]
+  },
+  "include": [
+    "main.ts",
+    "preload.ts",
+    "types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "src",
+    "dist"
+  ]
+}

@@ -1,130 +1,58 @@
-# Dependencies
+# Node modules (both root and v2)
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+**/node_modules/
 
-# Rust
-/target/
-**/target/
-**/*.rs.bk
-Cargo.lock
-*.pdb
+# Build outputs
+dist/
+dist-electron/
+out/
+build/
+release/
+**/dist/
+**/dist-electron/
+**/out/
+**/build/
+**/release/
 
-# Rust test artifacts
-*.profraw
-coverage/
-tarpaulin-report.html
+# Electron artifacts
+*.dmg
+*.exe
+*.snap
+*.AppImage
+*.deb
+*.rpm
 
-# Build output
-/dist/
-/build/
-/out/
-*.node
+# Development
+.vite/
+.cache/
+**/.vite/
+**/.cache/
 
-# Test coverage
-coverage/
-.nyc_output/
-lcov.info
-coverage.json
-
-# Benchmarks
-benchmark-results/
-criterion/
-flamegraph.svg
-perf.data
-perf.data.old
-
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
-# IDE - JetBrains
-.idea/
-*.iml
-*.iws
-*.ipr
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Linux
-*~
-.directory
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Environment variables
+# Environment
 .env
 .env.local
-.env.*.local
-.env.test
-.env.production
+**/.env
+**/.env.local
 
-# Optional npm cache directory
-.npm
+# Logs
+*.log
+logs/
+**/logs/
 
-# Optional eslint cache
-.eslintcache
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
 
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn
-.yarn-integrity
-.yarn/*
-!.yarn/patches
-!.yarn/releases
-!.yarn/plugins
-!.yarn/sdks
-!.yarn/versions
-.pnp.*
+# IDE (keep useful configs)
+.idea/
+*.swp
+*.swo
+*~
 
 # TypeScript
 *.tsbuildinfo
 
-# Generated documentation
-/docs/api/
-/docs/generated/
-/docs/dist/
-
-# Temporary files
-*.swp
-*.swo
-.DS_Store
-*.bak
-*.tmp
-*~
-
-# Debug
-.debug/
-debug/
-*.debug
-
-# Local development
-local.settings.json
-.local-*
-
-# Project specific
-src/rust/target/
-src/rust/*/target/
-src/rust/Cargo.lock
-.windsurfrules
+# Testing
+coverage/
+.nyc_output/

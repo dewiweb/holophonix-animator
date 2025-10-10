@@ -1,0 +1,255 @@
+[
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/session/add/track",
+    "args": "[string, integer, string, integer]",
+    "description": "Add a new track with specified parameters [type, chNbr, name, quantityNumber]"
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/session/add/bus",
+    "args": "[string, integer, integer, integer]",
+    "description": "Add a new bus with specified parameters [format, inputNbr, outputsNbr, quantityNumber]"
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/preset/load",
+    "args": "string",
+    "description": "Load a preset by name"
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/options/clearsolo",
+    "args": "none",
+    "scale": "--",
+    "unit": "--",
+    "description": "Clear all solo states",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/options/vumeters/rate",
+    "args": "number",
+    "scale": "20, 500",
+    "unit": "--",
+    "description": "Set VU meters refresh rate",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/options/parallel/tracks",
+    "args": "boolean",
+    "scale": "0, 1",
+    "unit": "--",
+    "description": "Enable/disable parallel processing for tracks",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/options/parallel/bus",
+    "args": "boolean",
+    "scale": "0, 1",
+    "unit": "--",
+    "description": "Enable/disable parallel processing for buses",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/device/list",
+    "args": "none",
+    "scale": "--",
+    "unit": "--",
+    "description": "List available devices",
+    "Settable": false
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/device/output",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "Set output device",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/device/input",
+    "args": "string",
+    "scale": "--",
+    "unit": "--",
+    "description": "Set input device",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/dsp/buffersize",
+    "args": "number",
+    "scale": "--",
+    "unit": "--",
+    "description": "Set DSP buffer size (must be power of 2)",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/dsp/samplerate",
+    "args": "number",
+    "scale": "--",
+    "unit": "--",
+    "description": "Set DSP sample rate",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/dsp/usurp",
+    "args": "boolean",
+    "scale": "0, 1",
+    "unit": "--",
+    "description": "Enable/disable DSP usurpation",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/dac/test/channel",
+    "args": "any",
+    "scale": "--",
+    "unit": "--",
+    "description": "Test DAC channel",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/dac/test/active",
+    "args": "any",
+    "scale": "--",
+    "unit": "--",
+    "description": "Set DAC test active state",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/dac/test/gain",
+    "args": "any",
+    "scale": "--",
+    "unit": "--",
+    "description": "Set DAC test gain",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/adc/test/channel",
+    "args": "any",
+    "scale": "--",
+    "unit": "--",
+    "description": "Test ADC channel",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/adc/test/active",
+    "args": "any",
+    "scale": "--",
+    "unit": "--",
+    "description": "Set ADC test active state",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/adc/test/gain",
+    "args": "any",
+    "scale": "--",
+    "unit": "--",
+    "description": "Set ADC test gain",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/{source_type}/{id}/aed",
+    "args": "array",
+    "scale": "--",
+    "unit": "--",
+    "description": "Set source position using Azimuth, Elevation, Distance [azimuth, elevation, distance]",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/{source_type}/{id}/xyz",
+    "args": "array",
+    "scale": "--",
+    "unit": "--",
+    "description": "Set source position using XYZ coordinates [x, y, z]",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/{source_type}/{id}/azim++",
+    "args": "number",
+    "scale": "--",
+    "unit": "--",
+    "description": "Increment azimuth value",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/{source_type}/{id}/elev++",
+    "args": "number",
+    "scale": "--",
+    "unit": "--",
+    "description": "Increment elevation value",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/{source_type}/{id}/dist++",
+    "args": "number",
+    "scale": "--",
+    "unit": "--",
+    "description": "Increment distance value",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/bus/{id}/speaker/{id}/direction/xyz",
+    "args": "array",
+    "scale": "--",
+    "unit": "--",
+    "description": "Set speaker direction using XYZ coordinates [x, y, z]",
+    "Settable": true
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/warning",
+    "description": "Log warning from console in string format"
+  },
+  {
+    "sourceUrl": "/advanced",
+    "section": "Advanced OSC Commands/Messages",
+    "Parameter": "/station/lastReleaseNote",
+    "description": "Get JSON of the last release note changelog"
+  }
+]
