@@ -75,10 +75,13 @@
       "buildResources": "assets"
     },
     "files": [
-      "dist/main.js",
-      "dist/preload.js",
-      "dist/index.html",
-      "dist/assets/**/*"
+      "main.js",
+      "main.js.map",
+      "preload.js",
+      "preload.js.map",
+      "dist/**/*",
+      "!dist/builder-*",
+      "!dist/win-unpacked"
     ],
     "extraResources": [
       {

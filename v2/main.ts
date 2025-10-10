@@ -140,23 +140,33 @@ const createWindow = (): void => {
     icon: join(appPath, '../assets/icon.png'), // Add icon later
   })
 
-  // Load the app - always try dev server first for electron:dev
-  console.log('🔧 Loading Electron app - trying dev server first')
-  mainWindow.loadURL('http://localhost:5173').then(() => {
-    console.log('✅ Successfully loaded from Vite dev server')
-    if (mainWindow) {
-      mainWindow.webContents.openDevTools()
-    }
-  }).catch((error) => {
-    console.log('❌ Vite dev server not available, trying filesystem fallback:', error.message)
-    try {
+  // Load the app
+  if (isDev) {
+    // Development: try Vite dev server
+    console.log('🔧 Development mode: Loading from Vite dev server')
+    mainWindow.loadURL('http://localhost:5173').then(() => {
+      console.log('✅ Successfully loaded from Vite dev server')
       if (mainWindow) {
-        mainWindow.loadFile(join(appPath, '../dist/index.html'))
+        mainWindow.webContents.openDevTools()
       }
-    } catch (fileError) {
-      console.error('❌ Filesystem loading also failed:', fileError as Error)
-    }
-  })
+    }).catch((error) => {
+      console.log('❌ Vite dev server not available, trying filesystem fallback:', error.message)
+      try {
+        if (mainWindow) {
+          mainWindow.loadFile(join(appPath, 'dist/index.html'))
+        }
+      } catch (fileError) {
+        console.error('❌ Filesystem loading also failed:', fileError as Error)
+      }
+    })
+  } else {
+    // Production: load from bundled files (inside app.asar)
+    const indexPath = join(appPath, 'dist/index.html')
+    console.log('🔧 Production mode: Loading from', indexPath)
+    mainWindow.loadFile(indexPath).catch((error) => {
+      console.error('❌ Failed to load index.html:', error)
+    })
+  }
 
   // Handle window closed
   mainWindow.on('closed', () => {

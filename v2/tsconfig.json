@@ -25,15 +25,8 @@
       "@hooks/*": ["./src/hooks/*"]
     }
   },
-  "include": [
-    "src",
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "src/**/*.js",
-    "src/**/*.jsx",
-    "main.ts",
-    "preload.ts"
-  ],
+  "include": ["src"],
+  "exclude": ["src/test", "src/**/*.test.ts", "src/**/*.test.tsx", "node_modules"],
   "references": [
     { "path": "./tsconfig.node.json" }
   ]
