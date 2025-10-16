@@ -2,7 +2,8 @@
   "name": "holophonix-animator-v2",
   "version": "2.0.0",
   "description": "Modern 3D sound animation system for Holophonix processors",
-  "main": "main.js",
+  "type": "module",
+  "main": "main.cjs",
   "homepage": "./",
   "author": {
     "name": "Holophonix Animator Team",
@@ -75,10 +76,10 @@
       "buildResources": "assets"
     },
     "files": [
-      "main.js",
-      "main.js.map",
-      "preload.js",
-      "preload.js.map",
+      "main.cjs",
+      "main.cjs.map",
+      "preload.cjs",
+      "preload.cjs.map",
       "dist/**/*",
       "!dist/builder-*",
       "!dist/win-unpacked"

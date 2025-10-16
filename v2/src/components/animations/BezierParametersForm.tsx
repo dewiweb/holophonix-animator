@@ -11,7 +11,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Start Point</label>
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Start Point</label>
           <div className="grid grid-cols-3 gap-2">
             <input
               type="number"
@@ -21,7 +21,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierStart,
                 x: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="X"
             />
             <input
@@ -32,7 +32,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierStart,
                 y: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="Y"
             />
             <input
@@ -43,13 +43,13 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierStart,
                 z: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="Z"
             />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">End Point</label>
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">End Point</label>
           <div className="grid grid-cols-3 gap-2">
             <input
               type="number"
@@ -59,7 +59,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierEnd,
                 x: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="X"
             />
             <input
@@ -70,7 +70,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierEnd,
                 y: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="Y"
             />
             <input
@@ -81,7 +81,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierEnd,
                 z: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="Z"
             />
           </div>
@@ -90,7 +90,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Control Point 1</label>
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Control Point 1</label>
           <div className="grid grid-cols-3 gap-2">
             <input
               type="number"
@@ -100,7 +100,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierControl1,
                 x: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="X"
             />
             <input
@@ -111,7 +111,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierControl1,
                 y: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="Y"
             />
             <input
@@ -122,13 +122,13 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierControl1,
                 z: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="Z"
             />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Control Point 2</label>
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Control Point 2</label>
           <div className="grid grid-cols-3 gap-2">
             <input
               type="number"
@@ -138,7 +138,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierControl2,
                 x: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="X"
             />
             <input
@@ -149,7 +149,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierControl2,
                 y: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="Y"
             />
             <input
@@ -160,7 +160,7 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
                 ...(parameters as any)?.bezierControl2,
                 z: parseFloat(e.target.value)
               })}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               placeholder="Z"
             />
           </div>
@@ -168,11 +168,11 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Easing Function</label>
+        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Easing Function</label>
         <select
           value={(parameters as any)?.bezierEasing || 'linear'}
           onChange={(e) => onParameterChange('bezierEasing', e.target.value)}
-          className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
         >
           <option value="linear">Linear</option>
           <option value="ease-in">Ease In</option>
@@ -181,8 +181,8 @@ export const BezierParametersForm: React.FC<BezierParametersFormProps> = ({ para
         </select>
       </div>
 
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-        <p className="text-xs text-purple-800">
+      <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+        <p className="text-xs text-purple-800 dark:text-purple-200">
           <strong>📐 Bézier Curve:</strong> Smooth curved path defined by control points. Adjust control points to shape the curve.
         </p>
       </div>

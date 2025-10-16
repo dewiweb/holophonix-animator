@@ -4,7 +4,7 @@ import { useAnimationStore } from '@/stores/animationStore'
 import { useOSCStore } from '@/stores/oscStore'
 import { cn } from '@/utils'
 import { Track } from '@/types'
-import { Play, Pause, Square, Volume2, VolumeX, Plus, Trash2, Download, Loader2, RefreshCw, CheckSquare, Square as CheckboxSquare } from 'lucide-react'
+import { Play, Pause, Square, Volume2, VolumeX, Plus, Trash2, Download, Loader2, RefreshCw, CheckSquare, Square as CheckboxSquare, Ban } from 'lucide-react'
 
 export const TrackList: React.FC = () => {
   const {
@@ -17,8 +17,8 @@ export const TrackList: React.FC = () => {
     removeTrack,
   } = useProjectStore()
 
-  const { playAnimation, pauseAnimation, isPlaying: isGlobalPlaying } = useAnimationStore()
-  const { discoverTracks, isDiscoveringTracks, discoveredTracks, getActiveConnection, refreshTrackPosition } = useOSCStore()
+  const { playAnimation, pauseAnimation, stopAnimation, isPlaying: isGlobalPlaying } = useAnimationStore()
+  const { discoverTracks, isDiscoveringTracks, discoveredTracks, getActiveConnection, refreshTrackPosition, sendMessage } = useOSCStore()
 
   const [newTrackName, setNewTrackName] = useState('')
   const [newTrackIndex, setNewTrackIndex] = useState('')
@@ -51,7 +51,7 @@ export const TrackList: React.FC = () => {
     if (track.animationState?.animation) {
       // Check if this track's animation is currently playing
       const isThisTrackPlaying = isGlobalPlaying && track.animationState.isPlaying
-      
+
       if (isThisTrackPlaying) {
         console.log('⏸️ Pausing track animation:', track.name)
         pauseAnimation()
@@ -62,12 +62,31 @@ export const TrackList: React.FC = () => {
     }
   }
 
+  const handleStopTrack = (track: Track) => {
+    if (track.animationState?.animation) {
+      console.log('⏹️ Stopping track animation:', track.name)
+      stopAnimation()
+    }
+  }
+
   const handleMuteTrack = (track: Track) => {
-    updateTrack(track.id, { isMuted: !track.isMuted })
+    const newMutedState = !track.isMuted
+    console.log(`${newMutedState ? '🔇' : '🔊'} Track ${track.name} ${newMutedState ? 'muted' : 'unmuted'} for animations`)
+
+    // Update local track state - animations will respect this state
+    updateTrack(track.id, { isMuted: newMutedState })
+
+    // Note: OSC audio control removed - mute/solo now control animation playback only
   }
 
   const handleSoloTrack = (track: Track) => {
-    updateTrack(track.id, { isSolo: !track.isSolo })
+    const newSoloState = !track.isSolo
+    console.log(`${newSoloState ? '🎯' : '👥'} Track ${track.name} ${newSoloState ? 'soloed' : 'unsoloed'} for animations`)
+
+    // Update local track state - animations will respect this state
+    updateTrack(track.id, { isSolo: newSoloState })
+
+    // Note: OSC audio control removed - mute/solo now control animation playback only
   }
 
   const handleRemoveTrack = (trackId: string) => {
@@ -134,8 +153,8 @@ export const TrackList: React.FC = () => {
       <div
         key={track.id}
         className={cn(
-          "flex items-center p-3 border-b border-gray-200 hover:bg-gray-50 transition-colors",
-          isSelected && "bg-blue-50 border-blue-200"
+          "flex items-center p-3 border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors",
+          isSelected && "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
         )}
       >
         {/* Selection Checkbox */}
@@ -144,13 +163,13 @@ export const TrackList: React.FC = () => {
             e.stopPropagation()
             selectTrack(track.id, true)
           }}
-          className="mr-3 flex-shrink-0 hover:bg-gray-200 rounded p-1 transition-colors"
+          className="mr-3 flex-shrink-0 hover:bg-gray-200 dark:hover:bg-gray-600 rounded p-1 transition-colors"
           title="Select track (hold Ctrl to select multiple)"
         >
           {isSelected ? (
-            <CheckSquare size={18} className="text-blue-600" />
+            <CheckSquare size={18} className="text-blue-600 dark:text-blue-400" />
           ) : (
-            <CheckboxSquare size={18} className="text-gray-400" />
+            <CheckboxSquare size={18} className="text-gray-400 dark:text-gray-500" />
           )}
         </button>
 
@@ -158,27 +177,31 @@ export const TrackList: React.FC = () => {
         <div
           className={cn(
             "w-3 h-3 rounded-full mr-3 flex-shrink-0 cursor-pointer",
-            track.type === 'sound-source' && "bg-green-500",
-            track.type === 'group' && "bg-blue-500",
-            track.type === 'aux' && "bg-yellow-500",
-            track.type === 'master' && "bg-purple-500"
+            // Use track color if available, otherwise fallback to type-based colors
+            !track.color && track.type === 'sound-source' && "bg-green-500 dark:bg-green-400",
+            !track.color && track.type === 'group' && "bg-blue-500 dark:bg-blue-400",
+            !track.color && track.type === 'aux' && "bg-yellow-500 dark:bg-yellow-400",
+            !track.color && track.type === 'master' && "bg-purple-500 dark:bg-purple-400"
           )}
+          style={track.color ? {
+            backgroundColor: `rgba(${Math.round(track.color.r * 255)}, ${Math.round(track.color.g * 255)}, ${Math.round(track.color.b * 255)}, ${track.color.a})`
+          } : undefined}
           onClick={(e) => handleTrackSelect(track.id, e)}
         />
 
         {/* Track name */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <div className="text-sm font-medium text-gray-900 truncate">
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
               {track.name}
             </div>
             {track.holophonixIndex && (
-              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-mono">
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded font-mono">
                 #{track.holophonixIndex}
               </span>
             )}
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
             {track.position.x.toFixed(1)}, {track.position.y.toFixed(1)}, {track.position.z.toFixed(1)}
           </div>
         </div>
@@ -186,10 +209,12 @@ export const TrackList: React.FC = () => {
         {/* Animation indicator */}
         {hasAnimation && (
           <div className="flex items-center mr-2">
-            <div className={cn(
-              "w-2 h-2 rounded-full mr-1",
-              track.animationState?.isPlaying ? "bg-green-500 animate-pulse" : "bg-gray-400"
-            )} />
+            <div
+              className={cn(
+                "w-2 h-2 rounded-full mr-1",
+                track.animationState?.isPlaying ? "bg-green-500 dark:bg-green-400 animate-pulse" : "bg-gray-400 dark:bg-gray-500"
+              )}
+            />
           </div>
         )}
 
@@ -202,14 +227,28 @@ export const TrackList: React.FC = () => {
                 e.stopPropagation()
                 handlePlayTrack(track)
               }}
-              className="p-1 hover:bg-gray-200 rounded transition-colors"
+              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
               title={track.animationState?.isPlaying ? 'Pause animation' : 'Play animation'}
             >
               {track.animationState?.isPlaying ? (
-                <Pause size={14} className="text-blue-600" />
+                <Pause size={14} className="text-blue-600 dark:text-blue-400" />
               ) : (
-                <Play size={14} className="text-gray-600" />
+                <Play size={14} className="text-gray-600 dark:text-gray-400" />
               )}
+            </button>
+          )}
+
+          {/* Stop */}
+          {hasAnimation && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleStopTrack(track)
+              }}
+              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+              title="Stop animation"
+            >
+              <Ban size={14} className="text-red-600 dark:text-red-400" />
             </button>
           )}
 
@@ -220,15 +259,15 @@ export const TrackList: React.FC = () => {
               handleMuteTrack(track)
             }}
             className={cn(
-              "p-1 hover:bg-gray-200 rounded transition-colors",
-              track.isMuted && "bg-red-100"
+              "p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors",
+              track.isMuted && "bg-red-100 dark:bg-red-900/20"
             )}
             title={track.isMuted ? 'Unmute track' : 'Mute track'}
           >
             {track.isMuted ? (
-              <VolumeX size={14} className="text-red-600" />
+              <VolumeX size={14} className="text-red-600 dark:text-red-400" />
             ) : (
-              <Volume2 size={14} className="text-gray-600" />
+              <Volume2 size={14} className="text-gray-600 dark:text-gray-400" />
             )}
           </button>
 
@@ -239,13 +278,13 @@ export const TrackList: React.FC = () => {
               handleSoloTrack(track)
             }}
             className={cn(
-              "p-1 hover:bg-gray-200 rounded transition-colors",
-              track.isSolo && "bg-yellow-100"
+              "p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors",
+              track.isSolo && "bg-yellow-100 dark:bg-yellow-900/20"
             )}
             title={track.isSolo ? 'Unsolo track' : 'Solo track'}
           >
             <Square size={14} className={cn(
-              track.isSolo ? "text-yellow-600" : "text-gray-600"
+              track.isSolo ? "text-yellow-600 dark:text-yellow-400" : "text-gray-600 dark:text-gray-400"
             )} />
           </button>
 
@@ -256,10 +295,10 @@ export const TrackList: React.FC = () => {
                 e.stopPropagation()
                 handleRefreshPosition(track)
               }}
-              className="p-1 hover:bg-blue-100 rounded transition-colors"
+              className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded transition-colors"
               title="Refresh position from Holophonix"
             >
-              <RefreshCw size={14} className="text-blue-600" />
+              <RefreshCw size={14} className="text-blue-600 dark:text-blue-400" />
             </button>
           )}
 
@@ -269,10 +308,10 @@ export const TrackList: React.FC = () => {
               e.stopPropagation()
               handleRemoveTrack(track.id)
             }}
-            className="p-1 hover:bg-red-100 rounded transition-colors"
+            className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
             title="Remove track"
           >
-            <Trash2 size={14} className="text-red-600" />
+            <Trash2 size={14} className="text-red-600 dark:text-red-400" />
           </button>
         </div>
       </div>
@@ -283,12 +322,12 @@ export const TrackList: React.FC = () => {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Tracks</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Tracks</h1>
         <div className="flex items-center space-x-2">
           {/* Import from Holophonix button */}
           <button
             onClick={handleImportFromHolophonix}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             disabled={isDiscoveringTracks || !getActiveConnection()?.isConnected}
             title="Import tracks from connected Holophonix device"
           >
@@ -309,14 +348,14 @@ export const TrackList: React.FC = () => {
 
       {/* Manual track creation */}
       <div className="mb-6 flex items-center space-x-4">
-        <div className="text-sm font-medium text-gray-700">Or create manually:</div>
+        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Or create manually:</div>
         <div className="flex items-center space-x-2 flex-1">
           <input
             type="text"
             placeholder="Track name"
             value={newTrackName}
             onChange={(e) => setNewTrackName(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             onKeyDown={(e) => e.key === 'Enter' && handleCreateTrack()}
           />
           <input
@@ -325,13 +364,13 @@ export const TrackList: React.FC = () => {
             value={newTrackIndex}
             onChange={(e) => setNewTrackIndex(e.target.value)}
             min="1"
-            className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             onKeyDown={(e) => e.key === 'Enter' && handleCreateTrack()}
             title="Holophonix track index (1-based). Leave empty for auto-assignment."
           />
           <button
             onClick={handleCreateTrack}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             disabled={!newTrackName.trim()}
           >
             <Plus size={16} className="mr-2" />
@@ -341,13 +380,13 @@ export const TrackList: React.FC = () => {
       </div>
 
       {/* Track list */}
-      <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
+      <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-600">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
               Sound Sources ({tracks.length})
             </h2>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
               {selectedTracks.length > 0 && `${selectedTracks.length} selected`}
             </div>
           </div>
@@ -356,13 +395,13 @@ export const TrackList: React.FC = () => {
         <div className="overflow-y-auto max-h-96">
           {tracks.length === 0 ? (
             <div className="p-8 text-center">
-              <div className="text-gray-400 mb-4">
+              <div className="text-gray-400 dark:text-gray-500 mb-4">
                 <Volume2 size={48} />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
                 No tracks yet
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 Create your first track to start animating sound sources
               </p>
             </div>
@@ -376,27 +415,27 @@ export const TrackList: React.FC = () => {
 
       {/* Summary */}
       <div className="mt-6 grid grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-green-600">{tracks.length}</div>
-          <div className="text-sm text-gray-600">Total Tracks</div>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{tracks.length}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Total Tracks</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-blue-600">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             {tracks.filter(t => t.animationState?.animation).length}
           </div>
-          <div className="text-sm text-gray-600">Animated</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Animated</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-red-600">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="text-2xl font-bold text-red-600 dark:text-red-400">
             {tracks.filter(t => t.isMuted).length}
           </div>
-          <div className="text-sm text-gray-600">Muted</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Muted</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-2xl font-bold text-yellow-600">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
             {tracks.filter(t => t.isSolo).length}
           </div>
-          <div className="text-sm text-gray-600">Solo</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Solo</div>
         </div>
       </div>
     </div>

@@ -27,11 +27,11 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    primary: 'bg-primary-600 text-white hover:bg-primary-700',
-    secondary: 'bg-gray-200 text-gray-700 hover:bg-gray-300',
-    success: 'bg-green-600 text-white hover:bg-green-700',
-    danger: 'bg-red-600 text-white hover:bg-red-700',
-    warning: 'bg-yellow-600 text-white hover:bg-yellow-700',
+    primary: 'bg-blue-600 dark:bg-blue-700 text-white hover:bg-blue-700 dark:hover:bg-blue-600',
+    secondary: 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600',
+    success: 'bg-green-600 dark:bg-green-700 text-white hover:bg-green-700 dark:hover:bg-green-600',
+    danger: 'bg-red-600 dark:bg-red-700 text-white hover:bg-red-700 dark:hover:bg-red-600',
+    warning: 'bg-yellow-600 dark:bg-yellow-700 text-white hover:bg-yellow-700 dark:hover:bg-yellow-600',
   }
 
   const sizeStyles = {

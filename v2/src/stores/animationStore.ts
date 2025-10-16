@@ -169,7 +169,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           
           // Throttle OSC messages during interpolation to prevent flooding
           const settingsStore = useSettingsStore.getState()
-          const throttleRate = settingsStore.osc.messageThrottleRate * 2 // Use double rate during interpolation
+          const throttleRate = settingsStore.osc?.messageThrottleRate || 1 // Fallback to 1 if undefined
           if (track.holophonixIndex && interpolationFrameCount % throttleRate === 0) {
             const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
             oscStore.sendMessage(`/track/${track.holophonixIndex}/${coordType}`, [newPos.x, newPos.y, newPos.z])
@@ -265,12 +265,19 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         // Process each track
         state.currentTrackIds.forEach(trackId => {
           const track = projectStore.tracks.find(t => t.id === trackId)
-          
+
           if (!track) {
             console.error('❌ Track not found:', trackId)
             return
           }
-          
+
+          // Check mute/solo states
+          const hasSoloTracks = projectStore.tracks.some(t => t.isSolo)
+          if (track.isMuted || (hasSoloTracks && !track.isSolo)) {
+            // Skip muted tracks or non-solo tracks when solo mode is active
+            return
+          }
+
           if (!track.animationState?.animation) {
             console.error('❌ No animation assigned to track:', track.name)
             return
@@ -337,10 +344,15 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           
           // Send OSC message for this track (throttled based on settings)
           const settingsStore = useSettingsStore.getState()
-          const throttleRate = settingsStore.osc.messageThrottleRate
+          const throttleRate = settingsStore.osc?.messageThrottleRate || 1 // Fallback to 1 if undefined
           if (track.holophonixIndex && state.frameCount % throttleRate === 0) {
             const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
+            console.log(`📤 Sending OSC: /track/${track.holophonixIndex}/${coordType}`, [position.x, position.y, position.z])
             oscStore.sendMessage(`/track/${track.holophonixIndex}/${coordType}`, [position.x, position.y, position.z])
+          } else if (track.holophonixIndex && state.frameCount % throttleRate !== 0) {
+            console.log(`⏭️ Skipping OSC send (throttle: ${throttleRate}, frame: ${state.frameCount})`)
+          } else if (!track.holophonixIndex) {
+            console.warn(`❌ Track ${track.name} missing holophonixIndex - cannot send OSC`)
           }
         })
         

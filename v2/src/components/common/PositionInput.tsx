@@ -26,7 +26,7 @@ export const PositionInput: React.FC<PositionInputProps> = ({
 
   return (
     <div className={className}>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
         {label}
       </label>
       <div className="grid grid-cols-3 gap-2">
@@ -37,9 +37,9 @@ export const PositionInput: React.FC<PositionInputProps> = ({
           onChange={(e) => handleChange('x', e.target.value)}
           disabled={disabled}
           className={cn(
-            'px-2 py-1 border border-gray-300 rounded text-sm',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500',
-            disabled && 'bg-gray-100 cursor-not-allowed'
+            'px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm',
+            'focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100',
+            disabled && 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed'
           )}
           placeholder="X"
         />
@@ -50,9 +50,9 @@ export const PositionInput: React.FC<PositionInputProps> = ({
           onChange={(e) => handleChange('y', e.target.value)}
           disabled={disabled}
           className={cn(
-            'px-2 py-1 border border-gray-300 rounded text-sm',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500',
-            disabled && 'bg-gray-100 cursor-not-allowed'
+            'px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm',
+            'focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100',
+            disabled && 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed'
           )}
           placeholder="Y"
         />
@@ -63,9 +63,9 @@ export const PositionInput: React.FC<PositionInputProps> = ({
           onChange={(e) => handleChange('z', e.target.value)}
           disabled={disabled}
           className={cn(
-            'px-2 py-1 border border-gray-300 rounded text-sm',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500',
-            disabled && 'bg-gray-100 cursor-not-allowed'
+            'px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm',
+            'focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100',
+            disabled && 'bg-gray-100 dark:bg-gray-600 cursor-not-allowed'
           )}
           placeholder="Z"
         />

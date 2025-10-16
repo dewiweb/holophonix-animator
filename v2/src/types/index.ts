@@ -4,16 +4,17 @@
 // 3D COORDINATE SYSTEMS
 // ========================================
 
+export interface Color {
+  r: number;  // Red (0-1)
+  g: number;  // Green (0-1)  
+  b: number;  // Blue (0-1)
+  a: number;  // Alpha (0-1)
+}
+
 export interface Position {
   x: number;
   y: number;
   z: number;
-}
-
-export interface AEDPosition {
-  azimuth: number;    // Horizontal angle in degrees (-180 to 180)
-  elevation: number;  // Vertical angle in degrees (-90 to 90)
-  distance: number;   // Distance from origin (0+)
 }
 
 export interface CoordinateSystem {
@@ -78,6 +79,15 @@ export interface Keyframe {
   position: Position;
   interpolation?: InterpolationType;
   easing?: [number, number, number, number]; // Cubic bezier parameters
+}
+
+export interface ControlPoint {
+  id: string;
+  position: Position;
+  type: 'start' | 'control' | 'end' | 'keyframe';
+  animationType: AnimationType;
+  time?: number;
+  index?: number;
 }
 
 export interface AnimationParameters {
@@ -320,6 +330,7 @@ export interface Track {
   isSolo: boolean;
   isSelected: boolean;
   volume: number;        // 0-1
+  color?: Color;         // RGBA color from Holophonix device
   groupId?: string;      // For hierarchical grouping
   metadata?: Record<string, any>;
 }

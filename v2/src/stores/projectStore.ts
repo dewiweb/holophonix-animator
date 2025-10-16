@@ -116,39 +116,43 @@ export const useProjectStore = create<ProjectState>()(
 
     saveProject: async () => {
       const state = get()
-      if (!state.currentProject) return
-
-      const updatedProject: Project = {
-        ...state.currentProject,
-        tracks: state.tracks,
-        groups: state.groups,
-        animations: state.animations,
-        timelines: state.timelines,
-        presets: state.presets,
-        oscConnections: state.oscConnections,
-        metadata: {
-          ...state.currentProject.metadata,
-          modified: new Date(),
-        },
-      }
-
-      // If no file path exists, show save dialog
-      if (!state.currentFilePath) {
-        await get().saveProjectAs()
-        return
-      }
-
-      // Save to existing file
       try {
-        const jsonData = serializeProject(updatedProject)
-        const result = await (window as any).electronAPI.projectWriteFile(state.currentFilePath, jsonData)
-        
-        if (result.success) {
-          console.log('✅ Project saved to:', state.currentFilePath)
-          set({ currentProject: updatedProject })
+        const state = get()
+
+        if (!state.currentProject) {
+          console.warn('⚠️ No current project to save')
+          return
+        }
+
+        // Check if running in Electron environment
+        if (typeof window !== 'undefined' && (window as any).electronAPI) {
+          let filePath = state.currentFilePath
+
+          // If no file path or user wants to save as new file
+          if (!filePath) {
+            const saveResult = await (window as any).electronAPI.projectShowSaveDialog()
+            if (saveResult.canceled) {
+              return // User cancelled save dialog
+            }
+            filePath = saveResult.filePath
+          }
+
+          // Serialize project
+          const projectData = serializeProject(state.currentProject)
+
+          // Write file
+          const writeResult = await (window as any).electronAPI.projectWriteFile(filePath, projectData)
+
+          if (writeResult.success) {
+            console.log('✅ Project saved to:', filePath)
+            set({ currentFilePath: filePath })
+          } else {
+            console.error('❌ Failed to write project:', writeResult.error)
+            alert(`Failed to save project: ${writeResult.error}`)
+          }
         } else {
-          console.error('❌ Failed to save project:', result.error)
-          alert(`Failed to save project: ${result.error}`)
+          console.warn('⚠️ Electron API not available - cannot save project files')
+          alert('Project file operations are only available in the Electron app')
         }
       } catch (error) {
         console.error('❌ Error saving project:', error)
@@ -201,39 +205,45 @@ export const useProjectStore = create<ProjectState>()(
 
     openProject: async () => {
       try {
-        // Show open dialog
-        const result = await (window as any).electronAPI.projectShowOpenDialog()
-        
-        if (!result.canceled && result.filePaths.length > 0) {
-          const filePath = result.filePaths[0]
-          
-          // Read file
-          const readResult = await (window as any).electronAPI.projectReadFile(filePath)
-          
-          if (readResult.success) {
-            // Deserialize and validate
-            const project = deserializeProject(readResult.data)
-            
-            if (validateProject(project)) {
-              console.log('✅ Project loaded from:', filePath)
-              set({
-                currentProject: project,
-                currentFilePath: filePath,
-                tracks: project.tracks,
-                groups: project.groups,
-                animations: project.animations,
-                timelines: project.timelines,
-                presets: project.presets,
-                oscConnections: project.oscConnections,
-              })
+        // Check if running in Electron environment
+        if (typeof window !== 'undefined' && (window as any).electronAPI) {
+          // Show open dialog
+          const result = await (window as any).electronAPI.projectShowOpenDialog()
+
+          if (!result.canceled && result.filePaths.length > 0) {
+            const filePath = result.filePaths[0]
+
+            // Read file
+            const readResult = await (window as any).electronAPI.projectReadFile(filePath)
+
+            if (readResult.success) {
+              // Deserialize and validate
+              const project = deserializeProject(readResult.data)
+
+              if (validateProject(project)) {
+                console.log('✅ Project loaded from:', filePath)
+                set({
+                  currentProject: project,
+                  currentFilePath: filePath,
+                  tracks: project.tracks,
+                  groups: project.groups,
+                  animations: project.animations,
+                  timelines: project.timelines,
+                  presets: project.presets,
+                  oscConnections: project.oscConnections,
+                })
+              } else {
+                console.error('❌ Invalid project structure')
+                alert('Invalid project file format')
+              }
             } else {
-              console.error('❌ Invalid project structure')
-              alert('Invalid project file format')
+              console.error('❌ Failed to read project:', readResult.error)
+              alert(`Failed to read project: ${readResult.error}`)
             }
-          } else {
-            console.error('❌ Failed to read project:', readResult.error)
-            alert(`Failed to read project: ${readResult.error}`)
           }
+        } else {
+          console.warn('⚠️ Electron API not available - cannot open project files')
+          alert('Project file operations are only available in the Electron app')
         }
       } catch (error) {
         console.error('❌ Error opening project:', error)

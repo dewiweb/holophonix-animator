@@ -3,11 +3,163 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    @apply border-gray-200;
+  :root {
+    /* Base color palette */
+    --gray-50: 249 250 251;
+    --gray-100: 243 244 246;
+    --gray-200: 229 231 235;
+    --gray-300: 209 213 219;
+    --gray-400: 156 163 175;
+    --gray-500: 107 114 128;
+    --gray-600: 75 85 99;
+    --gray-700: 55 65 81;
+    --gray-800: 31 41 55;
+    --gray-900: 17 24 39;
+
+    /* Theme colors - Light mode (default) */
+    --bg-primary: var(--gray-50);
+    --bg-secondary: 255 255 255;
+    --bg-tertiary: var(--gray-100);
+    --text-primary: var(--gray-900);
+    --text-secondary: var(--gray-600);
+    --text-muted: var(--gray-500);
+    --border-color: var(--gray-200);
+    --border-secondary: var(--gray-300);
+    --accent-primary: 59 130 246;
+    --accent-secondary: 147 197 253;
+    --accent-hover: 29 78 216;
+
+    /* Status colors - Light mode */
+    --success-bg: 34 197 94;
+    --success-color: 22 163 74;
+    --error-bg: 239 68 68;
+    --error-color: 220 38 38;
+    --warning-bg: 245 158 11;
+    --warning-color: 217 119 6;
   }
+
+  /* Dark theme colors */
+  .dark {
+    --bg-primary: var(--gray-900);
+    --bg-secondary: var(--gray-800);
+    --bg-tertiary: var(--gray-700);
+    --text-primary: var(--gray-50);
+    --text-secondary: var(--gray-300);
+    --text-muted: var(--gray-400);
+    --border-color: var(--gray-600);
+    --border-secondary: var(--gray-500);
+    --accent-primary: 96 165 250;
+    --accent-secondary: 147 197 253;
+    --accent-hover: 147 197 253;
+
+    /* Status colors - Dark mode */
+    --success-bg: 34 197 94;
+    --success-color: 74 222 128;
+    --error-bg: 239 68 68;
+    --error-color: 252 165 165;
+    --warning-bg: 245 158 11;
+    --warning-color: 251 191 36;
+  }
+
+  /* Ensure CSS variables are inherited by all elements including modals */
+  * {
+    color-scheme: light;
+  }
+
+  .dark * {
+    color-scheme: dark;
+  }
+
+  /* Force CSS variable inheritance for modal contexts */
+  .modal, .modal *, [role="dialog"], [role="dialog"] *,
+  .fixed, .fixed *, .z-50, .z-50 *,
+  .modal *, .modal * * {
+    --bg-primary: var(--bg-primary) !important;
+    --bg-secondary: var(--bg-secondary) !important;
+    --bg-tertiary: var(--bg-tertiary) !important;
+    --text-primary: var(--text-primary) !important;
+    --text-secondary: var(--text-secondary) !important;
+    --text-muted: var(--text-muted) !important;
+    --border-color: var(--border-color) !important;
+    --border-secondary: var(--border-secondary) !important;
+    --accent-primary: var(--accent-primary) !important;
+    --accent-secondary: var(--accent-secondary) !important;
+    --accent-hover: var(--accent-hover) !important;
+  }
+
   body {
     @apply bg-gray-50 text-gray-900;
+    background-color: rgb(var(--bg-primary));
+    color: rgb(var(--text-primary));
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Override Tailwind's default colors with CSS variables */
+  .bg-gray-50 { background-color: rgb(var(--bg-primary)) !important; }
+  .bg-gray-100 { background-color: rgb(var(--bg-tertiary)) !important; }
+  .bg-white { background-color: rgb(var(--bg-secondary)) !important; }
+  .bg-gray-800 { background-color: rgb(var(--bg-secondary)) !important; }
+
+  .text-gray-900 { color: rgb(var(--text-primary)) !important; }
+  .text-gray-800 { color: rgb(var(--text-primary)) !important; }
+  .text-gray-700 { color: rgb(var(--text-secondary)) !important; }
+  .text-gray-600 { color: rgb(var(--text-secondary)) !important; }
+  .text-gray-500 { color: rgb(var(--text-muted)) !important; }
+
+  .border-gray-200 { border-color: rgb(var(--border-color)) !important; }
+  .border-gray-300 { border-color: rgb(var(--border-secondary)) !important; }
+  .border-gray-600 { border-color: rgb(var(--border-secondary)) !important; }
+  .border-gray-700 { border-color: rgb(var(--border-color)) !important; }
+
+  /* Dark mode overrides */
+  .dark .bg-gray-50 { background-color: rgb(var(--bg-primary)); }
+  .dark .bg-gray-100 { background-color: rgb(var(--bg-tertiary)); }
+  .dark .bg-white { background-color: rgb(var(--bg-secondary)); }
+  .dark .bg-gray-800 { background-color: rgb(var(--bg-secondary)); }
+
+  .dark .text-gray-900 { color: rgb(var(--text-primary)); }
+  .dark .text-gray-800 { color: rgb(var(--text-primary)); }
+  .dark .text-gray-700 { color: rgb(var(--text-secondary)); }
+  .dark .text-gray-600 { color: rgb(var(--text-secondary)); }
+  .dark .text-gray-500 { color: rgb(var(--text-muted)); }
+
+  /* Form elements */
+  select, input, textarea {
+    background-color: rgb(var(--bg-secondary));
+    color: rgb(var(--text-primary));
+    border-color: rgb(var(--border-color));
+  }
+
+  select:focus, input:focus, textarea:focus {
+    outline: 2px solid rgb(var(--accent-primary));
+    outline-offset: 2px;
+  }
+
+  /* Select dropdown options */
+  select option {
+    background-color: rgb(var(--bg-secondary));
+    color: rgb(var(--text-primary));
+  }
+
+  /* Checkbox and radio button styling */
+  input[type="checkbox"], input[type="radio"] {
+    accent-color: rgb(var(--accent-primary));
+  }
+
+  /* Dark mode form elements */
+  .dark select, .dark input, .dark textarea {
+    background-color: rgb(var(--bg-secondary));
+    color: rgb(var(--text-primary));
+    border-color: rgb(var(--border-color));
+  }
+
+  .dark select option {
+    background-color: rgb(var(--bg-secondary));
+    color: rgb(var(--text-primary));
+  }
+
+  .dark input[type="checkbox"], .dark input[type="radio"] {
+    accent-color: rgb(var(--accent-primary));
   }
 }
 
@@ -39,7 +191,7 @@
   /* Custom scrollbar */
   .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: rgb(156 163 175) transparent;
+    scrollbar-color: rgb(var(--text-muted)) transparent;
   }
 
   .custom-scrollbar::-webkit-scrollbar {
@@ -51,12 +203,12 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgb(156 163 175);
+    background-color: rgb(var(--text-muted));
     border-radius: 3px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(107 114 128);
+    background-color: rgb(var(--text-secondary));
   }
 
   /* Track list animations */
@@ -83,8 +235,8 @@
 
   .coordinate-grid {
     background-image:
-      linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+      linear-gradient(rgba(var(--text-muted), 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(var(--text-muted), 0.1) 1px, transparent 1px);
     background-size: 20px 20px;
   }
 
@@ -111,9 +263,9 @@
 
   /* Control panel styles */
   .control-panel {
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(var(--bg-secondary), 0.95);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(var(--bg-secondary), 0.2);
   }
 
   /* Status indicators */
@@ -137,18 +289,18 @@
   }
 
   .status-connected {
-    background: rgba(34, 197, 94, 0.1);
-    color: rgb(22, 163, 74);
+    background: rgba(var(--success-bg), 0.1);
+    color: rgb(var(--success-color));
   }
 
   .status-disconnected {
-    background: rgba(239, 68, 68, 0.1);
-    color: rgb(220, 38, 38);
+    background: rgba(var(--error-bg), 0.1);
+    color: rgb(var(--error-color));
   }
 
   .status-warning {
-    background: rgba(245, 158, 11, 0.1);
-    color: rgb(217, 119, 6);
+    background: rgba(var(--warning-bg), 0.1);
+    color: rgb(var(--warning-color));
   }
 
   /* Timeline styles */
@@ -177,24 +329,24 @@
   /* Animation curve editor */
   .curve-editor {
     position: relative;
-    background: #f8fafc;
+    background: rgb(var(--bg-tertiary));
     border-radius: 8px;
     overflow: hidden;
   }
 
   .curve-path {
     fill: none;
-    stroke: rgb(59, 130, 246);
+    stroke: rgb(var(--accent-primary));
     stroke-width: 2;
   }
 
   .curve-control-point {
-    fill: rgb(59, 130, 246);
+    fill: rgb(var(--accent-primary));
     cursor: pointer;
   }
 
   .curve-control-point:hover {
-    fill: rgb(37, 99, 235);
+    fill: rgb(var(--accent-hover));
     transform: scale(1.1);
   }
 
@@ -208,8 +360,8 @@
   /* High contrast mode support */
   @media (prefers-contrast: high) {
     .control-panel {
-      background: white;
-      border: 2px solid black;
+      background: rgb(var(--bg-secondary));
+      border: 2px solid rgb(var(--text-primary));
     }
   }
 

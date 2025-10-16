@@ -1,5 +1,6 @@
 import React from 'react'
 import { Track } from '@/types'
+import { themeColors } from '@/theme'
 
 interface SelectedTracksIndicatorProps {
   selectedTracks: Track[]
@@ -38,17 +39,17 @@ export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = (
   }
 
   return (
-    <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+    <div className={`mb-4 ${themeColors.multiTrackMode.background} border ${themeColors.multiTrackMode.border} rounded-lg p-3`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-blue-900">
+          <span className={`text-sm font-semibold ${themeColors.accent.primary} dark:${themeColors.accent.primary.replace('blue-500', 'blue-100')}`}>
             {selectedTracks.length === 1 ? '1 Track Selected' : `${selectedTracks.length} Tracks Selected`}
           </span>
-          <span className="text-xs text-blue-600">
+          <span className={`text-xs ${themeColors.accent.secondary} dark:${themeColors.accent.secondary.replace('blue-600', 'blue-400')}`}>
             Animation will be applied to: 
           </span>
           {selectedTracks.length > 1 && onReorder && (
-            <span className="text-xs text-blue-500 italic">
+            <span className={`text-xs ${themeColors.accent.tertiary} dark:${themeColors.accent.tertiary.replace('blue-700', 'blue-300')} italic`}>
               (drag to reorder for phase-offset)
             </span>
           )}
@@ -58,18 +59,18 @@ export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = (
         {selectedTracks.map((track, index) => (
           <span 
             key={track.id} 
-            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium transition-all hover:bg-blue-200"
+            className={`inline-flex items-center gap-1 px-3 py-2 ${themeColors.accent.background.medium} ${themeColors.accent.tertiary} dark:${themeColors.accent.tertiary.replace('blue-700', 'blue-300')} border ${themeColors.border.accent} rounded-md text-xs font-medium transition-all hover:${themeColors.accent.background.medium.replace('blue-100/60', 'blue-200/70')} dark:hover:${themeColors.accent.background.medium.replace('blue-800/40', 'blue-800/60')} hover:shadow-md`}
             draggable={!!onReorder}
             onDragStart={(e) => handleDragStart(e, track.id)}
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, track.id)}
             style={{ cursor: onReorder ? 'grab' : 'default' }}
           >
-            {onReorder && <span className="text-blue-400">⋮⋮</span>}
+            {onReorder && <span className={`${themeColors.accent.secondary} dark:${themeColors.accent.secondary.replace('blue-600', 'blue-500')}`}>⋮⋮</span>}
             
             {/* Show order number for multi-track phase-offset clarity */}
             {selectedTracks.length > 1 && (
-              <span className="text-blue-500 font-bold">{index + 1}.</span>
+              <span className={`${themeColors.accent.primary} dark:${themeColors.accent.primary.replace('blue-500', 'blue-400')} font-bold`}>{index + 1}.</span>
             )}
             
             {track.name}

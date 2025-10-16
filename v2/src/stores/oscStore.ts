@@ -324,25 +324,29 @@ export const useOSCStore = create<OSCState>((set, get) => ({
     console.log('📤 Querying track names and positions...')
     set({ isDiscoveringTracks: true, discoveredTracks: [] })
 
-    // Query each track index for name and position
+    // Query each track index for name, position, and color
     for (let i = 1; i <= maxTracks; i++) {
       try {
         // Query track name
         await get().sendMessage('/get', [`/track/${i}/name`])
-        await new Promise(resolve => setTimeout(resolve, 30))
-        
+        await new Promise(resolve => setTimeout(resolve, 50))
+
         // Query track position (xyz format)
         if (includePositions) {
           await get().sendMessage('/get', [`/track/${i}/xyz`])
-          await new Promise(resolve => setTimeout(resolve, 30))
+          await new Promise(resolve => setTimeout(resolve, 50))
         }
+
+        // Query track color (RGBA format)
+        await get().sendMessage('/get', [`/track/${i}/color`])
+        await new Promise(resolve => setTimeout(resolve, 50))
       } catch (error) {
         console.error(`Error querying track ${i}:`, error)
       }
     }
 
     // Wait for all responses to arrive
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise(resolve => setTimeout(resolve, 2000))
 
     console.log('✅ Track discovery completed')
     set({ isDiscoveringTracks: false })
@@ -357,21 +361,20 @@ export const useOSCStore = create<OSCState>((set, get) => ({
 
     const projectStore = useProjectStore.getState()
     const track = projectStore.tracks.find(t => t.id === trackId)
-    
+
     if (!track || !track.holophonixIndex) {
       console.error('❌ Track not found or missing holophonixIndex')
       return
     }
 
     console.log(`🔄 Refreshing position for track ${track.holophonixIndex}: ${track.name}`)
-    
-    // Query current position from Holophonix
-    // Using /get with argument /track/{index}/xyz
+
+    // Query current position from Holophonix - send OSC address directly
     const settingsStore = await import('./settingsStore').then(m => m.useSettingsStore.getState())
     const coordinateSystem = settingsStore.application.defaultCoordinateSystem
-    
+
     await get().sendMessage('/get', [`/track/${track.holophonixIndex}/${coordinateSystem}`])
-    
+
     console.log(`📤 Sent position query for track ${track.holophonixIndex}`)
   },
 
@@ -477,6 +480,43 @@ export const useOSCStore = create<OSCState>((set, get) => ({
         } else if (get().isDiscoveringTracks) {
           // During discovery, track might not exist yet - position will be used when track is created
           console.log(`📍 Stored position for track ${trackIndex} (will apply when track is created)`)
+        }
+      }
+    }
+
+    // Process track color updates (RGBA format)
+    if (message.address.match(/^\/track\/\d+\/color$/)) {
+      const parts = message.address.split('/')
+      const trackIndex = parseInt(parts[2])
+
+      // Handle both array and individual args
+      const args = Array.isArray(message.args) ? message.args : [message.args]
+
+      if (args.length >= 4) {
+        const [r, g, b, a] = args as number[]
+        console.log(`🎨 Track ${trackIndex} color (RGBA):`, { r, g, b, a })
+
+        // Update discovered track color if in discovery mode
+        if (get().isDiscoveringTracks) {
+          set(state => ({
+            discoveredTracks: state.discoveredTracks.map(track =>
+              track.index === trackIndex ? { ...track, color: { r, g, b, a } } : track
+            )
+          }))
+        }
+
+        // Always update track color in project store
+        const projectStore = useProjectStore.getState()
+        const existingTrack = projectStore.tracks.find(t => t.holophonixIndex === trackIndex)
+
+        if (existingTrack) {
+          console.log(`✅ Updating track ${trackIndex} color`)
+          projectStore.updateTrack(existingTrack.id, {
+            color: { r, g, b, a }
+          })
+        } else if (get().isDiscoveringTracks) {
+          // During discovery, track might not exist yet - color will be used when track is created
+          console.log(`🎨 Stored color for track ${trackIndex} (will apply when track is created)`)
         }
       }
     }

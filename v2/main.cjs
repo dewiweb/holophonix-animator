@@ -40,7 +40,7 @@ const osc = __importStar(require("osc"));
 const dgram = __importStar(require("dgram"));
 // For Electron main process, use app.getAppPath() for absolute paths
 const appPath = electron_1.app.getAppPath();
-const preloadPath = (0, path_1.join)(appPath, 'preload.js');
+const preloadPath = (0, path_1.join)(appPath, 'preload.cjs');
 console.log('🔍 Debug info:', {
     appPath,
     currentDir: process.cwd(),
@@ -480,7 +480,7 @@ electron_1.ipcMain.handle('osc-send-to-device', async (event, deviceId, address,
         const client = oscClients.get(deviceId);
         if (client) {
             // Format args for OSC library - ensure they have type and value
-            const formattedArgs = args.map((arg) => {
+            const formattedArgs = args ? args.map((arg) => {
                 // If already formatted with type/value, return as is
                 if (arg && typeof arg === 'object' && 'type' in arg && 'value' in arg) {
                     return arg;
@@ -500,7 +500,7 @@ electron_1.ipcMain.handle('osc-send-to-device', async (event, deviceId, address,
                     // Default to string
                     return { type: 's', value: String(arg) };
                 }
-            });
+            }) : [];
             client.send({
                 address: address,
                 args: formattedArgs

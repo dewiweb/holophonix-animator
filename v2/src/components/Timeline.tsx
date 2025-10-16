@@ -3,6 +3,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { useAnimationStore } from '@/stores/animationStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/utils'
+import { themeColors } from '@/theme'
 import { Timeline as TimelineType, TimelineEvent, Track } from '@/types'
 import {
   Play,
@@ -114,7 +115,7 @@ export const Timeline: React.FC = () => {
       markers.push(
         <div
           key={i}
-          className="absolute top-0 h-6 border-l border-gray-300 flex items-end justify-center text-xs text-gray-500"
+          className={`absolute top-0 h-6 border-l ${themeColors.border.secondary} flex items-end justify-center text-xs ${themeColors.text.muted}`}
           style={{ left: `${x}px`, width: '1px' }}
         >
           <span className="ml-1 pb-1">{i}s</span>
@@ -123,7 +124,7 @@ export const Timeline: React.FC = () => {
     }
 
     return (
-      <div className="relative h-6 bg-gray-50 border-b border-gray-200 overflow-hidden">
+      <div className={`relative h-6 ${themeColors.background.secondary} border-b ${themeColors.border.primary} overflow-hidden`}>
         {markers}
       </div>
     )
@@ -138,14 +139,14 @@ export const Timeline: React.FC = () => {
       return (
         <div
           key={track.id}
-          className="relative bg-gray-50 border-b border-gray-200"
+          className={`relative ${themeColors.background.secondary} border-b ${themeColors.border.primary}`}
           style={{ height: `${TRACK_HEIGHT}px` }}
         >
           <div className="flex items-center h-full px-4">
             <div className="flex items-center space-x-2">
-              <Volume2 className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-500">{track.name}</span>
-              <span className="text-xs text-gray-400">(No animation)</span>
+              <Volume2 className={`w-4 h-4 ${themeColors.text.disabled}`} />
+              <span className={`text-sm ${themeColors.text.muted}`}>{track.name}</span>
+              <span className={`text-xs ${themeColors.text.disabled}`}>(No animation)</span>
             </div>
           </div>
         </div>
@@ -161,7 +162,7 @@ export const Timeline: React.FC = () => {
     return (
       <div
         key={track.id}
-        className="relative bg-white border-b border-gray-200 hover:bg-gray-50"
+        className={`relative ${themeColors.background.primary} border-b ${themeColors.border.primary} hover:${themeColors.interactive.hover}`}
         style={{ height: `${TRACK_HEIGHT}px` }}
       >
         {/* Animation bar background */}
@@ -205,12 +206,12 @@ export const Timeline: React.FC = () => {
               "w-3 h-3 rounded-full",
               isTrackPlaying ? "bg-green-500 animate-pulse" : "bg-gray-400"
             )} />
-            <Volume2 className="w-4 h-4 text-gray-600" />
-            <span className="text-sm font-medium text-gray-900">{track.name}</span>
-            <span className="text-xs text-gray-500">
+            <Volume2 className={`w-4 h-4 ${themeColors.text.secondary}`} />
+            <span className={`text-sm font-medium ${themeColors.text.primary}`}>{track.name}</span>
+            <span className={`text-xs ${themeColors.text.muted}`}>
               {animation.name} ({animation.type})
             </span>
-            <span className="text-xs text-gray-400">
+            <span className={`text-xs ${themeColors.text.disabled}`}>
               {formatTime(currentTime)} / {formatTime(animation.duration)}
             </span>
           </div>
@@ -232,8 +233,8 @@ export const Timeline: React.FC = () => {
               className="absolute top-0 flex flex-col items-center"
               style={{ left: `${marker.time * PIXELS_PER_SECOND}px` }}
             >
-              <Flag className="w-4 h-4 text-orange-500 mb-1" />
-              <span className="text-xs text-orange-600 bg-orange-50 px-1 rounded">
+              <Flag className={`w-4 h-4 ${themeColors.status.warning} mb-1`} />
+              <span className={`text-xs ${themeColors.status.warning} ${themeColors.background.tertiary} px-1 rounded`}>
                 {marker.data?.label || `Marker ${marker.time}s`}
               </span>
             </div>
@@ -247,7 +248,7 @@ export const Timeline: React.FC = () => {
     <div className="flex items-center space-x-2 mb-4">
       <button
         onClick={handleStop}
-        className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+        className={`p-2 ${themeColors.background.tertiary} ${themeColors.text.primary} rounded-md ${themeColors.interactive.hover} transition-colors`}
         title="Stop"
       >
         <Square className="w-4 h-4" />
@@ -257,7 +258,7 @@ export const Timeline: React.FC = () => {
         onClick={handlePlayPause}
         className={cn(
           "p-2 rounded-md transition-colors",
-          isPlaying ? "bg-red-600 text-white hover:bg-red-700" : "bg-green-600 text-white hover:bg-green-700"
+          isPlaying ? `${themeColors.status.error} ${themeColors.text.primary} ${themeColors.interactive.hover}` : `${themeColors.status.success} ${themeColors.text.primary} ${themeColors.interactive.hover}`
         )}
         title={isPlaying ? "Pause" : "Play"}
       >
@@ -267,26 +268,26 @@ export const Timeline: React.FC = () => {
       <div className="flex items-center space-x-1">
         <button
           onClick={handleZoomOut}
-          className="p-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+          className={`p-2 ${themeColors.background.secondary} ${themeColors.text.secondary} rounded-md ${themeColors.interactive.hover} transition-colors`}
           title="Zoom Out"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
 
-        <span className="text-sm text-gray-600 px-2">
+        <span className={`text-sm ${themeColors.text.secondary} px-2`}>
           {timelineZoom.toFixed(1)}x
         </span>
 
         <button
           onClick={handleZoomIn}
-          className="p-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+          className={`p-2 ${themeColors.background.secondary} ${themeColors.text.secondary} rounded-md ${themeColors.interactive.hover} transition-colors`}
           title="Zoom In"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="ml-4 text-sm text-gray-600">
+      <div className={`ml-4 text-sm ${themeColors.text.secondary}`}>
         Current Time: {formatTime(globalTime)}
       </div>
 
@@ -295,7 +296,7 @@ export const Timeline: React.FC = () => {
           onClick={() => setShowMarkers(!showMarkers)}
           className={cn(
             "p-2 rounded-md transition-colors",
-            showMarkers ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            showMarkers ? `${themeColors.accent.primary} ${themeColors.text.primary}` : `${themeColors.background.secondary} ${themeColors.text.secondary} ${themeColors.interactive.hover}`
           )}
           title="Toggle Markers"
         >
@@ -304,7 +305,7 @@ export const Timeline: React.FC = () => {
 
         <button
           onClick={() => handleAddMarker(globalTime)}
-          className="p-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
+          className={`p-2 ${themeColors.status.warning} ${themeColors.text.primary} rounded-md ${themeColors.interactive.hover} transition-colors`}
           title="Add Marker at Current Time"
         >
           <Plus className="w-4 h-4" />
@@ -316,12 +317,12 @@ export const Timeline: React.FC = () => {
   if (!currentProject) {
     return (
       <div className="h-full flex flex-col">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Timeline</h1>
-        <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <h1 className={`text-2xl font-bold ${themeColors.text.primary} mb-6`}>Timeline</h1>
+        <div className={`${themeColors.background.primary} rounded-lg shadow-sm ${themeColors.border.primary} p-8`}>
           <div className="text-center">
-            <Clock className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Project Loaded</h3>
-            <p className="text-gray-600">Create or load a project to use the timeline editor</p>
+            <Clock className={`w-16 h-16 mx-auto ${themeColors.text.disabled} mb-4`} />
+            <h3 className={`text-lg font-medium ${themeColors.text.primary} mb-2`}>No Project Loaded</h3>
+            <p className={`${themeColors.text.secondary}`}>Create or load a project to use the timeline editor</p>
           </div>
         </div>
       </div>
@@ -331,13 +332,13 @@ export const Timeline: React.FC = () => {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Timeline</h1>
+        <h1 className={`text-2xl font-bold ${themeColors.text.primary}`}>Timeline</h1>
 
         <div className="flex items-center space-x-2">
           <select
             value={selectedTimelineId || ''}
             onChange={(e) => setSelectedTimelineId(e.target.value || null)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className={`px-3 py-2 ${themeColors.border.primary} rounded-md text-sm ${themeColors.interactive.focus}`}
           >
             <option value="">Select Timeline</option>
             {timelines.map((timeline) => (
@@ -347,7 +348,7 @@ export const Timeline: React.FC = () => {
             ))}
           </select>
 
-          <button className="px-3 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition-colors flex items-center">
+          <button className={`px-3 py-2 ${themeColors.accent.primary} ${themeColors.text.primary} rounded-md text-sm ${themeColors.interactive.hover} flex items-center`}>
             <Plus className="w-4 h-4 mr-2" />
             New Timeline
           </button>
@@ -358,25 +359,25 @@ export const Timeline: React.FC = () => {
       {renderPlaybackControls()}
 
       {/* Timeline */}
-      <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className={`${themeColors.background.primary} rounded-lg shadow-sm ${themeColors.border.primary} overflow-hidden`}>
         <div className="relative">
           {/* Timeline Header */}
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
+          <div className={`p-4 ${themeColors.border.primary} ${themeColors.background.tertiary}`}>
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className={`text-lg font-semibold ${themeColors.text.primary}`}>
                   {currentTimeline?.name || 'Timeline'}
                 </h2>
-                <p className="text-sm text-gray-600">
+                <p className={`${themeColors.text.secondary}`}>
                   Duration: {currentTimeline?.duration || 0}s | Tracks: {animatedTracks.length}
                 </p>
               </div>
 
               <div className="flex items-center space-x-4">
-                <div className="text-sm text-gray-600">
+                <div className={`text-sm ${themeColors.text.secondary}`}>
                   Zoom: {(timelineZoom * 100).toFixed(0)}%
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className={`text-sm ${themeColors.text.secondary}`}>
                   Active Tracks: {animatedTracks.length}
                 </div>
               </div>
@@ -403,7 +404,7 @@ export const Timeline: React.FC = () => {
 
             {/* Current time cursor */}
             <div
-              className="absolute top-0 w-0.5 h-full bg-red-500 z-40 pointer-events-none"
+              className={`absolute top-0 w-0.5 h-full ${themeColors.status.error} z-40 pointer-events-none`}
               style={{ left: `${globalTime * PIXELS_PER_SECOND}px` }}
             />
           </div>
@@ -412,21 +413,21 @@ export const Timeline: React.FC = () => {
 
       {/* Timeline Info Panel */}
       <div className="mt-4 grid grid-cols-4 gap-4">
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-lg font-bold text-blue-600">{formatTime(globalTime)}</div>
-          <div className="text-xs text-gray-600">Current Time</div>
+        <div className={`${themeColors.background.primary} p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
+          <div className={`text-lg font-bold ${themeColors.accent.primary}`}>{formatTime(globalTime)}</div>
+          <div className={`text-xs ${themeColors.text.muted}`}>Current Time</div>
         </div>
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-lg font-bold text-green-600">{animatedTracks.length}</div>
-          <div className="text-xs text-gray-600">Active Tracks</div>
+        <div className={`${themeColors.background.primary} p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
+          <div className={`text-lg font-bold ${themeColors.status.success}`}>{animatedTracks.length}</div>
+          <div className={`text-xs ${themeColors.text.muted}`}>Active Tracks</div>
         </div>
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-lg font-bold text-purple-600">{currentTimeline?.events.length || 0}</div>
-          <div className="text-xs text-gray-600">Timeline Events</div>
+        <div className={`${themeColors.background.primary} p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
+          <div className={`text-lg font-bold ${themeColors.accent.tertiary}`}>{currentTimeline?.events.length || 0}</div>
+          <div className={`text-xs ${themeColors.text.muted}`}>Timeline Events</div>
         </div>
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-lg font-bold text-orange-600">{timelineZoom.toFixed(1)}x</div>
-          <div className="text-xs text-gray-600">Zoom Level</div>
+        <div className={`${themeColors.background.primary} p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
+          <div className={`text-lg font-bold ${themeColors.status.warning}`}>{timelineZoom.toFixed(1)}x</div>
+          <div className={`text-xs ${themeColors.text.muted}`}>Zoom Level</div>
         </div>
       </div>
     </div>

@@ -179,14 +179,14 @@ export const OSCManager: React.FC = () => {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">OSC Manager</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">OSC Manager</h1>
 
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowMessageHistory(!showMessageHistory)}
             className={cn(
               "px-3 py-2 rounded-md text-sm transition-colors flex items-center",
-              showMessageHistory ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              showMessageHistory ? "bg-blue-600 dark:bg-blue-700 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
             )}
           >
             <MessageSquare className="w-4 h-4 mr-2" />
@@ -195,7 +195,7 @@ export const OSCManager: React.FC = () => {
 
           <button
             onClick={clearMessageHistory}
-            className="px-3 py-2 bg-gray-600 text-white rounded-md text-sm hover:bg-gray-700 transition-colors flex items-center"
+            className="px-3 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded-md text-sm hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors flex items-center"
           >
             <Trash2 className="w-4 h-4 mr-2" />
             Clear History
@@ -205,19 +205,19 @@ export const OSCManager: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1">
         {/* Connection Management */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Device Connections</h2>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Device Connections</h2>
+            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
               <span>Listening on port:</span>
-              <span className="font-mono bg-gray-100 px-2 py-1 rounded">{incomingPort}</span>
+              <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{incomingPort}</span>
             </div>
           </div>
 
           {/* Current Connections */}
           <div className="space-y-3 mb-6">
             {connections.length === 0 ? (
-              <div className="text-center py-6 text-gray-500">
+              <div className="text-center py-6 text-gray-500 dark:text-gray-400">
                 <WifiOff className="w-8 h-8 mx-auto mb-2" />
                 <p>No OSC connections configured</p>
               </div>
@@ -227,7 +227,7 @@ export const OSCManager: React.FC = () => {
                   key={connection.id}
                   className={cn(
                     "p-4 border rounded-lg transition-colors",
-                    connection.id === activeConnectionId ? "border-blue-500 bg-blue-50" : "border-gray-200"
+                    connection.id === activeConnectionId ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20" : "border-gray-200 dark:border-gray-600"
                   )}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -241,20 +241,20 @@ export const OSCManager: React.FC = () => {
                     <div className="flex items-center space-x-2">
                       <span className={cn(
                         "text-xs px-2 py-1 rounded-full",
-                        connection.isConnected ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
+                        connection.isConnected ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                       )}>
                         {getStatusText(connection)}
                       </span>
 
                       {connection.id === activeConnectionId && (
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                        <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full">
                           Active
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 text-sm text-gray-600">
+                  <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 dark:text-gray-400">
                     <div>
                       <span className="font-medium">Messages:</span> {connection.messageCount}
                     </div>
@@ -274,7 +274,7 @@ export const OSCManager: React.FC = () => {
                     {connection.isConnected ? (
                       <button
                         onClick={() => handleDisconnect(connection.id)}
-                        className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors flex items-center"
+                        className="px-3 py-2 bg-red-600 dark:bg-red-700 text-white rounded text-sm hover:bg-red-700 dark:hover:bg-red-600 transition-colors flex items-center"
                       >
                         <WifiOff className="w-4 h-4 mr-2" />
                         Disconnect
@@ -283,7 +283,7 @@ export const OSCManager: React.FC = () => {
                       <button
                         onClick={() => connect(connection.host, connection.port)}
                         disabled={connectionStatus === 'connecting'}
-                        className="px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center"
+                        className="px-3 py-2 bg-green-600 dark:bg-green-700 text-white rounded text-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center"
                       >
                         <Wifi className="w-4 h-4 mr-2" />
                         Connect
@@ -292,12 +292,12 @@ export const OSCManager: React.FC = () => {
 
                     <div className="flex items-center space-x-2">
                       {connection.id === activeConnectionId && (
-                        <span className="text-xs text-blue-600">Primary Connection</span>
+                        <span className="text-xs text-blue-600 dark:text-blue-400">Primary Connection</span>
                       )}
 
                       <button
                         onClick={() => handleRemoveConnection(connection.id)}
-                        className="px-2 py-2 bg-gray-400 text-white rounded text-sm hover:bg-gray-600 transition-colors"
+                        className="px-2 py-2 bg-gray-400 dark:bg-gray-600 text-white rounded text-sm hover:bg-gray-600 dark:hover:bg-gray-500 transition-colors"
                         title="Remove Connection"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -310,30 +310,30 @@ export const OSCManager: React.FC = () => {
           </div>
 
           {/* New Connection Form */}
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-md font-medium text-gray-900 mb-3">Add New Connection</h3>
+          <div className="border-t border-gray-200 dark:border-gray-600 pt-6">
+            <h3 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-3">Add New Connection</h3>
 
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Host</label>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Host</label>
                   <input
                     type="text"
                     value={newConnectionHost}
                     onChange={(e) => setNewConnectionHost(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     placeholder="localhost"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Port</label>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Port</label>
                   <input
                     type="number"
                     min="1024"
                     max="65535"
                     value={newConnectionPort}
                     onChange={(e) => setNewConnectionPort(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
               </div>
@@ -341,7 +341,7 @@ export const OSCManager: React.FC = () => {
               <button
                 onClick={handleConnect}
                 disabled={connectionStatus === 'connecting'}
-                className="w-full px-4 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+                className="w-full px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md text-sm hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center justify-center"
               >
                 {connectionStatus === 'connecting' ? (
                   <>
@@ -360,30 +360,30 @@ export const OSCManager: React.FC = () => {
         </div>
 
         {/* Message Interface */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Message Interface</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Message Interface</h2>
 
           {/* Message Sending */}
           <div className="space-y-4 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">OSC Address</label>
+              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">OSC Address</label>
               <input
                 type="text"
                 value={messageToSend}
                 onChange={(e) => setMessageToSend(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="/track/1/position"
                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Arguments (comma-separated)</label>
+              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Arguments (comma-separated)</label>
               <input
                 type="text"
                 value={messageArgs}
                 onChange={(e) => setMessageArgs(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="0, 0, 0"
                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
               />
@@ -392,7 +392,7 @@ export const OSCManager: React.FC = () => {
             <button
               onClick={handleSendMessage}
               disabled={!messageToSend.trim() || !activeConnection}
-              className="w-full px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+              className="w-full px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded-md text-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center"
             >
               <Send className="w-4 h-4 mr-2" />
               Send Message
@@ -401,15 +401,15 @@ export const OSCManager: React.FC = () => {
 
           {/* Quick Actions for Tracks */}
           {tracks.length > 0 && (
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="text-md font-medium text-gray-900 mb-3">Quick Actions</h3>
+            <div className="border-t border-gray-200 dark:border-gray-600 pt-6">
+              <h3 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-3">Quick Actions</h3>
 
               <div className="space-y-2">
                 {tracks.slice(0, 5).map((track) => (
-                  <div key={track.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <div key={track.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium">{track.name}</span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{track.name}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
                         ({track.position.x.toFixed(1)}, {track.position.y.toFixed(1)}, {track.position.z.toFixed(1)})
                       </span>
                     </div>
@@ -417,7 +417,7 @@ export const OSCManager: React.FC = () => {
                     <div className="flex items-center space-x-1">
                       <button
                         onClick={() => handleSendTrackPosition(track.id)}
-                        className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors"
+                        className="px-2 py-1 bg-blue-600 dark:bg-blue-700 text-white rounded text-xs hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
                         title="Send position"
                       >
                         Pos
@@ -426,7 +426,7 @@ export const OSCManager: React.FC = () => {
                         onClick={() => handleSendTrackMute(track.id, !track.isMuted)}
                         className={cn(
                           "px-2 py-1 rounded text-xs transition-colors",
-                          track.isMuted ? "bg-red-600 text-white hover:bg-red-700" : "bg-gray-600 text-white hover:bg-gray-700"
+                          track.isMuted ? "bg-red-600 dark:bg-red-700 text-white hover:bg-red-700 dark:hover:bg-red-600" : "bg-gray-600 dark:bg-gray-700 text-white hover:bg-gray-700 dark:hover:bg-gray-600"
                         )}
                         title={track.isMuted ? "Unmute" : "Mute"}
                       >
@@ -437,7 +437,7 @@ export const OSCManager: React.FC = () => {
                 ))}
 
                 {tracks.length > 5 && (
-                  <p className="text-xs text-gray-500 text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                     ... and {tracks.length - 5} more tracks
                   </p>
                 )}
@@ -449,9 +449,9 @@ export const OSCManager: React.FC = () => {
 
       {/* Message History */}
       {showMessageHistory && (
-        <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Message History</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Message History</h2>
 
             <div className="flex items-center space-x-2">
               <label className="flex items-center space-x-2 text-sm">
@@ -461,38 +461,53 @@ export const OSCManager: React.FC = () => {
                   onChange={(e) => setAutoScroll(e.target.checked)}
                   className="rounded"
                 />
-                <span>Auto-scroll</span>
+                <span className="text-gray-900 dark:text-gray-100">Auto-scroll</span>
               </label>
 
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
                 {messageHistory.length} messages
               </span>
             </div>
           </div>
 
           <div
-            className="bg-gray-900 text-green-400 p-4 rounded-md font-mono text-sm max-h-64 overflow-y-auto"
+            className="bg-gray-900 dark:bg-gray-900 text-green-400 p-4 rounded-md font-mono text-sm max-h-64 overflow-y-auto"
             style={{ fontFamily: 'Courier New, monospace' }}
           >
             {messageHistory.length === 0 ? (
-              <p className="text-gray-500 italic">No messages yet...</p>
+              <p className="text-gray-500 dark:text-gray-400 italic">No messages yet...</p>
             ) : (
-              messageHistory.map((message, index) => (
-                <div key={index} className="mb-1">
-                  <span className="text-gray-500">
-                    {new Date(message.timestamp || 0).toLocaleTimeString()}
-                  </span>
-                  {' '}
-                  <span className="text-blue-400">{message.address}</span>
-                  {' '}
-                  <span className="text-yellow-400">
-                    {Array.isArray(message.args) 
-                      ? message.args.map(arg => typeof arg === 'string' ? `"${arg}"` : arg).join(' ')
-                      : `"${message.args}"`
-                    }
-                  </span>
-                </div>
-              ))
+              messageHistory.map((message, index) => {
+                // Determine if message is incoming or outgoing
+                const isOutgoing = outgoingMessages.some(outgoing =>
+                  outgoing.address === message.address &&
+                  outgoing.timestamp === message.timestamp
+                )
+
+                return (
+                  <div key={index} className="mb-1">
+                    <span className="text-gray-500 dark:text-gray-400">
+                      {new Date(message.timestamp || 0).toLocaleTimeString()}
+                    </span>
+                    {' '}
+                    <span className={cn(
+                      "font-medium",
+                      isOutgoing ? "text-blue-400" : "text-green-400"
+                    )}>
+                      {isOutgoing ? '→' : '←'} {message.address}
+                    </span>
+                    {' '}
+                    <span className={cn(
+                      isOutgoing ? "text-yellow-400" : "text-green-300"
+                    )}>
+                      {Array.isArray(message.args)
+                        ? message.args.map(arg => typeof arg === 'string' ? `"${arg}"` : arg).join(' ')
+                        : `"${message.args}"`
+                      }
+                    </span>
+                  </div>
+                )
+              })
             )}
           </div>
         </div>
@@ -500,27 +515,27 @@ export const OSCManager: React.FC = () => {
 
       {/* Connection Status Summary */}
       <div className="mt-4 grid grid-cols-4 gap-4">
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-lg font-bold text-blue-600">{connections.length}</div>
-          <div className="text-xs text-gray-600">Total Connections</div>
+        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{connections.length}</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Total Connections</div>
         </div>
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-lg font-bold text-green-600">
+        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="text-lg font-bold text-green-600 dark:text-green-400">
             {connections.filter(c => c.isConnected).length}
           </div>
-          <div className="text-xs text-gray-600">Connected</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Connected</div>
         </div>
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-lg font-bold text-purple-600">
+        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
             {outgoingMessages.length + incomingMessages.length}
           </div>
-          <div className="text-xs text-gray-600">Messages Sent</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Messages Sent</div>
         </div>
-        <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-          <div className="text-lg font-bold text-orange-600">
+        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="text-lg font-bold text-orange-600 dark:text-orange-400">
             {connections.reduce((sum, c) => sum + c.errorCount, 0)}
           </div>
-          <div className="text-xs text-gray-600">Total Errors</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Total Errors</div>
         </div>
       </div>
     </div>
