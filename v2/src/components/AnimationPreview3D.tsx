@@ -1,12 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { Track, Animation, Keyframe } from '@/types'
+import { Track, Animation, Keyframe, AnimationType, AnimationParameters } from '@/types'
 import { generateAnimationPath, generateDirectionIndicators } from '@/utils/pathGeneration'
+import { themeColors } from '@/theme'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 interface AnimationPreview3DProps {
   tracks: Track[]  // Changed from single track to array of tracks
   animation: Animation | null
+  animationType?: AnimationType      // New: for real-time updates
+  animationParameters?: AnimationParameters  // New: for real-time updates
   currentTime?: number
   keyframes?: Keyframe[]
   onUpdateKeyframe?: (keyframeId: string, updates: Partial<Keyframe>) => void
@@ -15,9 +19,87 @@ interface AnimationPreview3DProps {
   onSelectKeyframe?: (keyframeId: string | null) => void
 }
 
+// Theme colors for Three.js scene - integrated with centralized theming system
+const getThemeColors = () => {
+  // Convert theme color classes to hex values for Three.js
+  const convertThemeColorToHex = (colorClass: string): number => {
+    // Map common Tailwind colors to hex values
+    const colorMap: { [key: string]: string } = {
+      'gray-50': '#f9fafb',
+      'gray-100': '#f3f4f6',
+      'gray-200': '#e5e7eb',
+      'gray-300': '#d1d5db',
+      'gray-400': '#9ca3af',
+      'gray-500': '#6b7280',
+      'gray-600': '#4b5563',
+      'gray-700': '#374151',
+      'gray-800': '#1f2937',
+      'gray-900': '#111827',
+      'blue-500': '#3b82f6',
+      'blue-400': '#60a5fa',
+      'green-500': '#10b981',
+      'green-400': '#34d399',
+      'amber-500': '#f59e0b',
+      'amber-400': '#fbbf24',
+      'red-500': '#ef4444',
+      'red-400': '#f87171',
+      'purple-500': '#8b5cf6',
+      'purple-400': '#a78bfa',
+      'indigo-500': '#6366f1',
+      'indigo-400': '#8b5cf6',
+      'pink-500': '#ec4899',
+      'pink-400': '#f472b6',
+      'yellow-500': '#eab308',
+      'yellow-400': '#facc15',
+    }
+
+    // Extract color name from Tailwind class (e.g., 'bg-blue-500' -> 'blue-500')
+    const colorMatch = colorClass.match(/(?:bg-|text-|border-)?([a-z]+-\d+)/)
+    if (colorMatch && colorMap[colorMatch[1]]) {
+      return parseInt(colorMap[colorMatch[1]].slice(1), 16)
+    }
+
+    // Fallback to gray
+    return 0x888888
+  }
+
+  // Convert theme color to hex using the mapping
+  const getHexFromTheme = (themeColor: string): number => {
+    // Handle dark mode variants (e.g., 'bg-gray-50 dark:bg-gray-800')
+    const isDarkMode = document.documentElement.classList.contains('dark')
+    if (isDarkMode && themeColor.includes(' dark:')) {
+      const darkVariant = themeColor.split(' dark:')[1].trim()
+      return convertThemeColorToHex(darkVariant)
+    }
+    const primaryColor = themeColor.split(' dark:')[0].trim()
+    return convertThemeColorToHex(primaryColor)
+  }
+
+  return {
+    background: getHexFromTheme(themeColors.background.primary),
+    grid: getHexFromTheme(themeColors.text.secondary),
+    gridSecondary: getHexFromTheme(themeColors.text.muted),
+    accent: getHexFromTheme(themeColors.accent.primary),
+    trackColors: [
+      getHexFromTheme(themeColors.status.success),    // Green
+      getHexFromTheme(themeColors.accent.primary),    // Blue
+      getHexFromTheme(themeColors.status.warning),    // Amber
+      getHexFromTheme(themeColors.status.error),      // Red
+      getHexFromTheme(themeColors.accent.secondary), // Purple
+      getHexFromTheme(themeColors.status.info),       // Pink
+    ],
+    keyframeSelected: getHexFromTheme(themeColors.status.success),
+    keyframeUnselected: getHexFromTheme(themeColors.status.warning),
+    boundingBox: getHexFromTheme(themeColors.status.error),
+    directionIndicator: getHexFromTheme(themeColors.status.warning),
+  }
+}
+
 export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
   tracks,
   animation,
+  animationType,
+  animationParameters,
   currentTime = 0,
   keyframes = [],
   onUpdateKeyframe,
@@ -29,17 +111,91 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
   const sceneRef = useRef<THREE.Scene | null>(null)
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
-  const trackSpheresRef = useRef<THREE.Group | null>(null)  // Changed to Group to hold multiple track spheres
-  const pathLinesRef = useRef<THREE.Group | null>(null)  // Changed to Group to hold multiple paths
+  const trackSpheresRef = useRef<THREE.Group | null>(null)
+  const pathLinesRef = useRef<THREE.Group | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const controlsRef = useRef<OrbitControls | null>(null)
   const keyframeMarkersRef = useRef<THREE.Group | null>(null)
   const boundingBoxRef = useRef<THREE.LineSegments | null>(null)
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster())
   const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2())
+  const [themeVersion, setThemeVersion] = useState(0)
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number; z: number } | null>(null)
 
-  // Initialize Three.js scene
+  // Track current theme value
+  const currentTheme = useSettingsStore((state) => state.application.theme)
+
+  // Watch for theme changes using useEffect
+  useEffect(() => {
+    console.log('🎨 Current theme:', currentTheme)
+    setThemeVersion(prev => prev + 1)
+  }, [currentTheme])
+
+  // Re-initialize scene when theme changes
+  useEffect(() => {
+    if (!containerRef.current || !sceneRef.current) return
+
+    console.log('🔄 Theme update effect triggered, version:', themeVersion)
+
+    // Use original themeColors object for string-based theme values
+    const themeConfig = themeColors
+
+    // Update scene background
+    if (sceneRef.current) {
+      const themeColorsHex = getThemeColors()
+      console.log('🎨 Updating background to:', themeColorsHex.background)
+      sceneRef.current.background = new THREE.Color(themeColorsHex.background)
+    }
+
+    // Update grid colors
+    const gridHelper = sceneRef.current.getObjectByName('grid')
+    if (gridHelper instanceof THREE.GridHelper) {
+      console.log('🎨 Updating grid colors')
+      // Remove old grid and dispose materials
+      sceneRef.current.remove(gridHelper)
+
+      // Handle both single material and material array cases
+      const materials = gridHelper.material
+      if (materials) {
+        if (Array.isArray(materials)) {
+          materials.forEach(material => material.dispose())
+        } else {
+          materials.dispose()
+        }
+      }
+
+      // Create new grid with updated colors
+      const themeColorsHex = getThemeColors()
+      const newGridHelper = new THREE.GridHelper(20, 20, themeColorsHex.grid, themeColorsHex.gridSecondary)
+      newGridHelper.name = 'grid'
+      sceneRef.current.add(newGridHelper)
+    }
+
+    // Update floor plane color
+    const floorPlane = sceneRef.current.getObjectByName('floor')
+    if (floorPlane instanceof THREE.Mesh && floorPlane.material instanceof THREE.MeshLambertMaterial) {
+      const floorColorHex = themeConfig?.background?.secondary ?
+        themeConfig.background.secondary.replace('bg-', '#').replace('dark:bg-', '#').replace('/', '') : '#f9fafb'
+      console.log('🎨 Updating floor color to:', floorColorHex)
+      floorPlane.material.color.set(floorColorHex)
+      floorPlane.material.needsUpdate = true
+    }
+
+    // Update lights with theme-based colors
+    const ambientLight = sceneRef.current.getObjectByName('ambient-light') as THREE.AmbientLight
+    if (ambientLight && themeConfig?.background?.primary) {
+      const lightColorHex = themeConfig.background.primary.replace('bg-', '#').replace('dark:bg-', '#').replace('/', '')
+      console.log('🎨 Updating ambient light to:', lightColorHex)
+      ambientLight.color.set(lightColorHex)
+    }
+
+    const directionalLight = sceneRef.current.getObjectByName('directional-light') as THREE.DirectionalLight
+    if (directionalLight && themeConfig?.background?.primary) {
+      const lightColorHex = themeConfig.background.primary.replace('bg-', '#').replace('dark:bg-', '#').replace('/', '')
+      console.log('🎨 Updating directional light to:', lightColorHex)
+      directionalLight.color.set(lightColorHex)
+    }
+  }, [themeVersion])
   useEffect(() => {
     if (!containerRef.current) return
 
@@ -49,7 +205,8 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
 
     // Scene
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0xf5f5f5)
+    const themeColorsHex = getThemeColors()  // Get hex colors for Three.js
+    scene.background = new THREE.Color(themeColorsHex.background)
     sceneRef.current = scene
 
     // Camera
@@ -65,24 +222,33 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
     container.appendChild(renderer.domElement)
     rendererRef.current = renderer
 
-    // Grid
-    const gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0xcccccc)
+    // Grid with theme colors
+    const gridHelper = new THREE.GridHelper(20, 20, themeColorsHex.grid, themeColorsHex.gridSecondary)
+    gridHelper.name = 'grid'
     scene.add(gridHelper)
 
     // Axes helper
     const axesHelper = new THREE.AxesHelper(10)
     scene.add(axesHelper)
 
-    // Ambient light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+    // Ambient light - use theme-based color temperature
+    const ambientColor = themeColors?.background?.primary ?
+      themeColors.background.primary.replace('bg-', '#').replace('dark:bg-', '#').replace('/', '') : '#f5f5f5'
+    console.log('💡 Initial ambient light color:', ambientColor)
+    const ambientLight = new THREE.AmbientLight(ambientColor, 0.6)
+    ambientLight.name = 'ambient-light'
     scene.add(ambientLight)
 
-    // Directional light
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+    // Directional light - use theme-based color temperature
+    const directionalColor = themeColors?.background?.primary ?
+      themeColors.background.primary.replace('bg-', '#').replace('dark:bg-', '#').replace('/', '') : '#f5f5f5'
+    console.log('💡 Initial directional light color:', directionalColor)
+    const directionalLight = new THREE.DirectionalLight(directionalColor, 0.8)
+    directionalLight.name = 'directional-light'
     directionalLight.position.set(10, 10, 5)
     scene.add(directionalLight)
 
-    // Track spheres group (representing sound sources)
+    // Track spheres group
     const trackSpheresGroup = new THREE.Group()
     trackSpheresGroup.name = 'track-spheres'
     scene.add(trackSpheresGroup)
@@ -93,12 +259,20 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
     scene.add(keyframeGroup)
     keyframeMarkersRef.current = keyframeGroup
 
-    // Invisible ground plane for raycasting
-    const planeGeometry = new THREE.PlaneGeometry(1000, 1000)
-    planeGeometry.rotateX(-Math.PI / 2)
-    const planeMaterial = new THREE.MeshBasicMaterial({ visible: false })
-    const groundPlane = new THREE.Mesh(planeGeometry, planeMaterial)
-    scene.add(groundPlane)
+    // Floor plane with theme-based styling
+    const floorGeometry = new THREE.PlaneGeometry(50, 50)
+    floorGeometry.rotateX(-Math.PI / 2)
+    const floorColorHex = themeColors?.background?.secondary ?
+      themeColors.background.secondary.replace('bg-', '#').replace('dark:bg-', '#').replace('/', '') : '#f9fafb'
+    const floorMaterial = new THREE.MeshLambertMaterial({
+      color: floorColorHex,
+      transparent: true,
+      opacity: 0.3
+    })
+    const floorPlane = new THREE.Mesh(floorGeometry, floorMaterial)
+    floorPlane.position.y = -0.01 // Slightly below grid to avoid z-fighting
+    floorPlane.name = 'floor'
+    scene.add(floorPlane)
 
     // OrbitControls for camera manipulation
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -301,13 +475,18 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
     // Clear existing spheres
     spheresGroup.clear()
     
-    // Colors matching the path colors
-    const colors = [0x10b981, 0x3b82f6, 0xf59e0b, 0xef4444, 0x8b5cf6, 0xec4899]
+    // Colors matching the path colors - fallback for tracks without device colors
+    const fallbackColors = [0x10b981, 0x3b82f6, 0xf59e0b, 0xef4444, 0x8b5cf6, 0xec4899]
     
     // Create sphere for each track
     tracks.forEach((track, index) => {
       const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32)
-      const color = colors[index % colors.length]
+      
+      // Use track color if available, otherwise use fallback color
+      const color = track.color 
+        ? (track.color.r * 0xFF) << 16 | (track.color.g * 0xFF) << 8 | (track.color.b * 0xFF)
+        : fallbackColors[index % fallbackColors.length]
+        
       const sphereMaterial = new THREE.MeshStandardMaterial({
         color,
         metalness: 0.3,
@@ -433,6 +612,25 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
     boundingBoxRef.current = boundingBox
   }, [animation])
 
+  // Generate animation path for current animation using shared utilities - reactive to parameter changes
+  const animationPath = React.useMemo(() => {
+    if (!animationType || !animationParameters) return []
+
+    // Create a minimal Animation object for the path generation utility
+    const animation: Animation = {
+      id: '3d-preview',
+      name: '3D Preview',
+      type: animationType,
+      duration: 10, // Preview duration
+      loop: true,
+      parameters: animationParameters,
+      coordinateSystem: { type: 'xyz' }
+    }
+
+    const pathPoints = generateAnimationPath(animation, 200)
+    return pathPoints
+  }, [animationType, animationParameters])
+
   // Draw animation paths for all tracks with direction indicators
   useEffect(() => {
     if (!animation || !sceneRef.current || tracks.length === 0) return
@@ -462,11 +660,11 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
       const pathsGroup = new THREE.Group()
       pathsGroup.name = 'animation-paths'
       
-      // Colors for different tracks
-      const colors = [0x10b981, 0x3b82f6, 0xf59e0b, 0xef4444, 0x8b5cf6, 0xec4899]
+      // Colors for different tracks - fallback for tracks without device colors
+      const fallbackColors = [0x10b981, 0x3b82f6, 0xf59e0b, 0xef4444, 0x8b5cf6, 0xec4899]
       
       // Generate path for each track and store first track's path points for indicators
-      let firstTrackPathPoints = generateAnimationPath(animation, 200)
+      let firstTrackPathPoints = animationPath
       
       tracks.forEach((track, trackIndex) => {
         // For position-relative mode or each track has its own animation
@@ -486,7 +684,12 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
         )
 
         const geometry = new THREE.BufferGeometry().setFromPoints(points)
-        const color = colors[trackIndex % colors.length]
+        
+        // Use track color if available, otherwise use fallback color
+        const color = track.color 
+          ? (track.color.r * 0xFF) << 16 | (track.color.g * 0xFF) << 8 | (track.color.b * 0xFF)
+          : fallbackColors[trackIndex % fallbackColors.length]
+          
         const material = new THREE.LineBasicMaterial({
           color,
           linewidth: 2,
@@ -542,42 +745,42 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
     } catch (error) {
       console.warn('Failed to generate animation path preview:', error)
     }
-  }, [animation, tracks])
+  }, [animation, tracks, animationPath])
 
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full rounded-lg overflow-hidden" />
       
       {/* Legend */}
-      <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm p-2 text-xs">
+      <div className="absolute top-2 left-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-sm p-2 text-xs">
         <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-          <span className="text-gray-700">Track Position</span>
+          <div className="w-3 h-3 rounded-full bg-blue-500 dark:bg-blue-400"></div>
+          <span className="text-gray-700 dark:text-gray-300">Track Position</span>
         </div>
         <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-0.5 bg-green-500"></div>
-          <span className="text-gray-700">Animation Path</span>
+          <div className="w-3 h-0.5 bg-green-500 dark:bg-green-400"></div>
+          <span className="text-gray-700 dark:text-gray-300">Animation Path</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-          <span className="text-gray-700">Keyframes</span>
+          <div className="w-3 h-3 rounded-full bg-amber-500 dark:bg-amber-400"></div>
+          <span className="text-gray-700 dark:text-gray-300">Keyframes</span>
         </div>
       </div>
 
       {/* Placement mode indicator */}
       {isKeyframePlacementMode && selectedKeyframeId && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-green-500 text-white px-3 py-2 rounded-lg shadow-lg text-sm font-medium animate-pulse">
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-green-500 dark:bg-green-600 text-white px-3 py-2 rounded-lg shadow-lg text-sm font-medium animate-pulse">
           📍 Click to reposition selected keyframe
         </div>
       )}
       {isKeyframePlacementMode && !selectedKeyframeId && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-3 py-2 rounded-lg shadow-lg text-sm font-medium">
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-amber-500 dark:bg-amber-600 text-white px-3 py-2 rounded-lg shadow-lg text-sm font-medium">
           ⚠️ Select a keyframe first (click orange sphere)
         </div>
       )}
 
       {/* Camera Controls Info */}
-      <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm p-2 text-xs text-gray-600">
+      <div className="absolute top-2 right-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-sm p-2 text-xs text-gray-600 dark:text-gray-400">
         <div className="font-medium mb-1">Camera Controls:</div>
         <div>🖱️ Left: Rotate</div>
         <div>🖱️ Right: Pan</div>
@@ -586,16 +789,16 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
 
       {/* Coordinate info - show first track's position */}
       {tracks.length > 0 && (
-        <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm p-2 text-xs font-mono">
-          <div className="text-gray-500">{tracks.length === 1 ? 'Position:' : `Tracks: ${tracks.length}`}</div>
+        <div className="absolute bottom-2 left-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-sm p-2 text-xs font-mono">
+          <div className="text-gray-500 dark:text-gray-400">{tracks.length === 1 ? 'Position:' : `Tracks: ${tracks.length}`}</div>
           {tracks.length === 1 ? (
-            <div className="text-gray-900">
+            <div className="text-gray-900 dark:text-gray-100">
               X: {tracks[0].position.x.toFixed(2)} | 
               Y: {tracks[0].position.y.toFixed(2)} | 
               Z: {tracks[0].position.z.toFixed(2)}
             </div>
           ) : (
-            <div className="text-gray-600 text-xs mt-1">
+            <div className="text-gray-600 dark:text-gray-400 text-xs mt-1">
               {tracks.slice(0, 3).map(t => t.name).join(', ')}
               {tracks.length > 3 && ` +${tracks.length - 3} more`}
             </div>

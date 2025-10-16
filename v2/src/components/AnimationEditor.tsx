@@ -54,6 +54,7 @@ import {
   CircularScanParametersForm,
   ZoomParametersForm
 } from './animations'
+import { ControlPointEditor } from './ControlPointEditor'
 import {
   MultiTrackModeSelector,
   SelectedTracksIndicator,
@@ -392,6 +393,8 @@ export const AnimationEditor: React.FC = () => {
     parameters: {}
   })
 
+  const [originalAnimationParams, setOriginalAnimationParams] = useState<AnimationParameters | null>(null)
+
   const [keyframes, setKeyframes] = useState<Keyframe[]>([])
   const [multiTrackMode, setMultiTrackMode] = useState<'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative'>('identical')
   const [phaseOffsetSeconds, setPhaseOffsetSeconds] = useState(0.5)
@@ -404,6 +407,7 @@ export const AnimationEditor: React.FC = () => {
       // This prevents corruption when user pauses and re-saves
       setAnimationForm(currentAnimation)
       setKeyframes(currentAnimation.keyframes || [])
+      setOriginalAnimationParams(currentAnimation.parameters)
     } else {
       // Reset form for new animation
       setAnimationForm({
@@ -415,6 +419,7 @@ export const AnimationEditor: React.FC = () => {
         parameters: {}
       })
       setKeyframes([])
+      setOriginalAnimationParams(null)
     }
   }, [selectedTrack?.id, currentAnimation])
 
@@ -614,22 +619,97 @@ export const AnimationEditor: React.FC = () => {
     setAnimationForm(prev => {
       // For Position objects, ensure we merge with existing values
       const isPositionKey = ['startPosition', 'endPosition', 'center', 'bounds', 'anchorPoint', 'restPosition', 'targetPosition'].includes(key)
-      
+
       if (isPositionKey && typeof value === 'object') {
         // Merge with existing position to preserve all x, y, z values
         const existingValue = (prev.parameters as any)?.[key] || { x: 0, y: 0, z: 0 }
+        const newValue = { ...existingValue, ...value }
+
+        // If we're in relative modes and this is a position parameter, apply relative changes to other tracks
+        if (selectedTrackIds.length > 1 && (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative')) {
+          applyRelativeControlPointChange(key, newValue, existingValue)
+        }
+
         return {
           ...prev,
-          parameters: { 
-            ...prev.parameters, 
-            [key]: { ...existingValue, ...value }
+          parameters: {
+            ...prev.parameters,
+            [key]: newValue
           }
         }
       }
-      
+
+      // If we're in relative modes and this is a position parameter, apply relative changes to other tracks
+      if (selectedTrackIds.length > 1 && (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && isPositionKey) {
+        applyRelativeControlPointChange(key, value, (prev.parameters as any)?.[key])
+      }
+
       return {
         ...prev,
         parameters: { ...prev.parameters, [key]: value }
+      }
+    })
+  }
+
+  // Apply relative control point changes to other selected tracks
+  const applyRelativeControlPointChange = (key: string, newValue: any, oldValue: any) => {
+    if (!oldValue || !newValue) return
+
+    // Calculate the relative offset
+    const offset = {
+      x: newValue.x - oldValue.x,
+      y: newValue.y - oldValue.y,
+      z: newValue.z - oldValue.z
+    }
+
+    // Apply this offset to other selected tracks (skip the first track as it was already updated)
+    selectedTrackIds.slice(1).forEach(trackId => {
+      const track = tracks.find(t => t.id === trackId)
+      if (!track) return
+
+      // Get the current parameter value for this track
+      const currentValue = getCurrentTrackParameter(trackId, key)
+
+      if (currentValue) {
+        // Apply the same relative offset
+        const updatedValue = {
+          x: currentValue.x + offset.x,
+          y: currentValue.y + offset.y,
+          z: currentValue.z + offset.z
+        }
+
+        // Update this track's parameter
+        updateTrackParameter(trackId, key, updatedValue)
+      }
+    })
+  }
+
+  // Get current parameter value for a specific track
+  const getCurrentTrackParameter = (trackId: string, key: string): Position | null => {
+    const track = tracks.find(t => t.id === trackId)
+    if (!track || !track.animationState?.animation?.parameters) return null
+
+    const params = track.animationState.animation.parameters as any
+    return params[key] || null
+  }
+
+  // Update a specific parameter for a specific track
+  const updateTrackParameter = (trackId: string, key: string, value: any) => {
+    const track = tracks.find(t => t.id === trackId)
+    if (!track || !track.animationState?.animation) return
+
+    const updatedAnimation = {
+      ...track.animationState.animation,
+      parameters: {
+        ...(track.animationState.animation.parameters as any),
+        [key]: value
+      }
+    }
+
+    updateTrack(trackId, {
+      animationState: {
+        ...track.animationState,
+        animation: updatedAnimation
       }
     })
   }
@@ -992,7 +1072,7 @@ export const AnimationEditor: React.FC = () => {
     selectedTracksToApply.forEach((track, index) => {
       let trackAnimation = { ...animation }
       let initialTime = 0
-      
+
       // Apply different strategies based on multi-track mode
       if (selectedTracksToApply.length > 1) {
         switch (multiTrackMode) {
@@ -1001,29 +1081,53 @@ export const AnimationEditor: React.FC = () => {
             initialTime = index * phaseOffsetSeconds
             console.log(`🔄 Track ${track.name}: phase offset ${initialTime}s`)
             break
-            
+
           case 'phase-offset-relative':
             // Combine both: phase offset timing + position-relative paths
             initialTime = index * phaseOffsetSeconds
             console.log(`🔄📍 Track ${track.name}: phase offset ${initialTime}s + relative position`)
             // Fall through to position-relative logic
-            
+
           case 'position-relative':
             // Adjust animation center/start to EACH track's current position
+            // BUT preserve user's control point modifications
             if (trackAnimation.parameters) {
               const trackPos = track.position
               const updatedParams = { ...trackAnimation.parameters }
-              
-              // Update position parameters based on animation type
+
+              // Only update position parameters if they haven't been explicitly modified by user
+              // Check if user has moved control points by comparing with default values
+              const userModifiedParams = checkUserModifiedParameters(animation.type, updatedParams)
+
+              // Update position parameters based on animation type, but only if not user-modified
               switch (animation.type) {
                 case 'linear':
                 case 'bezier':
                 case 'catmull-rom':
                 case 'zigzag':
                 case 'doppler':
-                  updatedParams.startPosition = { ...trackPos }
+                  if (!userModifiedParams.startPosition) {
+                    updatedParams.startPosition = { ...trackPos }
+                  }
+                  // For end position, check if it was modified relative to the original start position
+                  if (!userModifiedParams.endPosition && updatedParams.startPosition) {
+                    const originalStart = animation.parameters?.startPosition || trackPos
+                    const originalEnd = animation.parameters?.endPosition
+                    if (originalEnd) {
+                      const offset = {
+                        x: originalEnd.x - originalStart.x,
+                        y: originalEnd.y - originalStart.y,
+                        z: originalEnd.z - originalStart.z
+                      }
+                      updatedParams.endPosition = {
+                        x: trackPos.x + offset.x,
+                        y: trackPos.y + offset.y,
+                        z: trackPos.z + offset.z
+                      }
+                    }
+                  }
                   break
-                  
+
                 case 'circular':
                 case 'spiral':
                 case 'wave':
@@ -1033,64 +1137,83 @@ export const AnimationEditor: React.FC = () => {
                 case 'epicycloid':
                 case 'circular-scan':
                 case 'perlin-noise':
-                  updatedParams.center = { ...trackPos }
+                  if (!userModifiedParams.center) {
+                    updatedParams.center = { ...trackPos }
+                  }
                   break
-                  
-                case 'random':
-                  // For random animation, regenerate waypoints centered at each track's position
-                  updatedParams.center = { ...trackPos }
-                  const bounds = updatedParams.bounds || { x: 5, y: 5, z: 5 }
-                  const updateFrequency = Number(updatedParams.updateFrequency) || 2
-                  updatedParams.randomWaypoints = generateRandomWaypoints(trackPos, bounds, animation.duration, updateFrequency)
-                  console.log(`🎲 Track ${track.name}: generated ${updatedParams.randomWaypoints.length} waypoints at (${trackPos.x.toFixed(1)}, ${trackPos.y.toFixed(1)}, ${trackPos.z.toFixed(1)})`)
-                  break
-                  
+
                 case 'elliptical':
-                  updatedParams.centerX = trackPos.x
-                  updatedParams.centerY = trackPos.y
-                  updatedParams.centerZ = trackPos.z
+                  if (!userModifiedParams.centerX && !userModifiedParams.centerY && !userModifiedParams.centerZ) {
+                    updatedParams.centerX = trackPos.x
+                    updatedParams.centerY = trackPos.y
+                    updatedParams.centerZ = trackPos.z
+                  }
                   break
-                  
+
                 case 'pendulum':
-                  updatedParams.anchorPoint = { ...trackPos }
+                  if (!userModifiedParams.anchorPoint) {
+                    updatedParams.anchorPoint = { ...trackPos }
+                  }
                   break
-                  
+
                 case 'spring':
-                  updatedParams.restPosition = { ...trackPos }
+                  if (!userModifiedParams.restPosition) {
+                    updatedParams.restPosition = { ...trackPos }
+                  }
                   break
-                  
+
                 case 'bounce':
-                  updatedParams.groundLevel = trackPos.y
+                  if (!userModifiedParams.groundLevel) {
+                    updatedParams.groundLevel = trackPos.y
+                  }
                   break
-                  
+
                 case 'attract-repel':
-                  updatedParams.targetPosition = { ...trackPos }
+                  if (!userModifiedParams.targetPosition) {
+                    updatedParams.targetPosition = { ...trackPos }
+                  }
                   break
-                  
+
                 case 'zoom':
-                  updatedParams.zoomCenter = { ...trackPos }
+                  if (!userModifiedParams.zoomCenter) {
+                    updatedParams.zoomCenter = { ...trackPos }
+                  }
                   break
-                  
+
                 case 'helix':
-                  updatedParams.axisStart = { ...trackPos }
-                  // Keep axisEnd offset from start
-                  if (updatedParams.axisEnd) {
-                    const originalStart = animation.parameters?.axisStart || { x: 0, y: 0, z: 0 }
-                    const originalEnd = animation.parameters?.axisEnd || { x: 0, y: 10, z: 0 }
-                    const offset = {
-                      x: originalEnd.x - originalStart.x,
-                      y: originalEnd.y - originalStart.y,
-                      z: originalEnd.z - originalStart.z
-                    }
-                    updatedParams.axisEnd = {
-                      x: trackPos.x + offset.x,
-                      y: trackPos.y + offset.y,
-                      z: trackPos.z + offset.z
+                  if (!userModifiedParams.axisStart) {
+                    updatedParams.axisStart = { ...trackPos }
+                    // Keep axisEnd offset from start
+                    if (updatedParams.axisEnd) {
+                      const originalStart = animation.parameters?.axisStart || { x: 0, y: 0, z: 0 }
+                      const originalEnd = animation.parameters?.axisEnd || { x: 0, y: 10, z: 0 }
+                      const offset = {
+                        x: originalEnd.x - originalStart.x,
+                        y: originalEnd.y - originalStart.y,
+                        z: originalEnd.z - originalStart.z
+                      }
+                      updatedParams.axisEnd = {
+                        x: trackPos.x + offset.x,
+                        y: trackPos.y + offset.y,
+                        z: trackPos.z + offset.z
+                      }
                     }
                   }
                   break
+
+                case 'random':
+                  // For random animation, regenerate waypoints centered at each track's position
+                  // But only if center hasn't been explicitly modified by user
+                  if (!userModifiedParams.center) {
+                    updatedParams.center = { ...trackPos }
+                    const bounds = updatedParams.bounds || { x: 5, y: 5, z: 5 }
+                    const updateFrequency = Number(updatedParams.updateFrequency) || 2
+                    updatedParams.randomWaypoints = generateRandomWaypoints(trackPos, bounds, animation.duration, updateFrequency)
+                    console.log(`🎲 Track ${track.name}: generated ${updatedParams.randomWaypoints.length} waypoints at (${trackPos.x.toFixed(1)}, ${trackPos.y.toFixed(1)}, ${trackPos.z.toFixed(1)})`)
+                  }
+                  break
               }
-              
+
               trackAnimation = {
                 ...trackAnimation,
                 id: `${animation.id}-${track.id}`, // Unique ID per track
@@ -1099,7 +1222,7 @@ export const AnimationEditor: React.FC = () => {
               console.log(`📍 Track ${track.name}: animation centered at (${trackPos.x.toFixed(2)}, ${trackPos.y.toFixed(2)}, ${trackPos.z.toFixed(2)})`)
             }
             break
-            
+
           case 'identical':
           default:
             // All tracks get identical animation
@@ -1107,7 +1230,7 @@ export const AnimationEditor: React.FC = () => {
             break
         }
       }
-      
+
       updateTrack(track.id, {
         animationState: {
           animation: trackAnimation,
@@ -1173,6 +1296,137 @@ export const AnimationEditor: React.FC = () => {
 
     // Show dialog to get preset name and description from user
     setShowPresetNameDialog(true)
+  }
+
+  // Helper function to check if user has modified parameters from original values
+  const checkUserModifiedParameters = (animationType: AnimationType, currentParams: AnimationParameters): Record<string, boolean> => {
+    const modified: Record<string, boolean> = {}
+
+    // Compare against original parameters if available, otherwise use defaults
+    const originalParams = originalAnimationParams
+    const defaults = originalParams || getDefaultParameters(animationType, selectedTrack?.initialPosition || selectedTrack?.position || { x: 0, y: 0, z: 0 })
+
+    switch (animationType) {
+      case 'linear':
+      case 'bezier':
+      case 'catmull-rom':
+      case 'zigzag':
+      case 'doppler':
+        modified.startPosition = JSON.stringify(currentParams.startPosition) !== JSON.stringify(defaults.startPosition)
+        break
+
+      case 'circular':
+      case 'spiral':
+      case 'wave':
+      case 'lissajous':
+      case 'orbit':
+      case 'rose-curve':
+      case 'epicycloid':
+      case 'circular-scan':
+      case 'perlin-noise':
+        modified.center = JSON.stringify(currentParams.center) !== JSON.stringify(defaults.center)
+        break
+
+      case 'elliptical':
+        modified.centerX = currentParams.centerX !== defaults.centerX
+        modified.centerY = currentParams.centerY !== defaults.centerY
+        modified.centerZ = currentParams.centerZ !== defaults.centerZ
+        break
+
+      case 'pendulum':
+        modified.anchorPoint = JSON.stringify(currentParams.anchorPoint) !== JSON.stringify(defaults.anchorPoint)
+        break
+
+      case 'spring':
+        modified.restPosition = JSON.stringify(currentParams.restPosition) !== JSON.stringify(defaults.restPosition)
+        break
+
+      case 'bounce':
+        modified.groundLevel = currentParams.groundLevel !== defaults.groundLevel
+        break
+
+      case 'attract-repel':
+        modified.targetPosition = JSON.stringify(currentParams.targetPosition) !== JSON.stringify(defaults.targetPosition)
+        break
+
+      case 'zoom':
+        modified.zoomCenter = JSON.stringify(currentParams.zoomCenter) !== JSON.stringify(defaults.zoomCenter)
+        break
+
+      case 'helix':
+        modified.axisStart = JSON.stringify(currentParams.axisStart) !== JSON.stringify(defaults.axisStart)
+        break
+
+      case 'random':
+        modified.center = JSON.stringify(currentParams.center) !== JSON.stringify(defaults.center)
+        break
+    }
+
+    return modified
+  }
+
+  // Helper function to get default parameters for an animation type
+  const getDefaultParameters = (animationType: AnimationType, trackPosition: Position): AnimationParameters => {
+    const trackPos = trackPosition
+    const defaults: AnimationParameters = {}
+
+    switch (animationType) {
+      case 'linear':
+      case 'bezier':
+      case 'catmull-rom':
+      case 'zigzag':
+      case 'doppler':
+        defaults.startPosition = { ...trackPos }
+        break
+
+      case 'circular':
+      case 'spiral':
+      case 'wave':
+      case 'lissajous':
+      case 'orbit':
+      case 'rose-curve':
+      case 'epicycloid':
+      case 'circular-scan':
+      case 'perlin-noise':
+        defaults.center = { ...trackPos }
+        break
+
+      case 'elliptical':
+        defaults.centerX = trackPos.x
+        defaults.centerY = trackPos.y
+        defaults.centerZ = trackPos.z
+        break
+
+      case 'pendulum':
+        defaults.anchorPoint = { ...trackPos }
+        break
+
+      case 'spring':
+        defaults.restPosition = { ...trackPos }
+        break
+
+      case 'bounce':
+        defaults.groundLevel = trackPos.y
+        break
+
+      case 'attract-repel':
+        defaults.targetPosition = { ...trackPos }
+        break
+
+      case 'zoom':
+        defaults.zoomCenter = { ...trackPos }
+        break
+
+      case 'helix':
+        defaults.axisStart = { ...trackPos }
+        break
+
+      case 'random':
+        defaults.center = { ...trackPos }
+        break
+    }
+
+    return defaults
   }
 
   const handleConfirmPresetSave = (presetName: string, description: string) => {
@@ -2002,10 +2256,10 @@ export const AnimationEditor: React.FC = () => {
 
             {/* Ping-Pong Toggle (only shown when loop is enabled) */}
             {animationForm.loop && (
-              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Ping-Pong Mode</label>
-                  <p className="text-sm text-gray-500">Play forward then backward (bounce effect)</p>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ping-Pong Mode</label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Play forward then backward (bounce effect)</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -2014,7 +2268,7 @@ export const AnimationEditor: React.FC = () => {
                     onChange={(e) => setAnimationForm(prev => ({ ...prev, pingPong: e.target.checked }))}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
                 </label>
               </div>
             )}
@@ -2053,8 +2307,10 @@ export const AnimationEditor: React.FC = () => {
 
           <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
             <AnimationPreview3D
-              tracks={tracks.filter(t => selectedTrackIds.includes(t.id))}
-              animation={currentAnimation}
+              tracks={tracks.filter(t => selectedTrackIds.includes(t.id)) as Track[]}
+              animation={previewMode ? null : currentAnimation}
+              animationType={animationForm.type}
+              animationParameters={animationForm.parameters as AnimationParameters}
               currentTime={globalTime}
               keyframes={animationForm.type === 'custom' ? keyframes : []}
               onUpdateKeyframe={handleKeyframeUpdate}
@@ -2104,6 +2360,30 @@ export const AnimationEditor: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Control Point Editor */}
+      {(() => {
+        const trackColors = tracks.reduce((acc, track) => {
+          if (track.color) {
+            acc[track.id] = track.color
+          }
+          return acc
+        }, {} as Record<string, { r: number; g: number; b: number; a: number }>)
+
+        return (['linear', 'circular', 'elliptical', 'spiral', 'random', 'pendulum', 'bounce', 'spring', 'wave', 'lissajous', 'helix', 'bezier', 'catmull-rom', 'zigzag', 'perlin-noise', 'rose-curve', 'epicycloid', 'orbit', 'formation', 'attract-repel', 'doppler', 'circular-scan', 'zoom', 'custom'] as AnimationType[]).includes(animationForm.type || 'linear') && (
+          <div className="mt-6">
+            <ControlPointEditor
+              animationType={animationForm.type || 'linear'}
+              parameters={animationForm.parameters || {}}
+              keyframes={keyframes}
+              onParameterChange={handleParameterChange}
+              onKeyframeUpdate={handleKeyframeUpdate}
+              trackPosition={selectedTrack?.initialPosition || selectedTrack?.position}
+              trackColors={trackColors}
+            />
+          </div>
+        )
+      })()}
 
       {/* Keyframe Editor */}
       {showKeyframeEditor && animationForm.type === 'custom' && (
