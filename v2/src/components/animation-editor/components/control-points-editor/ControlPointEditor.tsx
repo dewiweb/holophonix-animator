@@ -645,8 +645,8 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
 
   if (!hasControlPoints) {
     return (
-      <div className={`${themeColors.background.primary} border ${themeColors.border.primary} rounded-lg p-8 text-center ${className}`}>
-        <Grid3X3 className={`w-12 h-12 ${themeColors.text.disabled} mx-auto mb-4`} />
+      <div className={`flex flex-col items-center justify-center text-center ${themeColors.background.primary} border ${themeColors.border.primary} rounded-lg p-8 ${className}`}>
+        <Grid3X3 className={`w-12 h-12 ${themeColors.text.disabled} mb-4`} />
         <p className={themeColors.text.muted}>
           {animationType === 'custom'
             ? 'Add keyframes to enable visual editing'
@@ -956,7 +956,7 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
   }
 
   return (
-    <div className={`${themeColors.background.elevated} border ${themeColors.border.primary} rounded-lg ${className}`}>
+    <div className={`flex flex-col overflow-hidden ${themeColors.background.elevated} border ${themeColors.border.primary} rounded-lg ${className}`}>
       {/* Header Controls */}
       <div className={`flex items-center justify-between p-4 border-b ${themeColors.border.primary}`}>
         <div className="flex items-center gap-4">
@@ -1017,7 +1017,7 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
       {/* 2D Editor */}
       <div
         ref={containerRef}
-        className={`relative overflow-hidden ${themeColors.background.primary} ${isFullscreen ? 'h-96' : 'h-64'}`}
+        className={`relative overflow-hidden ${themeColors.background.primary} ${isFullscreen ? 'h-[420px]' : 'flex-1 min-h-[320px]'}`}
         style={{
           backgroundImage: showGrid ? `
             linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
@@ -1053,7 +1053,7 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
         {animationPoints.length} animation point{animationPoints.length !== 1 ? 's' : ''} + 1 reference •
         Plane: {activePlane.toUpperCase()} •
         Mode: {multiTrackMode?.replace('-', ' ')} •
-        {isDragging ? ' Dragging' : ' Click and drag to move points'}
+        Zoom: {Math.round(zoom * 100)}%
       </div>
     </div>
   )
