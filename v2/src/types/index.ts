@@ -284,6 +284,10 @@ export interface Animation {
   parameters: AnimationParameters;
   keyframes?: Keyframe[];
   coordinateSystem: CoordinateSystem;
+  // Multi-track support
+  multiTrackMode?: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'leader-followers';
+  multiTrackParameters?: Record<string, AnimationParameters>; // Per-track parameters for position-relative mode
+  phaseOffsetSeconds?: number; // For phase-offset modes
 }
 
 export interface AnimationPreset {

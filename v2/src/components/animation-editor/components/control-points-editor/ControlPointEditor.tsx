@@ -3,6 +3,7 @@ import { Position, AnimationType, AnimationParameters, ControlPoint } from '@/ty
 import { PlaneEditor } from './PlaneEditor'
 import { Maximize2, Minimize2, Grid3X3, Move, RotateCcw } from 'lucide-react'
 import { themeColors } from '@/theme'
+import { calculateBarycenter } from '../../utils/barycentricCalculations'
 
 export type ViewPlane = 'xy' | 'xz' | 'yz'
 
@@ -18,10 +19,11 @@ interface ControlPointEditorProps {
   // Support for dynamic point management
   onRemoveControlPoints?: (pointIds: string[]) => void
   // Multitrack mode support
-  multiTrackMode?: 'identical' | 'position-relative' | 'phase-offset' | 'phase-offset-relative'
+  multiTrackMode?: 'identical' | 'position-relative' | 'phase-offset' | 'phase-offset-relative' | 'isobarycenter'
   selectedTracks?: string[]
   trackPositions?: Record<string, Position>
   trackColors?: Record<string, { r: number; g: number; b: number; a: number }>
+  activeEditingTrackId?: string | null
 }
 
 export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
@@ -36,7 +38,8 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
   multiTrackMode = 'identical',
   selectedTracks = [],
   trackPositions = {},
-  trackColors = {}
+  trackColors = {},
+  activeEditingTrackId
 }) => {
   const [activePlane, setActivePlane] = useState<ViewPlane>('xy')
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -68,10 +71,50 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
         }
       })
 
-      // For position-relative modes, we don't show the animation parameters as control points
-      // since each track uses its own position as the center/base
-      console.log('🎯 Position-relative mode: showing track positions as control points')
-      return points
+      // Also show the animation center/control points for the ACTIVE track
+      // This allows editing the active track's animation parameters
+      console.log('🎯 Position-relative mode: showing track positions + active track animation points')
+      // Continue to add animation-specific control points below
+    }
+
+    // Handle isobarycenter mode - show barycenter + track positions
+    if (multiTrackMode === 'isobarycenter') {
+      // Calculate barycenter from all selected tracks
+      const tracks = selectedTracks.map(id => {
+        const pos = trackPositions[id]
+        return pos ? { id, position: pos } : null
+      }).filter(Boolean) as Array<{ id: string; position: Position }>
+      
+      if (tracks.length > 0) {
+        const barycenter = calculateBarycenter(tracks)
+        
+        // Add barycenter as a special control point (this will receive animation)
+        points.push({
+          id: 'isobarycenter',
+          position: barycenter,
+          type: 'control',
+          animationType: 'isobarycenter' as AnimationType,
+          index: -2 // Special index for barycenter
+        })
+        
+        // Also show individual track positions as reference
+        selectedTracks.forEach((trackId, index) => {
+          const trackPos = trackPositions[trackId]
+          if (trackPos) {
+            points.push({
+              id: `track-${trackId}`,
+              position: trackPos,
+              type: 'control',
+              animationType: 'position-relative' as AnimationType,
+              index: index
+            })
+          }
+        })
+        
+        console.log('🎯 Isobarycenter mode: showing barycenter + track positions')
+      }
+      
+      // Continue to add animation-specific control points below
     }
 
     // Always include track position as a reference point for other modes
@@ -666,12 +709,34 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
     const point = controlPoints.find(p => p.id === pointId)
     if (!point) return
 
+    // Handle isobarycenter mode - dragging barycenter updates animation center
+    if (pointId === 'isobarycenter' && multiTrackMode === 'isobarycenter') {
+      console.log('🎯 Updating isobarycenter position:', newPosition)
+      // Update the animation center/startPosition that will be applied to barycenter
+      if (parameters.center !== undefined) {
+        onParameterChange('center', newPosition)
+      } else if (parameters.startPosition !== undefined) {
+        onParameterChange('startPosition', newPosition)
+      }
+      return
+    }
+
     // Handle multitrack position-relative modes
     if (pointId.startsWith('track-') && (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative')) {
       const trackId = pointId.replace('track-', '')
-      // For position-relative modes, we're editing individual track positions
-      // This would need to be handled by the parent component
-      console.log('🎯 Updating track position:', trackId, newPosition)
+      // For position-relative modes, dragging a track position means updating its center/start
+      // Only update if this is the active editing track
+      if (trackId === activeEditingTrackId) {
+        console.log('🎯 Updating active track center:', trackId, newPosition)
+        // Update the center/startPosition parameter for this track
+        if (parameters.center !== undefined) {
+          onParameterChange('center', newPosition)
+        } else if (parameters.startPosition !== undefined) {
+          onParameterChange('startPosition', newPosition)
+        }
+      } else {
+        console.log('🎯 Track not active for editing:', trackId)
+      }
       return
     }
 
@@ -961,6 +1026,14 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
       <div className={`flex items-center justify-between p-4 border-b ${themeColors.border.primary}`}>
         <div className="flex items-center gap-4">
           <h3 className={`text-lg font-semibold ${themeColors.text.primary}`}>Control Points</h3>
+          
+          {/* Active Track Indicator for Position-Relative Mode */}
+          {multiTrackMode === 'position-relative' && activeEditingTrackId && selectedTracks.includes(activeEditingTrackId) && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 border border-green-400 dark:border-green-600 rounded-md text-xs font-medium">
+              <span className="font-bold">✏️</span>
+              <span>Editing track {selectedTracks.indexOf(activeEditingTrackId) + 1} of {selectedTracks.length}</span>
+            </div>
+          )}
 
           {/* Plane Selector */}
           <div className={`flex ${themeColors.background.tertiary} rounded-lg p-1`}>

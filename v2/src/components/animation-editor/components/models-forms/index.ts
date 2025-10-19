@@ -35,3 +35,6 @@ export { AttractRepelParametersForm } from './AttractRepelParametersForm'
 export { DopplerParametersForm } from './DopplerParametersForm'
 export { CircularScanParametersForm } from './CircularScanParametersForm'
 export { ZoomParametersForm } from './ZoomParametersForm'
+
+// Renderer
+export { AnimationParametersRenderer } from './AnimationParametersRenderer'

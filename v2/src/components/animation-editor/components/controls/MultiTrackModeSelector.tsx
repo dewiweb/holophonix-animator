@@ -4,15 +4,16 @@ import { AnimationType } from '@/types'
 
 interface MultiTrackModeSelectorProps {
   animationType: AnimationType
-  multiTrackMode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative'
+  multiTrackMode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter'
   phaseOffsetSeconds: number
-  onModeChange: (mode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative') => void
+  onModeChange: (mode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter') => void
   onPhaseOffsetChange: (seconds: number) => void
   getCompatibleModes: (type: AnimationType) => {
     identical: { compatible: boolean; reason: string }
     'phase-offset': { compatible: boolean; reason: string }
     'position-relative': { compatible: boolean; reason: string }
     'phase-offset-relative': { compatible: boolean; reason: string }
+    'isobarycenter': { compatible: boolean; reason: string }
   }
 }
 
@@ -31,27 +32,8 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
       <h3 className={`text-sm font-semibold ${themeColors.text.primary} mb-3`}>Multi-Track Application Mode</h3>
       
       <div className="space-y-3">
-        {/* Mode Selection */}
+        {/* Mode Selection - Identical mode hidden but kept in code */}
         <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => onModeChange('identical')}
-            disabled={!compatibleModes.identical.compatible}
-            className={cn(
-              "p-3 border rounded-lg text-left transition-all",
-              multiTrackMode === 'identical'
-                ? `border-blue-500 ${themeColors.accent.background.medium} shadow-sm`
-                : compatibleModes.identical.compatible
-                ? `border-gray-200 dark:border-gray-600 ${themeColors.background.primary} hover:bg-gray-50 dark:hover:bg-gray-700`
-                : `border-gray-200 dark:border-gray-600 ${themeColors.background.secondary} opacity-50 cursor-not-allowed`
-            )}
-            title={!compatibleModes.identical.compatible ? compatibleModes.identical.reason : ''}
-          >
-            <div className={`font-medium text-sm mb-1 ${themeColors.text.secondary}`}>🔁 Identical</div>
-            <div className={`text-xs ${themeColors.text.secondary}`}>All tracks play the same animation simultaneously</div>
-            {!compatibleModes.identical.compatible && (
-              <div className="text-xs text-red-600 dark:text-red-400 mt-1">⚠️ {compatibleModes.identical.reason}</div>
-            )}
-          </button>
 
           <button
             onClick={() => onModeChange('phase-offset')}
@@ -112,6 +94,26 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
               <div className="text-xs text-red-600 dark:text-red-400 mt-1">⚠️ {compatibleModes['phase-offset-relative'].reason}</div>
             )}
           </button>
+
+          <button
+            onClick={() => onModeChange('isobarycenter')}
+            disabled={!compatibleModes['isobarycenter'].compatible}
+            className={cn(
+              "p-3 border rounded-lg text-left transition-all",
+              multiTrackMode === 'isobarycenter'
+                ? `border-blue-500 ${themeColors.accent.background.medium} shadow-sm`
+                : compatibleModes['isobarycenter'].compatible
+                ? `border-gray-200 dark:border-gray-600 ${themeColors.background.primary} hover:bg-gray-50 dark:hover:bg-gray-700`
+                : `border-gray-200 dark:border-gray-600 ${themeColors.background.secondary} opacity-50 cursor-not-allowed`
+            )}
+            title={!compatibleModes['isobarycenter'].compatible ? compatibleModes['isobarycenter'].reason : ''}
+          >
+            <div className={`font-medium text-sm mb-1 ${themeColors.text.secondary}`}>🎯 Formation</div>
+            <div className={`text-xs ${themeColors.text.secondary}`}>Tracks move as rigid formation (barycenter)</div>
+            {!compatibleModes['isobarycenter'].compatible && (
+              <div className="text-xs text-red-600 dark:text-red-400 mt-1">⚠️ {compatibleModes['isobarycenter'].reason}</div>
+            )}
+          </button>
         </div>
 
         {/* Phase Offset Controls - Show for phase-offset modes */}
@@ -149,6 +151,9 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
             )}
             {multiTrackMode === 'phase-offset-relative' && (
               <span>💡 <strong>Use case:</strong> Staggered waves where each source has its own path - ideal for distributed spatial effects</span>
+            )}
+            {multiTrackMode === 'isobarycenter' && (
+              <span>💡 <strong>Use case:</strong> Move speaker arrays or groups while maintaining their geometry - perfect for dome/immersive formations</span>
             )}
           </div>
         </div>

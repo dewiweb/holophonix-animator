@@ -327,7 +327,18 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             }
           }
           
-          const position = calculatePosition(enhancedAnimation, trackTime, trackLoopCount)
+          let position = calculatePosition(enhancedAnimation, trackTime, trackLoopCount)
+          
+          // Handle isobarycenter mode: position is the barycenter, apply track's offset
+          const params = enhancedAnimation.parameters as any
+          if (params._isobarycenter && params._trackOffset) {
+            const offset = params._trackOffset
+            position = {
+              x: position.x + offset.x,
+              y: position.y + offset.y,
+              z: position.z + offset.z
+            }
+          }
           
           // Validate position - check for NaN
           if (isNaN(position.x) || isNaN(position.y) || isNaN(position.z)) {
@@ -347,12 +358,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           const throttleRate = settingsStore.osc?.messageThrottleRate || 1 // Fallback to 1 if undefined
           if (track.holophonixIndex && state.frameCount % throttleRate === 0) {
             const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
-            console.log(`📤 Sending OSC: /track/${track.holophonixIndex}/${coordType}`, [position.x, position.y, position.z])
             oscStore.sendMessage(`/track/${track.holophonixIndex}/${coordType}`, [position.x, position.y, position.z])
-          } else if (track.holophonixIndex && state.frameCount % throttleRate !== 0) {
-            console.log(`⏭️ Skipping OSC send (throttle: ${throttleRate}, frame: ${state.frameCount})`)
-          } else if (!track.holophonixIndex) {
-            console.warn(`❌ Track ${track.name} missing holophonixIndex - cannot send OSC`)
           }
         })
         

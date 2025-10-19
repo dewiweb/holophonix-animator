@@ -5,6 +5,9 @@ import { Track, Animation, Keyframe, AnimationType, AnimationParameters } from '
 import { generateAnimationPath, generateDirectionIndicators } from '@/utils/pathGeneration'
 import { themeColors } from '@/theme'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useProjectStore } from '@/stores/projectStore'
+import { useAnimationStore } from '@/stores/animationStore'
+import { calculateBarycenter } from '@/components/animation-editor/utils/barycentricCalculations'
 
 interface AnimationPreview3DProps {
   tracks: Track[]  // Changed from single track to array of tracks
@@ -18,6 +21,7 @@ interface AnimationPreview3DProps {
   selectedKeyframeId?: string | null
   onSelectKeyframe?: (keyframeId: string | null) => void
   isFormPanelOpen?: boolean
+  multiTrackMode?: 'identical' | 'position-relative' | 'phase-offset' | 'phase-offset-relative' | 'isobarycenter'
 }
 
 // Theme colors for Three.js scene - integrated with centralized theming system
@@ -108,6 +112,7 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
   selectedKeyframeId = null,
   onSelectKeyframe,
   isFormPanelOpen,
+  multiTrackMode,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
@@ -119,6 +124,7 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
   const controlsRef = useRef<OrbitControls | null>(null)
   const keyframeMarkersRef = useRef<THREE.Group | null>(null)
   const boundingBoxRef = useRef<THREE.LineSegments | null>(null)
+  const barycenterSphereRef = useRef<THREE.Mesh | null>(null)
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster())
   const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2())
   const [themeVersion, setThemeVersion] = useState(0)
@@ -538,10 +544,102 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
       const position = track.position
       trackSphere.position.set(position.x, position.z, -position.y)
       trackSphere.name = `track-sphere-${track.id}`
+      trackSphere.userData.trackId = track.id // Store track ID for animation loop
       
       spheresGroup.add(trackSphere)
     })
   }, [tracks])
+
+  // Animation loop for smooth 60 FPS track position updates
+  useEffect(() => {
+    if (!trackSpheresRef.current || !rendererRef.current || !sceneRef.current || !cameraRef.current) return
+
+    let animationFrameId: number
+    
+    const animate = () => {
+      // Update track sphere positions from live store data (bypassing React re-renders)
+      const currentTracks = useProjectStore.getState().tracks
+      const isPlaying = useAnimationStore.getState().isPlaying
+      
+      // Only update if animation is playing
+      if (isPlaying && trackSpheresRef.current) {
+        trackSpheresRef.current.children.forEach((sphere) => {
+          if (sphere instanceof THREE.Mesh && sphere.userData.trackId) {
+            const track = currentTracks.find(t => t.id === sphere.userData.trackId)
+            if (track) {
+              // Smoothly update position
+              sphere.position.set(track.position.x, track.position.z, -track.position.y)
+            }
+          }
+        })
+      }
+      
+      // Render the scene
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current)
+      }
+      
+      animationFrameId = requestAnimationFrame(animate)
+    }
+    
+    animationFrameId = requestAnimationFrame(animate)
+    
+    return () => {
+      cancelAnimationFrame(animationFrameId)
+    }
+  }, [tracks.length]) // Only re-create loop when track count changes
+
+  // Display barycenter in isobarycenter mode
+  useEffect(() => {
+    if (!sceneRef.current) return
+
+    // Remove existing barycenter sphere
+    if (barycenterSphereRef.current) {
+      sceneRef.current.remove(barycenterSphereRef.current)
+      barycenterSphereRef.current.geometry.dispose()
+      if (Array.isArray(barycenterSphereRef.current.material)) {
+        barycenterSphereRef.current.material.forEach(m => m.dispose())
+      } else {
+        barycenterSphereRef.current.material.dispose()
+      }
+      barycenterSphereRef.current = null
+    }
+
+    // Only show barycenter in isobarycenter mode with multiple tracks
+    if (multiTrackMode === 'isobarycenter' && tracks.length > 1) {
+      const barycenter = calculateBarycenter(tracks)
+      
+      // Create distinctive barycenter sphere (larger, special color)
+      const geometry = new THREE.SphereGeometry(0.7, 32, 32)
+      const material = new THREE.MeshStandardMaterial({
+        color: 0xffaa00, // Orange/gold color for barycenter
+        metalness: 0.5,
+        roughness: 0.3,
+        emissive: 0xffaa00,
+        emissiveIntensity: 0.3,
+      })
+      const sphere = new THREE.Mesh(geometry, material)
+      sphere.position.set(barycenter.x, barycenter.z, -barycenter.y)
+      sphere.name = 'barycenter'
+      
+      // Add glowing ring around barycenter
+      const ringGeometry = new THREE.RingGeometry(0.8, 1.0, 32)
+      const ringMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffaa00,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.5,
+      })
+      const ring = new THREE.Mesh(ringGeometry, ringMaterial)
+      ring.rotation.x = -Math.PI / 2
+      sphere.add(ring)
+      
+      sceneRef.current.add(sphere)
+      barycenterSphereRef.current = sphere
+      
+      console.log('🎯 Barycenter displayed at:', barycenter)
+    }
+  }, [multiTrackMode, tracks])
 
   // Update keyframe markers
   useEffect(() => {

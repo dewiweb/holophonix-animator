@@ -4,12 +4,18 @@ import { themeColors } from '@/theme'
 
 interface SelectedTracksIndicatorProps {
   selectedTracks: Track[]
-  onReorder?: (reorderedTrackIds: string[]) => void // TODO: Implement drag-and-drop reordering
+  onReorder?: (reorderedTrackIds: string[]) => void
+  activeEditingTrackId?: string | null
+  onSetActiveTrack?: (trackId: string) => void
+  multiTrackMode?: string
 }
 
 export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = ({ 
   selectedTracks,
-  onReorder
+  onReorder,
+  activeEditingTrackId,
+  onSetActiveTrack,
+  multiTrackMode
 }) => {
   if (selectedTracks.length === 0) return null
 
@@ -56,16 +62,26 @@ export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = (
         </div>
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
-        {selectedTracks.map((track, index) => (
-          <span 
-            key={track.id} 
-            className={`inline-flex items-center gap-1 px-3 py-2 ${themeColors.accent.background.medium} ${themeColors.accent.tertiary} dark:${themeColors.accent.tertiary.replace('blue-700', 'blue-300')} border ${themeColors.border.accent} rounded-md text-xs font-medium transition-all hover:${themeColors.accent.background.medium.replace('blue-100/60', 'blue-200/70')} dark:hover:${themeColors.accent.background.medium.replace('blue-800/40', 'blue-800/60')} hover:shadow-md`}
-            draggable={!!onReorder}
-            onDragStart={(e) => handleDragStart(e, track.id)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, track.id)}
-            style={{ cursor: onReorder ? 'grab' : 'default' }}
-          >
+        {selectedTracks.map((track, index) => {
+          const isActiveEditing = activeEditingTrackId === track.id
+          const isClickable = multiTrackMode === 'position-relative' && onSetActiveTrack
+          
+          return (
+            <span 
+              key={track.id} 
+              className={`inline-flex items-center gap-1 px-3 py-2 border rounded-md text-xs font-medium transition-all ${
+                isActiveEditing 
+                  ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 border-green-400 dark:border-green-600 shadow-md ring-2 ring-green-300 dark:ring-green-700'
+                  : `${themeColors.accent.background.medium} ${themeColors.accent.tertiary} dark:${themeColors.accent.tertiary.replace('blue-700', 'blue-300')} ${themeColors.border.accent}`
+              } ${
+                isClickable ? 'cursor-pointer hover:shadow-lg hover:scale-105' : (onReorder ? 'cursor-grab' : 'cursor-default')
+              } hover:${themeColors.accent.background.medium.replace('blue-100/60', 'blue-200/70')} dark:hover:${themeColors.accent.background.medium.replace('blue-800/40', 'blue-800/60')}`}
+              draggable={!!onReorder}
+              onDragStart={(e) => handleDragStart(e, track.id)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, track.id)}
+              onClick={() => isClickable && onSetActiveTrack(track.id)}
+            >
             {onReorder && <span className={`${themeColors.accent.secondary} dark:${themeColors.accent.secondary.replace('blue-600', 'blue-500')}`}>⋮⋮</span>}
             
             {/* Show order number for multi-track phase-offset clarity */}
@@ -77,8 +93,13 @@ export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = (
             {track.holophonixIndex && (
               <span className="font-mono">#{track.holophonixIndex}</span>
             )}
+            
+            {isActiveEditing && (
+              <span className="ml-1 text-green-600 dark:text-green-400 font-bold" title="Currently editing this track's control points">✏️</span>
+            )}
           </span>
-        ))}
+        )})
+      }
       </div>
     </div>
   )
