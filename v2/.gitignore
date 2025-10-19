@@ -77,3 +77,9 @@ coverage/
 # Misc
 *.local
 .history/
+
+# Compiled Electron files (we use .cjs versions)
+main.js
+main.js.map
+preload.js
+preload.js.map
