@@ -177,8 +177,8 @@ export const OSCManager: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-6">
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex items-center justify-between mb-2 lg:mb-4 flex-shrink-0">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">OSC Manager</h1>
 
         <div className="flex items-center space-x-2">
@@ -203,9 +203,9 @@ export const OSCManager: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 flex-1 min-h-0 overflow-auto custom-scrollbar">
         {/* Connection Management */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Device Connections</h2>
             <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
@@ -360,8 +360,8 @@ export const OSCManager: React.FC = () => {
         </div>
 
         {/* Message Interface */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Message Interface</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 lg:p-6">
+          <h2 className="text-base lg:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Message Interface</h2>
 
           {/* Message Sending */}
           <div className="space-y-4 mb-6">
@@ -449,9 +449,9 @@ export const OSCManager: React.FC = () => {
 
       {/* Message History */}
       {showMessageHistory && (
-        <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="mt-2 lg:mt-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 lg:p-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Message History</h2>
+            <h2 className="text-base lg:text-lg font-semibold text-gray-900 dark:text-gray-100">Message History</h2>
 
             <div className="flex items-center space-x-2">
               <label className="flex items-center space-x-2 text-sm">
@@ -514,7 +514,7 @@ export const OSCManager: React.FC = () => {
       )}
 
       {/* Connection Status Summary */}
-      <div className="mt-4 grid grid-cols-4 gap-4">
+      <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{connections.length}</div>
           <div className="text-xs text-gray-600 dark:text-gray-400">Total Connections</div>

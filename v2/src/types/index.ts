@@ -268,10 +268,18 @@ export interface AnimationParameters {
   sweepCount?: number;         // Number of complete sweeps
 
   // Zoom in/out
-  zoomCenter?: Position;       // Center point
+  zoomCenter?: Position;       // Distance-based sweep
   startDistance?: number;      // Starting distance
   endDistance?: number;        // Ending distance
   accelerationCurve?: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
+
+  // ========================================
+  // INTERNAL PARAMETERS (for multi-track modes)
+  // ========================================
+
+  // Isobarycenter mode
+  _isobarycenter?: Position;   // Internal: barycenter position for formation
+  _trackOffset?: Position;     // Internal: offset from barycenter for this track
 }
 
 export interface Animation {

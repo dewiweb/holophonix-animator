@@ -1090,7 +1090,7 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
       {/* 2D Editor */}
       <div
         ref={containerRef}
-        className={`relative overflow-hidden ${themeColors.background.primary} ${isFullscreen ? 'h-[420px]' : 'flex-1 min-h-[320px]'}`}
+        className={`relative overflow-hidden ${themeColors.background.primary} ${isFullscreen ? 'h-[420px]' : 'flex-1 min-h-[200px]'}`}
         style={{
           backgroundImage: showGrid ? `
             linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),

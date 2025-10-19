@@ -141,12 +141,45 @@ const sendOSCMessage = (host, port, address, args) => {
 };
 let mainWindow = null;
 const createWindow = () => {
+    // Get primary display dimensions
+    const primaryDisplay = electron_1.screen.getPrimaryDisplay();
+    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+    // Calculate window size based on screen resolution
+    // For 1366x768 screens, work area is typically ~720-740px height (minus taskbar)
+    // Start with 80% of work area to ensure it fits comfortably
+    const idealWidth = Math.floor(screenWidth * 0.80);
+    const idealHeight = Math.floor(screenHeight * 0.80);
+    // Ensure window fits on screen with margins, no artificial minimums
+    const windowWidth = Math.min(idealWidth, screenWidth - 50);
+    const windowHeight = Math.min(idealHeight, screenHeight - 50);
+    // Set minimum size that works even on smallest common screens (1366x768)
+    // For 768px screen height, work area ~720px, so minimum should be ~400px
+    const minWidth = Math.min(800, screenWidth - 100);
+    const minHeight = Math.min(400, screenHeight - 100);
+    console.log('='.repeat(60));
+    console.log(`🖥️  Screen work area: ${screenWidth}x${screenHeight}`);
+    console.log(`📐 Window size: ${windowWidth}x${windowHeight}`);
+    console.log(`📏 Minimum size: ${minWidth}x${minHeight}`);
+    console.log(`📊 Calculations:`);
+    console.log(`   - idealWidth: ${idealWidth} (${screenWidth} * 0.80)`);
+    console.log(`   - idealHeight: ${idealHeight} (${screenHeight} * 0.80)`);
+    console.log(`   - minWidth: min(800, ${screenWidth} - 100) = ${minWidth}`);
+    console.log(`   - minHeight: min(400, ${screenHeight} - 100) = ${minHeight}`);
+    console.log('='.repeat(60));
     // Create the browser window
     mainWindow = new electron_1.BrowserWindow({
-        width: 1400,
-        height: 900,
-        minWidth: 1200,
-        minHeight: 800,
+        width: windowWidth,
+        height: windowHeight,
+        minWidth: minWidth,
+        minHeight: minHeight,
+        maxWidth: screenWidth,
+        maxHeight: screenHeight,
+        resizable: true,
+        minimizable: true,
+        maximizable: true,
+        closable: true,
+        frame: true, // Ensure native window frame is used
+        center: true, // Center window on screen
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -154,6 +187,17 @@ const createWindow = () => {
         },
         title: 'Holophonix Animator v2',
         icon: (0, path_1.join)(appPath, '../assets/icon.png'), // Add icon later
+        show: false, // Don't show until ready
+    });
+    // Show window when ready to prevent flickering
+    mainWindow.once('ready-to-show', () => {
+        if (mainWindow) {
+            const [actualWidth, actualHeight] = mainWindow.getSize();
+            const [actualMinWidth, actualMinHeight] = mainWindow.getMinimumSize();
+            console.log('🪟 Window created with actual size:', `${actualWidth}x${actualHeight}`);
+            console.log('🔒 Actual minimum size:', `${actualMinWidth}x${actualMinHeight}`);
+            mainWindow.show();
+        }
     });
     // Load the app
     if (isDev) {
@@ -480,7 +524,7 @@ electron_1.ipcMain.handle('osc-send-to-device', async (event, deviceId, address,
         const client = oscClients.get(deviceId);
         if (client) {
             // Format args for OSC library - ensure they have type and value
-            const formattedArgs = args ? args.map((arg) => {
+            const formattedArgs = args.map((arg) => {
                 // If already formatted with type/value, return as is
                 if (arg && typeof arg === 'object' && 'type' in arg && 'value' in arg) {
                     return arg;
@@ -500,7 +544,7 @@ electron_1.ipcMain.handle('osc-send-to-device', async (event, deviceId, address,
                     // Default to string
                     return { type: 's', value: String(arg) };
                 }
-            }) : [];
+            });
             client.send({
                 address: address,
                 args: formattedArgs

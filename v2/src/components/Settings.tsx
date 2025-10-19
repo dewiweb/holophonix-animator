@@ -622,9 +622,9 @@ export const Settings: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex items-center justify-between mb-2 lg:mb-4 flex-shrink-0">
+        <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
 
         {/* Import/Export/Reset buttons */}
         <div className="flex items-center space-x-2">
@@ -660,8 +660,8 @@ export const Settings: React.FC = () => {
       {/* Status message */}
       {renderStatusMessage()}
 
-      <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="flex border-b border-gray-200 dark:border-gray-600">
+      <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col min-h-0">
+        <div className="flex border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -679,7 +679,7 @@ export const Settings: React.FC = () => {
           ))}
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[calc(100vh-300px)]">
+        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
           {activeTab === 'application' && renderApplicationSettings()}
           {activeTab === 'osc' && renderOSCSettings()}
           {activeTab === 'animation' && renderAnimationSettings()}

@@ -330,9 +330,9 @@ export const Timeline: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className={`text-2xl font-bold ${themeColors.text.primary}`}>Timeline</h1>
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex items-center justify-between mb-2 lg:mb-4 flex-shrink-0">
+        <h1 className={`text-xl lg:text-2xl font-bold ${themeColors.text.primary}`}>Timeline</h1>
 
         <div className="flex items-center space-x-2">
           <select
@@ -356,16 +356,18 @@ export const Timeline: React.FC = () => {
       </div>
 
       {/* Playback Controls */}
-      {renderPlaybackControls()}
+      <div className="flex-shrink-0">
+        {renderPlaybackControls()}
+      </div>
 
       {/* Timeline */}
-      <div className={`${themeColors.background.primary} rounded-lg shadow-sm ${themeColors.border.primary} overflow-hidden`}>
-        <div className="relative">
+      <div className={`flex-1 ${themeColors.background.primary} rounded-lg shadow-sm ${themeColors.border.primary} overflow-hidden flex flex-col min-h-0`}>
+        <div className="flex-1 flex flex-col min-h-0">
           {/* Timeline Header */}
-          <div className={`p-4 ${themeColors.border.primary} ${themeColors.background.tertiary}`}>
+          <div className={`p-3 lg:p-4 ${themeColors.border.primary} ${themeColors.background.tertiary} flex-shrink-0`}>
             <div className="flex items-center justify-between">
               <div>
-                <h2 className={`text-lg font-semibold ${themeColors.text.primary}`}>
+                <h2 className={`text-base lg:text-lg font-semibold ${themeColors.text.primary}`}>
                   {currentTimeline?.name || 'Timeline'}
                 </h2>
                 <p className={`${themeColors.text.secondary}`}>
@@ -385,48 +387,50 @@ export const Timeline: React.FC = () => {
           </div>
 
           {/* Timeline Content */}
-          <div
-            ref={timelineRef}
-            className="relative cursor-pointer select-none"
-            style={{ height: `${animatedTracks.length * TRACK_HEIGHT + 60}px` }}
-            onClick={handleTimelineClick}
-          >
-            {/* Timeline Ruler */}
-            {renderTimelineRuler()}
-
-            {/* Track Lanes */}
-            <div className="relative">
-              {animatedTracks.map((track, index) => renderTrackLane(track, index))}
-            </div>
-
-            {/* Timeline Markers */}
-            {renderTimelineMarkers()}
-
-            {/* Current time cursor */}
+          <div className="flex-1 overflow-auto custom-scrollbar">
             <div
-              className={`absolute top-0 w-0.5 h-full ${themeColors.status.error} z-40 pointer-events-none`}
-              style={{ left: `${globalTime * PIXELS_PER_SECOND}px` }}
-            />
+              ref={timelineRef}
+              className="relative cursor-pointer select-none"
+              style={{ height: `${animatedTracks.length * TRACK_HEIGHT + 60}px`, minHeight: '200px' }}
+              onClick={handleTimelineClick}
+            >
+              {/* Timeline Ruler */}
+              {renderTimelineRuler()}
+
+              {/* Track Lanes */}
+              <div className="relative">
+                {animatedTracks.map((track, index) => renderTrackLane(track, index))}
+              </div>
+
+              {/* Timeline Markers */}
+              {renderTimelineMarkers()}
+
+              {/* Current time cursor */}
+              <div
+                className={`absolute top-0 w-0.5 h-full ${themeColors.status.error} z-40 pointer-events-none`}
+                style={{ left: `${globalTime * PIXELS_PER_SECOND}px` }}
+              />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Timeline Info Panel */}
-      <div className="mt-4 grid grid-cols-4 gap-4">
-        <div className={`${themeColors.background.primary} p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
-          <div className={`text-lg font-bold ${themeColors.accent.primary}`}>{formatTime(globalTime)}</div>
+      <div className="mt-2 lg:mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-3 flex-shrink-0">
+        <div className={`${themeColors.background.primary} p-2 lg:p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
+          <div className={`text-base lg:text-lg font-bold ${themeColors.accent.primary}`}>{formatTime(globalTime)}</div>
           <div className={`text-xs ${themeColors.text.muted}`}>Current Time</div>
         </div>
-        <div className={`${themeColors.background.primary} p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
-          <div className={`text-lg font-bold ${themeColors.status.success}`}>{animatedTracks.length}</div>
+        <div className={`${themeColors.background.primary} p-2 lg:p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
+          <div className={`text-base lg:text-lg font-bold ${themeColors.status.success}`}>{animatedTracks.length}</div>
           <div className={`text-xs ${themeColors.text.muted}`}>Active Tracks</div>
         </div>
-        <div className={`${themeColors.background.primary} p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
-          <div className={`text-lg font-bold ${themeColors.accent.tertiary}`}>{currentTimeline?.events.length || 0}</div>
+        <div className={`${themeColors.background.primary} p-2 lg:p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
+          <div className={`text-base lg:text-lg font-bold ${themeColors.accent.tertiary}`}>{currentTimeline?.events.length || 0}</div>
           <div className={`text-xs ${themeColors.text.muted}`}>Timeline Events</div>
         </div>
-        <div className={`${themeColors.background.primary} p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
-          <div className={`text-lg font-bold ${themeColors.status.warning}`}>{timelineZoom.toFixed(1)}x</div>
+        <div className={`${themeColors.background.primary} p-2 lg:p-3 rounded-lg shadow-sm ${themeColors.border.primary}`}>
+          <div className={`text-base lg:text-lg font-bold ${themeColors.status.warning}`}>{timelineZoom.toFixed(1)}x</div>
           <div className={`text-xs ${themeColors.text.muted}`}>Zoom Level</div>
         </div>
       </div>

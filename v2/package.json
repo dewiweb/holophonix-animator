@@ -24,6 +24,9 @@
     "electron": "electron .",
     "electron:dev": "cross-env NODE_ENV=development concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "build:electron": "cross-env NODE_ENV=production npm run build && electron-builder",
+    "build:linux": "cross-env NODE_ENV=production npm run build && electron-builder --linux",
+    "build:deb": "cross-env NODE_ENV=production npm run build && electron-builder --linux deb",
+    "build:appimage": "cross-env NODE_ENV=production npm run build && electron-builder --linux AppImage",
     "dist": "npm run build:electron"
   },
   "dependencies": {
@@ -72,7 +75,7 @@
     "appId": "com.holophonix.animator",
     "productName": "Holophonix Animator v2",
     "directories": {
-      "output": "dist",
+      "output": "release",
       "buildResources": "assets"
     },
     "files": [
@@ -82,17 +85,30 @@
       "preload.cjs.map",
       "dist/**/*",
       "!dist/builder-*",
-      "!dist/win-unpacked"
+      "!dist/win-unpacked",
+      "!dist/linux-unpacked"
     ],
-    "extraResources": [
-      {
-        "from": "dist/assets",
-        "to": "assets",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
+    "linux": {
+      "target": [
+        "deb",
+        "AppImage"
+      ],
+      "category": "AudioVideo",
+      "icon": "assets/icon.png",
+      "maintainer": "Holophonix Animator Team <contact@holophonix-animator.com>",
+      "description": "Modern 3D sound animation system for Holophonix processors",
+      "synopsis": "3D sound spatialisation control and animation tool"
+    },
+    "deb": {
+      "depends": [
+        "gconf2",
+        "gconf-service",
+        "libnotify4",
+        "libappindicator1",
+        "libxtst6",
+        "libnss3"
+      ]
+    },
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico"

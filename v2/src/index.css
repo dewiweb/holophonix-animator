@@ -87,6 +87,13 @@
     --accent-hover: var(--accent-hover) !important;
   }
 
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
   body {
     @apply bg-gray-50 text-gray-900;
     background-color: rgb(var(--bg-primary));

@@ -3,7 +3,9 @@ import { Position, Track } from '@/types'
 /**
  * Calculate the barycenter (center of mass) of a group of tracks
  */
-export function calculateBarycenter(tracks: Track[]): Position {
+export function calculateBarycenter(tracks: Track[]): Position
+export function calculateBarycenter(tracks: Array<{ position: Position }>): Position
+export function calculateBarycenter(tracks: Track[] | Array<{ position: Position }>): Position {
   if (tracks.length === 0) {
     return { x: 0, y: 0, z: 0 }
   }
