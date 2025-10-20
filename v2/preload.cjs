@@ -26,6 +26,15 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     oscConnectDevice: (deviceId, host, port) => electron_1.ipcRenderer.invoke('osc-connect-device', deviceId, host, port),
     oscDisconnectDevice: (deviceId) => electron_1.ipcRenderer.invoke('osc-disconnect-device', deviceId),
     oscSendToDevice: (deviceId, address, args) => electron_1.ipcRenderer.invoke('osc-send-to-device', deviceId, address, args),
+    oscSendBatch: (deviceId, batch) => electron_1.ipcRenderer.invoke('osc-send-batch', deviceId, batch),
+    // Animation timer (runs in main process, never throttled)
+    startAnimationTimer: (intervalMs) => electron_1.ipcRenderer.send('start-animation-timer', intervalMs),
+    stopAnimationTimer: () => electron_1.ipcRenderer.send('stop-animation-timer'),
+    onAnimationTick: (callback) => {
+        const listener = (_event, data) => callback(data);
+        electron_1.ipcRenderer.on('animation-tick', listener);
+        return () => electron_1.ipcRenderer.removeListener('animation-tick', listener);
+    },
     // OSC settings synchronization
     oscUpdateSettings: (settings) => electron_1.ipcRenderer.invoke('osc-update-settings', settings),
     // OSC settings response

@@ -4,6 +4,8 @@ import { useProjectStore } from './projectStore'
 import { useOSCStore } from './oscStore'
 import { useSettingsStore } from './settingsStore'
 import { calculatePosition } from '@/utils/animations'
+import { oscBatchManager } from '@/utils/oscBatchManager'
+import { oscInputManager } from '@/utils/oscInputManager'
 
 interface AnimationEngineState {
   // Animation playback state
@@ -117,6 +119,15 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
 
   stopAnimation: () => {
     const state = get()
+    
+    // CRITICAL: Clear any pending OSC messages immediately
+    oscBatchManager.clearBatch()
+    console.log('🧹 Cleared pending OSC batch on stop')
+    
+    // CRITICAL: Clear animating tracks - listen to incoming positions again
+    oscInputManager.clearAnimatingTracks()
+    console.log('🎬 Stopped animation, now listening to incoming track positions from Holophonix')
+    
     set({
       isPlaying: false,
       globalTime: 0,
@@ -129,6 +140,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     if (state.currentTrackIds.length > 0) {
       const projectStore = useProjectStore.getState()
       const oscStore = useOSCStore.getState()
+      const settingsStore = useSettingsStore.getState()
       const returnDuration = 1000 // ms
       const startTime = Date.now()
       
@@ -148,17 +160,18 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       
       console.log(`🔙 Returning ${trackStates.length} tracks to initial positions`)
       
-      let interpolationFrameCount = 0
+      let lastInterpolationSendTime = 0
       const interpolateBack = () => {
         const elapsed = Date.now() - startTime
+        const currentTime = Date.now()
         const t = Math.min(elapsed / returnDuration, 1)
         const eased = 1 - Math.pow(1 - t, 3) // Smooth easing (ease-out cubic)
         
-        interpolationFrameCount++
-        
         console.log(`🔄 AnimEngine: Processing ${trackStates.length} tracks with animations`)
+        
+        // Update all track positions
         trackStates.forEach(({ track, initialPos, currentPos }) => {
-          console.log(`  ➡️ Track ${track.name}: animation=${track.animation?.type}, id=${track.animation?.id}`)
+          console.log(`  ➡️ Track ${track.name}: animation=${track.animationState?.animation?.type}, id=${track.animationState?.animation?.id}`)
           const newPos = {
             x: currentPos.x + (initialPos.x - currentPos.x) * eased,
             y: currentPos.y + (initialPos.y - currentPos.y) * eased,
@@ -167,20 +180,29 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           
           projectStore.updateTrack(track.id, { position: newPos })
           
-          // Throttle OSC messages during interpolation to prevent flooding
-          const settingsStore = useSettingsStore.getState()
-          const throttleRate = settingsStore.osc?.messageThrottleRate || 1 // Fallback to 1 if undefined
-          if (track.holophonixIndex && interpolationFrameCount % throttleRate === 0) {
+          // Add to batch if throttle interval passed
+          const throttleRate = settingsStore.osc?.messageThrottleRate || 50
+          if (track.holophonixIndex && (currentTime - lastInterpolationSendTime) >= throttleRate) {
             const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
-            oscStore.sendMessage(`/track/${track.holophonixIndex}/${coordType}`, [newPos.x, newPos.y, newPos.z])
+            oscBatchManager.addMessage(track.holophonixIndex, newPos, coordType)
           }
         })
         
+        // Send batch if throttle interval passed
+        const throttleRate = settingsStore.osc?.messageThrottleRate || 50
+        if ((currentTime - lastInterpolationSendTime) >= throttleRate) {
+          oscBatchManager.flushBatch()
+          lastInterpolationSendTime = currentTime
+        }
+        
         // Continue or finish
         if (t < 1) {
-          requestAnimationFrame(interpolateBack)
+          setTimeout(interpolateBack, 16) // ~60 FPS, continues when minimized
         } else {
           console.log('✅ All tracks returned to initial positions')
+          // Flush any remaining messages
+          oscBatchManager.flushBatch()
+          
           // Update animation states
           trackStates.forEach(({ trackId, track }) => {
             if (track.animationState) {
@@ -195,7 +217,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         }
       }
       
-      requestAnimationFrame(interpolateBack)
+      setTimeout(interpolateBack, 16) // ~60 FPS, continues when minimized
     }
   },
 
@@ -220,14 +242,37 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     console.log('🚀 Animation engine: Starting')
     set({ isEngineRunning: true })
 
-    let lastTimestamp = 0
-    let lastOSCTime = 0
+    // Initialize OSC batch manager callback
+    const oscStore = useOSCStore.getState()
+    oscBatchManager.setSendCallback(async (batch) => {
+      await oscStore.sendBatch(batch)
+    })
 
-    const animate = (timestamp: number) => {
-      if (!get().isEngineRunning) return
+    let lastTimestamp = Date.now()
+    let lastOSCSendTime = 0
+    let cleanupListener: (() => void) | null = null
+
+    const targetFPS = 60
+    const frameInterval = 1000 / targetFPS // ~16.67ms for 60 FPS
+    
+    // Check if we're in Electron (use main process timer) or browser (fallback to setInterval)
+    const hasElectronAPI = typeof window !== 'undefined' && (window as any).electronAPI
+    
+    if (hasElectronAPI) {
+      console.log(`⚙️ Animation engine using MAIN PROCESS timer at ${targetFPS} FPS (never throttled!)`)
+    } else {
+      console.log(`⚙️ Animation engine using setInterval at ${targetFPS} FPS (browser mode)`)
+    }
+
+    const animate = (tickData?: { timestamp: number; deltaTime: number }) => {
+      if (!get().isEngineRunning) {
+        return
+      }
 
       const state = get()
-      const deltaTime = lastTimestamp ? timestamp - lastTimestamp : 16.67
+      // Use tick data from main process if available, otherwise calculate
+      const timestamp = tickData?.timestamp || Date.now()
+      const deltaTime = tickData?.deltaTime || (timestamp - lastTimestamp)
       lastTimestamp = timestamp
       
       const newFrameCount = state.frameCount + 1
@@ -260,7 +305,12 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       // If playing, calculate and send positions for ALL tracks
       if (shouldProcessTracks) {
         const projectStore = useProjectStore.getState()
-        const oscStore = useOSCStore.getState()
+        const settingsStore = useSettingsStore.getState()
+        
+        // Check if we should send OSC this frame (time-based throttling)
+        const oscThrottleInterval = settingsStore.osc?.messageThrottleRate || 50 // ms
+        const shouldSendOSC = (timestamp - lastOSCSendTime) >= oscThrottleInterval
+        const useBatching = settingsStore.osc?.useBatching !== false // Default to true
         
         // Process each track
         state.currentTrackIds.forEach(trackId => {
@@ -346,21 +396,33 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             return
           }
           
-          // Update track position
+          // Update track position in UI immediately (every frame)
           projectStore.updateTrack(track.id, {
             position
             // Note: Do NOT update currentTime here - it should remain as phase offset
             // Updating it creates accumulation since it's added to newGlobalTime
           })
           
-          // Send OSC message for this track (throttled based on settings)
-          const settingsStore = useSettingsStore.getState()
-          const throttleRate = settingsStore.osc?.messageThrottleRate || 1 // Fallback to 1 if undefined
-          if (track.holophonixIndex && state.frameCount % throttleRate === 0) {
+          // Add to OSC batch if track has holophonix index and throttle interval passed
+          if (track.holophonixIndex && shouldSendOSC) {
             const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
-            oscStore.sendMessage(`/track/${track.holophonixIndex}/${coordType}`, [position.x, position.y, position.z])
+            
+            if (useBatching) {
+              // Add to batch for efficient sending
+              oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
+            } else {
+              // Legacy mode: send individual messages
+              const oscStore = useOSCStore.getState()
+              oscStore.sendMessage(`/track/${track.holophonixIndex}/${coordType}`, [position.x, position.y, position.z])
+            }
           }
         })
+        
+        // Flush OSC batch if throttle interval passed
+        if (shouldSendOSC && useBatching) {
+          oscBatchManager.flushBatch()
+          lastOSCSendTime = timestamp
+        }
         
         // Handle loop/end - check first track's animation for duration
         const firstTrack = projectStore.tracks.find(t => t.id === state.currentTrackIds[0])
@@ -386,13 +448,43 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         }
       }
 
-      requestAnimationFrame(animate)
+      // No need to schedule next frame - timer handles it
     }
 
-    requestAnimationFrame(animate)
+    // Start the animation timer
+    if (hasElectronAPI) {
+      // Use main process timer (never throttled when minimized)
+      cleanupListener = (window as any).electronAPI.onAnimationTick(animate);
+      (window as any).electronAPI.startAnimationTimer(frameInterval)
+      console.log(`✅ Animation engine started with MAIN PROCESS timer (${frameInterval.toFixed(2)}ms)`)
+    } else {
+      // Fallback to setInterval for browser mode
+      const animationInterval = setInterval(() => animate(), frameInterval)
+      cleanupListener = () => clearInterval(animationInterval)
+      console.log(`✅ Animation engine started with setInterval (${frameInterval.toFixed(2)}ms)`)
+    }
+    
+    // Store cleanup function for stopEngine
+    (get() as any)._cleanupTimer = cleanupListener
   },
 
   stopEngine: () => {
+    const state = get() as any
     set({ isEngineRunning: false })
+    
+    // Stop the timer
+    const hasElectronAPI = typeof window !== 'undefined' && (window as any).electronAPI
+    if (hasElectronAPI) {
+      (window as any).electronAPI.stopAnimationTimer()
+      console.log('🛑 Animation engine: Stopped (main process timer)')
+    } else {
+      console.log('🛑 Animation engine: Stopped (setInterval)')
+    }
+    
+    // Cleanup listener
+    if (state._cleanupTimer) {
+      state._cleanupTimer()
+      state._cleanupTimer = null
+    }
   },
 }))

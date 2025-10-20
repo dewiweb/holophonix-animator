@@ -34,6 +34,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('osc-disconnect-device', deviceId),
   oscSendToDevice: (deviceId: string, address: string, args: any[]) =>
     ipcRenderer.invoke('osc-send-to-device', deviceId, address, args),
+  oscSendBatch: (deviceId: string, batch: any) =>
+    ipcRenderer.invoke('osc-send-batch', deviceId, batch),
+
+  // Animation timer (runs in main process, never throttled)
+  startAnimationTimer: (intervalMs: number) =>
+    ipcRenderer.send('start-animation-timer', intervalMs),
+  stopAnimationTimer: () =>
+    ipcRenderer.send('stop-animation-timer'),
+  onAnimationTick: (callback: (data: { timestamp: number; deltaTime: number }) => void) => {
+    const listener = (_event: any, data: { timestamp: number; deltaTime: number }) => callback(data)
+    ipcRenderer.on('animation-tick', listener)
+    return () => ipcRenderer.removeListener('animation-tick', listener)
+  },
 
   // OSC settings synchronization
   oscUpdateSettings: (settings: any) =>

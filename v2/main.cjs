@@ -375,8 +375,9 @@ electron_1.ipcMain.handle('show-save-dialog', async () => {
 });
 // OSC Client setup for outgoing connections
 let oscClients = new Map(); // Map<deviceId, oscClient>
-function createOSCClient(host, port) {
+function createOSCClient(host, port, sendBufferSize = 262144) {
     try {
+        // Create OSC client with optimized settings
         const client = new osc.UDPPort({
             localAddress: '0.0.0.0',
             localPort: 0, // Let OS assign local port
@@ -385,6 +386,7 @@ function createOSCClient(host, port) {
             metadata: true
         });
         client.open();
+        console.log(`✅ Created OSC client for ${host}:${port}`);
         return client;
     }
     catch (error) {
@@ -560,6 +562,69 @@ electron_1.ipcMain.handle('osc-send-to-device', async (event, deviceId, address,
     catch (error) {
         console.error('❌ IPC osc-send-to-device error:', error);
         return { success: false, error: error.message };
+    }
+});
+// OSC Batch sending - optimized for multi-track animations
+electron_1.ipcMain.handle('osc-send-batch', async (event, deviceId, batch) => {
+    try {
+        console.log(`📦 IPC: osc-send-batch called for device: ${deviceId}, ${batch.messages.length} messages`);
+        const client = oscClients.get(deviceId);
+        if (!client) {
+            console.error(`❌ No OSC client found for device ${deviceId}`);
+            return { success: false, error: `Device ${deviceId} not connected` };
+        }
+        // Create OSC bundle for time-synchronized sending
+        const packets = batch.messages.map((msg) => ({
+            address: `/track/${msg.trackIndex}/${msg.coordSystem}`,
+            args: [
+                { type: 'f', value: msg.position.x },
+                { type: 'f', value: msg.position.y },
+                { type: 'f', value: msg.position.z }
+            ]
+        }));
+        // Send as OSC bundle (all messages arrive together)
+        // timeTag of 0 means send immediately
+        const bundle = {
+            timeTag: { raw: [0, 1] }, // Immediate execution in OSC timetag format
+            packets: packets
+        };
+        client.send(bundle);
+        console.log(`✅ Sent OSC batch to device ${deviceId}: ${packets.length} tracks`);
+        return {
+            success: true,
+            message: `OSC batch sent to device ${deviceId}`,
+            messageCount: packets.length
+        };
+    }
+    catch (error) {
+        console.error('❌ IPC osc-send-batch error:', error);
+        return { success: false, error: error.message };
+    }
+});
+// High-precision timer for animation engine (runs in main process, never throttled)
+let animationTimer = null;
+let lastAnimationTick = Date.now();
+electron_1.ipcMain.on('start-animation-timer', (event, intervalMs) => {
+    console.log(`⏱️ Starting main process animation timer at ${intervalMs}ms interval`);
+    if (animationTimer) {
+        clearInterval(animationTimer);
+    }
+    lastAnimationTick = Date.now();
+    animationTimer = setInterval(() => {
+        const now = Date.now();
+        const deltaTime = now - lastAnimationTick;
+        lastAnimationTick = now;
+        // Send tick to renderer process
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('animation-tick', { timestamp: now, deltaTime });
+        }
+    }, intervalMs);
+});
+electron_1.ipcMain.on('stop-animation-timer', () => {
+    console.log(`⏱️ Stopping main process animation timer`);
+    if (animationTimer) {
+        clearInterval(animationTimer);
+        animationTimer = null;
     }
 });
 // ========================================
