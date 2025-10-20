@@ -351,6 +351,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           const phaseOffset = track.animationState.currentTime || 0
           let rawTrackTime = Math.max(0, newGlobalTime - phaseOffset)
           
+          // Debug logging (only first few frames)
+          if (state.frameCount < 5 && phaseOffset > 0) {
+            console.log(`⏱️ Track ${track.name}: globalTime=${newGlobalTime.toFixed(2)}s, phaseOffset=${phaseOffset.toFixed(2)}s, rawTrackTime=${rawTrackTime.toFixed(2)}s`)
+          }
+          
           // Handle loop/ping-pong PER TRACK based on track's own timeline
           // This allows each track to loop independently in phase-offset mode
           let trackTime = rawTrackTime
