@@ -26,6 +26,7 @@ interface PlaneEditorProps {
   animationType?: AnimationType
   animationParameters?: AnimationParameters
   trackColors?: Record<string, { r: number; g: number; b: number; a: number }>
+  trackNames?: Record<string, string>
 }
 
 // Plane-specific configuration
@@ -132,7 +133,8 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
   trackPosition,
   animationType,
   animationParameters,
-  trackColors = {}
+  trackColors = {},
+  trackNames = {}
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [containerRect, setContainerRect] = useState({ width: 0, height: 0 })
@@ -142,6 +144,10 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
   const [isSelecting, setIsSelecting] = useState(false)
   const [selectionStart, setSelectionStart] = useState({ x: 0, y: 0 })
   const [selectionEnd, setSelectionEnd] = useState({ x: 0, y: 0 })
+  const [clickCycleIndex, setClickCycleIndex] = useState(0)
+  const [lastClickPos, setLastClickPos] = useState({ x: 0, y: 0 })
+  const [lastClickTime, setLastClickTime] = useState(0)
+  const [dragStartPositions, setDragStartPositions] = useState<Map<string, Position>>(new Map())
 
   const config = PLANE_CONFIG[plane]
 
@@ -243,6 +249,26 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
 
   // Get point label based on animation type and point properties
   const getPointLabel = (point: ControlPoint): string => {
+    // Handle multitrack track positions with track names
+    if (point.id.startsWith('track-')) {
+      const trackId = point.id.replace('track-', '')
+      const trackName = trackNames[trackId]
+      if (trackName) {
+        return `Track: ${trackName}`
+      }
+      return `Track ${(point.index || 0) + 1}`
+    }
+
+    // Handle isobarycenter special point
+    if (point.id === 'isobarycenter') {
+      return 'Barycenter'
+    }
+
+    // Handle reference point (track position marker)
+    if (point.id === 'track-position' && point.index === -1) {
+      return 'TRACK'
+    }
+
     switch (point.animationType) {
       case 'bezier':
         if (point.id === 'bezier-start') return 'Bezier Start'
@@ -425,15 +451,23 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
     ctx.textAlign = 'start'
     ctx.fillText(config.axes.vertical.label, centerX - 20, centerY - axisLength + 10)
 
-    // Draw origin point
-    const originSize = 8 * zoom
+    // Draw origin point (0,0,0) - visual reference only, not selectable
+    const originSize = 6 * zoom
     ctx.fillStyle = config.axes.origin.color
     ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 2
+    ctx.lineWidth = 1.5
+    ctx.globalAlpha = 0.6 // Make it more subtle
     ctx.beginPath()
     ctx.arc(centerX, centerY, originSize, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
+    
+    // Add label to clarify it's just a reference
+    ctx.globalAlpha = 1
+    ctx.fillStyle = config.axes.origin.color
+    ctx.font = '10px Inter, system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('(0,0,0)', centerX, centerY + originSize + 12)
 
     // Draw animation path if available
     if (animationPath.length > 0) {
@@ -496,7 +530,7 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
       ctx.fillRect(minX, minY, maxX - minX, maxY - minY)
     }
 
-    // Draw control points
+    // Draw control points with improved selection indicators
     controlPoints.forEach((point) => {
       const screenPos = positionToScreen(point.position, containerRect.width, containerRect.height)
       const isReference = point.index === -1
@@ -505,11 +539,24 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
       const isDragged = draggedPoint === point.id
       const isSelected = selectedPointIds.includes(point.id)
 
+      // Enhanced selection indicator with glow effect
       if (isSelected) {
+        // Outer glow
         ctx.strokeStyle = themeColors.accent.primary
-        ctx.lineWidth = 3
-        ctx.setLineDash([3, 3])
-        ctx.strokeRect(screenPos.x - size - 4, screenPos.y - size - 4, (size + 4) * 2, (size + 4) * 2)
+        ctx.lineWidth = 2
+        ctx.globalAlpha = 0.3
+        ctx.beginPath()
+        ctx.arc(screenPos.x, screenPos.y, size + 8, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.globalAlpha = 1
+        
+        // Animated dashed selection ring
+        ctx.strokeStyle = themeColors.accent.primary
+        ctx.lineWidth = 2
+        ctx.setLineDash([4, 4])
+        ctx.beginPath()
+        ctx.arc(screenPos.x, screenPos.y, size + 4, 0, Math.PI * 2)
+        ctx.stroke()
         ctx.setLineDash([])
       }
 
@@ -546,7 +593,7 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
     render()
   }, [render])
 
-  // Enhanced mouse event handlers with selection box functionality
+  // Enhanced mouse event handlers with selection box functionality and overlapping point cycling
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -562,23 +609,85 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
       return
     }
 
+    // Find all points under cursor (for handling overlapping points)
+    const pointsUnderCursor: ControlPoint[] = []
+    const CLICK_TOLERANCE = 15 // Increased hit area for easier selection
+    
     for (const point of controlPoints) {
-      if (point.index === -1) continue
+      // Skip reference points (index === -1) - they're visual only, not interactive
+      if (point.index === -1 || point.id === 'track-position') continue
 
       const screenPos = positionToScreen(point.position, rect.width, rect.height)
       const size = getPointSize(point.type, point.animationType, point.index === -1)
       const distance = Math.sqrt((x - screenPos.x) ** 2 + (y - screenPos.y) ** 2)
 
-      if (distance <= size) {
-        onDragStart(point.id)
-        return
+      if (distance <= size + CLICK_TOLERANCE) {
+        pointsUnderCursor.push(point)
       }
     }
 
+    if (pointsUnderCursor.length > 0) {
+      // Handle overlapping points - cycle through them on repeated clicks
+      const now = Date.now()
+      const isSameSpot = Math.abs(x - lastClickPos.x) < 5 && Math.abs(y - lastClickPos.y) < 5
+      const isQuickClick = now - lastClickTime < 800 // 800ms window for cycling
+
+      let selectedPoint: ControlPoint
+      
+      if (pointsUnderCursor.length > 1 && isSameSpot && isQuickClick) {
+        // Cycle to next point
+        const nextIndex = (clickCycleIndex + 1) % pointsUnderCursor.length
+        selectedPoint = pointsUnderCursor[nextIndex]
+        setClickCycleIndex(nextIndex)
+      } else {
+        // First click or different location - select first point
+        selectedPoint = pointsUnderCursor[0]
+        setClickCycleIndex(0)
+      }
+
+      setLastClickPos({ x, y })
+      setLastClickTime(now)
+
+      // If holding Shift, add to selection; otherwise, select only this point
+      if (e.shiftKey) {
+        if (!selectedPointIds.includes(selectedPoint.id)) {
+          onSelectionChange?.([...selectedPointIds, selectedPoint.id])
+        }
+      } else if (!selectedPointIds.includes(selectedPoint.id)) {
+        onSelectionChange?.([selectedPoint.id])
+      }
+
+      // Store initial positions for all selected points for multi-drag
+      const initialPositions = new Map<string, Position>()
+      const pointsToMove = selectedPointIds.includes(selectedPoint.id) 
+        ? selectedPointIds 
+        : [selectedPoint.id]
+      
+      pointsToMove.forEach(id => {
+        const point = controlPoints.find(p => p.id === id)
+        if (point) {
+          initialPositions.set(id, { ...point.position })
+        }
+      })
+      
+      setDragStartPositions(initialPositions)
+      onDragStart(selectedPoint.id)
+      
+      // Show overlay hint for cycling if multiple points detected
+      if (pointsUnderCursor.length > 1) {
+        console.log(`🔄 Multiple points at cursor (${pointsUnderCursor.length}). Click again to cycle.`)
+        console.log(`   Selected: ${selectedPoint.id}`)
+        console.log(`   Available:`, pointsUnderCursor.map(p => p.id))
+      }
+      
+      return
+    }
+
+    // No point clicked - start selection rectangle
     setIsSelecting(true)
     setSelectionStart({ x, y })
     setSelectionEnd({ x, y })
-  }, [controlPoints, positionToScreen, onDragStart])
+  }, [controlPoints, positionToScreen, onDragStart, lastClickPos, lastClickTime, clickCycleIndex, selectedPointIds, onSelectionChange])
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current
@@ -587,16 +696,41 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
     const rect = canvas.getBoundingClientRect()
 
     if (draggedPoint) {
-      const originalPosition = controlPoints.find(p => p.id === draggedPoint)?.position
+      // Multi-point drag: move all selected points together
+      const draggedOriginalPos = dragStartPositions.get(draggedPoint)
+      if (!draggedOriginalPos) return
+
       const worldPos = screenToPosition(
         e.clientX - rect.left,
         e.clientY - rect.top,
         rect.width,
         rect.height,
-        originalPosition
+        draggedOriginalPos
       )
 
-      onControlPointUpdate(draggedPoint, worldPos)
+      // Calculate offset from original position
+      const offset = {
+        x: worldPos.x - draggedOriginalPos.x,
+        y: worldPos.y - draggedOriginalPos.y,
+        z: worldPos.z - draggedOriginalPos.z
+      }
+
+      // Apply offset to all selected points
+      const pointsToMove = selectedPointIds.length > 0 && selectedPointIds.includes(draggedPoint)
+        ? selectedPointIds
+        : [draggedPoint]
+
+      pointsToMove.forEach(pointId => {
+        const startPos = dragStartPositions.get(pointId)
+        if (startPos) {
+          const newPos = {
+            x: startPos.x + offset.x,
+            y: startPos.y + offset.y,
+            z: startPos.z + offset.z
+          }
+          onControlPointUpdate(pointId, newPos)
+        }
+      })
     } else if (isPanning) {
       const currentPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top }
       const deltaX = (currentPoint.x - lastPanPoint.x) / zoom
@@ -622,6 +756,9 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
       const selectedPoints: string[] = []
 
       controlPoints.forEach((point) => {
+        // Skip reference points (track position markers) - they're visual only, not interactive
+        if (point.index === -1 || point.id === 'track-position') return
+        
         const screenPos = positionToScreen(point.position, containerRect.width, containerRect.height)
 
         const minX = Math.min(selectionStart.x, selectionEnd.x)
@@ -646,6 +783,7 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
       setIsPanning(false)
       if (draggedPoint) {
         onDragEnd()
+        setDragStartPositions(new Map()) // Clear drag start positions
       }
     }
   }, [isSelecting, selectionStart, selectionEnd, controlPoints, positionToScreen, containerRect, onSelectionChange, draggedPoint, onDragEnd])
@@ -720,14 +858,22 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
         <div className={`${themeColors.background.elevated}/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-xs ${themeColors.text.secondary}`}>
           <div className={`font-medium mb-2 ${themeColors.text.primary}`}>Navigation:</div>
           <div className="space-y-1">
-            <div>🖱️ Left Drag: Select points</div>
+            <div>🖱️ Click: Select point</div>
+            <div>🖱️ Click again: Cycle overlapping</div>
+            <div>⇧ Shift+Click: Add to selection</div>
+            <div>🖱️ Drag: Move selected point(s)</div>
+            <div>🖱️ Drag area: Multi-select</div>
             <div>🖱️ Right Drag: Pan view</div>
             <div>🔍 Scroll: Zoom</div>
-            <div>⌨️ WASD: Pan</div>
-            <div>⌨️ +/-: Zoom</div>
-            <div>⌨️ R: Reset view</div>
           </div>
         </div>
+        
+        {/* Selection count indicator */}
+        {selectedPointIds.length > 0 && (
+          <div className={`${themeColors.background.elevated}/90 backdrop-blur-sm rounded-lg shadow-lg px-3 py-2 text-sm font-medium ${themeColors.text.primary} text-center`}>
+            {selectedPointIds.length} point{selectedPointIds.length !== 1 ? 's' : ''} selected
+          </div>
+        )}
       </div>
 
       {/* Zoom Indicator */}

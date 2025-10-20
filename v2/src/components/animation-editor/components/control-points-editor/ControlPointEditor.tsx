@@ -23,6 +23,7 @@ interface ControlPointEditorProps {
   selectedTracks?: string[]
   trackPositions?: Record<string, Position>
   trackColors?: Record<string, { r: number; g: number; b: number; a: number }>
+  trackNames?: Record<string, string>
   activeEditingTrackId?: string | null
 }
 
@@ -39,6 +40,7 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
   selectedTracks = [],
   trackPositions = {},
   trackColors = {},
+  trackNames = {},
   activeEditingTrackId
 }) => {
   const [activePlane, setActivePlane] = useState<ViewPlane>('xy')
@@ -57,7 +59,8 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
     const points: ControlPoint[] = []
 
     // Handle multitrack modes - show individual track positions for position-relative modes
-    if (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') {
+    // BUT: Only if there are actually MULTIPLE tracks (2+)
+    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && selectedTracks.length > 1) {
       selectedTracks.forEach((trackId, index) => {
         const trackPos = trackPositions[trackId]
         if (trackPos) {
@@ -78,7 +81,8 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
     }
 
     // Handle isobarycenter mode - show barycenter + track positions
-    if (multiTrackMode === 'isobarycenter') {
+    // Only relevant when there are multiple tracks
+    if (multiTrackMode === 'isobarycenter' && selectedTracks.length > 1) {
       // Calculate barycenter from all selected tracks
       const tracks = selectedTracks.map(id => {
         const pos = trackPositions[id]
@@ -118,14 +122,19 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
     }
 
     // Always include track position as a reference point for other modes
+    // BUT: Skip if track is at origin (0,0,0) to avoid confusion with origin marker
     if (trackPosition) {
-      points.push({
-        id: 'track-position',
-        position: trackPosition,
-        type: 'start', // Use 'start' type but with special styling
-        animationType: 'reference' as AnimationType,
-        index: -1 // Special index for reference point
-      })
+      const isAtOrigin = trackPosition.x === 0 && trackPosition.y === 0 && trackPosition.z === 0
+      
+      if (!isAtOrigin) {
+        points.push({
+          id: 'track-position',
+          position: trackPosition,
+          type: 'start', // Use 'start' type but with special styling
+          animationType: 'reference' as AnimationType,
+          index: -1 // Special index for reference point
+        })
+      }
     }
 
     console.log('🎯 ControlPointEditor - Animation type:', animationType)
@@ -672,6 +681,8 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
     }
 
     console.log('🎯 Final control points:', points)
+    console.log('🎯 Selectable points (excluding index=-1):', points.filter(p => p.index !== -1 && p.id !== 'track-position'))
+    console.log('🎯 Point details:', points.map(p => ({ id: p.id, type: p.type, index: p.index, pos: p.position })))
     return points
   }, [animationType, parameters, keyframes, trackPosition])
 
@@ -1014,7 +1025,8 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
       trackPosition,
       animationType,
       animationParameters: parameters,
-      trackColors
+      trackColors,
+      trackNames
     }
 
     return <PlaneEditor {...commonProps} />
