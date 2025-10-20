@@ -83,3 +83,5 @@ main.js
 main.js.map
 preload.js
 preload.js.map
+# Add to existing .gitignore
+*.hpx
