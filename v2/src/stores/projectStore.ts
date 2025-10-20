@@ -117,8 +117,6 @@ export const useProjectStore = create<ProjectState>()(
     saveProject: async () => {
       const state = get()
       try {
-        const state = get()
-
         if (!state.currentProject) {
           console.warn('⚠️ No current project to save')
           return
@@ -137,8 +135,32 @@ export const useProjectStore = create<ProjectState>()(
             filePath = saveResult.filePath
           }
 
-          // Serialize project
-          const projectData = serializeProject(state.currentProject)
+          // CRITICAL FIX: Merge current state data into project before saving
+          // Also sync OSC connections from oscStore
+          const oscStore = await import('./oscStore').then(m => m.useOSCStore.getState())
+          
+          const updatedProject: Project = {
+            ...state.currentProject,
+            tracks: state.tracks,
+            groups: state.groups,
+            animations: state.animations,
+            timelines: state.timelines,
+            presets: state.presets,
+            oscConnections: oscStore.connections, // Use actual connections from oscStore
+            metadata: {
+              ...state.currentProject.metadata,
+              modified: new Date(),
+            },
+          }
+          
+          console.log('💾 Saving project with:', {
+            tracks: updatedProject.tracks.length,
+            animations: updatedProject.animations.length,
+            oscConnections: updatedProject.oscConnections.length,
+          })
+
+          // Serialize project with all current data
+          const projectData = serializeProject(updatedProject)
 
           // Write file
           const writeResult = await (window as any).electronAPI.projectWriteFile(filePath, projectData)
@@ -164,6 +186,9 @@ export const useProjectStore = create<ProjectState>()(
       const state = get()
       if (!state.currentProject) return
 
+      // Sync OSC connections from oscStore
+      const oscStore = await import('./oscStore').then(m => m.useOSCStore.getState())
+
       const updatedProject: Project = {
         ...state.currentProject,
         tracks: state.tracks,
@@ -171,7 +196,7 @@ export const useProjectStore = create<ProjectState>()(
         animations: state.animations,
         timelines: state.timelines,
         presets: state.presets,
-        oscConnections: state.oscConnections,
+        oscConnections: oscStore.connections, // Use actual connections from oscStore
         metadata: {
           ...state.currentProject.metadata,
           modified: new Date(),
@@ -221,7 +246,14 @@ export const useProjectStore = create<ProjectState>()(
               const project = deserializeProject(readResult.data)
 
               if (validateProject(project)) {
-                console.log('✅ Project loaded from:', filePath)
+                console.log('✅ Project loaded:', project.name)
+                console.log('📂 Restored:', {
+                  tracks: project.tracks.length,
+                  animations: project.animations.length,
+                  oscConnections: project.oscConnections.length,
+                })
+
+                // Load project into state
                 set({
                   currentProject: project,
                   currentFilePath: filePath,
@@ -232,9 +264,17 @@ export const useProjectStore = create<ProjectState>()(
                   presets: project.presets,
                   oscConnections: project.oscConnections,
                 })
+                
+                // Restore OSC connections to oscStore
+                const oscStore = await import('./oscStore').then(m => m.useOSCStore.getState())
+                
+                // Note: OSC connections need to be re-established (not just restored to state)
+                // The connection objects contain runtime state that can't be serialized
+                console.log('⚠️  Note: OSC connections need to be manually re-established')
+                console.log('   Saved connection info:', project.oscConnections.map(c => `${c.host}:${c.port}`))
               } else {
                 console.error('❌ Invalid project structure')
-                alert('Invalid project file format')
+                alert('Invalid project file structure')
               }
             } else {
               console.error('❌ Failed to read project:', readResult.error)
