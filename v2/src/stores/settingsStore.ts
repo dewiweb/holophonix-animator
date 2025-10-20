@@ -23,7 +23,10 @@ interface OSCSettings {
   messageBufferSize: number
   enableMessageLogging: boolean
   autoReconnect: boolean
-  messageThrottleRate: number // Send every Nth frame (1 = every frame, 3 = every 3rd frame, etc.)
+  messageThrottleRate: number // Time between OSC sends in milliseconds (50ms = 20 Hz)
+  useBatching: boolean // Bundle multiple track updates into single OSC message
+  maxBatchSize: number // Maximum number of messages per batch
+  sendBufferSize: number // UDP send buffer size in bytes
 }
 
 interface AnimationSettings {
@@ -82,7 +85,10 @@ const defaultOSCSettings: OSCSettings = {
   messageBufferSize: 1024,
   enableMessageLogging: false,
   autoReconnect: true,
-  messageThrottleRate: 3, // Send every 3rd frame (~20 FPS at 60 FPS engine)
+  messageThrottleRate: 50, // Time-based: 50ms = 20 Hz (changed from frame-based)
+  useBatching: true, // Enable message batching for multi-track performance
+  maxBatchSize: 100, // Maximum tracks per batch
+  sendBufferSize: 262144, // 256 KB UDP send buffer
 }
 
 const defaultAnimationSettings: AnimationSettings = {

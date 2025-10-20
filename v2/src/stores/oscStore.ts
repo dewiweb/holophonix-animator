@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { OSCConnection, OSCMessage, OSCConfiguration } from '@/types'
 import { generateId } from '@/utils'
 import { useProjectStore } from './projectStore'
+import { oscBatchManager, OSCBatch } from '@/utils/oscBatchManager'
+import { oscInputManager } from '@/utils/oscInputManager'
 
 // Development OSC implementation using osc-js for browser testing
 class DevOSCServer {
@@ -78,6 +80,7 @@ interface OSCState {
   disconnect: (connectionId: string) => void
   removeConnection: (connectionId: string) => void
   sendMessage: (address: string, args: (number | string | boolean)[]) => void
+  sendBatch: (batch: OSCBatch) => Promise<void>
 
   // Track discovery
   discoverTracks: (maxTracks?: number, includePositions?: boolean) => Promise<void>
@@ -85,6 +88,7 @@ interface OSCState {
 
   // Message processing
   processIncomingMessage: (message: OSCMessage) => void
+  _processMessageInternal: (message: OSCMessage) => void
 
   // Utility functions
   getConnectionById: (id: string) => OSCConnection | undefined
@@ -100,10 +104,16 @@ const defaultConfig: OSCConfiguration = {
   maxRetries: 5,
 }
 
-export const useOSCStore = create<OSCState>((set, get) => ({
-  // Initial state
-  connections: [],
-  activeConnectionId: null,
+export const useOSCStore = create<OSCState>((set, get) => {
+  // Initialize input manager with callback
+  oscInputManager.setProcessCallback((message) => {
+    get()._processMessageInternal(message)
+  })
+  
+  return {
+    // Initial state
+    connections: [],
+    activeConnectionId: null,
   config: defaultConfig,
   outgoingMessages: [],
   incomingMessages: [],
@@ -313,6 +323,72 @@ export const useOSCStore = create<OSCState>((set, get) => ({
     }
   },
 
+  sendBatch: async (batch: OSCBatch) => {
+    const activeConnection = get().getActiveConnection()
+    if (!activeConnection?.isConnected) {
+      console.error('No active OSC connection for batch send')
+      return
+    }
+
+    if (batch.messages.length === 0) {
+      return
+    }
+
+    try {
+      const hasElectronAPI = typeof window !== 'undefined' && (window as any).electronAPI
+      const isDevMode = typeof window !== 'undefined' && !hasElectronAPI
+
+      console.log(`📦 Sending OSC batch: ${batch.messages.length} tracks`)
+
+      if (isDevMode) {
+        // Development mode: send each message individually through dev server
+        if (devOSCServer) {
+          batch.messages.forEach(msg => {
+            const address = `/track/${msg.trackIndex}/${msg.coordSystem}`
+            const args = [msg.position.x, msg.position.y, msg.position.z]
+            devOSCServer.sendMessage(activeConnection.host, activeConnection.port, address, args)
+          })
+        }
+      } else {
+        // Production: use batched IPC call
+        if (typeof window !== 'undefined' && (window as any).electronAPI && (window as any).electronAPI.oscSendBatch) {
+          const result = await (window as any).electronAPI.oscSendBatch(activeConnection.id, batch)
+          if (!result.success) {
+            console.error('❌ OSC batch send failed:', result.error)
+          }
+        } else {
+          console.warn('❌ electronAPI.oscSendBatch not available, falling back to individual sends')
+          // Fallback to individual sends
+          for (const msg of batch.messages) {
+            const address = `/track/${msg.trackIndex}/${msg.coordSystem}`
+            const args = [msg.position.x, msg.position.y, msg.position.z]
+            await get().sendMessage(address, args)
+          }
+        }
+      }
+
+      // Update connection stats
+      set(state => ({
+        connections: state.connections.map(conn =>
+          conn.id === activeConnection.id
+            ? { ...conn, messageCount: conn.messageCount + batch.messages.length }
+            : conn
+        ),
+      }))
+    } catch (error) {
+      console.error('Failed to send OSC batch:', error)
+
+      // Update error count
+      set(state => ({
+        connections: state.connections.map(conn =>
+          conn.id === activeConnection.id
+            ? { ...conn, errorCount: conn.errorCount + 1 }
+            : conn
+        ),
+      }))
+    }
+  },
+
   discoverTracks: async (maxTracks: number = 64, includePositions: boolean = true) => {
     const activeConnection = get().getActiveConnection()
     if (!activeConnection?.isConnected) {
@@ -379,6 +455,12 @@ export const useOSCStore = create<OSCState>((set, get) => ({
   },
 
   processIncomingMessage: (message: OSCMessage) => {
+    // Route through input manager for throttling and filtering
+    oscInputManager.receiveMessage(message)
+  },
+  
+  // Internal: Actually process the message (called by inputManager after throttling)
+  _processMessageInternal: (message: OSCMessage) => {
     set(state => ({
       incomingMessages: [...state.incomingMessages, message],
       messageHistory: [...state.messageHistory.slice(-99), message],
@@ -540,4 +622,5 @@ export const useOSCStore = create<OSCState>((set, get) => ({
       messageHistory: [],
     })
   },
-}))
+  }
+})
