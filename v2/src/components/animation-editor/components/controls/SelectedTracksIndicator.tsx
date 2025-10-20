@@ -64,7 +64,7 @@ export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = (
       <div className="mt-2 flex flex-wrap gap-2">
         {selectedTracks.map((track, index) => {
           const isActiveEditing = activeEditingTrackId === track.id
-          const isClickable = multiTrackMode === 'position-relative' && onSetActiveTrack
+          const isClickable = (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && onSetActiveTrack
           
           return (
             <span 

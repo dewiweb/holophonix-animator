@@ -110,13 +110,13 @@ export const handleSaveAnimation = ({
         case 'phase-offset':
           // Stagger start times by phase offset
           initialTime = index * phaseOffsetSeconds
-          console.log(`🔄 Track ${track.name}: phase offset ${initialTime}s`)
+          console.log(`🔄 Track ${track.name} (index ${index}): phase offset = ${phaseOffsetSeconds}s x ${index} = ${initialTime}s`)
           break
 
         case 'phase-offset-relative':
           // Combine both: phase offset timing + position-relative paths
           initialTime = index * phaseOffsetSeconds
-          console.log(`🔄📍 Track ${track.name}: phase offset ${initialTime}s + relative position`)
+          console.log(`🔄📍 Track ${track.name} (index ${index}): phase offset = ${phaseOffsetSeconds}s x ${index} = ${initialTime}s + relative position`)
           // Fall through to position-relative logic
 
         case 'position-relative':

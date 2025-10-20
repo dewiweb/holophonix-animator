@@ -58,10 +58,10 @@ export const AnimationEditor: React.FC = () => {
     selectedTrackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[]
   ), [selectedTrackIds, tracks])
 
-  // Load active track's parameters when switching tracks in position-relative mode
+  // Load active track's parameters when switching tracks in position-relative or phase-offset-relative mode
   // Only reload when the TRACK changes, not when its parameters update (to avoid breaking drag)
   useEffect(() => {
-    if (multiTrackMode === 'position-relative' && activeEditingTrackId) {
+    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackId) {
       const trackParams = multiTrackParameters[activeEditingTrackId]
       if (trackParams) {
         setAnimationForm(prev => ({
@@ -127,7 +127,7 @@ export const AnimationEditor: React.FC = () => {
 
   // Initialize active editing track when selection changes
   useEffect(() => {
-    if (multiTrackMode === 'position-relative' && selectedTrackIds.length > 0) {
+    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && selectedTrackIds.length > 0) {
       if (!activeEditingTrackId || !selectedTrackIds.includes(activeEditingTrackId)) {
         setActiveEditingTrackId(selectedTrackIds[0])
       }
@@ -334,8 +334,8 @@ export const AnimationEditor: React.FC = () => {
   }
 
   const onParameterChange = (key: string, value: any) => {
-    // In position-relative mode, update only the active track's parameters
-    if (multiTrackMode === 'position-relative' && activeEditingTrackId) {
+    // In position-relative or phase-offset-relative mode, update only the active track's parameters
+    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackId) {
       // For Position objects, merge with existing values to preserve all coordinates
       const isPositionKey = ['startPosition', 'endPosition', 'center', 'bounds', 'anchorPoint', 'restPosition', 'targetPosition'].includes(key)
       
@@ -504,9 +504,9 @@ export const AnimationEditor: React.FC = () => {
     <ControlPointEditor
       animationType={animationForm.type || 'linear'}
       parameters={
-        // In position-relative mode, use the active track's parameters from multiTrackParameters
+        // In position-relative or phase-offset-relative mode, use the active track's parameters from multiTrackParameters
         // This allows drag operations to update without re-rendering from animationForm changes
-        multiTrackMode === 'position-relative' && activeEditingTrackId && multiTrackParameters[activeEditingTrackId]
+        (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackId && multiTrackParameters[activeEditingTrackId]
           ? multiTrackParameters[activeEditingTrackId]
           : animationForm.parameters || {}
       }
@@ -514,12 +514,16 @@ export const AnimationEditor: React.FC = () => {
       onParameterChange={onParameterChange}
       onKeyframeUpdate={handleKeyframeUpdate}
       trackPosition={
-        // In position-relative mode, show the active editing track's position
-        multiTrackMode === 'position-relative' && activeEditingTrackId
+        // In position-relative or phase-offset-relative mode, show the active editing track's position
+        (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackId
           ? tracks.find(t => t.id === activeEditingTrackId)?.position || selectedTrack?.position
           : selectedTrack?.initialPosition || selectedTrack?.position
       }
       trackColors={trackColors}
+      trackNames={tracks.reduce((acc, track) => {
+        acc[track.id] = track.name
+        return acc
+      }, {} as Record<string, string>)}
       selectedTracks={selectedTrackIds}
       trackPositions={trackPositions}
       multiTrackMode={multiTrackMode}
