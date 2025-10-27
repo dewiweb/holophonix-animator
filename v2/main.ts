@@ -44,19 +44,11 @@ function startOSCServer(port: number) {
 
     oscServer.on('message', (rawMessage: Buffer, remote: dgram.RemoteInfo) => {
       try {
-        console.log('📨 Raw OSC message received:', rawMessage.length, 'bytes from', remote.address + ':' + remote.port)
+        // Verbose logging disabled for performance
 
         // Parse OSC message
         const oscMessage = osc.readMessage(rawMessage)
         if (oscMessage) {
-          console.log('📨 Parsed OSC message:', oscMessage.address, oscMessage.args)
-          console.log('🔍 Args structure:', {
-            args: oscMessage.args,
-            argsType: typeof oscMessage.args,
-            argsIsArray: Array.isArray(oscMessage.args),
-            argsLength: oscMessage.args?.length
-          })
-
           // Send to renderer process
           if (mainWindow && mainWindow.webContents) {
             const messageToSend = {
@@ -64,7 +56,6 @@ function startOSCServer(port: number) {
               args: oscMessage.args,
               timestamp: Date.now(),
             }
-            console.log('📨 Forwarding to renderer process:', JSON.stringify(messageToSend))
             mainWindow.webContents.send('osc-message-received', messageToSend)
           }
         } else {
@@ -93,7 +84,7 @@ function startOSCServer(port: number) {
 // OSC Client for sending messages
 const sendOSCMessage = (host: string, port: number, address: string, args: any[]) => {
   try {
-    console.log(`📤 Sending OSC message to ${host}:${port}:`, address, args)
+    // Verbose logging disabled for performance
 
     if (!oscClient) {
       console.log('🔌 Creating new OSC client...')
@@ -388,6 +379,21 @@ function createOSCClient(host: string, port: number, sendBufferSize: number = 26
       metadata: true
     })
 
+    // Access underlying UDP socket and optimize buffer sizes
+    client.on('ready', () => {
+      if (client.socket) {
+        try {
+          // Minimal buffer for real-time sync: prioritize low latency over smoothness
+          // 64KB holds ~500 messages (~0.5 seconds max latency)
+          // Small buffer ensures device stays in sync with app during animation
+          client.socket.setSendBufferSize(64 * 1024) // 64KB - minimal latency
+          console.log(`✅ OSC client socket optimized: 64KB send buffer (low latency)`)
+        } catch (bufferError) {
+          console.warn('⚠️ Could not set socket buffer size:', bufferError)
+        }
+      }
+    })
+
     client.open()
     console.log(`✅ Created OSC client for ${host}:${port}`)
     return client
@@ -404,7 +410,7 @@ function sendOSCMessageToDevice(deviceId: string, address: string, args: any[]) 
       address: address,
       args: args
     })
-    console.log(`📤 Sent OSC message to device ${deviceId}: ${address}`, args)
+    // Verbose logging disabled for performance
   } else {
     console.error(`❌ No OSC client found for device ${deviceId}`)
   }
@@ -412,7 +418,7 @@ function sendOSCMessageToDevice(deviceId: string, address: string, args: any[]) 
 
 ipcMain.handle('osc-send-message', async (event, host: string, port: number, address: string, args: any[]) => {
   try {
-    console.log('🔗 IPC: osc-send-message called with:', host, port, address, args)
+    // Verbose logging disabled for performance
     sendOSCMessage(host, port, address, args)
     return { success: true, message: `OSC message sent to ${host}:${port}` }
   } catch (error) {
@@ -423,7 +429,7 @@ ipcMain.handle('osc-send-message', async (event, host: string, port: number, add
 
 ipcMain.handle('osc-update-settings', async (event, settings: any) => {
   try {
-    console.log('🔗 IPC: osc-update-settings called with:', settings)
+    // Verbose logging disabled for performance
 
     // If the incoming port changed, restart the OSC server
     if (settings.defaultIncomingPort) {
@@ -467,7 +473,7 @@ ipcMain.handle('osc-update-settings', async (event, settings: any) => {
 
 ipcMain.handle('osc-start-server', async (event, port: number) => {
   try {
-    console.log('🔗 IPC: osc-start-server called with port:', port)
+    // Verbose logging disabled for performance
 
     // Close existing server if any
     if (oscServer) {
@@ -487,7 +493,7 @@ ipcMain.handle('osc-start-server', async (event, port: number) => {
 
 ipcMain.handle('osc-connect-device', async (event, deviceId: string, host: string, port: number) => {
   try {
-    console.log('🔗 IPC: osc-connect-device called with:', deviceId, host, port)
+    // Verbose logging disabled for performance
 
     // Close existing client if any
     const existingClient = oscClients.get(deviceId)
@@ -511,11 +517,13 @@ ipcMain.handle('osc-connect-device', async (event, deviceId: string, host: strin
 
 ipcMain.handle('osc-disconnect-device', async (event, deviceId: string) => {
   try {
-    console.log('🔗 IPC: osc-disconnect-device called for:', deviceId)
+    // Verbose logging disabled for performance
     const client = oscClients.get(deviceId)
     if (client) {
       client.close()
       oscClients.delete(deviceId)
+      // Clear queue tracking
+      oscMessageQueues.delete(deviceId)
       return { success: true, message: `Disconnected from device ${deviceId}` }
     } else {
       return { success: false, error: 'Device not found' }
@@ -526,60 +534,145 @@ ipcMain.handle('osc-disconnect-device', async (event, deviceId: string) => {
   }
 })
 
-ipcMain.handle('osc-send-to-device', async (event, deviceId: string, address: string, args: any[]) => {
+// Clear OSC socket buffer by recreating the client
+// This ensures buffered messages don't continue sending after animation stops
+ipcMain.handle('osc-clear-device-buffer', async (event, deviceId: string) => {
   try {
-    console.log('🔗 IPC: osc-send-to-device called for device:', deviceId, 'address:', address, 'args:', args)
-
-    // Send OSC message to specific device
     const client = oscClients.get(deviceId)
-    if (client) {
-      // Format args for OSC library - ensure they have type and value
-      const formattedArgs = args.map((arg: any) => {
-        // If already formatted with type/value, return as is
-        if (arg && typeof arg === 'object' && 'type' in arg && 'value' in arg) {
-          return arg
-        }
-        
-        // Otherwise, infer type and format
-        if (typeof arg === 'number') {
-          // Check if it's an integer or float
-          return { type: Number.isInteger(arg) ? 'i' : 'f', value: arg }
-        } else if (typeof arg === 'string') {
-          return { type: 's', value: arg }
-        } else if (typeof arg === 'boolean') {
-          return { type: arg ? 'T' : 'F' }
-        } else {
-          // Default to string
-          return { type: 's', value: String(arg) }
-        }
-      })
+    if (!client) {
+      return { success: false, error: 'Device not found' }
+    }
 
-      client.send({
-        address: address,
-        args: formattedArgs
-      })
-      console.log(`📤 Sent OSC message to device ${deviceId}: ${address}`, formattedArgs)
-      return { success: true, message: `OSC message sent to device ${deviceId}` }
+    // Get connection info before closing
+    const host = client.options.remoteAddress
+    const port = client.options.remotePort
+    
+    console.log(`🧹 Clearing OSC buffer for device ${deviceId} (${host}:${port})`)
+    
+    // Close old client (this clears the buffer)
+    client.close()
+    
+    // Create new client with fresh buffer
+    const newClient = createOSCClient(host, port)
+    if (newClient) {
+      oscClients.set(deviceId, newClient)
+      
+      // Reset queue tracking
+      const queueInfo = oscMessageQueues.get(deviceId)
+      if (queueInfo) {
+        queueInfo.count = 0
+        queueInfo.lastWarning = 0
+      }
+      
+      console.log(`✅ OSC buffer cleared, client recreated`)
+      return { success: true, message: 'Buffer cleared' }
     } else {
-      console.error(`❌ No OSC client found for device ${deviceId}`)
-      return { success: false, error: `Device ${deviceId} not connected` }
+      return { success: false, error: 'Failed to recreate client' }
     }
   } catch (error) {
-    console.error('❌ IPC osc-send-to-device error:', error)
+    console.error('❌ IPC osc-clear-device-buffer error:', error)
     return { success: false, error: (error as Error).message }
   }
 })
 
-// OSC Batch sending - optimized for multi-track animations
-ipcMain.handle('osc-send-batch', async (event, deviceId: string, batch: any) => {
+ipcMain.handle('osc-send-to-device', async (event, deviceId: string, address: string, args: any[]) => {
   try {
-    console.log(`📦 IPC: osc-send-batch called for device: ${deviceId}, ${batch.messages.length} messages`)
-
     const client = oscClients.get(deviceId)
     if (!client) {
       console.error(`❌ No OSC client found for device ${deviceId}`)
       return { success: false, error: `Device ${deviceId} not connected` }
     }
+
+    // Queue overflow protection (individual messages)
+    let queueInfo = oscMessageQueues.get(deviceId)
+    if (!queueInfo) {
+      queueInfo = { count: 0, lastWarning: 0 }
+      oscMessageQueues.set(deviceId, queueInfo)
+    }
+
+    if (queueInfo.count > MAX_QUEUE_SIZE) {
+      const now = Date.now()
+      if (now - queueInfo.lastWarning > QUEUE_WARNING_INTERVAL) {
+        console.warn(`⚠️ OSC queue overflow for device ${deviceId}`)
+        queueInfo.lastWarning = now
+      }
+      return { success: false, error: 'Queue overflow' }
+    }
+
+    queueInfo.count++
+
+    // Format args for OSC library
+    const formattedArgs = args.map((arg: any) => {
+      if (arg && typeof arg === 'object' && 'type' in arg && 'value' in arg) {
+        return arg
+      }
+      
+      if (typeof arg === 'number') {
+        return { type: Number.isInteger(arg) ? 'i' : 'f', value: arg }
+      } else if (typeof arg === 'string') {
+        return { type: 's', value: arg }
+      } else if (typeof arg === 'boolean') {
+        return { type: arg ? 'T' : 'F' }
+      } else {
+        return { type: 's', value: String(arg) }
+      }
+    })
+
+    // Non-blocking send
+    client.send({
+      address: address,
+      args: formattedArgs
+    })
+    
+    // Decrement queue counter
+    setTimeout(() => {
+      queueInfo!.count = Math.max(0, queueInfo!.count - 1)
+    }, 50)
+    
+    return { success: true, message: `OSC message sent to device ${deviceId}` }
+  } catch (error) {
+    console.error('❌ IPC osc-send-to-device error:', error)
+    const queueInfo = oscMessageQueues.get(deviceId)
+    if (queueInfo) {
+      queueInfo.count = Math.max(0, queueInfo.count - 1)
+    }
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// Message queue tracking for overflow protection
+const oscMessageQueues = new Map<string, { count: number; lastWarning: number }>()
+const MAX_QUEUE_SIZE = 50 // Balanced: handles burst traffic while maintaining sync
+const QUEUE_WARNING_INTERVAL = 5000 // Warn every 5 seconds
+
+// OSC Batch sending - optimized for multi-track animations
+ipcMain.handle('osc-send-batch', async (event, deviceId: string, batch: any) => {
+  try {
+    const client = oscClients.get(deviceId)
+    if (!client) {
+      console.error(`❌ No OSC client found for device ${deviceId}`)
+      return { success: false, error: `Device ${deviceId} not connected` }
+    }
+
+    // Queue overflow protection
+    let queueInfo = oscMessageQueues.get(deviceId)
+    if (!queueInfo) {
+      queueInfo = { count: 0, lastWarning: 0 }
+      oscMessageQueues.set(deviceId, queueInfo)
+    }
+
+    // If queue is overflowing, drop this batch and warn
+    if (queueInfo.count > MAX_QUEUE_SIZE) {
+      const now = Date.now()
+      if (now - queueInfo.lastWarning > QUEUE_WARNING_INTERVAL) {
+        console.warn(`⚠️ OSC message queue overflow for device ${deviceId}. Dropping messages. Reduce track count or animation complexity.`)
+        queueInfo.lastWarning = now
+      }
+      return { success: false, error: 'Queue overflow - messages dropped' }
+    }
+
+    // Increment queue counter
+    queueInfo.count += batch.messages.length
 
     // Create OSC bundle for time-synchronized sending
     const packets = batch.messages.map((msg: any) => ({
@@ -592,15 +685,19 @@ ipcMain.handle('osc-send-batch', async (event, deviceId: string, batch: any) => 
     }))
 
     // Send as OSC bundle (all messages arrive together)
-    // timeTag of 0 means send immediately
     const bundle = {
-      timeTag: { raw: [0, 1] }, // Immediate execution in OSC timetag format
+      timeTag: { raw: [0, 1] }, // Immediate execution
       packets: packets
     }
 
+    // Non-blocking send with callback
     client.send(bundle)
     
-    console.log(`✅ Sent OSC batch to device ${deviceId}: ${packets.length} tracks`)
+    // Decrement queue counter after a brief delay (messages sent)
+    setTimeout(() => {
+      queueInfo!.count = Math.max(0, queueInfo!.count - batch.messages.length)
+    }, 50)
+    
     return { 
       success: true, 
       message: `OSC batch sent to device ${deviceId}`,
@@ -608,6 +705,11 @@ ipcMain.handle('osc-send-batch', async (event, deviceId: string, batch: any) => 
     }
   } catch (error) {
     console.error('❌ IPC osc-send-batch error:', error)
+    // Decrement on error
+    const queueInfo = oscMessageQueues.get(deviceId)
+    if (queueInfo) {
+      queueInfo.count = Math.max(0, queueInfo.count - (batch.messages?.length || 0))
+    }
     return { success: false, error: (error as Error).message }
   }
 })

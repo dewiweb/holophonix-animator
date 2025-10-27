@@ -8,8 +8,9 @@ interface SaveAnimationParams {
   keyframes: Keyframe[]
   selectedTrackIds: string[]
   tracks: Track[]
-  multiTrackMode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter'
+  multiTrackMode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered'
   phaseOffsetSeconds: number
+  centerPoint?: { x: number; y: number; z: number }
   currentAnimation: Animation | null
   originalAnimationParams: AnimationParameters | null
   addAnimation: (animation: Animation) => void
@@ -25,6 +26,7 @@ export const handleSaveAnimation = ({
   tracks,
   multiTrackMode,
   phaseOffsetSeconds,
+  centerPoint = { x: 0, y: 0, z: 0 },
   currentAnimation,
   originalAnimationParams,
   addAnimation,
@@ -64,22 +66,26 @@ export const handleSaveAnimation = ({
     const updateFrequency = Number(parameters.updateFrequency) || 2
     const randomWaypoints = generateRandomWaypoints(center, bounds, animationForm.duration || 10, updateFrequency)
     parameters = { ...parameters, randomWaypoints }
-    console.log(`🎲 Generated ${randomWaypoints.length} random waypoints`)
+    console.log(` Generated ${randomWaypoints.length} random waypoints`)
   }
 
   const animation: Animation = {
-    id: currentAnimation?.id || `animation-${Date.now()}`,
-    name: animationForm.name,
+    id: currentAnimation?.id || `anim-${Date.now()}`,
+    name: animationForm.name || 'Unnamed Animation',
     type: animationForm.type || 'linear',
     duration: animationForm.duration || 10,
-    loop: animationForm.loop || false,
-    pingPong: animationForm.pingPong || false,
-    parameters,
+    loop: animationForm.loop ?? false,
+    pingPong: animationForm.pingPong ?? false,
+    parameters: {
+      ...animationForm.parameters,
+      // Store multi-track mode for OSC optimization
+      _multiTrackMode: multiTrackMode
+    },
     keyframes: keyframes.length > 0 ? keyframes : undefined,
     coordinateSystem: animationForm.coordinateSystem || { type: 'xyz' }
   }
 
-  console.log('💾 Saving animation:', animation)
+  console.log(' Saving animation:', animation)
 
   if (currentAnimation) {
     updateAnimation(animation.id, animation)
@@ -97,6 +103,15 @@ export const handleSaveAnimation = ({
     barycentricData = { barycenter, offsets }
     console.log(`🎯 Isobarycenter mode: barycenter at (${barycenter.x.toFixed(2)}, ${barycenter.y.toFixed(2)}, ${barycenter.z.toFixed(2)})`)
     console.log(`🎯 Calculated offsets for ${Object.keys(offsets).length} tracks`)
+  }
+
+  // For centered mode, calculate offsets from user-defined center point
+  let centeredData: { centerPoint: any; offsets: Record<string, any> } | undefined
+  if (multiTrackMode === 'centered' && selectedTracksToApply.length > 1 && centerPoint) {
+    const offsets = calculateOffsets(selectedTracksToApply, centerPoint)
+    centeredData = { centerPoint, offsets }
+    console.log(`⭕ Centered mode: center at (${centerPoint.x.toFixed(2)}, ${centerPoint.y.toFixed(2)}, ${centerPoint.z.toFixed(2)})`)
+    console.log(`⭕ Calculated offsets for ${Object.keys(offsets).length} tracks`)
   }
 
   // Apply animation to ALL selected tracks based on multi-track mode
@@ -152,7 +167,11 @@ export const handleSaveAnimation = ({
             trackAnimation = {
               ...trackAnimation,
               id: `${animation.id}-${track.id}`, // Unique ID per track
-              parameters: updatedParams
+              parameters: {
+                ...updatedParams,
+                // CRITICAL: Preserve _multiTrackMode so OSC optimizer knows this is position-relative
+                _multiTrackMode: multiTrackMode
+              }
             }
           }
           break
@@ -167,10 +186,29 @@ export const handleSaveAnimation = ({
                 ...trackAnimation.parameters,
                 // Store barycenter and offset for this specific track
                 _isobarycenter: barycentricData.barycenter,
-                _trackOffset: barycentricData.offsets[track.id]
+                _trackOffset: barycentricData.offsets[track.id],
+                _multiTrackMode: multiTrackMode  // Explicitly preserve mode
               }
             }
             console.log(`🎯 Track ${track.name}: formation mode with offset (${barycentricData.offsets[track.id].x.toFixed(2)}, ${barycentricData.offsets[track.id].y.toFixed(2)}, ${barycentricData.offsets[track.id].z.toFixed(2)})`)
+          }
+          break
+
+        case 'centered':
+          // All tracks animate around a user-defined center point with offsets
+          if (centeredData) {
+            trackAnimation = {
+              ...trackAnimation,
+              id: `${animation.id}-${track.id}`,
+              parameters: {
+                ...trackAnimation.parameters,
+                // Store center point and offset for this specific track
+                _centeredPoint: centeredData.centerPoint,
+                _trackOffset: centeredData.offsets[track.id],
+                _multiTrackMode: multiTrackMode  // Explicitly preserve mode
+              }
+            }
+            console.log(`⭕ Track ${track.name}: centered mode with offset (${centeredData.offsets[track.id].x.toFixed(2)}, ${centeredData.offsets[track.id].y.toFixed(2)}, ${centeredData.offsets[track.id].z.toFixed(2)})`)
           }
           break
 
@@ -197,6 +235,44 @@ export const handleSaveAnimation = ({
   console.log(`🎉 Animation "${animation.name}" applied to ${selectedTracksToApply.length} track(s)`)
 }
 
+/**
+ * Apply user-defined center point to animation parameters based on animation type
+ */
+const applyCenterPointToParameters = (
+  type: AnimationType,
+  params: any,
+  centerPoint: { x: number; y: number; z: number }
+) => {
+  switch (type) {
+    case 'circular':
+    case 'spiral':
+    case 'random':
+    case 'wave':
+    case 'lissajous':
+    case 'orbit':
+    case 'rose-curve':
+    case 'epicycloid':
+    case 'circular-scan':
+    case 'helix':
+      params.center = { ...centerPoint }
+      break
+      
+    case 'elliptical':
+      params.centerX = centerPoint.x
+      params.centerY = centerPoint.y
+      params.centerZ = centerPoint.z
+      break
+      
+    case 'zoom':
+      params.zoomCenter = { ...centerPoint }
+      break
+      
+    case 'attract-repel':
+      params.targetPosition = { ...centerPoint }
+      break
+  }
+}
+
 const applyPositionRelativeParameters = (
   animationType: AnimationType,
   updatedParams: any,
@@ -207,8 +283,6 @@ const applyPositionRelativeParameters = (
 ) => {
   switch (animationType) {
     case 'linear':
-    case 'bezier':
-    case 'catmull-rom':
     case 'zigzag':
     case 'doppler':
       if (!userModifiedParams.startPosition) {
@@ -286,23 +360,37 @@ const applyPositionRelativeParameters = (
       break
 
     case 'helix':
-      if (!userModifiedParams.axisStart) {
-        updatedParams.axisStart = { ...trackPos }
-        // Keep axisEnd offset from start
-        if (updatedParams.axisEnd) {
-          const originalStart = originalParams?.axisStart || { x: 0, y: 0, z: 0 }
-          const originalEnd = originalParams?.axisEnd || { x: 0, y: 10, z: 0 }
-          const offset = {
-            x: originalEnd.x - originalStart.x,
-            y: originalEnd.y - originalStart.y,
-            z: originalEnd.z - originalStart.z
-          }
-          updatedParams.axisEnd = {
-            x: trackPos.x + offset.x,
-            y: trackPos.y + offset.y,
-            z: trackPos.z + offset.z
-          }
+      // Helix uses axisStart and axisEnd - center the axis at track position
+      if (!userModifiedParams.axisStart && !userModifiedParams.axisEnd) {
+        const originalAxisStart = originalParams?.axisStart || { x: 0, y: -5, z: 0 }
+        const originalAxisEnd = originalParams?.axisEnd || { x: 0, y: 5, z: 0 }
+        
+        // Calculate original axis center
+        const originalCenter = {
+          x: (originalAxisStart.x + originalAxisEnd.x) / 2,
+          y: (originalAxisStart.y + originalAxisEnd.y) / 2,
+          z: (originalAxisStart.z + originalAxisEnd.z) / 2
         }
+        
+        // Calculate offset from original center to track position
+        const offset = {
+          x: trackPos.x - originalCenter.x,
+          y: trackPos.y - originalCenter.y,
+          z: trackPos.z - originalCenter.z
+        }
+        
+        // Apply offset to both axis points
+        updatedParams.axisStart = {
+          x: originalAxisStart.x + offset.x,
+          y: originalAxisStart.y + offset.y,
+          z: originalAxisStart.z + offset.z
+        }
+        updatedParams.axisEnd = {
+          x: originalAxisEnd.x + offset.x,
+          y: originalAxisEnd.y + offset.y,
+          z: originalAxisEnd.z + offset.z
+        }
+        console.log(`🌀 Track helix: axis centered at (${trackPos.x.toFixed(2)}, ${trackPos.y.toFixed(2)}, ${trackPos.z.toFixed(2)})`)
       }
       break
 
@@ -314,6 +402,36 @@ const applyPositionRelativeParameters = (
         const updateFrequency = Number(updatedParams.updateFrequency) || 2
         updatedParams.randomWaypoints = generateRandomWaypoints(trackPos, bounds, duration, updateFrequency)
         console.log(`🎲 Track: generated ${updatedParams.randomWaypoints.length} waypoints at (${trackPos.x.toFixed(1)}, ${trackPos.y.toFixed(1)}, ${trackPos.z.toFixed(1)})`)
+      }
+      break
+
+    case 'catmull-rom':
+    case 'bezier':
+      // Translate control points to be relative to track position
+      if (!userModifiedParams.controlPoints) {
+        const originalPoints = originalParams?.controlPoints || []
+        if (originalPoints.length > 0) {
+          // Calculate centroid of original control points
+          const centroid = {
+            x: originalPoints.reduce((sum: number, p: any) => sum + (p?.x || 0), 0) / originalPoints.length,
+            y: originalPoints.reduce((sum: number, p: any) => sum + (p?.y || 0), 0) / originalPoints.length,
+            z: originalPoints.reduce((sum: number, p: any) => sum + (p?.z || 0), 0) / originalPoints.length
+          }
+          
+          // Translate all points to center on track position
+          const offset = {
+            x: trackPos.x - centroid.x,
+            y: trackPos.y - centroid.y,
+            z: trackPos.z - centroid.z
+          }
+          
+          updatedParams.controlPoints = originalPoints.map((p: any) => ({
+            x: (p?.x || 0) + offset.x,
+            y: (p?.y || 0) + offset.y,
+            z: (p?.z || 0) + offset.z
+          }))
+          console.log(`🎢 Track ${animationType}: control points centered at (${trackPos.x.toFixed(2)}, ${trackPos.y.toFixed(2)}, ${trackPos.z.toFixed(2)})`)
+        }
       }
       break
   }

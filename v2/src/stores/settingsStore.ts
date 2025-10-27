@@ -27,6 +27,8 @@ interface OSCSettings {
   useBatching: boolean // Bundle multiple track updates into single OSC message
   maxBatchSize: number // Maximum number of messages per batch
   sendBufferSize: number // UDP send buffer size in bytes
+  // Note: OSC message optimization (incremental updates, pattern matching, coordinate system selection)
+  // is now automatic and handled internally by the optimizer - no user configuration needed
 }
 
 interface AnimationSettings {

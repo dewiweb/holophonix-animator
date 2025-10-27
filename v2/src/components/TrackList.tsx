@@ -119,27 +119,10 @@ export const TrackList: React.FC = () => {
     console.log('🔍 Starting track import from Holophonix...')
     await discoverTracks(64) // Query up to 64 tracks
 
-    // After discovery, import the discovered tracks
+    // Tracks are created immediately as responses arrive in oscStore
+    // Just show completion message
     if (discoveredTracks.length > 0) {
-      console.log(`✅ Found ${discoveredTracks.length} tracks, importing...`)
-      discoveredTracks.forEach(discoveredTrack => {
-        // Check if track already exists
-        const existingTrack = tracks.find(t => t.holophonixIndex === discoveredTrack.index)
-        if (!existingTrack) {
-          addTrack({
-            name: discoveredTrack.name,
-            type: 'sound-source',
-            holophonixIndex: discoveredTrack.index,
-            position: discoveredTrack.position || { x: 0, y: 0, z: 0 },
-            animationState: null,
-            isMuted: false,
-            isSolo: false,
-            isSelected: false,
-            volume: 1.0,
-          })
-        }
-      })
-      console.log(`✅ Imported ${discoveredTracks.length} tracks from Holophonix`)
+      console.log(`✅ Discovery completed: ${discoveredTracks.length} tracks found`)
     } else {
       console.log('ℹ️ No tracks found on Holophonix device')
     }

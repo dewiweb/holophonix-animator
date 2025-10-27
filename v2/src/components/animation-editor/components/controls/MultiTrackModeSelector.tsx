@@ -4,16 +4,19 @@ import { AnimationType } from '@/types'
 
 interface MultiTrackModeSelectorProps {
   animationType: AnimationType
-  multiTrackMode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter'
+  multiTrackMode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered'
   phaseOffsetSeconds: number
-  onModeChange: (mode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter') => void
+  centerPoint?: { x: number; y: number; z: number }
+  onModeChange: (mode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered') => void
   onPhaseOffsetChange: (seconds: number) => void
+  onCenterPointChange?: (point: { x: number; y: number; z: number }) => void
   getCompatibleModes: (type: AnimationType) => {
     identical: { compatible: boolean; reason: string }
     'phase-offset': { compatible: boolean; reason: string }
     'position-relative': { compatible: boolean; reason: string }
     'phase-offset-relative': { compatible: boolean; reason: string }
     'isobarycenter': { compatible: boolean; reason: string }
+    'centered': { compatible: boolean; reason: string }
   }
 }
 
@@ -21,8 +24,10 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
   animationType,
   multiTrackMode,
   phaseOffsetSeconds,
+  centerPoint = { x: 0, y: 0, z: 0 },
   onModeChange,
   onPhaseOffsetChange,
+  onCenterPointChange,
   getCompatibleModes
 }) => {
   const compatibleModes = getCompatibleModes(animationType)
@@ -33,7 +38,7 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
       
       <div className="space-y-3">
         {/* Mode Selection - Identical mode hidden but kept in code */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
 
           <button
             onClick={() => onModeChange('phase-offset')}
@@ -114,7 +119,71 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
               <div className="text-xs text-red-600 dark:text-red-400 mt-1">⚠️ {compatibleModes['isobarycenter'].reason}</div>
             )}
           </button>
+
+          <button
+            onClick={() => onModeChange('centered')}
+            disabled={!compatibleModes['centered'].compatible}
+            className={cn(
+              "p-3 border rounded-lg text-left transition-all",
+              multiTrackMode === 'centered'
+                ? `border-blue-500 ${themeColors.accent.background.medium} shadow-sm`
+                : compatibleModes['centered'].compatible
+                ? `border-gray-200 dark:border-gray-600 ${themeColors.background.primary} hover:bg-gray-50 dark:hover:bg-gray-700`
+                : `border-gray-200 dark:border-gray-600 ${themeColors.background.secondary} opacity-50 cursor-not-allowed`
+            )}
+            title={!compatibleModes['centered'].compatible ? compatibleModes['centered'].reason : ''}
+          >
+            <div className={`font-medium text-sm mb-1 ${themeColors.text.secondary}`}>⭕ Centered</div>
+            <div className={`text-xs ${themeColors.text.secondary}`}>All tracks animate around a center point</div>
+            {!compatibleModes['centered'].compatible && (
+              <div className="text-xs text-red-600 dark:text-red-400 mt-1">⚠️ {compatibleModes['centered'].reason}</div>
+            )}
+          </button>
         </div>
+
+        {/* Center Point Controls - Show for centered mode */}
+        {multiTrackMode === 'centered' && onCenterPointChange && (
+          <div className={`${themeColors.background.primary} border border-blue-200 dark:border-gray-600 rounded-lg p-3`}>
+            <label className={`block text-sm font-medium ${themeColors.text.secondary} mb-2`}>
+              Animation Center Point (x, y, z)
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className={`text-xs ${themeColors.text.muted}`}>X</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={centerPoint.x}
+                  onChange={(e) => onCenterPointChange({ ...centerPoint, x: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+              <div>
+                <label className={`text-xs ${themeColors.text.muted}`}>Y</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={centerPoint.y}
+                  onChange={(e) => onCenterPointChange({ ...centerPoint, y: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+              <div>
+                <label className={`text-xs ${themeColors.text.muted}`}>Z</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={centerPoint.z}
+                  onChange={(e) => onCenterPointChange({ ...centerPoint, z: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+            </div>
+            <p className={`text-xs ${themeColors.text.muted} mt-2`}>
+              💡 All tracks will animate around this center point. Use 0,0,0 for world origin or set custom coordinates.
+            </p>
+          </div>
+        )}
 
         {/* Phase Offset Controls - Show for phase-offset modes */}
         {(multiTrackMode === 'phase-offset' || multiTrackMode === 'phase-offset-relative') && (
@@ -154,6 +223,9 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
             )}
             {multiTrackMode === 'isobarycenter' && (
               <span>💡 <strong>Use case:</strong> Move speaker arrays or groups while maintaining their geometry - perfect for dome/immersive formations</span>
+            )}
+            {multiTrackMode === 'centered' && (
+              <span>💡 <strong>Use case:</strong> All tracks orbit or move around a specific point in space - great for circular scans, orbits, and radial effects</span>
             )}
           </div>
         </div>

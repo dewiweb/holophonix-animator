@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('osc-connect-device', deviceId, host, port),
   oscDisconnectDevice: (deviceId: string) =>
     ipcRenderer.invoke('osc-disconnect-device', deviceId),
+  oscClearDeviceBuffer: (deviceId: string) =>
+    ipcRenderer.invoke('osc-clear-device-buffer', deviceId),
   oscSendToDevice: (deviceId: string, address: string, args: any[]) =>
     ipcRenderer.invoke('osc-send-to-device', deviceId, address, args),
   oscSendBatch: (deviceId: string, batch: any) =>
@@ -70,15 +72,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Listen for incoming OSC messages
   onOSCMessageReceived: (callback: (message: any) => void) => {
-    console.log('🔧 PRELOAD: Setting up onOSCMessageReceived listener')
     const handler = (_event: IpcRendererEvent, message: any) => {
-      console.log('📨 PRELOAD: Received osc-message-received event:', message)
       callback(message)
     }
     ipcRenderer.on('osc-message-received', handler)
     // Return cleanup function that removes only this specific handler
     return () => {
-      console.log('🧹 PRELOAD: Cleaning up specific listener')
       ipcRenderer.removeListener('osc-message-received', handler)
     }
   },

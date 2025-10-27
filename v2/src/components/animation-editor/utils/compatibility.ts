@@ -11,6 +11,7 @@ export interface MultiTrackModeCompatibility {
   'position-relative': CompatibilityResult
   'phase-offset-relative': CompatibilityResult
   'isobarycenter': CompatibilityResult
+  'centered': CompatibilityResult
 }
 
 export const getCompatibleModes = (animationType: AnimationType): MultiTrackModeCompatibility => {
@@ -19,7 +20,8 @@ export const getCompatibleModes = (animationType: AnimationType): MultiTrackMode
     'phase-offset': { compatible: true, reason: '' },
     'position-relative': { compatible: true, reason: '' },
     'phase-offset-relative': { compatible: true, reason: '' },
-    'isobarycenter': { compatible: true, reason: '' }
+    'isobarycenter': { compatible: true, reason: '' },
+    'centered': { compatible: true, reason: '' }
   }
 
   switch (animationType) {
@@ -28,6 +30,10 @@ export const getCompatibleModes = (animationType: AnimationType): MultiTrackMode
       modes['position-relative'] = { 
         compatible: false, 
         reason: 'Linear needs explicit start/end points, not center position' 
+      }
+      modes['centered'] = { 
+        compatible: false, 
+        reason: 'Linear uses start/end points, not a center' 
       }
       break
 
@@ -41,6 +47,10 @@ export const getCompatibleModes = (animationType: AnimationType): MultiTrackMode
         reason: 'Custom keyframes define explicit positions' 
       }
       modes['phase-offset-relative'] = { 
+        compatible: false, 
+        reason: 'Custom keyframes define explicit positions' 
+      }
+      modes['centered'] = { 
         compatible: false, 
         reason: 'Custom keyframes define explicit positions' 
       }
@@ -61,13 +71,11 @@ export const getCompatibleModes = (animationType: AnimationType): MultiTrackMode
     case 'bezier':
     case 'catmull-rom':
     case 'zigzag':
-      modes['position-relative'] = { 
+      // These can now support position-relative by translating control points
+      // Centered mode still incompatible (no center parameter)
+      modes['centered'] = { 
         compatible: false, 
-        reason: 'Path is defined by explicit control points' 
-      }
-      modes['phase-offset-relative'] = { 
-        compatible: false, 
-        reason: 'Path is defined by explicit control points' 
+        reason: 'Path is defined by explicit control points, not a center' 
       }
       break
 

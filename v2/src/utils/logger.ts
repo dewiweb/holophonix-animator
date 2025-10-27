@@ -19,9 +19,9 @@ interface LogEntry {
 }
 
 class Logger {
-  private minLevel: LogLevel = LogLevel.INFO
+  private minLevel: LogLevel = LogLevel.ERROR // Default to ERROR to prevent console spam
   private logs: LogEntry[] = []
-  private maxLogs = 1000
+  private maxLogs = 100 // Reduced from 1000 to save memory
 
   setLevel(level: LogLevel) {
     this.minLevel = level
@@ -120,12 +120,14 @@ class Logger {
 
 export const logger = new Logger()
 
-// Set to DEBUG in development
+// Only enable debug logging if explicitly requested
+// Default is ERROR to prevent massive console spam during animation
 try {
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === 'development' && process.env.VITE_DEBUG_LOGS === 'true') {
     logger.setLevel(LogLevel.DEBUG)
+    console.log('🔧 Debug logging enabled')
   }
 } catch {
-  // Fallback to INFO level if environment check fails
-  logger.setLevel(LogLevel.INFO)
+  // Keep ERROR level as fallback
+  logger.setLevel(LogLevel.ERROR)
 }

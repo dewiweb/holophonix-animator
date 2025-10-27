@@ -324,11 +324,36 @@ export const useProjectStore = create<ProjectState>()(
     },
 
     updateTrack: (id: string, updates: Partial<Track>) => {
-      set(state => ({
-        tracks: state.tracks.map(track =>
-          track.id === id ? { ...track, ...updates } : track
-        ),
-      }))
+      set(state => {
+        // Find the track
+        const trackIndex = state.tracks.findIndex(t => t.id === id)
+        if (trackIndex === -1) return state
+        
+        const existingTrack = state.tracks[trackIndex]
+        
+        // If only position is being updated, check if it's significantly different
+        // This prevents massive memory churn from 60 FPS updates
+        if (updates.position && Object.keys(updates).length === 1) {
+          const oldPos = existingTrack.position
+          const newPos = updates.position
+          const threshold = 0.0001 // Ignore sub-millimeter changes
+          
+          const deltaX = Math.abs(newPos.x - oldPos.x)
+          const deltaY = Math.abs(newPos.y - oldPos.y)
+          const deltaZ = Math.abs(newPos.z - oldPos.z)
+          
+          // Skip update if position hasn't changed significantly
+          if (deltaX < threshold && deltaY < threshold && deltaZ < threshold) {
+            return state // No change needed
+          }
+        }
+        
+        // Create new tracks array only when necessary
+        const newTracks = [...state.tracks]
+        newTracks[trackIndex] = { ...existingTrack, ...updates }
+        
+        return { tracks: newTracks }
+      })
     },
 
     removeTrack: (id: string) => {

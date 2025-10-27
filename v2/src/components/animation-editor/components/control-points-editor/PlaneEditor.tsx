@@ -27,6 +27,10 @@ interface PlaneEditorProps {
   animationParameters?: AnimationParameters
   trackColors?: Record<string, { r: number; g: number; b: number; a: number }>
   trackNames?: Record<string, string>
+  // Multi-track path rendering
+  activeEditingTrackIds?: string[]
+  allActiveTrackParameters?: Record<string, AnimationParameters>
+  multiTrackMode?: string
 }
 
 // Plane-specific configuration
@@ -134,7 +138,10 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
   animationType,
   animationParameters,
   trackColors = {},
-  trackNames = {}
+  trackNames = {},
+  activeEditingTrackIds = [],
+  allActiveTrackParameters = {},
+  multiTrackMode
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [containerRect, setContainerRect] = useState({ width: 0, height: 0 })
@@ -187,23 +194,54 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
   }, [zoom, panOffset, config])
 
   // Generate animation path for current animation using shared utilities
-  const animationPath = useMemo(() => {
-    if (!animationType || !animationParameters) return []
+  // Generate animation paths for all active editing tracks
+  const animationPaths = useMemo(() => {
+    if (!animationType) return []
 
-    // Create a minimal Animation object for the path generation utility
+    // Multi-track mode: generate a path for each active track
+    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && 
+        activeEditingTrackIds.length > 0 && 
+        Object.keys(allActiveTrackParameters).length > 0) {
+      console.log('🎨 Generating paths for', activeEditingTrackIds.length, 'tracks')
+      
+      return activeEditingTrackIds.map(trackId => {
+        const trackParams = allActiveTrackParameters[trackId]
+        if (!trackParams) return { trackId, path: [] }
+        
+        const animation: Animation = {
+          id: `preview-${trackId}`,
+          name: 'Preview',
+          type: animationType,
+          duration: 10,
+          loop: true,
+          parameters: trackParams,
+          coordinateSystem: { type: 'xyz' }
+        }
+        
+        const pathPoints = generateAnimationPath(animation, 100)
+        return {
+          trackId,
+          path: pathPoints.map(point => point.position)
+        }
+      })
+    }
+
+    // Single track mode: generate one path
+    if (!animationParameters) return []
+    
     const animation: Animation = {
       id: 'plane-editor-preview',
       name: 'Plane Editor Preview',
       type: animationType,
-      duration: 10, // Preview duration
+      duration: 10,
       loop: true,
       parameters: animationParameters,
       coordinateSystem: { type: 'xyz' }
     }
 
     const pathPoints = generateAnimationPath(animation, 100)
-    return pathPoints.map(point => point.position)
-  }, [animationType, animationParameters])
+    return [{ trackId: null, path: pathPoints.map(point => point.position) }]
+  }, [animationType, animationParameters, activeEditingTrackIds, allActiveTrackParameters, multiTrackMode])
 
   // Get point size based on type
   const getPointSize = useCallback((type: string, animationType: AnimationType, isReference?: boolean): number => {
@@ -220,26 +258,34 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
   }, [zoom])
 
   // Get point color based on type and track colors
-  const getPointColor = (type: string, animationType: AnimationType, isReference?: boolean, pointId?: string): string => {
+  const getPointColor = (point: ControlPoint): string => {
+    const isReference = point.index === -1
     if (isReference) return '#8b5cf6'
 
-    // Check if this point represents a track and use track color if available
-    if (pointId && pointId.startsWith('track-')) {
-      const trackId = pointId.replace('track-', '')
-      const trackColor = trackColors[trackId]
+    // Check if this point has a trackId and use track color if available
+    if (point.trackId && trackColors && trackColors[point.trackId]) {
+      const trackColor = trackColors[point.trackId]
+      // Convert RGBA to CSS color string with slight transparency for visibility
+      return `rgba(${Math.round(trackColor.r * 255)}, ${Math.round(trackColor.g * 255)}, ${Math.round(trackColor.b * 255)}, 0.9)`
+    }
+
+    // Fallback: Check if this point ID represents a track position
+    if (point.id && point.id.startsWith('track-')) {
+      const trackId = point.id.replace('track-', '')
+      const trackColor = trackColors?.[trackId]
       if (trackColor) {
-        // Convert RGBA to CSS color string
         return `rgba(${Math.round(trackColor.r * 255)}, ${Math.round(trackColor.g * 255)}, ${Math.round(trackColor.b * 255)}, ${trackColor.a})`
       }
     }
 
-    switch (type) {
+    // Default colors based on point type
+    switch (point.type) {
       case 'start':
-        return animationType === 'bezier' ? '#10b981' : '#3b82f6'
+        return point.animationType === 'bezier' ? '#10b981' : '#3b82f6'
       case 'control':
-        return animationType === 'bezier' ? '#f59e0b' : '#8b5cf6'
+        return point.animationType === 'bezier' ? '#f59e0b' : '#8b5cf6'
       case 'end':
-        return animationType === 'bezier' ? '#ef4444' : '#3b82f6'
+        return point.animationType === 'bezier' ? '#ef4444' : '#3b82f6'
       case 'keyframe':
         return '#6366f1'
       default:
@@ -249,10 +295,18 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
 
   // Get point label based on animation type and point properties
   const getPointLabel = (point: ControlPoint): string => {
+    // Handle multi-track editing: show track name for points with trackId
+    if (point.trackId && trackNames && trackNames[point.trackId]) {
+      const trackName = trackNames[point.trackId]
+      // Add point type suffix
+      const suffix = point.type === 'start' ? ' Start' : point.type === 'end' ? ' End' : point.type === 'control' ? ' Control' : ''
+      return `${trackName}${suffix}`
+    }
+
     // Handle multitrack track positions with track names
     if (point.id.startsWith('track-')) {
       const trackId = point.id.replace('track-', '')
-      const trackName = trackNames[trackId]
+      const trackName = trackNames?.[trackId]
       if (trackName) {
         return `Track: ${trackName}`
       }
@@ -469,25 +523,36 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
     ctx.textAlign = 'center'
     ctx.fillText('(0,0,0)', centerX, centerY + originSize + 12)
 
-    // Draw animation path if available
-    if (animationPath.length > 0) {
-      ctx.strokeStyle = themeColors.accent.primary
-      ctx.lineWidth = 2
-      ctx.globalAlpha = 0.7
-      ctx.setLineDash([5, 5])
+    // Draw animation paths for all tracks
+    if (animationPaths.length > 0) {
+      animationPaths.forEach(({ trackId, path }) => {
+        if (path.length === 0) return
+        
+        // Get track color or use default
+        let pathColor: string = '#3b82f6' // Default blue
+        if (trackId && trackColors[trackId]) {
+          const tc = trackColors[trackId]
+          pathColor = `rgba(${Math.round(tc.r * 255)}, ${Math.round(tc.g * 255)}, ${Math.round(tc.b * 255)}, 0.8)`
+        }
+        
+        ctx.strokeStyle = pathColor
+        ctx.lineWidth = 2
+        ctx.globalAlpha = 0.7
+        ctx.setLineDash([5, 5])
 
-      ctx.beginPath()
-      const firstPoint = positionToScreen(animationPath[0], containerRect.width, containerRect.height)
-      ctx.moveTo(firstPoint.x, firstPoint.y)
+        ctx.beginPath()
+        const firstPoint = positionToScreen(path[0], containerRect.width, containerRect.height)
+        ctx.moveTo(firstPoint.x, firstPoint.y)
 
-      for (let i = 1; i < animationPath.length; i++) {
-        const point = positionToScreen(animationPath[i], containerRect.width, containerRect.height)
-        ctx.lineTo(point.x, point.y)
-      }
+        for (let i = 1; i < path.length; i++) {
+          const point = positionToScreen(path[i], containerRect.width, containerRect.height)
+          ctx.lineTo(point.x, point.y)
+        }
 
-      ctx.stroke()
-      ctx.setLineDash([])
-      ctx.globalAlpha = 1
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.globalAlpha = 1
+      })
     }
 
     // Draw track position if available
@@ -534,7 +599,7 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
     controlPoints.forEach((point) => {
       const screenPos = positionToScreen(point.position, containerRect.width, containerRect.height)
       const isReference = point.index === -1
-      const color = getPointColor(point.type, point.animationType, isReference, point.id)
+      const color = getPointColor(point)
       const size = getPointSize(point.type, point.animationType, isReference)
       const isDragged = draggedPoint === point.id
       const isSelected = selectedPointIds.includes(point.id)
@@ -586,7 +651,7 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
     })
 
     ctx.restore()
-  }, [controlPoints, containerRect, zoom, panOffset, showGrid, positionToScreen, draggedPoint, isSelecting, selectionStart, selectionEnd, selectedPointIds, animationPath, trackPosition, getPointLabel, getPointSize, config])
+  }, [controlPoints, containerRect, zoom, panOffset, showGrid, positionToScreen, draggedPoint, isSelecting, selectionStart, selectionEnd, selectedPointIds, animationPaths, trackPosition, getPointLabel, getPointSize, config, trackColors])
 
   // Re-render when dependencies change
   useEffect(() => {

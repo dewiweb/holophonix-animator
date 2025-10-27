@@ -16,13 +16,17 @@ export const CatmullRomParametersForm: React.FC<CatmullRomParametersFormProps> =
 
   const handlePointChange = (index: number, axis: 'x' | 'y' | 'z', value: string) => {
     const newPoints = [...controlPoints]
-    newPoints[index] = { ...newPoints[index], [axis]: parseFloat(value) || 0 }
+    // Ensure point exists with all properties
+    const currentPoint = newPoints[index] || { x: 0, y: 0, z: 0 }
+    newPoints[index] = { ...currentPoint, [axis]: parseFloat(value) || 0 }
     onParameterChange('controlPoints', newPoints)
   }
 
   const addPoint = () => {
     const lastPoint = controlPoints[controlPoints.length - 1]
-    onParameterChange('controlPoints', [...controlPoints, { ...lastPoint }])
+    // Ensure lastPoint has all required properties
+    const newPoint = lastPoint ? { ...lastPoint } : { x: 0, y: 0, z: 0 }
+    onParameterChange('controlPoints', [...controlPoints, newPoint])
   }
 
   const removePoint = (index: number) => {
@@ -44,7 +48,7 @@ export const CatmullRomParametersForm: React.FC<CatmullRomParametersFormProps> =
           </button>
         </div>
         <div className="space-y-2 max-h-64 overflow-y-auto">
-          {controlPoints.map((point: any, index: number) => (
+          {controlPoints.filter((p: any) => p && typeof p === 'object').map((point: any, index: number) => (
             <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
               <span className="text-xs font-medium text-gray-500 w-8">P{index + 1}</span>
               <input

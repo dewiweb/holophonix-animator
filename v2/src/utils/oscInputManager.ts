@@ -66,7 +66,6 @@ export class OSCInputManager {
    */
   setAnimatingTracks(trackIndices: number[]) {
     this.animatingTracks = new Set(trackIndices)
-    console.log(`🎬 Animating tracks updated: ${trackIndices.length} tracks`, trackIndices)
   }
   
   /**
@@ -74,7 +73,6 @@ export class OSCInputManager {
    */
   clearAnimatingTracks() {
     this.animatingTracks.clear()
-    console.log('🎬 All tracks stopped animating, listening to incoming positions')
   }
   
   /**
@@ -90,7 +88,7 @@ export class OSCInputManager {
     // Check if this is a position message for an animating track
     if (this.shouldIgnoreMessage(message)) {
       this.stats.totalIgnored++
-      console.log(`🚫 Ignoring incoming message for animating track: ${message.address}`)
+      // Don't log each ignored message - creates massive console spam
       return
     }
     
@@ -139,8 +137,6 @@ export class OSCInputManager {
     // Process all pending messages
     const messages = Array.from(this.pendingMessages.values())
     this.pendingMessages.clear()
-    
-    console.log(`📥 Processing ${messages.length} incoming OSC messages`)
     
     for (const message of messages) {
       try {

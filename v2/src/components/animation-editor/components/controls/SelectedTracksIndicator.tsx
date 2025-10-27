@@ -5,16 +5,16 @@ import { themeColors } from '@/theme'
 interface SelectedTracksIndicatorProps {
   selectedTracks: Track[]
   onReorder?: (reorderedTrackIds: string[]) => void
-  activeEditingTrackId?: string | null
-  onSetActiveTrack?: (trackId: string) => void
+  activeEditingTrackIds?: string[]
+  onSetActiveTracks?: (trackIds: string[]) => void
   multiTrackMode?: string
 }
 
 export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = ({ 
   selectedTracks,
   onReorder,
-  activeEditingTrackId,
-  onSetActiveTrack,
+  activeEditingTrackIds = [],
+  onSetActiveTracks,
   multiTrackMode
 }) => {
   if (selectedTracks.length === 0) return null
@@ -44,6 +44,26 @@ export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = (
     onReorder?.(newOrder.map(t => t.id))
   }
 
+  const handleTrackClick = (trackId: string, event: React.MouseEvent) => {
+    if (!onSetActiveTracks || (multiTrackMode !== 'position-relative' && multiTrackMode !== 'phase-offset-relative')) return
+    
+    if (event.ctrlKey || event.metaKey) {
+      // Ctrl+click: toggle track in/out of editing selection
+      if (activeEditingTrackIds.includes(trackId)) {
+        // Remove from selection (but keep at least one)
+        if (activeEditingTrackIds.length > 1) {
+          onSetActiveTracks(activeEditingTrackIds.filter(id => id !== trackId))
+        }
+      } else {
+        // Add to selection
+        onSetActiveTracks([...activeEditingTrackIds, trackId])
+      }
+    } else {
+      // Regular click: set as sole active track
+      onSetActiveTracks([trackId])
+    }
+  }
+
   return (
     <div className={`mb-4 ${themeColors.multiTrackMode.background} border ${themeColors.multiTrackMode.border} rounded-lg p-3`}>
       <div className="flex items-center justify-between">
@@ -59,12 +79,17 @@ export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = (
               (drag to reorder for phase-offset)
             </span>
           )}
+          {activeEditingTrackIds.length > 1 && (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && (
+            <span className={`text-xs text-green-600 dark:text-green-400 font-semibold`}>
+              ({activeEditingTrackIds.length} tracks for editing)
+            </span>
+          )}
         </div>
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         {selectedTracks.map((track, index) => {
-          const isActiveEditing = activeEditingTrackId === track.id
-          const isClickable = (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && onSetActiveTrack
+          const isActiveEditing = activeEditingTrackIds.includes(track.id)
+          const isClickable = (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && onSetActiveTracks
           
           return (
             <span 
@@ -80,7 +105,8 @@ export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = (
               onDragStart={(e) => handleDragStart(e, track.id)}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, track.id)}
-              onClick={() => isClickable && onSetActiveTrack(track.id)}
+              onClick={(e) => isClickable && handleTrackClick(track.id, e)}
+              title={isClickable ? 'Click to edit • Ctrl+Click to select multiple' : ''}
             >
             {onReorder && <span className={`${themeColors.accent.secondary} dark:${themeColors.accent.secondary.replace('blue-600', 'blue-500')}`}>⋮⋮</span>}
             

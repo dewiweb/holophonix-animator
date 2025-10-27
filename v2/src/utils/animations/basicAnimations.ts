@@ -43,14 +43,10 @@ export function calculateCircularPosition(params: any, time: number, duration: n
     posZ = center.z + radius * Math.sin(angle)
   }
   
-  const result = { x: posX, y: posY, z: posZ }
-  console.log('🟢 Circular calc:', { t, center, radius, angle, plane, result })
-  return result
+  return { x: posX, y: posY, z: posZ }
 }
 
 export function calculateEllipticalPosition(params: any, time: number, duration: number): Position {
-  console.log('🟡 Elliptical params raw:', params)
-  
   const radiusX = Number(params?.radiusX) || 3
   const radiusY = Number(params?.radiusY) || 2
   const radiusZ = Number(params?.radiusZ) || 1
@@ -59,8 +55,6 @@ export function calculateEllipticalPosition(params: any, time: number, duration:
   const centerX = Number(params?.centerX) || 0
   const centerY = Number(params?.centerY) || 0
   const centerZ = Number(params?.centerZ) || 0
-  
-  console.log('🟡 Elliptical parsed:', { centerX, centerY, centerZ, radiusX, radiusY, radiusZ, plane })
   
   const startAngleDeg = Number(params?.startAngle) || 0
   const endAngleDeg = params?.endAngle !== undefined ? Number(params.endAngle) : 360
@@ -85,9 +79,7 @@ export function calculateEllipticalPosition(params: any, time: number, duration:
     posZ = centerZ + radiusZ * Math.sin(angle)
   }
   
-  const result = { x: posX, y: posY, z: posZ }
-  console.log('🟡 Elliptical result:', { t, angle, result })
-  return result
+  return { x: posX, y: posY, z: posZ }
 }
 
 export function calculateSpiralPosition(params: any, time: number, duration: number): Position {

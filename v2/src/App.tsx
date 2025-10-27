@@ -13,7 +13,6 @@ import { logger } from '@/utils/logger'
 import { testAllAnimations } from '@/utils/testAnimations'
 
 function App() {
-  logger.debug('App component rendering', undefined, 'App')
   const { currentProject, createProject, saveProject, openProject } = useProjectStore()
 
   // Expose test function to window for browser console testing

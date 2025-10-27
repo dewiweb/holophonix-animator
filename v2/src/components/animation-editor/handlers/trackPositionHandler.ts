@@ -5,7 +5,7 @@ export const handleUseTrackPosition = (
   setAnimationForm: (form: any) => void,
   selectedTrackIds: string[],
   tracks: Track[],
-  multiTrackMode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter'
+  multiTrackMode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered'
 ) => {
   const selectedTracksToUse = selectedTrackIds.length > 0 
     ? selectedTrackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[]
@@ -17,8 +17,8 @@ export const handleUseTrackPosition = (
   const updatedParams = { ...animationForm.parameters }
   
   // Behavior depends on multi-track mode
-  if (selectedTracksToUse.length === 1 || multiTrackMode === 'identical' || multiTrackMode === 'phase-offset') {
-    // Single track OR Identical/Phase-Offset mode: use FIRST track's position
+  if (selectedTracksToUse.length === 1 || multiTrackMode === 'identical' || multiTrackMode === 'phase-offset' || multiTrackMode === 'centered') {
+    // Single track OR Identical/Phase-Offset/Centered mode: use FIRST track's position
     const trackPosition = selectedTracksToUse[0].initialPosition || selectedTracksToUse[0].position
     
     console.log(`📍 Using ${selectedTracksToUse[0].name} position as center:`, trackPosition)

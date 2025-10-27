@@ -21,7 +21,7 @@ interface AnimationPreview3DProps {
   selectedKeyframeId?: string | null
   onSelectKeyframe?: (keyframeId: string | null) => void
   isFormPanelOpen?: boolean
-  multiTrackMode?: 'identical' | 'position-relative' | 'phase-offset' | 'phase-offset-relative' | 'isobarycenter'
+  multiTrackMode?: 'identical' | 'position-relative' | 'phase-offset' | 'phase-offset-relative' | 'isobarycenter' | 'centered'
 }
 
 // Theme colors for Three.js scene - integrated with centralized theming system
@@ -574,10 +574,8 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
         })
       }
       
-      // Render the scene
-      if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current)
-      }
+      // DON'T render here - the main animation loop (lines 364-368) already renders
+      // Rendering twice per frame was causing 76ms frame times
       
       animationFrameId = requestAnimationFrame(animate)
     }
@@ -636,8 +634,6 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
       
       sceneRef.current.add(sphere)
       barycenterSphereRef.current = sphere
-      
-      console.log('🎯 Barycenter displayed at:', barycenter)
     }
   }, [multiTrackMode, tracks])
 
@@ -768,9 +764,10 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
   }, [previewAnimation])
 
   // Generate animation path for current animation using shared utilities - reactive to parameter changes
+  // Reduced resolution for better multi-track performance (100 points is sufficient for preview)
   const animationPath = React.useMemo(() => {
     if (!previewAnimation) return []
-    return generateAnimationPath(previewAnimation, 200)
+    return generateAnimationPath(previewAnimation, 100)
   }, [previewAnimation])
 
   // Draw animation paths for all tracks with direction indicators
@@ -829,7 +826,8 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
           trackAnimation = previewAnimation
         }
 
-        const pathPoints = generateAnimationPath(trackAnimation, 200)
+        // Reduced resolution for better multi-track performance
+        const pathPoints = generateAnimationPath(trackAnimation, 100)
         
         // Store first track's path for direction indicators
         if (trackIndex === 0) {

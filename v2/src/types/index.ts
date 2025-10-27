@@ -88,6 +88,7 @@ export interface ControlPoint {
   animationType: AnimationType;
   time?: number;
   index?: number;
+  trackId?: string; // For multi-track editing: which track this control point belongs to
 }
 
 export interface AnimationParameters {
@@ -279,7 +280,13 @@ export interface AnimationParameters {
 
   // Isobarycenter mode
   _isobarycenter?: Position;   // Internal: barycenter position for formation
-  _trackOffset?: Position;     // Internal: offset from barycenter for this track
+  _trackOffset?: Position;     // Internal: offset from barycenter/center for this track
+  
+  // Centered mode
+  _centeredPoint?: Position;   // Internal: user-defined center point for centered mode
+  
+  // Multi-track mode (for OSC optimization)
+  _multiTrackMode?: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered';  // Internal: mode used for OSC message optimization
 }
 
 export interface Animation {
@@ -293,9 +300,10 @@ export interface Animation {
   keyframes?: Keyframe[];
   coordinateSystem: CoordinateSystem;
   // Multi-track support
-  multiTrackMode?: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'leader-followers';
+  multiTrackMode?: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered' | 'leader-followers';
   multiTrackParameters?: Record<string, AnimationParameters>; // Per-track parameters for position-relative mode
   phaseOffsetSeconds?: number; // For phase-offset modes
+  centerPoint?: Position; // For centered mode: user-defined center point (default: 0,0,0)
 }
 
 export interface AnimationPreset {

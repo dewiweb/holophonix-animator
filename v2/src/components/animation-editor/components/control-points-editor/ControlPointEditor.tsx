@@ -19,12 +19,13 @@ interface ControlPointEditorProps {
   // Support for dynamic point management
   onRemoveControlPoints?: (pointIds: string[]) => void
   // Multitrack mode support
-  multiTrackMode?: 'identical' | 'position-relative' | 'phase-offset' | 'phase-offset-relative' | 'isobarycenter'
+  multiTrackMode?: 'identical' | 'position-relative' | 'phase-offset' | 'phase-offset-relative' | 'isobarycenter' | 'centered'
   selectedTracks?: string[]
   trackPositions?: Record<string, Position>
   trackColors?: Record<string, { r: number; g: number; b: number; a: number }>
   trackNames?: Record<string, string>
-  activeEditingTrackId?: string | null
+  activeEditingTrackIds?: string[]
+  allActiveTrackParameters?: Record<string, AnimationParameters>
 }
 
 export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
@@ -41,7 +42,8 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
   trackPositions = {},
   trackColors = {},
   trackNames = {},
-  activeEditingTrackId
+  activeEditingTrackIds = [],
+  allActiveTrackParameters = {}
 }) => {
   const [activePlane, setActivePlane] = useState<ViewPlane>('xy')
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -53,6 +55,106 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
   const [selectedPointIds, setSelectedPointIds] = useState<string[]>([])
 
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Helper function to add control points for a specific track
+  const addControlPointsForTrack = (points: ControlPoint[], animType: AnimationType, trackParams: any, prefix: string, trackId: string) => {
+    switch (animType) {
+      case 'linear':
+        if (trackParams.startPosition) {
+          points.push({ id: `${prefix}-linear-start`, position: trackParams.startPosition, type: 'start', animationType: animType, trackId })
+        }
+        if (trackParams.endPosition) {
+          points.push({ id: `${prefix}-linear-end`, position: trackParams.endPosition, type: 'end', animationType: animType, trackId })
+        }
+        break
+
+      case 'bezier':
+        if (trackParams.bezierStart) {
+          points.push({ id: `${prefix}-bezier-start`, position: trackParams.bezierStart, type: 'start', animationType: animType, trackId })
+        }
+        if (trackParams.bezierControl1) {
+          points.push({ id: `${prefix}-bezier-control1`, position: trackParams.bezierControl1, type: 'control', animationType: animType, index: 0, trackId })
+        }
+        if (trackParams.bezierControl2) {
+          points.push({ id: `${prefix}-bezier-control2`, position: trackParams.bezierControl2, type: 'control', animationType: animType, index: 1, trackId })
+        }
+        if (trackParams.bezierEnd) {
+          points.push({ id: `${prefix}-bezier-end`, position: trackParams.bezierEnd, type: 'end', animationType: animType, trackId })
+        }
+        break
+
+      case 'catmull-rom':
+        if (trackParams.controlPoints && Array.isArray(trackParams.controlPoints)) {
+          trackParams.controlPoints.forEach((point: Position, index: number) => {
+            points.push({
+              id: `${prefix}-catmull-point-${index}`,
+              position: point,
+              type: index === 0 ? 'start' : index === trackParams.controlPoints!.length - 1 ? 'end' : 'control',
+              animationType: animType,
+              index,
+              trackId
+            })
+          })
+        }
+        break
+
+      case 'circular':
+      case 'spiral':
+      case 'wave':
+      case 'lissajous':
+      case 'orbit':
+      case 'rose-curve':
+      case 'epicycloid':
+      case 'circular-scan':
+      case 'perlin-noise':
+        if (trackParams.center) {
+          points.push({ id: `${prefix}-center`, position: trackParams.center, type: 'control', animationType: animType, index: 0, trackId })
+        }
+        break
+
+      case 'zigzag':
+        if (trackParams.zigzagStart) {
+          points.push({ id: `${prefix}-zigzag-start`, position: trackParams.zigzagStart, type: 'start', animationType: animType, trackId })
+        }
+        if (trackParams.zigzagEnd) {
+          points.push({ id: `${prefix}-zigzag-end`, position: trackParams.zigzagEnd, type: 'end', animationType: animType, trackId })
+        }
+        break
+
+      case 'helix':
+        if (trackParams.axisStart) {
+          points.push({ id: `${prefix}-helix-axis-start`, position: trackParams.axisStart, type: 'start', animationType: animType, trackId })
+        }
+        if (trackParams.axisEnd) {
+          points.push({ id: `${prefix}-helix-axis-end`, position: trackParams.axisEnd, type: 'end', animationType: animType, trackId })
+        }
+        break
+
+      case 'pendulum':
+        if (trackParams.anchorPoint) {
+          points.push({ id: `${prefix}-pendulum-anchor`, position: trackParams.anchorPoint, type: 'control', animationType: animType, trackId })
+        }
+        break
+
+      case 'spring':
+        if (trackParams.restPosition) {
+          points.push({ id: `${prefix}-spring-rest`, position: trackParams.restPosition, type: 'control', animationType: animType, trackId })
+        }
+        break
+
+      case 'attract-repel':
+        if (trackParams.targetPosition) {
+          points.push({ id: `${prefix}-attract-target`, position: trackParams.targetPosition, type: 'control', animationType: animType, trackId })
+        }
+        break
+
+      case 'zoom':
+        if (trackParams.zoomCenter) {
+          points.push({ id: `${prefix}-zoom-center`, position: trackParams.zoomCenter, type: 'control', animationType: animType, trackId })
+        }
+        break
+    }
+  }
 
   // Convert animation parameters to control points based on animation type
   const getControlPoints = useCallback((): ControlPoint[] => {
@@ -140,6 +242,30 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
     console.log('🎯 ControlPointEditor - Animation type:', animationType)
     console.log('🎯 ControlPointEditor - Parameters keys:', Object.keys(parameters || {}))
     console.log('🎯 ControlPointEditor - Track position:', trackPosition)
+    console.log('🎯 ControlPointEditor - Active editing tracks:', activeEditingTrackIds)
+
+    // If tracks are actively being edited in position-relative mode, show control points for ALL of them
+    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackIds.length > 0 && Object.keys(allActiveTrackParameters).length > 0) {
+      console.log('🎯 Showing control points for', activeEditingTrackIds.length, 'active editing tracks')
+      console.log('🎯 allActiveTrackParameters keys:', Object.keys(allActiveTrackParameters))
+      
+      activeEditingTrackIds.forEach((trackId, trackIndex) => {
+        const trackParams = allActiveTrackParameters[trackId]
+        if (!trackParams) {
+          console.warn('⚠️ No parameters found for track:', trackId)
+          return
+        }
+        console.log('🎯 Adding control points for track:', trackId, 'with params:', Object.keys(trackParams))
+        const trackPrefix = `track${trackIndex}`
+        
+        // Add control points for this specific track based on animation type
+        addControlPointsForTrack(points, animationType, trackParams, trackPrefix, trackId)
+      })
+      
+      console.log('🎯 Total control points generated:', points.length)
+      // Return early - we've added all points for all active tracks
+      return points
+    }
 
     switch (animationType) {
       case 'bezier':
@@ -684,7 +810,7 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
     console.log('🎯 Selectable points (excluding index=-1):', points.filter(p => p.index !== -1 && p.id !== 'track-position'))
     console.log('🎯 Point details:', points.map(p => ({ id: p.id, type: p.type, index: p.index, pos: p.position })))
     return points
-  }, [animationType, parameters, keyframes, trackPosition])
+  }, [animationType, parameters, keyframes, trackPosition, multiTrackMode, activeEditingTrackIds, allActiveTrackParameters, selectedTracks, trackPositions])
 
   const controlPoints = getControlPoints()
 
@@ -720,6 +846,41 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
     const point = controlPoints.find(p => p.id === pointId)
     if (!point) return
 
+    // Handle multi-track control point updates (points with trackId)
+    if (point.trackId) {
+      console.log('🎯 Multi-track point update:', pointId, 'for track:', point.trackId, newPosition)
+      // The point has a trackId, which means it's part of multi-track editing
+      // Extract the parameter key from the point ID (remove the track prefix)
+      let paramKey = ''
+      
+      // Determine which parameter to update based on point ID pattern
+      if (pointId.includes('-linear-start')) paramKey = 'startPosition'
+      else if (pointId.includes('-linear-end')) paramKey = 'endPosition'
+      else if (pointId.includes('-bezier-start')) paramKey = 'bezierStart'
+      else if (pointId.includes('-bezier-control1')) paramKey = 'bezierControl1'
+      else if (pointId.includes('-bezier-control2')) paramKey = 'bezierControl2'
+      else if (pointId.includes('-bezier-end')) paramKey = 'bezierEnd'
+      else if (pointId.includes('-center')) paramKey = 'center'
+      else if (pointId.includes('-zigzag-start')) paramKey = 'zigzagStart'
+      else if (pointId.includes('-zigzag-end')) paramKey = 'zigzagEnd'
+      else if (pointId.includes('-helix-axis-start')) paramKey = 'axisStart'
+      else if (pointId.includes('-helix-axis-end')) paramKey = 'axisEnd'
+      else if (pointId.includes('-pendulum-anchor')) paramKey = 'anchorPoint'
+      else if (pointId.includes('-spring-rest')) paramKey = 'restPosition'
+      else if (pointId.includes('-attract-target')) paramKey = 'targetPosition'
+      else if (pointId.includes('-zoom-center')) paramKey = 'zoomCenter'
+      else if (pointId.includes('-catmull-point-')) {
+        // Special handling for catmull-rom control points
+        paramKey = 'controlPoints'
+      }
+      
+      if (paramKey) {
+        console.log('🎯 Updating parameter:', paramKey, 'for multi-track editing')
+        onParameterChange(paramKey, newPosition)
+      }
+      return
+    }
+
     // Handle isobarycenter mode - dragging barycenter updates animation center
     if (pointId === 'isobarycenter' && multiTrackMode === 'isobarycenter') {
       console.log('🎯 Updating isobarycenter position:', newPosition)
@@ -736,8 +897,8 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
     if (pointId.startsWith('track-') && (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative')) {
       const trackId = pointId.replace('track-', '')
       // For position-relative modes, dragging a track position means updating its center/start
-      // Only update if this is the active editing track
-      if (trackId === activeEditingTrackId) {
+      // Only update if this track is in the active editing tracks
+      if (activeEditingTrackIds.includes(trackId)) {
         console.log('🎯 Updating active track center:', trackId, newPosition)
         // Update the center/startPosition parameter for this track
         if (parameters.center !== undefined) {
@@ -1026,7 +1187,11 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
       animationType,
       animationParameters: parameters,
       trackColors,
-      trackNames
+      trackNames,
+      // Multi-track path rendering
+      activeEditingTrackIds,
+      allActiveTrackParameters,
+      multiTrackMode
     }
 
     return <PlaneEditor {...commonProps} />
@@ -1040,10 +1205,15 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
           <h3 className={`text-lg font-semibold ${themeColors.text.primary}`}>Control Points</h3>
           
           {/* Active Track Indicator for Position-Relative Mode */}
-          {multiTrackMode === 'position-relative' && activeEditingTrackId && selectedTracks.includes(activeEditingTrackId) && (
+          {(multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackIds.length > 0 && (
             <div className="flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 border border-green-400 dark:border-green-600 rounded-md text-xs font-medium">
               <span className="font-bold">✏️</span>
-              <span>Editing track {selectedTracks.indexOf(activeEditingTrackId) + 1} of {selectedTracks.length}</span>
+              <span>
+                {activeEditingTrackIds.length === 1 
+                  ? `Editing track ${selectedTracks.indexOf(activeEditingTrackIds[0]) + 1} of ${selectedTracks.length}`
+                  : `Editing ${activeEditingTrackIds.length} tracks simultaneously`
+                }
+              </span>
             </div>
           )}
 

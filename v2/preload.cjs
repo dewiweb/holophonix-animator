@@ -25,6 +25,7 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     // Device connections (outgoing)
     oscConnectDevice: (deviceId, host, port) => electron_1.ipcRenderer.invoke('osc-connect-device', deviceId, host, port),
     oscDisconnectDevice: (deviceId) => electron_1.ipcRenderer.invoke('osc-disconnect-device', deviceId),
+    oscClearDeviceBuffer: (deviceId) => electron_1.ipcRenderer.invoke('osc-clear-device-buffer', deviceId),
     oscSendToDevice: (deviceId, address, args) => electron_1.ipcRenderer.invoke('osc-send-to-device', deviceId, address, args),
     oscSendBatch: (deviceId, batch) => electron_1.ipcRenderer.invoke('osc-send-batch', deviceId, batch),
     // Animation timer (runs in main process, never throttled)
@@ -51,15 +52,12 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     oscSettingsResponse: (settings) => electron_1.ipcRenderer.invoke('osc-settings-response', settings),
     // Listen for incoming OSC messages
     onOSCMessageReceived: (callback) => {
-        console.log('🔧 PRELOAD: Setting up onOSCMessageReceived listener');
         const handler = (_event, message) => {
-            console.log('📨 PRELOAD: Received osc-message-received event:', message);
             callback(message);
         };
         electron_1.ipcRenderer.on('osc-message-received', handler);
         // Return cleanup function that removes only this specific handler
         return () => {
-            console.log('🧹 PRELOAD: Cleaning up specific listener');
             electron_1.ipcRenderer.removeListener('osc-message-received', handler);
         };
     },

@@ -28,8 +28,6 @@ class DevOSCServer {
   }
 
   sendMessage(host: string, port: number, address: string, args: any[]) {
-    console.log(`Dev OSC Send: ${address} to ${host}:${port}`, args)
-
     // Immediately log the outgoing message
     const outgoingMessage: OSCMessage = {
       address,
@@ -47,7 +45,6 @@ class DevOSCServer {
           timestamp: Date.now(),
         }
 
-        console.log('Dev OSC Receive (simulated):', responseMessage)
         this.messageCallback?.(responseMessage)
       }, Math.random() * 50 + 10) // 10-60ms delay
     }
@@ -73,14 +70,23 @@ interface OSCState {
 
   // Track discovery
   isDiscoveringTracks: boolean
-  discoveredTracks: Array<{ index: number; name: string; position?: { x: number; y: number; z: number } }>
+  discoveredTracks: Array<{ 
+    index: number; 
+    name: string; 
+    position?: { x: number; y: number; z: number };
+    color?: { r: number; g: number; b: number; a: number };
+  }>
+  failedTrackIndices: Set<number>
+  maxValidTrackIndex: number | null
 
   // Connection control
   connect: (host: string, port: number) => Promise<void>
   disconnect: (connectionId: string) => void
   removeConnection: (connectionId: string) => void
   sendMessage: (address: string, args: (number | string | boolean)[]) => void
+  sendMessageAsync: (address: string, args: (number | string | boolean)[]) => void
   sendBatch: (batch: OSCBatch) => Promise<void>
+  sendBatchAsync: (batch: OSCBatch) => void
 
   // Track discovery
   discoverTracks: (maxTracks?: number, includePositions?: boolean) => Promise<void>
@@ -116,6 +122,8 @@ export const useOSCStore = create<OSCState>((set, get) => {
     activeConnectionId: null,
   config: defaultConfig,
   outgoingMessages: [],
+    failedTrackIndices: new Set<number>(),
+    maxValidTrackIndex: null,
   incomingMessages: [],
   messageHistory: [],
   isDiscoveringTracks: false,
@@ -155,9 +163,8 @@ export const useOSCStore = create<OSCState>((set, get) => {
         }
         devOSCServer.start((message: OSCMessage) => {
           // Process incoming message in development mode
-          console.log('📨 Development mode - Processing incoming OSC message:', message)
           set(state => ({
-            incomingMessages: [...state.incomingMessages, message],
+            incomingMessages: [...state.incomingMessages.slice(-99), message], // Keep last 100 only
             messageHistory: [...state.messageHistory.slice(-99), message],
           }))
         })
@@ -256,46 +263,32 @@ export const useOSCStore = create<OSCState>((set, get) => {
       timestamp: Date.now(),
     }
 
-    // Add outgoing message to state immediately
+    // Add outgoing message to state immediately (keep last 100 only to prevent memory leak)
     set(state => ({
-      outgoingMessages: [...state.outgoingMessages, message],
-      messageHistory: [...state.messageHistory.slice(-99), message], // Keep last 100 messages
+      outgoingMessages: [...state.outgoingMessages.slice(-99), message],
+      messageHistory: [...state.messageHistory.slice(-99), message],
     }))
-
-    console.log('OSC Message sent:', message)
 
     try {
       // Check if we're in Electron (has electronAPI) or development mode
       const hasElectronAPI = typeof window !== 'undefined' && (window as any).electronAPI
       const isDevMode = typeof window !== 'undefined' && !hasElectronAPI
 
-      console.log('📤 SendMessage mode detection:', {
-        hasElectronAPI: !!hasElectronAPI,
-        isDevMode,
-        windowType: typeof window,
-        electronAPIType: typeof (window as any).electronAPI
-      })
-
       if (isDevMode && devOSCServer) {
         // Use development OSC server
-        console.log('🔧 Using development OSC server')
         const responseMessage = devOSCServer.sendMessage(activeConnection.host, activeConnection.port, address, args)
 
         // If the dev server returns a message, process it immediately
         if (responseMessage) {
-          console.log('📨 Processing development response message:', responseMessage)
           set(state => ({
-            incomingMessages: [...state.incomingMessages, responseMessage],
+            incomingMessages: [...state.incomingMessages.slice(-99), responseMessage],
             messageHistory: [...state.messageHistory.slice(-99), responseMessage],
           }))
         }
       } else {
         // Use electronAPI for real OSC communication
-        console.log('🔗 Using electronAPI for OSC send to device')
         if (typeof window !== 'undefined' && (window as any).electronAPI && (window as any).electronAPI.oscSendToDevice) {
-          console.log('📤 Calling electronAPI.oscSendToDevice:', activeConnection.id, address, args)
-          const result = await (window as any).electronAPI.oscSendToDevice(activeConnection.id, address, args)
-          console.log('📤 OSC send result:', result)
+          await (window as any).electronAPI.oscSendToDevice(activeConnection.id, address, args)
         } else {
           console.warn('❌ electronAPI.oscSendToDevice not available')
         }
@@ -323,6 +316,50 @@ export const useOSCStore = create<OSCState>((set, get) => {
     }
   },
 
+  sendMessageAsync: (address: string, args: (number | string | boolean)[]) => {
+    const activeConnection = get().getActiveConnection()
+    if (!activeConnection?.isConnected) {
+      // Silently skip if not connected (performance critical path)
+      return
+    }
+
+    const message: OSCMessage = {
+      address,
+      args,
+      timestamp: Date.now(),
+    }
+
+    // Add outgoing message to state (keep last 100 only)
+    set(state => ({
+      outgoingMessages: [...state.outgoingMessages.slice(-99), message],
+      messageHistory: [...state.messageHistory.slice(-99), message],
+    }))
+
+    // Fire-and-forget: don't await the response
+    const hasElectronAPI = typeof window !== 'undefined' && (window as any).electronAPI
+    const isDevMode = typeof window !== 'undefined' && !hasElectronAPI
+
+    if (isDevMode && devOSCServer) {
+      devOSCServer.sendMessage(activeConnection.host, activeConnection.port, address, args)
+    } else {
+      if (typeof window !== 'undefined' && (window as any).electronAPI && (window as any).electronAPI.oscSendToDevice) {
+        // Fire-and-forget: call but don't await
+        ;(window as any).electronAPI.oscSendToDevice(activeConnection.id, address, args).catch(() => {
+          // Silently handle errors in animation loop to prevent console spam
+        })
+      }
+    }
+
+    // Update connection stats optimistically
+    set(state => ({
+      connections: state.connections.map(conn =>
+        conn.id === activeConnection.id
+          ? { ...conn, messageCount: conn.messageCount + 1 }
+          : conn
+      ),
+    }))
+  },
+
   sendBatch: async (batch: OSCBatch) => {
     const activeConnection = get().getActiveConnection()
     if (!activeConnection?.isConnected) {
@@ -338,7 +375,7 @@ export const useOSCStore = create<OSCState>((set, get) => {
       const hasElectronAPI = typeof window !== 'undefined' && (window as any).electronAPI
       const isDevMode = typeof window !== 'undefined' && !hasElectronAPI
 
-      console.log(`📦 Sending OSC batch: ${batch.messages.length} tracks`)
+      // Don't log every batch - creates massive console spam at 20+ FPS
 
       if (isDevMode) {
         // Development mode: send each message individually through dev server
@@ -346,7 +383,7 @@ export const useOSCStore = create<OSCState>((set, get) => {
           batch.messages.forEach(msg => {
             const address = `/track/${msg.trackIndex}/${msg.coordSystem}`
             const args = [msg.position.x, msg.position.y, msg.position.z]
-            devOSCServer.sendMessage(activeConnection.host, activeConnection.port, address, args)
+            devOSCServer!.sendMessage(activeConnection.host, activeConnection.port, address, args)
           })
         }
       } else {
@@ -389,6 +426,43 @@ export const useOSCStore = create<OSCState>((set, get) => {
     }
   },
 
+  sendBatchAsync: (batch: OSCBatch) => {
+    const activeConnection = get().getActiveConnection()
+    if (!activeConnection?.isConnected || batch.messages.length === 0) {
+      return
+    }
+
+    // Fire-and-forget batch send for animation loop
+    const hasElectronAPI = typeof window !== 'undefined' && (window as any).electronAPI
+    const isDevMode = typeof window !== 'undefined' && !hasElectronAPI
+
+    if (isDevMode) {
+      if (devOSCServer) {
+        batch.messages.forEach(msg => {
+          const address = `/track/${msg.trackIndex}/${msg.coordSystem}`
+          const args = [msg.position.x, msg.position.y, msg.position.z]
+          devOSCServer!.sendMessage(activeConnection.host, activeConnection.port, address, args)
+        })
+      }
+    } else {
+      if (typeof window !== 'undefined' && (window as any).electronAPI && (window as any).electronAPI.oscSendBatch) {
+        // Fire-and-forget: don't await
+        ;(window as any).electronAPI.oscSendBatch(activeConnection.id, batch).catch(() => {
+          // Silently handle errors to prevent console spam
+        })
+      }
+    }
+
+    // Update connection stats optimistically
+    set(state => ({
+      connections: state.connections.map(conn =>
+        conn.id === activeConnection.id
+          ? { ...conn, messageCount: conn.messageCount + batch.messages.length }
+          : conn
+      ),
+    }))
+  },
+
   discoverTracks: async (maxTracks: number = 64, includePositions: boolean = true) => {
     const activeConnection = get().getActiveConnection()
     if (!activeConnection?.isConnected) {
@@ -396,16 +470,26 @@ export const useOSCStore = create<OSCState>((set, get) => {
       return
     }
 
-    console.log('🔍 Starting track discovery from Holophonix...')
-    console.log('📤 Querying track names and positions...')
-    set({ isDiscoveringTracks: true, discoveredTracks: [] })
+    set({ isDiscoveringTracks: true, discoveredTracks: [], failedTrackIndices: new Set(), maxValidTrackIndex: null })
 
     // Query each track index for name, position, and color
     for (let i = 1; i <= maxTracks; i++) {
+      // Check if we've already found this track doesn't exist
+      if (get().failedTrackIndices.has(i)) {
+        console.log(`⏭️ Skipping track ${i} (known to not exist)`)
+        break // Stop discovery completely
+      }
+
       try {
         // Query track name
         await get().sendMessage('/get', [`/track/${i}/name`])
         await new Promise(resolve => setTimeout(resolve, 50))
+
+        // Check if track failed after name query
+        if (get().failedTrackIndices.has(i)) {
+          console.log(`🛑 Track ${i} doesn't exist, stopping discovery`)
+          break
+        }
 
         // Query track position (xyz format)
         if (includePositions) {
@@ -450,8 +534,6 @@ export const useOSCStore = create<OSCState>((set, get) => {
     const coordinateSystem = settingsStore.application.defaultCoordinateSystem
 
     await get().sendMessage('/get', [`/track/${track.holophonixIndex}/${coordinateSystem}`])
-
-    console.log(`📤 Sent position query for track ${track.holophonixIndex}`)
   },
 
   processIncomingMessage: (message: OSCMessage) => {
@@ -462,11 +544,35 @@ export const useOSCStore = create<OSCState>((set, get) => {
   // Internal: Actually process the message (called by inputManager after throttling)
   _processMessageInternal: (message: OSCMessage) => {
     set(state => ({
-      incomingMessages: [...state.incomingMessages, message],
+      incomingMessages: [...state.incomingMessages.slice(-99), message], // Keep last 100 only
       messageHistory: [...state.messageHistory.slice(-99), message],
     }))
 
-    console.log('📨 Processing incoming OSC message:', message.address, message.args)
+    // Handle error messages from Holophonix
+    if (message.address === '/error') {
+      const errorMsg = Array.isArray(message.args) ? message.args[0] as string : message.args as string
+      
+      // Check for "Cannot get track" errors
+      if (errorMsg && errorMsg.includes('Cannot get track')) {
+        // Extract track number from error message like "from Core: Cannot get track,36,name"
+        const match = errorMsg.match(/Cannot get track,(\d+)/)
+        if (match) {
+          const trackIndex = parseInt(match[1])
+          console.log(`❌ Track ${trackIndex} does not exist on device`)
+          
+          // Mark this track as failed
+          set(state => {
+            const newFailedIndices = new Set(state.failedTrackIndices)
+            newFailedIndices.add(trackIndex)
+            return {
+              failedTrackIndices: newFailedIndices,
+              maxValidTrackIndex: trackIndex > 1 ? trackIndex - 1 : null
+            }
+          })
+        }
+      }
+      return // Don't process error messages further
+    }
 
     // Process track name messages - ALWAYS, not just during discovery
     if (message.address.match(/^\/track\/\d+\/name$/)) {
@@ -479,38 +585,66 @@ export const useOSCStore = create<OSCState>((set, get) => {
       if (trackName) {
         console.log(`🎵 Received track ${trackIndex} name: ${trackName}`)
         
-        // If in discovery mode, add to discovered tracks
-        if (get().isDiscoveringTracks) {
-          set(state => ({
-            discoveredTracks: [...state.discoveredTracks, { index: trackIndex, name: trackName }]
-          }))
-        }
-        
-        // Always update or create track in project store
+        // Always check if track already exists
         const projectStore = useProjectStore.getState()
         const existingTrack = projectStore.tracks.find(t => t.holophonixIndex === trackIndex)
         
-        if (existingTrack) {
-          // Update existing track name
-          console.log(`✏️ Updating track ${trackIndex} name to: ${trackName}`)
-          projectStore.updateTrack(existingTrack.id, { name: trackName })
-        } else {
-          // Create new track with position from discoveredTracks if available
-          const discoveredTrack = get().discoveredTracks.find(t => t.index === trackIndex)
-          const position = discoveredTrack?.position || { x: 0, y: 0, z: 0 }
+        if (get().isDiscoveringTracks) {
+          // Add to discovered tracks list
+          set(state => ({
+            discoveredTracks: [...state.discoveredTracks, { index: trackIndex, name: trackName }]
+          }))
+          console.log(`📋 Added track ${trackIndex} to discovery list`)
           
-          console.log(`➕ Creating new track ${trackIndex}: ${trackName}`, position)
-          projectStore.addTrack({
-            name: trackName,
-            type: 'sound-source',
-            holophonixIndex: trackIndex,
-            position,
-            animationState: null,
-            isMuted: false,
-            isSolo: false,
-            isSelected: false,
-            volume: 1.0,
-          })
+          // Create track immediately if it doesn't exist (so it appears right away)
+          if (!existingTrack) {
+            // Check if we already have color/position data for this track
+            const discoveredTrack = get().discoveredTracks.find(t => t.index === trackIndex)
+            const trackColor = discoveredTrack?.color || { r: 0.5, g: 0.5, b: 0.5, a: 1 } // Default gray
+            const trackPosition = discoveredTrack?.position || { x: 0, y: 0, z: 0 }
+            
+            console.log(`➕ Creating track ${trackIndex} immediately: ${trackName}`, { color: trackColor, position: trackPosition })
+            projectStore.addTrack({
+              name: trackName,
+              type: 'sound-source',
+              holophonixIndex: trackIndex,
+              position: trackPosition,
+              color: trackColor,
+              animationState: null,
+              isMuted: false,
+              isSolo: false,
+              isSelected: false,
+              volume: 1.0,
+            })
+          } else {
+            // Track exists, just update name
+            console.log(`✏️ Updating existing track ${trackIndex} name to: ${trackName}`)
+            projectStore.updateTrack(existingTrack.id, { name: trackName })
+          }
+        } else {
+          // NOT in discovery mode: update or create track immediately
+          const projectStore = useProjectStore.getState()
+          const existingTrack = projectStore.tracks.find(t => t.holophonixIndex === trackIndex)
+          
+          if (existingTrack) {
+            // Update existing track name
+            console.log(`✏️ Updating track ${trackIndex} name to: ${trackName}`)
+            projectStore.updateTrack(existingTrack.id, { name: trackName })
+          } else {
+            // Create new track immediately (not during discovery)
+            console.log(`➕ Creating new track ${trackIndex}: ${trackName}`)
+            projectStore.addTrack({
+              name: trackName,
+              type: 'sound-source',
+              holophonixIndex: trackIndex,
+              position: { x: 0, y: 0, z: 0 },
+              animationState: null,
+              isMuted: false,
+              isSolo: false,
+              isSelected: false,
+              volume: 1.0,
+            })
+          }
         }
       }
     }
@@ -578,27 +712,37 @@ export const useOSCStore = create<OSCState>((set, get) => {
         const [r, g, b, a] = args as number[]
         console.log(`🎨 Track ${trackIndex} color (RGBA):`, { r, g, b, a })
 
-        // Update discovered track color if in discovery mode
+        // If in discovery mode, store color in discoveredTracks
         if (get().isDiscoveringTracks) {
-          set(state => ({
-            discoveredTracks: state.discoveredTracks.map(track =>
-              track.index === trackIndex ? { ...track, color: { r, g, b, a } } : track
-            )
-          }))
+          set(state => {
+            const existingDiscovered = state.discoveredTracks.find(t => t.index === trackIndex)
+            if (existingDiscovered) {
+              // Update existing discovered track
+              return {
+                discoveredTracks: state.discoveredTracks.map(track =>
+                  track.index === trackIndex ? { ...track, color: { r, g, b, a } } : track
+                )
+              }
+            } else {
+              // Add new discovered track with just color (name might come later)
+              return {
+                discoveredTracks: [...state.discoveredTracks, { index: trackIndex, name: '', color: { r, g, b, a } }]
+              }
+            }
+          })
         }
 
-        // Always update track color in project store
+        // Always try to update track color in project store if track exists
         const projectStore = useProjectStore.getState()
         const existingTrack = projectStore.tracks.find(t => t.holophonixIndex === trackIndex)
 
         if (existingTrack) {
-          console.log(`✅ Updating track ${trackIndex} color`)
+          console.log(`🎨 Updating track ${trackIndex} color to RGBA(${r.toFixed(2)}, ${g.toFixed(2)}, ${b.toFixed(2)}, ${a.toFixed(2)})`)
           projectStore.updateTrack(existingTrack.id, {
             color: { r, g, b, a }
           })
-        } else if (get().isDiscoveringTracks) {
-          // During discovery, track might not exist yet - color will be used when track is created
-          console.log(`🎨 Stored color for track ${trackIndex} (will apply when track is created)`)
+        } else {
+          console.log(`🎨 Stored color for track ${trackIndex} (track will use it when created)`)
         }
       }
     }
