@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { Position, AnimationType, AnimationParameters, ControlPoint } from '@/types'
 import { PlaneEditor } from './PlaneEditor'
-import { Maximize2, Minimize2, Grid3X3, Move, RotateCcw } from 'lucide-react'
+import { Grid3X3, Move, RotateCcw } from 'lucide-react'
+
 import { themeColors } from '@/theme'
 import { calculateBarycenter } from '../../utils/barycentricCalculations'
 
@@ -46,7 +47,6 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
   allActiveTrackParameters = {}
 }) => {
   const [activePlane, setActivePlane] = useState<ViewPlane>('xy')
-  const [isFullscreen, setIsFullscreen] = useState(false)
   const [showGrid, setShowGrid] = useState(true)
   const [zoom, setZoom] = useState(1)
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
@@ -55,6 +55,17 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
   const [selectedPointIds, setSelectedPointIds] = useState<string[]>([])
 
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Helper: extract center from parameters that may use either 'center' or 'centerX/Y/Z'
+  const getParamCenter = useCallback((params: any): Position | undefined => {
+    if (!params) return undefined
+    if (params.center && typeof params.center === 'object') return params.center as Position
+    const hasXYZ = ['centerX', 'centerY', 'centerZ'].every(k => params[k] !== undefined)
+    if (hasXYZ) {
+      return { x: Number(params.centerX) || 0, y: Number(params.centerY) || 0, z: Number(params.centerZ) || 0 }
+    }
+    return undefined
+  }, [])
 
   // Helper function to add control points for a specific track
   const addControlPointsForTrack = (points: ControlPoint[], animType: AnimationType, trackParams: any, prefix: string, trackId: string) => {
@@ -153,6 +164,14 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
           points.push({ id: `${prefix}-zoom-center`, position: trackParams.zoomCenter, type: 'control', animationType: animType, trackId })
         }
         break
+
+      case 'elliptical': {
+        const c = getParamCenter(trackParams)
+        if (c) {
+          points.push({ id: `${prefix}-center`, position: c, type: 'control', animationType: animType, trackId })
+        }
+        break
+      }
     }
   }
 
@@ -224,19 +243,14 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
     }
 
     // Always include track position as a reference point for other modes
-    // BUT: Skip if track is at origin (0,0,0) to avoid confusion with origin marker
     if (trackPosition) {
-      const isAtOrigin = trackPosition.x === 0 && trackPosition.y === 0 && trackPosition.z === 0
-      
-      if (!isAtOrigin) {
-        points.push({
-          id: 'track-position',
-          position: trackPosition,
-          type: 'start', // Use 'start' type but with special styling
-          animationType: 'reference' as AnimationType,
-          index: -1 // Special index for reference point
-        })
-      }
+      points.push({
+        id: 'track-position',
+        position: trackPosition,
+        type: 'start', // Use 'start' type but with special styling
+        animationType: 'reference' as AnimationType,
+        index: -1 // Special index for reference point
+      })
     }
 
     console.log('🎯 ControlPointEditor - Animation type:', animationType)
@@ -336,21 +350,11 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
           zigzagEnd: parameters.zigzagEnd
         })
 
-        if (parameters.zigzagStart) {
-          points.push({
-            id: 'zigzag-start',
-            position: parameters.zigzagStart,
-            type: 'start',
-            animationType
-          })
-        }
-        if (parameters.zigzagEnd) {
-          points.push({
-            id: 'zigzag-end',
-            position: parameters.zigzagEnd,
-            type: 'end',
-            animationType
-          })
+        {
+          const fallbackStart = parameters.zigzagStart || trackPosition || { x: 0, y: 0, z: 0 }
+          const fallbackEnd = parameters.zigzagEnd || { x: fallbackStart.x + 1, y: fallbackStart.y, z: fallbackStart.z }
+          points.push({ id: 'zigzag-start', position: fallbackStart, type: 'start', animationType })
+          points.push({ id: 'zigzag-end', position: fallbackEnd, type: 'end', animationType })
         }
         break
 
@@ -360,21 +364,11 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
           pathEnd: parameters.pathEnd
         })
 
-        if (parameters.pathStart) {
-          points.push({
-            id: 'doppler-start',
-            position: parameters.pathStart,
-            type: 'start',
-            animationType
-          })
-        }
-        if (parameters.pathEnd) {
-          points.push({
-            id: 'doppler-end',
-            position: parameters.pathEnd,
-            type: 'end',
-            animationType
-          })
+        {
+          const fallbackStart = parameters.pathStart || trackPosition || { x: 0, y: 0, z: 0 }
+          const fallbackEnd = parameters.pathEnd || { x: fallbackStart.x + 1, y: fallbackStart.y, z: fallbackStart.z }
+          points.push({ id: 'doppler-start', position: fallbackStart, type: 'start', animationType })
+          points.push({ id: 'doppler-end', position: fallbackEnd, type: 'end', animationType })
         }
         break
 
@@ -443,6 +437,15 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
             animationType,
             index: 0
           })
+        } else {
+          const fallbackCenter = trackPosition || { x: 0, y: 0, z: 0 }
+          points.push({
+            id: 'orbit-center',
+            position: fallbackCenter,
+            type: 'control',
+            animationType,
+            index: 0
+          })
         }
         break
 
@@ -460,6 +463,15 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
             animationType,
             index: 0
           })
+        } else {
+          const fallbackCenter = trackPosition || { x: 0, y: 0, z: 0 }
+          points.push({
+            id: 'scan-center',
+            position: fallbackCenter,
+            type: 'control',
+            animationType,
+            index: 0
+          })
         }
         break
 
@@ -469,22 +481,21 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
           endPosition: parameters.endPosition
         })
 
-        if (parameters.startPosition) {
-          points.push({
-            id: 'linear-start',
-            position: parameters.startPosition,
-            type: 'start',
-            animationType
-          })
-        }
-        if (parameters.endPosition) {
-          points.push({
-            id: 'linear-end',
-            position: parameters.endPosition,
-            type: 'end',
-            animationType
-          })
-        }
+        const fallbackStart = parameters.startPosition || trackPosition || { x: 0, y: 0, z: 0 }
+        const fallbackEnd = parameters.endPosition || { x: fallbackStart.x + 1, y: fallbackStart.y, z: fallbackStart.z }
+
+        points.push({
+          id: 'linear-start',
+          position: fallbackStart,
+          type: 'start',
+          animationType
+        })
+        points.push({
+          id: 'linear-end',
+          position: fallbackEnd,
+          type: 'end',
+          animationType
+        })
         break
 
       case 'circular':
@@ -501,27 +512,30 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
             animationType,
             index: 0
           })
-        }
-        break
-
-      case 'elliptical':
-        console.log('🎯 Elliptical parameters:', {
-          center: parameters.center,
-          radiusX: parameters.radiusX,
-          radiusY: parameters.radiusY,
-          radiusZ: parameters.radiusZ
-        })
-
-        if (parameters.center) {
+        } else {
+          const fallbackCenter = trackPosition || { x: 0, y: 0, z: 0 }
           points.push({
-            id: 'elliptical-center',
-            position: parameters.center,
+            id: 'circular-center',
+            position: fallbackCenter,
             type: 'control',
             animationType,
             index: 0
           })
         }
         break
+
+      case 'elliptical': {
+        const c = getParamCenter(parameters)
+        const pos = c || trackPosition || { x: 0, y: 0, z: 0 }
+        points.push({
+          id: 'elliptical-center',
+          position: pos,
+          type: 'control',
+          animationType,
+          index: 0
+        })
+        break
+      }
 
       case 'spiral':
         console.log('🎯 Spiral parameters:', {
@@ -534,6 +548,15 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
           points.push({
             id: 'spiral-center',
             position: parameters.center,
+            type: 'control',
+            animationType,
+            index: 0
+          })
+        } else {
+          const fallbackCenter = trackPosition || { x: 0, y: 0, z: 0 }
+          points.push({
+            id: 'spiral-center',
+            position: fallbackCenter,
             type: 'control',
             animationType,
             index: 0
@@ -580,6 +603,15 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
           points.push({
             id: 'wave-center',
             position: parameters.center,
+            type: 'control',
+            animationType,
+            index: 0
+          })
+        } else {
+          const fallbackCenter = trackPosition || { x: 0, y: 0, z: 0 }
+          points.push({
+            id: 'wave-center',
+            position: fallbackCenter,
             type: 'control',
             animationType,
             index: 0
@@ -638,6 +670,15 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
           points.push({
             id: 'lissajous-center',
             position: parameters.center,
+            type: 'control',
+            animationType,
+            index: 0
+          })
+        } else {
+          const fallbackCenter = trackPosition || { x: 0, y: 0, z: 0 }
+          points.push({
+            id: 'lissajous-center',
+            position: fallbackCenter,
             type: 'control',
             animationType,
             index: 0
@@ -706,11 +747,20 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
           })
         }
 
-        // Show center point if defined
+        // Show center point if defined, otherwise provide fallback
         if (parameters.center) {
           points.push({
             id: 'helix-center',
             position: parameters.center,
+            type: 'control',
+            animationType,
+            index: 0
+          })
+        } else {
+          const fallbackCenter = trackPosition || { x: 0, y: 0, z: 0 }
+          points.push({
+            id: 'helix-center',
+            position: fallbackCenter,
             type: 'control',
             animationType,
             index: 0
@@ -761,6 +811,15 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
             animationType,
             index: 0
           })
+        } else {
+          const fallbackCenter = trackPosition || { x: 0, y: 0, z: 0 }
+          points.push({
+            id: 'rose-center',
+            position: fallbackCenter,
+            type: 'control',
+            animationType,
+            index: 0
+          })
         }
         break
 
@@ -771,11 +830,20 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
           center: parameters.center
         })
 
-        // Show center point of the fixed circle
+        // Show center point of the fixed circle (fallback to track position/origin)
         if (parameters.center) {
           points.push({
             id: 'epicycloid-center',
             position: parameters.center,
+            type: 'control',
+            animationType,
+            index: 0
+          })
+        } else {
+          const fallbackCenter = trackPosition || { x: 0, y: 0, z: 0 }
+          points.push({
+            id: 'epicycloid-center',
+            position: fallbackCenter,
             type: 'control',
             animationType,
             index: 0
@@ -793,6 +861,15 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
           points.push({
             id: 'formation-center',
             position: parameters.center,
+            type: 'control',
+            animationType,
+            index: 0
+          })
+        } else {
+          const fallbackCenter = trackPosition || { x: 0, y: 0, z: 0 }
+          points.push({
+            id: 'formation-center',
+            position: fallbackCenter,
             type: 'control',
             animationType,
             index: 0
@@ -822,20 +899,6 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
   const hasControlPoints = controlPoints.length > 0
 
   console.log('🎯 ControlPointEditor - About to render XYEditor with controlPoints:', controlPoints.length)
-
-  if (!hasControlPoints) {
-    return (
-      <div className={`flex flex-col items-center justify-center text-center ${themeColors.background.primary} border ${themeColors.border.primary} rounded-lg p-8 ${className}`}>
-        <Grid3X3 className={`w-12 h-12 ${themeColors.text.disabled} mb-4`} />
-        <p className={themeColors.text.muted}>
-          {animationType === 'custom'
-            ? 'Add keyframes to enable visual editing'
-            : 'This animation type does not use control points'
-          }
-        </p>
-      </div>
-    )
-  }
 
   // Filter out reference point for status display
   const animationPoints = controlPoints.filter(p => p.index !== -1)
@@ -876,7 +939,15 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
       
       if (paramKey) {
         console.log('🎯 Updating parameter:', paramKey, 'for multi-track editing')
-        onParameterChange(paramKey, newPosition)
+        // Special handling: Elliptical requires centerX/Y/Z for calculations
+        if (paramKey === 'center' && animationType === 'elliptical') {
+          onParameterChange('center', newPosition)
+          onParameterChange('centerX', newPosition.x)
+          onParameterChange('centerY', newPosition.y)
+          onParameterChange('centerZ', newPosition.z)
+        } else {
+          onParameterChange(paramKey, newPosition)
+        }
       }
       return
     }
@@ -986,8 +1057,12 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
         break
 
       case 'elliptical':
-        if (pointId === 'elliptical-center' && parameters.center) {
+        if (pointId === 'elliptical-center') {
+          // Always update both representations so preview and save paths are consistent
           onParameterChange('center', newPosition)
+          onParameterChange('centerX', newPosition.x)
+          onParameterChange('centerY', newPosition.y)
+          onParameterChange('centerZ', newPosition.z)
         }
         break
 
@@ -1197,7 +1272,17 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
     return <PlaneEditor {...commonProps} />
   }
 
-  return (
+  return !hasControlPoints ? (
+    <div className={`flex flex-col items-center justify-center text-center ${themeColors.background.primary} border ${themeColors.border.primary} rounded-lg p-8 ${className}`}>
+      <Grid3X3 className={`w-12 h-12 ${themeColors.text.disabled} mb-4`} />
+      <p className={themeColors.text.muted}>
+        {animationType === 'custom'
+          ? 'Add keyframes to enable visual editing'
+          : 'This animation type does not use control points'
+        }
+      </p>
+    </div>
+  ) : (
     <div className={`flex flex-col overflow-hidden ${themeColors.background.elevated} border ${themeColors.border.primary} rounded-lg ${className}`}>
       {/* Header Controls */}
       <div className={`flex items-center justify-between p-4 border-b ${themeColors.border.primary}`}>
@@ -1259,20 +1344,13 @@ export const ControlPointEditor: React.FC<ControlPointEditorProps> = ({
 
         <div className="flex items-center gap-2">
           <span className={`text-sm ${themeColors.text.secondary}`}>Zoom: {Math.round(zoom * 100)}%</span>
-          <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className={`${themeColors.background.tertiary} ${themeColors.text.secondary} ${themeColors.interactive.hover} rounded-md transition-colors`}
-            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
         </div>
       </div>
 
       {/* 2D Editor */}
       <div
         ref={containerRef}
-        className={`relative overflow-hidden ${themeColors.background.primary} ${isFullscreen ? 'h-[420px]' : 'flex-1 min-h-[200px]'}`}
+        className={`relative overflow-hidden ${themeColors.background.primary} ${className}`}
         style={{
           backgroundImage: showGrid ? `
             linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),

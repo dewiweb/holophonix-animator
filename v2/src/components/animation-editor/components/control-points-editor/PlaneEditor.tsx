@@ -217,8 +217,22 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
           parameters: trackParams,
           coordinateSystem: { type: 'xyz' }
         }
-        
-        const pathPoints = generateAnimationPath(animation, 100)
+
+        // For preview, override center live from control point if elliptical and we have a matching control point for this track
+        let previewAnim: Animation = animation
+        if (animationType === 'elliptical') {
+          const cp = controlPoints.find(p => p.trackId === trackId && p.animationType === 'elliptical' && p.type === 'control' && p.id.toLowerCase().includes('center'))
+          if (cp) {
+            const params: any = { ...(previewAnim.parameters as any), center: cp.position }
+            if ('centerX' in params) params.centerX = cp.position.x
+            if ('centerY' in params) params.centerY = cp.position.y
+            if ('centerZ' in params) params.centerZ = cp.position.z
+            previewAnim = { ...previewAnim, parameters: params }
+          }
+        }
+
+        // Reduced resolution for better multi-track performance
+        const pathPoints = generateAnimationPath(previewAnim, 100)
         return {
           trackId,
           path: pathPoints.map(point => point.position)
@@ -228,20 +242,34 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
 
     // Single track mode: generate one path
     if (!animationParameters) return []
-    
+
+    // Derive live parameters for preview; override center from control point if present (elliptical)
+    const derivedParams: any = { ...(animationParameters as any) }
+    if (animationType === 'elliptical') {
+      const centerPoint = controlPoints.find(p =>
+        p.animationType === 'elliptical' && p.type === 'control' && p.id.toLowerCase().includes('center')
+      )
+      if (centerPoint) {
+        derivedParams.center = centerPoint.position
+        if ('centerX' in derivedParams) derivedParams.centerX = centerPoint.position.x
+        if ('centerY' in derivedParams) derivedParams.centerY = centerPoint.position.y
+        if ('centerZ' in derivedParams) derivedParams.centerZ = centerPoint.position.z
+      }
+    }
+
     const animation: Animation = {
       id: 'plane-editor-preview',
       name: 'Plane Editor Preview',
       type: animationType,
       duration: 10,
       loop: true,
-      parameters: animationParameters,
+      parameters: derivedParams,
       coordinateSystem: { type: 'xyz' }
     }
 
     const pathPoints = generateAnimationPath(animation, 100)
     return [{ trackId: null, path: pathPoints.map(point => point.position) }]
-  }, [animationType, animationParameters, activeEditingTrackIds, allActiveTrackParameters, multiTrackMode])
+  }, [animationType, animationParameters, activeEditingTrackIds, allActiveTrackParameters, multiTrackMode, controlPoints])
 
   // Get point size based on type
   const getPointSize = useCallback((type: string, animationType: AnimationType, isReference?: boolean): number => {
@@ -941,10 +969,7 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
         )}
       </div>
 
-      {/* Zoom Indicator */}
-      <div className={`absolute top-4 right-4 ${themeColors.background.elevated}/90 backdrop-blur-sm rounded-lg shadow-lg px-3 py-2 text-sm font-medium ${themeColors.text.primary}`}>
-        Zoom: {Math.round(zoom * 100)}%
-      </div>
+      
     </div>
   )
 }

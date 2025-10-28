@@ -36,6 +36,7 @@ export const OSCManager: React.FC = () => {
     sendMessage,
     clearMessageHistory,
     processIncomingMessage,
+    deviceAvailable,
   } = useOSCStore()
 
   const { tracks } = useProjectStore()
@@ -246,11 +247,19 @@ export const OSCManager: React.FC = () => {
                         {getStatusText(connection)}
                       </span>
 
-                      {connection.id === activeConnectionId && (
-                        <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full">
-                          Active
+                      {connection.isConnected && (
+                        <span
+                          className={cn(
+                            "text-xs px-2 py-1 rounded-full",
+                            deviceAvailable ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"
+                          )}
+                          title={deviceAvailable ? "Device responded to availability probes" : "No response to availability probes"}
+                        >
+                          {deviceAvailable ? 'Available' : 'Unavailable'}
                         </span>
                       )}
+
+                      {/* Removed 'Active' badge to avoid confusion with 'Connected' */}
                     </div>
                   </div>
 

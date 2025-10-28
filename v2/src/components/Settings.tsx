@@ -361,6 +361,54 @@ export const Settings: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* OSC Control Paths Reference */}
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-900">
+        <h4 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-3">OSC Control Paths</h4>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Use these incoming OSC paths to control animation playback from external devices/apps.</p>
+        <ul className="space-y-2">
+          <li className="flex items-center justify-between">
+            <div>
+              <div className="font-mono text-sm text-gray-900 dark:text-gray-100">/anim/play</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Args: [animationId? (string), ...trackIds? (string)]</div>
+            </div>
+            <button
+              onClick={() => navigator.clipboard.writeText('/anim/play')}
+              className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700"
+            >Copy</button>
+          </li>
+          <li className="flex items-center justify-between">
+            <div>
+              <div className="font-mono text-sm text-gray-900 dark:text-gray-100">/anim/pause</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Args: none</div>
+            </div>
+            <button
+              onClick={() => navigator.clipboard.writeText('/anim/pause')}
+              className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700"
+            >Copy</button>
+          </li>
+          <li className="flex items-center justify-between">
+            <div>
+              <div className="font-mono text-sm text-gray-900 dark:text-gray-100">/anim/stop</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Args: none</div>
+            </div>
+            <button
+              onClick={() => navigator.clipboard.writeText('/anim/stop')}
+              className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700"
+            >Copy</button>
+          </li>
+          <li className="flex items-center justify-between">
+            <div>
+              <div className="font-mono text-sm text-gray-900 dark:text-gray-100">/anim/seek</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Args: [timeSeconds (number)]</div>
+            </div>
+            <button
+              onClick={() => navigator.clipboard.writeText('/anim/seek')}
+              className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700"
+            >Copy</button>
+          </li>
+        </ul>
+      </div>
     </div>
   )
 

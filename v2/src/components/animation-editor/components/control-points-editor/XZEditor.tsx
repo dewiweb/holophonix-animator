@@ -977,10 +977,7 @@ export const XZEditor: React.FC<XZEditorProps> = ({
         </div>
       </div>
 
-      {/* Zoom Indicator */}
-      <div className={`absolute top-4 right-4 ${themeColors.background.elevated}/90 backdrop-blur-sm rounded-lg shadow-lg px-3 py-2 text-sm font-medium ${themeColors.text.primary}`}>
-        Zoom: {Math.round(zoom * 100)}%
-      </div>
+      
     </div>
   )
 }

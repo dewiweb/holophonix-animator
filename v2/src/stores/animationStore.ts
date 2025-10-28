@@ -90,6 +90,8 @@ interface AnimationEngineState {
   pauseAnimation: () => void
   stopAnimation: () => void
   seekTo: (time: number) => void
+  goToStart: (durationMs?: number, trackIds?: string[]) => void
+  _startPlayback: (animationId: string, trackIds: string[]) => void
 
   // Real-time computation
   getTrackPosition: (trackId: string, time?: number) => Position | null
@@ -111,6 +113,9 @@ interface AnimationEngineState {
   // Interpolation control
   returnInterpolationId: number | null
   isReturningToInitial: boolean
+  goToStartInterpolationId: number | null
+  isGoingToStart: boolean
+  pendingPlay: { animationId: string; trackIds: string[] } | null
 }
 
 
@@ -128,56 +133,183 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
   isReversed: false,
   returnInterpolationId: null,
   isReturningToInitial: false,
+  goToStartInterpolationId: null,
+  isGoingToStart: false,
+  pendingPlay: null,
 
   playAnimation: (animationId: string, trackIds: string[] = []) => {
+    // Queue a go-to-start transition, then start playback automatically
+    set({ pendingPlay: { animationId, trackIds } })
+    // Use a short easing; configurable if needed later
+    get().goToStart(400, trackIds)
+  },
+
+  _startPlayback: (animationId: string, trackIds: string[] = []) => {
     set({ 
       isPlaying: true,
       globalTime: 0,
       currentAnimationId: animationId,
       currentTrackIds: trackIds,
-      loopCount: 0,  // Reset loop count on new playback
-      isReversed: false  // Start in forward direction
+      loopCount: 0,
+      isReversed: false
     })
-    
-    // Configure OSC optimizer with optimal settings (automatic - no user configuration needed)
+
+    // Configure OSC optimizer
     const projectStore = useProjectStore.getState()
-    
     oscMessageOptimizer.updateSettings({
-      enableIncrementalUpdates: true,        // Always use incremental updates (x++, azim++, etc.)
-      enablePatternMatching: true,           // Always use pattern matching (/track/*, etc.)
-      autoSelectCoordinateSystem: true,      // Automatically choose XYZ vs AED per animation type
-      incrementalThreshold: 0.5,             // Optimal threshold for using ++ increments
-      singleAxisThreshold: 0.9,              // 90% ratio for single-axis optimization
-      forceCoordinateSystem: undefined       // Let optimizer auto-select
+      enableIncrementalUpdates: true,
+      enablePatternMatching: true,
+      autoSelectCoordinateSystem: true,
+      incrementalThreshold: 0.5,
+      singleAxisThreshold: 0.9,
+      forceCoordinateSystem: undefined
     })
     oscMessageOptimizer.setTotalTracks(projectStore.tracks.length)
-    oscMessageOptimizer.reset() // Clear previous position tracking
-    
-    // Store initial positions and update tracks' animationState.isPlaying in project store
+    oscMessageOptimizer.reset()
+
+    // Store initial positions and mark tracks as playing
     if (trackIds.length > 0) {
       trackIds.forEach(trackId => {
         const track = projectStore.tracks.find(t => t.id === trackId)
         if (track) {
-          // Only set initialPosition if it doesn't exist (first play)
-          // Preserve it on resume to maintain original start position
           const shouldSetInitialPos = !track.initialPosition
-          
           projectStore.updateTrack(trackId, {
             ...(shouldSetInitialPos ? { initialPosition: { ...track.position } } : {}),
-            animationState: track.animationState ? {
-              ...track.animationState,
-              isPlaying: true
-              // Preserve currentTime for phase offset - don't reset it
-            } : null
+            animationState: track.animationState ? { ...track.animationState, isPlaying: true } : null
           })
         }
       })
     }
-    
-    // Start the engine if not running
+
     if (!get().isEngineRunning) {
       get().startEngine()
     }
+  },
+
+  goToStart: (durationMs?: number, trackIdsParam?: string[]) => {
+    const state = get()
+    // Pause playback during transition
+    if (state.isPlaying) {
+      get().pauseAnimation()
+    }
+
+    const projectStore = useProjectStore.getState()
+    const settingsStore = useSettingsStore.getState()
+    const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
+
+    // Ensure OSC batch manager has a send callback even when engine is not running (pre-roll easing)
+    const oscStoreForGoToStart = useOSCStore.getState()
+    oscBatchManager.setSendCallback(async (batch) => {
+      oscStoreForGoToStart.sendBatchAsync(batch)
+    })
+
+    const targetTrackIds = (trackIdsParam && trackIdsParam.length > 0) ? [...trackIdsParam] : [...state.currentTrackIds]
+    if (targetTrackIds.length === 0) {
+      // No targets to ease; if a play is pending, start immediately
+      const pending = get().pendingPlay
+      if (pending) {
+        get()._startPlayback(pending.animationId, pending.trackIds)
+      }
+      return
+    }
+
+    // Cancel any ongoing go-to-start interpolation
+    if (state.goToStartInterpolationId !== null) {
+      clearTimeout(state.goToStartInterpolationId)
+    }
+
+    const duration = typeof durationMs === 'number' && durationMs > 0 ? durationMs : 1000 // ms
+    const startTime = Date.now()
+
+    // Build targets at t=0 per track using same offset logic as engine
+    const trackTargets = targetTrackIds.map(trackId => {
+      const track = projectStore.tracks.find(t => t.id === trackId)
+      if (!track || !track.animationState?.animation) return null
+      const animation = track.animationState.animation
+      const enhancedAnimation = animation.type === 'custom' && track.initialPosition
+        ? {
+            ...animation,
+            parameters: {
+              ...animation.parameters,
+              initialPosition: track.initialPosition
+            }
+          }
+        : animation
+
+      let position = calculatePosition(enhancedAnimation, 0, 0)
+      const params = enhancedAnimation.parameters as any
+
+      if (params._isobarycenter && params._trackOffset) {
+        const offset = params._trackOffset
+        const rotatedOffset = rotateOffsetForAnimation(
+          offset,
+          enhancedAnimation.type,
+          params,
+          0,
+          enhancedAnimation.duration
+        )
+        position = { x: position.x + rotatedOffset.x, y: position.y + rotatedOffset.y, z: position.z + rotatedOffset.z }
+      }
+
+      if (params._centeredPoint && params._trackOffset) {
+        const offset = params._trackOffset
+        const rotatedOffset = rotateOffsetForAnimation(
+          offset,
+          enhancedAnimation.type,
+          params,
+          0,
+          enhancedAnimation.duration
+        )
+        position = { x: position.x + rotatedOffset.x, y: position.y + rotatedOffset.y, z: position.z + rotatedOffset.z }
+      }
+
+      return { track, target: position }
+    }).filter(Boolean) as Array<{ track: any; target: Position }>
+
+    if (trackTargets.length === 0) return
+
+    set({ isGoingToStart: true })
+
+    let lastFlush = 0
+    const step = () => {
+      const now = Date.now()
+      const t = Math.min((now - startTime) / duration, 1)
+      const eased = t * (2 - t)
+
+      trackTargets.forEach(({ track, target }) => {
+        const current = track.position
+        const newPos = {
+          x: current.x + (target.x - current.x) * eased,
+          y: current.y + (target.y - current.y) * eased,
+          z: current.z + (target.z - current.z) * eased
+        }
+        projectStore.updateTrack(track.id, { position: newPos })
+        if (track.holophonixIndex) {
+          oscBatchManager.addMessage(track.holophonixIndex, newPos, coordType)
+        }
+      })
+
+      const currentTime = Date.now()
+      if (currentTime - lastFlush >= 33) {
+        oscBatchManager.flushBatch()
+        lastFlush = currentTime
+      }
+
+      if (t < 1 && get().isGoingToStart) {
+        const id = setTimeout(step, 16) as unknown as number
+        set({ goToStartInterpolationId: id })
+      } else {
+        // Final flush and clear state
+        oscBatchManager.flushBatch()
+        const pending = get().pendingPlay
+        set({ goToStartInterpolationId: null, isGoingToStart: false, pendingPlay: null })
+        if (pending) {
+          get()._startPlayback(pending.animationId, pending.trackIds)
+        }
+      }
+    }
+
+    step()
   },
 
   pauseAnimation: () => {

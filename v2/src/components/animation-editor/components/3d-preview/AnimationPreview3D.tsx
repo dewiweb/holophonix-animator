@@ -129,6 +129,7 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
   const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2())
   const [themeVersion, setThemeVersion] = useState(0)
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number; z: number } | null>(null)
+  const [hoverTrackLabel, setHoverTrackLabel] = useState<{ name: string; x: number; y: number; color: string } | null>(null)
 
   // Track current theme value
   const currentTheme = useSettingsStore((state) => state.application.theme)
@@ -332,20 +333,48 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
       }
     }
 
-    // Mouse move handler for hover preview
+    // Mouse move handler: show track name tooltip and keyframe placement hover
     const handleMouseMove = (event: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect()
+      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+
+      // Raycast for track hover (independent of placement mode)
+      raycasterRef.current.setFromCamera(mouseRef.current, camera)
+      if (trackSpheresRef.current) {
+        const intersectsTracks = raycasterRef.current.intersectObjects(trackSpheresRef.current.children, false)
+        if (intersectsTracks.length > 0) {
+          const obj = intersectsTracks[0].object as THREE.Object3D & { userData?: any }
+          const trackId = obj.userData?.trackId as string | undefined
+          if (trackId) {
+            const track = useProjectStore.getState().tracks.find(t => t.id === trackId)
+            // Compute CSS color from track color or material color
+            let cssColor = '#ffffff'
+            if (track?.color) {
+              const r = Math.round(track.color.r * 255).toString(16).padStart(2, '0')
+              const g = Math.round(track.color.g * 255).toString(16).padStart(2, '0')
+              const b = Math.round(track.color.b * 255).toString(16).padStart(2, '0')
+              cssColor = `#${r}${g}${b}`
+            } else if ((intersectsTracks[0].object as any).material?.color) {
+              const c = (intersectsTracks[0].object as any).material.color as THREE.Color
+              cssColor = `#${c.getHexString()}`
+            }
+            setHoverTrackLabel({ name: track?.name || '', x: event.clientX - rect.left + 8, y: event.clientY - rect.top + 8, color: cssColor })
+            renderer.domElement.title = '' // use custom tooltip instead of native
+          }
+        } else {
+          renderer.domElement.title = ''
+          setHoverTrackLabel(null)
+        }
+      }
+
+      // Keyframe placement hover preview
       if (!isKeyframePlacementMode) {
         setHoverPosition(null)
         return
       }
 
-      const rect = renderer.domElement.getBoundingClientRect()
-      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-
-      raycasterRef.current.setFromCamera(mouseRef.current, camera)
       const intersects = raycasterRef.current.intersectObjects(scene.children, true)
-
       if (intersects.length > 0) {
         const point = intersects[0].point
         setHoverPosition({ x: point.x, y: -point.z, z: point.y })
@@ -701,6 +730,7 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
     }
   }, [isKeyframePlacementMode, hoverPosition])
 
+  // Build a preview animation object from live type/parameters for path generation
   const previewAnimation = React.useMemo(() => {
     if (animationType && animationParameters) {
       return {
@@ -906,8 +936,15 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
   }, [animation, tracks, animationPath])
 
   return (
-    <div className="relative w-full h-full">
-      <div ref={containerRef} className="w-full h-full rounded-lg overflow-hidden" />
+    <div ref={containerRef} className="w-full h-full relative">
+      {hoverTrackLabel && (
+        <div
+          className="absolute text-xs select-none"
+          style={{ left: hoverTrackLabel.x, top: hoverTrackLabel.y, color: hoverTrackLabel.color, pointerEvents: 'none', background: 'transparent', border: 'none' }}
+        >
+          {hoverTrackLabel.name}
+        </div>
+      )}
       
       {/* Legend */}
       <div className="absolute top-2 left-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-sm p-2 text-xs">

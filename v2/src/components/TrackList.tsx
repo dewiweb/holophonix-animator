@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { ColorPicker } from '@/components/ui/ColorPicker'
 import { useProjectStore } from '@/stores/projectStore'
 import { useAnimationStore } from '@/stores/animationStore'
 import { useOSCStore } from '@/stores/oscStore'
@@ -18,28 +19,79 @@ export const TrackList: React.FC = () => {
   } = useProjectStore()
 
   const { playAnimation, pauseAnimation, stopAnimation, isPlaying: isGlobalPlaying } = useAnimationStore()
-  const { discoverTracks, isDiscoveringTracks, discoveredTracks, getActiveConnection, refreshTrackPosition, sendMessage } = useOSCStore()
+  const { discoverTracks, isDiscoveringTracks, discoveredTracks, getActiveConnection, refreshTrackPosition, sendMessage, getNextAvailableTrackIndex, getTrackIndexByName, deviceAvailable } = useOSCStore()
 
   const [newTrackName, setNewTrackName] = useState('')
-  const [newTrackIndex, setNewTrackIndex] = useState('')
+  const [newTrackPos, setNewTrackPos] = useState({ x: 0, y: 0, z: 0 })
+  const [newTrackColor, setNewTrackColor] = useState({ r: 0.5, g: 0.5, b: 0.5, a: 1 })
 
-  const handleCreateTrack = () => {
-    if (newTrackName.trim()) {
-      const trackIndex = newTrackIndex.trim() ? parseInt(newTrackIndex.trim()) : undefined
-      addTrack({
-        name: newTrackName.trim(),
-        type: 'sound-source',
-        holophonixIndex: trackIndex,
-        position: { x: 0, y: 0, z: 0 },
-        animationState: null,
-        isMuted: false,
-        isSolo: false,
-        isSelected: false,
-        volume: 1.0,
-      })
-      setNewTrackName('')
-      setNewTrackIndex('')
+  const handleCreateTrack = async () => {
+    if (!newTrackName.trim()) return
+
+    // Determine next available index (device probe if connected, else local inference)
+    let trackIndex: number | undefined
+    const active = getActiveConnection()
+    if (active?.isConnected) {
+      trackIndex = await getNextAvailableTrackIndex(128)
+    } else {
+      const used = new Set(tracks.map(t => t.holophonixIndex).filter((v): v is number => typeof v === 'number'))
+      let i = 1
+      while (used.has(i)) i++
+      trackIndex = i
     }
+
+    // Create locally
+    addTrack({
+      name: newTrackName.trim(),
+      type: 'sound-source',
+      holophonixIndex: trackIndex,
+      position: { x: newTrackPos.x, y: newTrackPos.y, z: newTrackPos.z },
+      color: { ...newTrackColor },
+      animationState: null,
+      isMuted: false,
+      isSolo: false,
+      isSelected: false,
+      volume: 1.0,
+    })
+
+    // If connected, create track on Holophonix first, then sync properties
+    if (active?.isConnected) {
+      try {
+        // Create new device track: /session/add/track [type, chNbr, name, quantityNumber]
+        // Use proper enum 'Mono' (capitalized)
+        await sendMessage('/session/add/track', ['Mono', 1, newTrackName.trim(), 1])
+
+        // Resolve the actual assigned index by querying names
+        const assignedIndex = await getTrackIndexByName(newTrackName.trim(), 128, 10)
+        const finalIndex = assignedIndex ?? trackIndex
+
+        if (finalIndex) {
+          // Update local track to use the assigned index
+          const store = await import('@/stores/projectStore').then(m => m.useProjectStore.getState())
+          // Pick the most recent track with this name
+          const matching = [...store.tracks].filter(t => t.name === newTrackName.trim())
+          const target = matching.length > 0 ? matching[matching.length - 1] : null
+          if (target) {
+            store.updateTrack(target.id, { holophonixIndex: finalIndex })
+          }
+
+          // Sync name/color/position now that the store element exists on device
+          await new Promise(r => setTimeout(r, 120))
+          await sendMessage(`/track/${finalIndex}/name`, [newTrackName.trim()])
+          await sendMessage(`/track/${finalIndex}/color`, [newTrackColor.r, newTrackColor.g, newTrackColor.b, newTrackColor.a])
+          const settingsStore = await import('@/stores/settingsStore').then(m => m.useSettingsStore.getState())
+          const coord = settingsStore.application.defaultCoordinateSystem
+          await sendMessage(`/track/${finalIndex}/${coord}`, [newTrackPos.x, newTrackPos.y, newTrackPos.z])
+        }
+      } catch (e) {
+        console.warn('Failed to sync new track to Holophonix:', e)
+      }
+    }
+
+    // Reset form
+    setNewTrackName('')
+    setNewTrackPos({ x: 0, y: 0, z: 0 })
+    setNewTrackColor({ r: 0.5, g: 0.5, b: 0.5, a: 1 })
   }
 
   const handleTrackSelect = (trackId: string, event: React.MouseEvent) => {
@@ -308,6 +360,39 @@ export const TrackList: React.FC = () => {
         <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100">Tracks</h1>
         <div className="flex items-center gap-2">
           {/* Import from Holophonix button */}
+          {/* Availability pill */}
+          <div
+            className={
+              (() => {
+                const active = getActiveConnection()
+                if (!active?.isConnected) return 'hidden lg:flex items-center px-2 py-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs'
+                return deviceAvailable
+                  ? 'hidden lg:flex items-center px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs'
+                  : 'hidden lg:flex items-center px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs'
+              })()
+            }
+            title={(() => {
+              const active = getActiveConnection()
+              if (!active?.isConnected) return 'Not connected'
+              return deviceAvailable ? 'Connected and responding' : 'Connected but not responding to availability probes'
+            })()}
+          >
+            <span className="inline-block w-2 h-2 rounded-full mr-2"
+              style={{ backgroundColor: (() => {
+                const active = getActiveConnection()
+                if (!active?.isConnected) return '#9CA3AF'
+                return deviceAvailable ? '#16A34A' : '#F59E0B'
+              })() }}
+            />
+            <span>
+              {(() => {
+                const active = getActiveConnection()
+                if (!active?.isConnected) return 'Disconnected'
+                return deviceAvailable ? 'Available' : 'Unavailable'
+              })()}
+            </span>
+          </div>
+
           <button
             onClick={handleImportFromHolophonix}
             className="px-3 lg:px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-sm lg:text-base whitespace-nowrap"
@@ -343,16 +428,23 @@ export const TrackList: React.FC = () => {
             className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
             onKeyDown={(e) => e.key === 'Enter' && handleCreateTrack()}
           />
-          <input
-            type="number"
-            placeholder="Index"
-            value={newTrackIndex}
-            onChange={(e) => setNewTrackIndex(e.target.value)}
-            min="1"
-            className="w-full sm:w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
-            onKeyDown={(e) => e.key === 'Enter' && handleCreateTrack()}
-            title="Holophonix track index (1-based). Leave empty for auto-assignment."
-          />
+          <ColorPicker value={newTrackColor} onChange={setNewTrackColor} title="Track color" />
+          {/* Initial Position */}
+          <div className="flex gap-1">
+            {(['x','y','z'] as const).map(axis => (
+              <input
+                key={axis}
+                type="number"
+                step="0.1"
+                placeholder={axis.toUpperCase()}
+                value={String(newTrackPos[axis])}
+                onChange={(e) => setNewTrackPos({ ...newTrackPos, [axis]: parseFloat(e.target.value || '0') })}
+                className="w-20 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                title={`Initial ${axis.toUpperCase()} position`}
+              />
+            ))}
+          </div>
+          {/* Position inputs */}
           <button
             onClick={handleCreateTrack}
             className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm whitespace-nowrap"
