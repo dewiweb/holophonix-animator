@@ -294,14 +294,11 @@ export const useOSCStore = create<OSCState>((set, get) => {
     try {
       // Prepare strict probe
       const expected = new Set<string>([
-        '/station/lastReleaseNote',
         '/track/1/name'
       ])
       set({ _probePending: true, _probeExpected: expected, _probeDeadline: Date.now() + 900, _probeMatched: false })
 
-      // Fire multiple /get queries to increase chance of response
-      await get().sendMessage('/get', ['/station/lastReleaseNote'])
-      await new Promise(r => setTimeout(r, 80))
+      // Send /get query to check device availability
       await get().sendMessage('/get', ['/track/1/name'])
 
       // Wait until deadline or match
@@ -739,13 +736,26 @@ export const useOSCStore = create<OSCState>((set, get) => {
         const projectStore = await import('./projectStore').then(m => m.useProjectStore.getState())
         try {
           if (action === 'play') {
-            // Args: [animationId? (string), ...trackIds?]
+            // Args: [animationIdOrName? (string), ...trackIds?]
+            const identifier = typeof args[0] === 'string' ? args[0] : null
+            console.log('OSC /anim/play received with args:', args, 'identifier:', identifier)
             let animationId: string | null = null
-            let trackIds: string[] = []
-            if (typeof args[0] === 'string') {
-              animationId = args[0] as string
-              // Remaining args optionally track ids
-              trackIds = args.slice(1).filter(a => typeof a === 'string') as string[]
+            let trackIds: string[] = args.slice(1).filter(a => typeof a === 'string') as string[]
+            
+            if (identifier) {
+              // First try to find by ID
+              const animationById = projectStore.animations.find(a => a.id === identifier)
+              
+              // If not found by ID, try to find by name (case-insensitive)
+              const animation = animationById || 
+                projectStore.animations.find(
+                  a => a.name.toLowerCase() === identifier.toLowerCase()
+                )
+              
+              console.log('Found animation:', animation, 'by identifier:', identifier)
+              if (animation) {
+                animationId = animation.id
+              }
             }
 
             if (!animationId) {
@@ -754,14 +764,29 @@ export const useOSCStore = create<OSCState>((set, get) => {
               const track = projectStore.tracks.find(t => t.id === firstSelected)
               const anim = track?.animationState?.animation
               if (anim) animationId = anim.id
-              // Use all selected tracks
-              trackIds = [...projectStore.selectedTracks]
+              // Use all selected tracks if no specific tracks provided
+              if (trackIds.length === 0) {
+                trackIds = [...projectStore.selectedTracks]
+              }
             }
 
             if (animationId) {
+              // If no specific tracks provided, find all tracks that have this animation
+              if (trackIds.length === 0) {
+                trackIds = projectStore.tracks
+                  .filter(t => t.animationState?.animation?.id === animationId)
+                  .map(t => t.id)
+                
+                // If no tracks have this animation, use selected tracks as fallback
+                if (trackIds.length === 0 && projectStore.selectedTracks.length > 0) {
+                  trackIds = [...projectStore.selectedTracks]
+                }
+              }
+              
+              console.log('Calling animationStore.playAnimation with ID:', animationId, 'tracks:', trackIds)
               animationStore.playAnimation(animationId, trackIds)
             } else {
-              console.warn('OSC /anim/play: No animationId provided and no selected track with animation')
+              console.warn('OSC /anim/play: No valid animation ID or name provided and no selected track with animation')
             }
           } else if (action === 'pause') {
             // Optional: [animationId]
@@ -770,10 +795,42 @@ export const useOSCStore = create<OSCState>((set, get) => {
               animationStore.pauseAnimation()
             }
           } else if (action === 'stop') {
-            // Optional: [animationId]
-            const targetAnim = typeof args[0] === 'string' ? (args[0] as string) : null
-            if (!targetAnim || targetAnim === animationStore.currentAnimationId) {
+            // Args: [animationIdOrName? (string)]
+            const targetIdentifier = typeof args[0] === 'string' ? args[0] : null
+            let shouldStop = false
+            
+            console.log('OSC /anim/stop received with identifier:', targetIdentifier, 'currentAnimationId:', animationStore.currentAnimationId)
+            
+            if (targetIdentifier) {
+              // First try to find by ID
+              const animationById = projectStore.animations.find(a => a.id === targetIdentifier)
+              
+              // If not found by ID, try to find by name (case-insensitive)
+              const animation = animationById || 
+                projectStore.animations.find(
+                  a => a.name.toLowerCase() === targetIdentifier.toLowerCase()
+                )
+              
+              console.log('OSC /anim/stop found animation:', animation, 'by identifier:', targetIdentifier)
+              
+              // Stop if this animation is currently playing
+              if (animation && animationStore.currentAnimationId === animation.id) {
+                shouldStop = true
+                console.log('OSC /anim/stop: Animation is currently playing, will stop')
+              } else {
+                console.log('OSC /anim/stop: Animation found but not currently playing')
+              }
+            } else {
+              // No specific animation: stop any currently playing animation
+              shouldStop = true
+              console.log('OSC /anim/stop: No specific animation, will stop any playing animation')
+            }
+            
+            if (shouldStop) {
+              console.log('Calling animationStore.stopAnimation')
               animationStore.stopAnimation()
+            } else {
+              console.log('OSC /anim/stop: Will not stop animation')
             }
           } else if (action === 'seek') {
             // Args: [timeSeconds, animationId?]

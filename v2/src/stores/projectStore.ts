@@ -45,7 +45,7 @@ interface ProjectState {
   updateGroup: (id: string, updates: Partial<Group>) => void
   removeGroup: (id: string) => void
 
-  addAnimation: (animation: Omit<Animation, 'id'>) => void
+  addAnimation: (animationData: Omit<Animation, 'id'> | Animation) => void
   updateAnimation: (id: string, updates: Partial<Animation>) => void
   removeAnimation: (id: string) => void
 
@@ -391,23 +391,34 @@ export const useProjectStore = create<ProjectState>()(
     },
 
     // Animation management
-    addAnimation: (animationData: Omit<Animation, 'id'>) => {
-      const newAnimation: Animation = {
-        ...animationData,
-        id: generateId(),
-      }
+    addAnimation: (animationData: Omit<Animation, 'id'> | Animation) => {
+      // If the animation already has an ID, use it; otherwise generate one
+      const newAnimation: Animation = 'id' in animationData 
+        ? { ...animationData } as Animation
+        : { ...animationData, id: generateId() }
 
-      set(state => ({
-        animations: [...state.animations, newAnimation],
-      }))
+      console.log('Store addAnimation - Received:', animationData)
+      console.log('Store addAnimation - Adding with ID:', newAnimation.id)
+
+      set(state => {
+        const newState = {
+          animations: [...state.animations, newAnimation],
+        }
+        console.log('Store addAnimation - New state has', newState.animations.length, 'animations')
+        return newState
+      })
     },
 
     updateAnimation: (id: string, updates: Partial<Animation>) => {
-      set(state => ({
-        animations: state.animations.map(animation =>
-          animation.id === id ? { ...animation, ...updates } : animation
-        ),
-      }))
+      set(state => {
+        const newAnimations = [...state.animations]
+        const animationIndex = newAnimations.findIndex(animation => animation.id === id)
+        if (animationIndex === -1) return state
+        
+        newAnimations[animationIndex] = { ...newAnimations[animationIndex], ...updates }
+        
+        return { animations: newAnimations }
+      })
     },
 
     removeAnimation: (id: string) => {

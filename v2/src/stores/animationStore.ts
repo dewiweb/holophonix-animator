@@ -138,6 +138,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
   pendingPlay: null,
 
   playAnimation: (animationId: string, trackIds: string[] = []) => {
+    console.log('playAnimation called with ID:', animationId, 'tracks:', trackIds)
     // Queue a go-to-start transition, then start playback automatically
     set({ pendingPlay: { animationId, trackIds } })
     // Use a short easing; configurable if needed later
@@ -378,16 +379,16 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       currentTrackIds: [], // Clear tracks to prevent any further processing
     })
     
-    // CRITICAL: Brief delay to ensure all async operations complete/abort
+    // CRITICAL: Reduced delay to ensure all async operations complete/abort
     // This prevents stale animation frames from interfering with return-to-initial
-    const cleanupDelay = 50 // ms - enough for async sends to abort
+    const cleanupDelay = 10 // ms - Reduced from 50ms for faster OSC response
     
     // Return all tracks to initial positions with smooth interpolation
     if (trackIdsToReturn.length > 0) {
       const projectStore = useProjectStore.getState()
       const oscStore = useOSCStore.getState()
       const settingsStore = useSettingsStore.getState()
-      const returnDuration = 1000 // ms
+      const returnDuration = 1000 // ms - Keep 1 second return
       const startTime = Date.now()
       
       // Store initial state for all tracks

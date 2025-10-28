@@ -3,7 +3,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { useAnimationStore } from '@/stores/animationStore'
 import { usePresetStore } from '@/stores/presetStore'
 import { cn } from '@/utils'
-import { Track, Position } from '@/types'
+import { Track, Position, Animation, AnimationState } from '@/types'
 import { Save, Target, PanelRightOpen, PanelRightClose } from 'lucide-react'
 
 // Import modular components
@@ -33,7 +33,11 @@ import { handleParameterChange } from './handlers/parameterHandlers'
 import { handleUseTrackPosition } from './handlers/trackPositionHandler'
 import { handleSaveAnimation } from './handlers/saveAnimationHandler'
 
-export const AnimationEditor: React.FC = () => {
+interface AnimationEditorProps {
+  onAnimationSelect?: (animationId: string) => void;
+}
+
+export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSelect }) => {
   const { currentProject, tracks, selectedTracks, selectTracks, updateTrack, animations, addAnimation, updateAnimation } = useProjectStore()
   const { isPlaying, globalTime, playAnimation, pauseAnimation, stopAnimation } = useAnimationStore()
   const { addPreset } = usePresetStore()
@@ -56,7 +60,9 @@ export const AnimationEditor: React.FC = () => {
     [selectedTracks, tracks]
   )
   const selectedTrack = tracks.find(t => selectedTrackIds.includes(t.id))
-  const currentAnimation = selectedTrack?.animationState?.animation || null
+  // Get the animation from the project store instead of the track's state to avoid corruption
+  const trackAnimationId = selectedTrack?.animationState?.animation?.id
+  const currentAnimation = trackAnimationId ? animations.find(a => a.id === trackAnimationId) ?? null : null
   const isAnimationPlaying = selectedTrack?.animationState?.isPlaying || false
 
   const selectedTrackObjects = useMemo(() => (
@@ -363,21 +369,118 @@ export const AnimationEditor: React.FC = () => {
   }
 
   const onSaveAnimation = () => {
-    handleSaveAnimation({
-      animationForm,
-      keyframes,
-      selectedTrackIds,
-      tracks,
+    if (!animationForm.name) {
+      console.warn('Cannot save animation: Name is required')
+      return
+    }
+
+    // Get the project store state directly to ensure we have the latest data
+    const projectStore = useProjectStore.getState()
+    
+    // Create a new animation ID if this is a new animation
+    const isNewAnimation = !currentAnimation
+    const animationId = isNewAnimation ? `anim-${Date.now()}` : currentAnimation.id
+    
+    // Create the base animation object with required properties
+    const baseAnimation = {
+      name: animationForm.name,
+      type: animationForm.type || 'linear',
+      duration: animationForm.duration || 10,
+      loop: animationForm.loop ?? false,
+      pingPong: animationForm.pingPong ?? false,
+      parameters: {
+        ...animationForm.parameters,
+        _multiTrackMode: multiTrackMode
+      },
+      keyframes: keyframes.length > 0 ? keyframes : undefined,
+      coordinateSystem: { type: 'xyz' } as const,
       multiTrackMode,
       phaseOffsetSeconds,
-      centerPoint,
-      currentAnimation,
-      originalAnimationParams,
-      addAnimation,
-      updateAnimation,
-      updateTrack,
-      multiTrackParameters
-    })
+      centerPoint
+    }
+
+    // Save the animation to the store
+    if (currentAnimation) {
+      // Update existing animation - use the base animation without ID
+      projectStore.updateAnimation(animationId, baseAnimation)
+      console.log('Updated animation:', animationId)
+    } else {
+      // For new animation, create the full animation object with ID
+      const newAnimation = {
+        ...baseAnimation,
+        id: animationId
+      } as Animation
+      projectStore.addAnimation(newAnimation)
+      
+      // Check the store immediately after adding
+      const freshProjectStore = useProjectStore.getState() // Get fresh reference
+      const animationsAfterAdd = freshProjectStore.animations
+      
+      // Update the current animation in the parent component if callback exists and this is a new animation
+      if (onAnimationSelect && isNewAnimation) {
+        onAnimationSelect(animationId);
+      }
+    }
+
+    // Get the updated animation from the store directly
+    // Use a small delay to ensure the store has been updated
+    setTimeout(() => {
+      const freshStore = useProjectStore.getState() // Get fresh reference
+      const updatedAnimations = freshStore.animations
+      const updatedAnimation = updatedAnimations.find(a => a.id === animationId)
+      
+      if (!updatedAnimation) {
+        console.error('Failed to save animation: Animation not found in store after save')
+        console.log('Available IDs:', updatedAnimations.map(a => a.id))
+        return
+      }
+
+      // Update the selected tracks with the new animation
+      if (selectedTrackIds.length > 0) { // Use selectedTrackIds instead of selectedTracks
+        selectedTrackIds.forEach(trackId => { // Iterate over selectedTrackIds
+          const track = freshStore.tracks.find(t => t.id === trackId) // Use fresh store
+          if (!track) {
+            console.warn(`Track ${trackId} not found`)
+            return
+          }
+          
+          // Create a minimal animation state for the track
+          const animationState: AnimationState = {
+            animation: {
+              ...updatedAnimation,
+              parameters: {
+                ...updatedAnimation.parameters,
+                ...(multiTrackParameters?.[trackId] || {})
+              }
+            },
+            isPlaying: false,
+            currentTime: 0,
+            playbackSpeed: 1, // Default playback speed
+            loop: updatedAnimation.loop // Inherit loop setting from animation
+          }
+          
+          // Update the track with the new animation state
+          freshStore.updateTrack(trackId, { animationState }) // Use fresh store
+        })
+      }
+      
+      // Force a re-render by triggering a state update
+      // This ensures the UI recognizes the new animation
+      selectTracks(selectedTracks)
+      
+      // Force the component to re-evaluate the current animation
+      // by adding a small delay and then checking the state
+      setTimeout(() => {
+        selectTracks([...selectedTrackIds]) // Use selectedTrackIds
+      }, 50)
+      
+      // Ensure the animation store is aware of the updated animation
+      // Stop any currently playing animation to prevent using old cached data
+      const animationStore = useAnimationStore.getState()
+      if (animationStore.isPlaying && animationStore.currentAnimationId === animationId) {
+        animationStore.stopAnimation()
+      }
+    }, 100) // Wait 100ms for store to update
   }
 
   const handlePlayPreview = () => {
@@ -576,6 +679,7 @@ export const AnimationEditor: React.FC = () => {
               onLoadPreset={() => setShowPresetBrowser(true)}
               onSaveAsPreset={handleSaveAsPreset}
               canSavePreset={!!animationForm.name && !!animationForm.type}
+              currentAnimationId={currentAnimation?.id}
             />
 
             <button
