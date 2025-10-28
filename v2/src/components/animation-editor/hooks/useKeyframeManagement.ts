@@ -32,6 +32,8 @@ export const useKeyframeManagement = (keyframes: Keyframe[], setKeyframes: (keyf
     setIsKeyframePlacementMode,
     handleKeyframeAdd,
     handleKeyframeRemove,
-    handleKeyframeUpdate
+    handleKeyframeUpdate,
+    handleDeleteKeyframe: handleKeyframeRemove, // Alias for consistency
+    handleLoadPreset: () => {} // Placeholder to satisfy expected interface
   }
 }

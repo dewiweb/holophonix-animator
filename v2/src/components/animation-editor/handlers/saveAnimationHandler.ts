@@ -69,8 +69,11 @@ export const handleSaveAnimation = ({
     console.log(` Generated ${randomWaypoints.length} random waypoints`)
   }
 
+  // Generate a new ID only if we're creating a new animation
+  const animationId = currentAnimation?.id || `anim-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+  
   const animation: Animation = {
-    id: currentAnimation?.id || `anim-${Date.now()}`,
+    id: animationId,
     name: animationForm.name || 'Unnamed Animation',
     type: animationForm.type || 'linear',
     duration: animationForm.duration || 10,
