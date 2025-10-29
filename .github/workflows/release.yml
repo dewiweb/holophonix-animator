@@ -118,6 +118,25 @@ jobs:
           pattern: release-*
           merge-multiple: true
 
+      - name: List all downloaded artifacts
+        run: |
+          echo "Artifacts directory structure:"
+          find artifacts -type f | sort
+          echo "\nRelease directory contents:"
+          find release -type f 2>/dev/null || echo "No release directory found"
+
+      - name: Prepare release assets
+        run: |
+          # Create a clean release directory
+          mkdir -p release_assets
+          
+          # Copy all files from all artifact directories
+          find artifacts -type f -exec cp {} release_assets/ \;
+          
+          # List all files that will be included
+          echo "\nFiles to be included in the release:"
+          find release_assets -type f | sort
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -137,12 +156,14 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, '-') }}
           files: |
-            artifacts/release-ubuntu-latest/release/*.AppImage
-            artifacts/release-ubuntu-latest/release/*.deb
-            artifacts/release-ubuntu-latest/release/*.rpm
-            artifacts/release-windows-latest/release/*.exe
-            artifacts/release-windows-latest/release/*.exe.blockmap
-            artifacts/release-macos-latest/release/*.dmg
-            artifacts/release-macos-latest/release/*.zip
+            release_assets/*.AppImage
+            release_assets/*.deb
+            release_assets/*.rpm
+            release_assets/*.exe
+            release_assets/*.blockmap
+            release_assets/*.dmg
+            release_assets/*.zip
+            release_assets/*.yml
+            release_assets/*.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
