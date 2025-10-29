@@ -26,18 +26,18 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            build_script: build:linux
+            platform: linux
             artifact_patterns: |
               release/*.AppImage
               release/*.deb
               release/*.rpm
           - os: windows-latest
-            build_script: build:win
+            platform: win
             artifact_patterns: |
               release/*.exe
               release/*.blockmap
           - os: macos-latest
-            build_script: build:mac
+            platform: mac
             artifact_patterns: |
               release/*.dmg
               release/*.zip
@@ -64,19 +64,29 @@ jobs:
           npm config delete https-proxy
           npm config delete proxy
 
-      - name: Build application
-        run: npm run build
+      # Build step is now part of the electron-builder command
 
       - name: Build and package Electron app
         run: |
           # Set up GitHub token for electron-builder
           echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > $HOME/.npmrc
-          npm run ${{ matrix.build_script }} --publish always
+          
+          # Build the application first
+          npm run build
+          
+          # Run electron-builder directly with all required parameters
+          npx electron-builder \
+            --${{ matrix.platform }} \
+            --config.electronVersion=28.1.4 \
+            --config.publish.provider=github \
+            --config.publish.releaseType=draft \
+            --publish always
         env:
           NODE_ENV: production
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true'
+          ELECTRON_RETRY_DOWNLOAD: 'true'
+          ELECTRON_MIRROR_OPT_OUT: '1'
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
