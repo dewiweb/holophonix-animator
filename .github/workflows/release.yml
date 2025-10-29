@@ -74,17 +74,28 @@ jobs:
 
       - name: Build and package Electron app (Windows)
         if: matrix.os == 'windows-latest'
-        run: npx electron-builder --win --config.electronVersion=28.1.4 --config.publish.provider=github --config.publish.releaseType=draft --publish always
+        run: npx electron-builder --win --config.electronVersion=28.1.4 --publish=never
+        env:
+          NODE_ENV: production
+          ELECTRON_RETRY_DOWNLOAD: 'true'
+          ELECTRON_MIRROR_OPT_OUT: '1'
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
 
       - name: Build and package Electron app (macOS/Linux)
         if: matrix.os != 'windows-latest'
-        run: npx electron-builder --${{ matrix.platform }} --config.electronVersion=28.1.4 --config.publish.provider=github --config.publish.releaseType=draft --publish always
+        run: |
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            npx electron-builder --mac --config.electronVersion=28.1.4 --publish=never
+          else
+            npx electron-builder --linux --config.electronVersion=28.1.4 --publish=never
+          fi
         env:
           NODE_ENV: production
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_RETRY_DOWNLOAD: 'true'
           ELECTRON_MIRROR_OPT_OUT: '1'
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

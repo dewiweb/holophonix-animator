@@ -77,10 +77,7 @@
   "build": {
     "appId": "com.holophonix.animator",
     "productName": "Holophonix Animator v2",
-    "publish": {
-      "provider": "github",
-      "releaseType": "draft"
-    },
+    "publish": null,
     "directories": {
       "output": "release",
       "buildResources": "assets"
