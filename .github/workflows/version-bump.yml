@@ -19,6 +19,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Configure npm
+        run: |
+          npm config set electron_mirror "https://npmmirror.com/mirrors/electron/"
+          npm config set electron_custom_dir "{{ version }}"
+          
+      - name: Install dependencies with retry
+        uses: nick-invision/retry@v2
+        with:
+          max_attempts: 3
+          timeout_minutes: 10
+          command: npm ci
+          
       - name: Get version from package.json
         id: version
         uses: martinbeentjes/npm-get-version-action@v1.1

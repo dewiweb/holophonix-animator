@@ -21,8 +21,17 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Configure npm
+        run: |
+          npm config set electron_mirror "https://npmmirror.com/mirrors/electron/"
+          npm config set electron_custom_dir "{{ version }}"
+          
+      - name: Install dependencies with retry
+        uses: nick-invision/retry@v2
+        with:
+          max_attempts: 3
+          timeout_minutes: 10
+          command: npm ci
 
       - name: Build application
         run: npm run build
