@@ -10,9 +10,9 @@ docs/
 ├── 🐛 bug-fixes/                       # Bug fixes and troubleshooting
 │   ├── 🔧 BACKGROUND_ANIMATION_FIX.md # Background animation playback fix
 │   ├── 💾 PROJECT_SAVE_BUG_FIX.md     # Project save/load issue resolution
-│   ├── ⚡ QUICK_FIX_GUIDE.md          # Animation playback quick fix
+│   ├── ⚡ QUICK_FIX_GUIDE.md          # Animation playback troubleshooting
 │   ├── 🔄 RESTART_REQUIRED.md         # Development restart requirements
-│   ├── 📱 RESIZE_TEST.md              # Window resize diagnostic and fixes
+│   ├── 📱 RESIZE_TEST.md              # Window resize fixes
 │   ├── 🐛 BUG_FIX_PAUSE_POSITION.md   # Pause position bug fix
 │   └── ⚡ OSC_PERFORMANCE_FIX.md      # OSC performance fixes
 ├── 🔧 implementation/                 # Technical implementation
@@ -36,7 +36,7 @@ docs/
 │   ├── 🧪 ANIMATION_TESTING_GUIDE.md  # Comprehensive testing procedures
 │   ├── 📝 ANIMATION_TESTING_CHECKLIST.md # Testing checklist
 │   ├── 📈 ANIMATION_TESTING_RESULTS.md # Test results and validation
-│   ├── ⚡ QUICK_TEST_PROCEDURE.md     # Get started quickly
+│   ├── ⚡ QUICK_TEST_PROCEDURE.md     # Essential testing guide
 │   └── ✅ SYSTEMATIC_VERIFICATION_CHECKLIST.md # System verification checklist
 ├── 📡 osc/                           # OSC communication
 │   ├── 📡 OSC_OPTIMIZATION_STRATEGY.md # OSC setup and optimization guide
