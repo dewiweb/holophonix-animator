@@ -74,13 +74,14 @@ jobs:
           # Build the application first
           npm run build
           
-          # Run electron-builder directly with all required parameters
-          npx electron-builder \
-            --${{ matrix.platform }} \
-            --config.electronVersion=28.1.4 \
-            --config.publish.provider=github \
-            --config.publish.releaseType=draft \
-            --publish always
+          # Platform-specific build command
+          if ("${{ runner.os }}" -eq "Windows") {
+            # Windows command
+            npx electron-builder --win --config.electronVersion=28.1.4 --config.publish.provider=github --config.publish.releaseType=draft --publish always
+          } else {
+            # Linux/macOS command
+            npx electron-builder --${{ matrix.platform }} --config.electronVersion=28.1.4 --config.publish.provider=github --config.publish.releaseType=draft --publish always
+          }
         env:
           NODE_ENV: production
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
