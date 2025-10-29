@@ -143,7 +143,6 @@ Once you're comfortable with the basics:
 
 - **📖 User Guide**: Browse detailed documentation
 - **🔧 Troubleshooting**: Common issues and solutions
-- **💬 Support**: Contact our support team
 
 ---
 

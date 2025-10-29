@@ -495,11 +495,6 @@ telnet [processor-ip-address] 8000
 - Error messages and screenshots
 - System information and logs
 
-**Contact Methods:**
-- Email: support@holophonix.com
-- Support portal: help.holophonix.com
-- Phone: +1-555-HOLO-HELP
-
 ---
 
 ## 🔧 Quick Reference
