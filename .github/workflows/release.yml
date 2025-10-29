@@ -33,8 +33,35 @@ jobs:
           timeout_minutes: 10
           command: npm ci
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libx11-dev \
+            libxext-dev \
+            libxss-dev \
+            libxtst-dev \
+            libxkbfile-dev \
+            libsecret-1-dev \
+            libxcb1-dev \
+            libxrandr-dev \
+            libatk1.0-dev \
+            libatk-bridge2.0-dev \
+            libgtk-3-dev \
+            libnss3-dev \
+            libxss-dev \
+            libasound2 \
+            libgbm1 \
+            libxshmfence1 \
+            libarchive-tools \
+            xz-utils \
+            libssl-dev
+
       - name: Build application
         run: npm run build
+
+      - name: Ensure app-builder is executable
+        run: chmod +x node_modules/app-builder-bin/linux/x64/app-builder
 
       - name: Build Electron app
         run: npm run build:electron
