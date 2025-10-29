@@ -7,6 +7,12 @@ This index provides a complete overview of all documentation available in the Ho
 ```
 docs/
 ├── 📋 DOCUMENTATION_INDEX.md          # This file - Complete documentation overview
+├── 📖 user-guide/                     # User-friendly documentation (NEW!)
+│   ├── 📖 README.md                   # Main user guide entry point
+│   ├── 🚀 GETTING_STARTED.md          # Quick start for new users
+│   ├── 🎨 ANIMATION_TYPES.md          # Complete animation reference
+│   ├── 🔌 OSC_SETUP.md                # Hardware connection guide
+│   └── 🔧 TROUBLESHOOTING.md          # Common issues and solutions
 ├── 🐛 bug-fixes/                       # Bug fixes and troubleshooting
 │   ├── 🔧 BACKGROUND_ANIMATION_FIX.md # Background animation playback fix
 │   ├── 💾 PROJECT_SAVE_BUG_FIX.md     # Project save/load issue resolution
@@ -60,10 +66,11 @@ docs/
 ## 🎯 Quick Navigation
 
 ### For New Users
-1. **[Quick Start Guide](testing/QUICK_TEST_PROCEDURE.md)** - Get up and running in 5 minutes
-2. **[Animation Types](features/NEW_ANIMATION_TYPES.md)** - Learn about all 24 available animations
-3. **[Multi-Track Modes](features/MULTITRACK_MODES_REDESIGN.md)** - Understand multi-track animation
-4. **[OSC Setup](osc/OSC_OPTIMIZATION_STRATEGY.md)** - Configure hardware communication
+1. **[📖 User Guide](user-guide/README.md)** - Complete user-friendly documentation
+2. **[🚀 Getting Started](user-guide/GETTING_STARTED.md)** - Get up and running in 5 minutes
+3. **[🎨 Animation Types](user-guide/ANIMATION_TYPES.md)** - Learn about all 24 available animations
+4. **[🔌 OSC Setup](user-guide/OSC_SETUP.md)** - Configure hardware communication
+5. **[🔧 Troubleshooting](user-guide/TROUBLESHOOTING.md)** - Solve common issues
 
 ### For Developers
 1. **[Architecture Guide](implementation/ARCHITECTURE.md)** - Understand system design
@@ -81,12 +88,27 @@ docs/
 
 ## 📖 Documentation Categories
 
-### 🎨 User Guides
-- **Getting Started**: Quick setup and basic usage
-- **Animation Library**: Complete reference for all animation types
-- **Multi-Track Animation**: Advanced multi-track features
-- **OSC Configuration**: Hardware setup and optimization
-- **Presets**: Save and load animation configurations
+### 📖 User Guide (NEW!)
+Perfect for new users and everyday reference. User-friendly documentation with step-by-step guides, troubleshooting, and best practices.
+
+**Key Documents:**
+- **[📖 Main User Guide](user-guide/README.md)** - Complete user documentation portal
+- **[🚀 Getting Started](user-guide/GETTING_STARTED.md)** - 5-minute quick start tutorial
+- **[🎨 Animation Types](user-guide/ANIMATION_TYPES.md)** - Comprehensive reference for all 24 animation types
+- **[🔌 OSC Setup](user-guide/OSC_SETUP.md)** - Hardware connection and configuration
+- **[🔧 Troubleshooting](user-guide/TROUBLESHOOTING.md)** - Common issues and solutions
+
+**Who should use this:**
+- New users learning the software
+- Everyday users needing quick reference
+- Anyone wanting user-friendly explanations
+- Support staff helping customers
+
+### 🐛 Bug Fixes
+- **Known Issues**: Current problems and workarounds
+- **Fixes Applied**: Resolved issues and solutions
+- **Troubleshooting**: Common problems and solutions
+- **Performance Issues**: OSC and animation performance fixes
 
 ### 🔧 Technical Documentation
 - **Architecture**: System design and component interaction
