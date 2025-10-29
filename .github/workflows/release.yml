@@ -8,8 +8,11 @@ on:
 
 env:
   ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
-  ELECTRON_CUSTOM_DIR: '{{ version }}'
+  ELECTRON_CUSTOM_DIR: '{{ version }}/'
+  ELECTRON_USE_PROXY: 'true'
   NODE_OPTIONS: --max-old-space-size=4096
+  npm_config_electron_mirror: https://npmmirror.com/mirrors/electron/
+  npm_config_electron_custom_dir: '{{ version }}'
 
 jobs:
   build:
