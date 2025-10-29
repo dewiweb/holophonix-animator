@@ -1,6 +1,4 @@
-# Build Guide - Holophonix Animator v2
-
-Complete guide to building and packaging Holophonix Animator v2 for Windows.
+# Build Guide
 
 ## Prerequisites
 
@@ -8,8 +6,6 @@ Complete guide to building and packaging Holophonix Animator v2 for Windows.
 - **npm**: v9 or higher
 - **Git**: For version control
 - **Windows 10/11**: For building Windows executables
-
----
 
 ## Development Setup
 
@@ -33,13 +29,10 @@ npm run dev
 npm run electron:dev
 ```
 
----
-
 ## Production Build
 
 ### 1. Build Web Assets
 ```bash
-# Compile TypeScript and build React app
 npm run build
 ```
 
@@ -68,11 +61,9 @@ npm run build:deb        # Debian package
 npm run build:appimage   # AppImage package
 ```
 
----
-
 ## Build Configuration
 
-### package.json Scripts
+### Package.json Scripts
 ```json
 {
   "scripts": {
@@ -98,6 +89,48 @@ npm run build:appimage   # AppImage package
     },
     "files": [
       "main.cjs",
+      "preload.cjs",
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": [
+        "deb",
+        "AppImage"
+      ],
+      "icon": "assets/icon.png"
+    }
+  }
+}
+```
+
+## Troubleshooting
+
+### Common Build Issues
+
+**Issue**: "Module not found" errors
+- **Solution**: Run `npm install` to ensure all dependencies are installed
+
+**Issue**: Electron build fails
+- **Solution**: Ensure all development dependencies are installed
+- **Solution**: Check that `main.ts` and `preload.ts` are properly compiled
+
+**Issue**: Windows installer creation fails
+- **Solution**: Ensure NSIS is installed or use electron-builder's bundled version
+
+### Performance Optimization
+
+- Use `npm run build` for optimized production builds
+- Enable source maps for debugging with `npm run build:dev`
+- Use `npm run dist` for final distribution packages
+
+---
+
+**For deployment instructions**, see the Deployment section of this documentation.
       "preload.cjs",
       "dist/**/*"
     ],

@@ -1,102 +1,84 @@
-# Quick Animation Testing Procedure
+# Quick Testing Guide
 
 ## Overview
-This guide provides a fast, systematic approach to verify all 23 remaining animation types work correctly with the engine fixes from the previous session.
 
-## Prerequisites
-- Start the dev server: `npm run dev`
-- Open the application in browser
-- Open browser console (F12)
+This guide provides essential testing procedures for verifying animation functionality in Holophonix Animator v2.
 
-## Quick Test Method
+## Basic Testing Procedure
 
-### Browser Console Testing
-Once the app is loaded, open the browser console and run:
-```javascript
-window.testAnimations()
-```
+For each animation type, follow this simple verification:
 
-This will automatically test all 24 animation types and display results.
-
-## Manual Testing (Per Animation Type)
-
-For each animation, follow this 2-minute procedure:
-
-### 1. CREATE (15 seconds)
-- Click "Add Track" 
+### 1. Create Animation
+- Add a track to the project
 - Select animation type from dropdown
-- Click "Save Animation"
+- Configure basic parameters
+- Save the animation
 
-### 2. PLAY (30 seconds)
-- Click Play ▶️
-- Watch for 5 seconds
-- Verify smooth movement
-- Check 3D path preview displays correctly
+### 2. Test Playback
+- Click Play button
+- Verify smooth movement in 3D preview
+- Check that animation completes in expected duration
+- Test loop and ping-pong modes
 
-### 3. VERIFY TIMING (30 seconds)
-- Note the duration (default 10s)
-- Start a timer
-- Click Play
-- Verify animation completes in expected time
+### 3. Verify OSC Output
+- Ensure OSC messages are sent (if connected)
+- Check position values are reasonable
+- Verify message rate is appropriate
 
-### 4. LOOP TEST (30 seconds)
-- Enable "Loop" checkbox
-- Click Play
-- Verify animation restarts smoothly without jumps
-- Try Ping-Pong mode - verify reversal
+## Animation Categories
 
-### 5. QUICK PASS/FAIL (15 seconds)
-✅ **PASS** if:
-- Animation plays without errors
-- Movement is visible and smooth
-- Duration is accurate
-- Loop/ping-pong work
+### Basic Animations
+- **Circular** - Circular motion around center point
+- **Elliptical** - Elliptical path with configurable radii
+- **Spiral** - Expanding or contracting spiral motion
+- **Random** - Random movement within defined bounds
 
-❌ **FAIL** if:
-- Console errors appear
-- No movement occurs
-- Position values are NaN/Infinity
-- Jumps/discontinuities on loop
+### Physics-Based Animations
+- **Pendulum** - Realistic swinging motion with gravity
+- **Bounce** - Vertical bouncing with damping
+- **Spring** - Spring oscillation with overshoot
 
-## Animation Types by Category
+### Wave-Based Animations
+- **Wave** - Sinusoidal oscillation along axes
+- **Lissajous** - Complex periodic patterns
+- **Helix** - 3D spiral along defined axis
 
-### CATEGORY 1: Basic (5 types) - 10 minutes
-- [ ] **Circular** - Should move in circle
-- [ ] **Elliptical** - Should move in ellipse
-- [ ] **Spiral** - Should spiral outward/inward
-- [ ] **Random** - Should move randomly within bounds
+### Path-Based Animations
+- **Bézier** - Smooth curved path with control points
+- **Catmull-Rom** - Smooth curve through waypoints
+- **Zigzag** - Sharp angular movement pattern
 
-### CATEGORY 2: Physics (3 types) - 6 minutes
-- [ ] **Pendulum** - Should swing realistically
-- [ ] **Bounce** - Should bounce and settle
-- [ ] **Spring** - Should oscillate with damping
+### Procedural Animations
+- **Perlin Noise** - Organic flowing movement
+- **Rose Curve** - Mathematical flower patterns
+- **Epicycloid** - Spirograph-like curves
 
-### CATEGORY 3: Wave (3 types) - 6 minutes
-- [ ] **Wave** - Should oscillate in wave pattern
-- [ ] **Lissajous** - Should create figure-8 or complex curve
-- [ ] **Helix** - Should spiral along axis
+### Interactive Animations
+- **Orbit** - Orbital motion around center
+- **Formation** - Maintains relative positions
+- **Attract/Repel** - Force-based movement
 
-### CATEGORY 4: Curve/Path (3 types) - 6 minutes
-- [ ] **Bézier** - Should follow smooth curve
-- [ ] **Catmull-Rom** - Should pass through points smoothly
-- [ ] **Zigzag** - Should create sharp angular path
+### Spatial Audio Animations
+- **Doppler** - Linear fly-by effect
+- **Circular Scan** - Radial sweep pattern
+- **Zoom** - Radial in/out movement
 
-### CATEGORY 5: Procedural (3 types) - 6 minutes
-- [ ] **Perlin Noise** - Should create organic flowing movement
-- [ ] **Rose Curve** - Should create flower petal pattern
-- [ ] **Epicycloid** - Should create spirograph-like pattern
+## Troubleshooting
 
-### CATEGORY 6: Interactive (3 types) - 6 minutes
-- [ ] **Orbit** - Should orbit around center point
-- [ ] **Formation** - Should maintain position (simplified)
-- [ ] **Attract/Repel** - Should move toward/away from target
+### Common Issues
+- **No movement**: Check animation parameters and track selection
+- **Jerky motion**: Verify frame rate and system performance
+- **Incorrect timing**: Check duration settings and loop mode
+- **OSC not sending**: Verify connection settings and device status
 
-### CATEGORY 7: Spatial Audio (3 types) - 6 minutes
-- [ ] **Doppler** - Should fly-by in straight line
-- [ ] **Circular Scan** - Should sweep in circle
-- [ ] **Zoom** - Should move radially in/out
+### Performance Tips
+- Limit track count for complex animations
+- Adjust OSC message rate if needed
+- Use appropriate animation types for system capabilities
 
-**Total estimated time: ~45 minutes for all 23 types**
+---
+
+**For detailed technical implementation**, see the Implementation section of this documentation.
 
 ## Known Issues to Watch For
 
