@@ -19,10 +19,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure npm
+      - name: Set up environment
         run: |
-          npm config set electron_mirror "https://npmmirror.com/mirrors/electron/"
-          npm config set electron_custom_dir "{{ version }}"
+          echo "ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/" >> $GITHUB_ENV
+          echo "ELECTRON_CUSTOM_DIR={{ version }}" >> $GITHUB_ENV
           
       - name: Install dependencies with retry
         uses: nick-invision/retry@v2
