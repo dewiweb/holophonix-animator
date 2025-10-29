@@ -6,6 +6,12 @@ on:
       - 'v*'  # Matches tags like v1.0.0, v2.1.0, etc.
   workflow_dispatch:  # Allow manual trigger
 
+# Add permissions for the workflow
+permissions:
+  contents: write
+  packages: write
+  actions: write
+
 env:
   NODE_OPTIONS: --max-old-space-size=4096
   ELECTRON_RETRY_DOWNLOAD: 'true'
@@ -62,17 +68,22 @@ jobs:
         run: npm run build
 
       - name: Build and package Electron app
-        run: npm run ${{ matrix.build_script }}
+        run: |
+          # Set up GitHub token for electron-builder
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > $HOME/.npmrc
+          npm run ${{ matrix.build_script }} --publish always
         env:
           NODE_ENV: production
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true'
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.os }}
-          path: |
-            release/
+          path: release/**/*
+          if-no-files-found: error
           retention-days: 5
 
   release:
@@ -107,12 +118,12 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, '-') }}
           files: |
-            release/*.exe
-            release/*.exe.blockmap
-            release/*.dmg
-            release/*.zip
-            release/*.AppImage
-            release/*.deb
-            release/*.rpm
+            artifacts/release-ubuntu-latest/release/*.AppImage
+            artifacts/release-ubuntu-latest/release/*.deb
+            artifacts/release-ubuntu-latest/release/*.rpm
+            artifacts/release-windows-latest/release/*.exe
+            artifacts/release-windows-latest/release/*.exe.blockmap
+            artifacts/release-macos-latest/release/*.dmg
+            artifacts/release-macos-latest/release/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
