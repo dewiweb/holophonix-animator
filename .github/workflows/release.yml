@@ -75,13 +75,13 @@ jobs:
           npm run build
           
           # Platform-specific build command
-          if ("${{ runner.os }}" -eq "Windows") {
+          if [ "${{ runner.os }}" = "Windows" ]; then
             # Windows command
             npx electron-builder --win --config.electronVersion=28.1.4 --config.publish.provider=github --config.publish.releaseType=draft --publish always
-          } else {
+          else
             # Linux/macOS command
             npx electron-builder --${{ matrix.platform }} --config.electronVersion=28.1.4 --config.publish.provider=github --config.publish.releaseType=draft --publish always
-          }
+          fi
         env:
           NODE_ENV: production
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
