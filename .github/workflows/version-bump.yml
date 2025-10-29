@@ -8,7 +8,9 @@ on:
 
 jobs:
   check-version:
-    if: github.event_name == 'push' && contains(github.event.head_commit.message, 'chore: bump version to')
+    if: >
+      github.event_name == 'push' && 
+      contains(github.event.head_commit.message, 'chore: bump version to')
     runs-on: ubuntu-latest
     
     steps:
