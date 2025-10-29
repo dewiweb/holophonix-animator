@@ -1,194 +1,227 @@
 # Holophonix Animator v2
 
-A modern, high-performance 3D sound animation system for Holophonix processors, completely rewritten from the ground up with modern technologies and improved architecture.
+A professional spatial audio animation application for controlling Holophonix processors with real-time multi-track animations and advanced OSC communication.
 
-## ✨ Features
+## 🎯 Overview
 
-### Core Functionality
-- **Real-time 3D Animation**: Create sophisticated sound source animations in 3D space
-- **OSC Communication**: Robust communication with Holophonix devices via OSC protocol
-- **Track Management**: Organize sound sources with hierarchical grouping
-- **Animation Types**: Linear, circular, elliptical, spiral, and custom animations
-- **Timeline System**: Professional-grade animation sequencing and orchestration
-- **Coordinate Systems**: Support for both XYZ and AED coordinate systems
+Holophonix Animator v2 is a sophisticated Electron-based application designed for creating and controlling complex spatial audio animations. It provides an intuitive interface for designing multi-track movement patterns, managing sound sources in 3D space, and communicating with Holophonix audio processors via OSC protocol.
 
-### Technical Excellence
-- **Performance Optimized**: Built for real-time audio workflows with sub-millisecond latency
-- **Type Safety**: Full TypeScript implementation with comprehensive type definitions
-- **Modern Architecture**: React 18, Zustand state management, and modular design
-- **3D Visualization**: Three.js integration for real-time animation preview
-- **Cross-platform**: Electron-based desktop application
+## ✨ Key Features
 
-## 🏗️ Architecture
+### 🎭 Animation System
+- **24 Animation Types**: Linear, Circular, Spiral, Pendulum, Wave, Lissajous, and more
+- **6 Multi-Track Modes**: Identical, Position-Relative, Formation, Phase-Offset, Centered, and Phase-Offset-Relative
+- **Real-time Preview**: 3D visualization of animation paths and track movements
+- **Advanced Control Points**: Bézier curves, Catmull-Rom splines, and custom path editing
 
-### Frontend (React + TypeScript)
-- **React 18** with modern hooks and concurrent features
-- **Zustand** for lightweight, scalable state management
-- **Three.js** for 3D visualization and animation preview
-- **Tailwind CSS** for consistent, responsive UI design
-- **Vite** for fast development and optimized production builds
+### 🎛️ Professional Controls
+- **Multi-Track Management**: Create, import, and organize unlimited sound sources
+- **Real-time OSC Communication**: Optimized message batching and performance tuning
+- **Preset System**: Save and load animation configurations
+- **Parameter Forms**: Detailed control over all animation parameters
 
-### Backend Integration
-- **Node.js 20** with native ESM support
-- **Rust** via NAPI for high-performance computation tasks
-- **Custom OSC** implementation for reliable device communication
-- **WebSockets** for real-time process communication
-
-### Key Design Principles
-1. **Performance First**: Optimized for real-time audio applications
-2. **Modular Architecture**: Clean separation of concerns and reusable components
-3. **Type Safety**: Comprehensive TypeScript implementation
-4. **Real-time Updates**: Live preview and immediate feedback
-5. **Professional UX**: Intuitive interface for sound designers
+### 🔧 Technical Features
+- **Bidirectional OSC**: Import tracks from Holophonix processors
+- **Performance Optimized**: 60 FPS animation engine with background operation
+- **Cross-Platform**: Windows, macOS, and Linux support
+- **Professional UI**: Modern, dark-themed interface with responsive design
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- npm or yarn
-- Git
+- **Node.js**: v18 or higher
+- **npm**: v9 or higher
+- **Holophonix Processor**: For OSC communication (optional for development)
 
-### Development Setup
+### Installation
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd holophonix-animator/v2
+git clone https://github.com/your-org/holophonix-animator.git
+cd holophonix-animator
 
 # Install dependencies
 npm install
 
 # Start development server
-npm run dev
-
-# Start Electron app (in another terminal)
 npm run electron:dev
 ```
 
-### Build for Production
+### Basic Usage
 
-```bash
-# Build the application
-npm run build
-
-# Create distributable packages
-npm run build:electron
-```
+1. **Create Tracks**: Add individual tracks or import from Holophonix
+2. **Select Animation**: Choose from 24 available animation types
+3. **Configure Parameters**: Adjust animation settings using intuitive forms
+4. **Multi-Track Setup**: Select multiple tracks and choose animation mode
+5. **Preview & Play**: Use 3D preview to visualize, then play to send OSC
 
 ## 📁 Project Structure
 
 ```
-v2/
-├── src/
-│   ├── components/          # React components
-│   │   ├── Layout.tsx       # Main application layout
-│   │   ├── TrackList.tsx    # Track management interface
-│   │   ├── AnimationEditor.tsx # Animation creation tools
-│   │   ├── Timeline.tsx     # Animation sequencing
-│   │   ├── OSCManager.tsx   # Device communication
-│   │   └── Settings.tsx     # Application settings
-│   ├── stores/              # State management
-│   │   ├── projectStore.ts  # Project and track state
-│   │   ├── animationStore.ts # Animation engine state
-│   │   └── oscStore.ts      # OSC communication state
-│   ├── types/               # TypeScript definitions
-│   │   └── index.ts         # Core domain types
-│   ├── utils/               # Utility functions
-│   │   └── index.ts         # Math, animation, OSC utilities
-│   ├── hooks/               # Custom React hooks
-│   └── test/                # Test utilities
-├── main.ts                  # Electron main process
-├── preload.ts               # Electron preload script
-├── vite.config.ts           # Vite configuration
-├── tailwind.config.js       # Tailwind CSS configuration
-├── tsconfig.json            # TypeScript configuration
-└── package.json             # Dependencies and scripts
+holophonix-animator/
+├── 📄 README.md                    # This file
+├── 📄 package.json                # Dependencies and scripts
+├── 📁 src/                        # Source code
+│   ├── 📁 components/             # React components
+│   │   ├── 📁 animation-editor/   # Main animation interface
+│   │   ├── 📁 track-list/         # Track management
+│   │   └── 📁 settings/           # Application settings
+│   ├── 📁 stores/                 # Zustand state management
+│   ├── 📁 utils/                  # Utilities and helpers
+│   ├── 📁 types/                  # TypeScript definitions
+│   └── 📁 main.tsx                # React entry point
+├── 📁 docs/                       # Documentation
+│   ├── 📋 DOCUMENTATION_INDEX.md  # Complete documentation guide
+│   ├── 📁 bug-fixes/              # Bug fix documentation
+│   ├── 📁 implementation/         # Technical implementation
+│   ├── 📁 components/             # Component documentation
+│   ├── 📁 features/               # Feature documentation
+│   ├── 📁 testing/                # Testing procedures
+│   └── 📁 osc/                    # OSC communication docs
+├── 📁 assets/                     # Build assets and icons
+├── 📄 main.ts                     # Electron main process
+├── 📄 preload.ts                  # Electron preload script
+└── 📄 vite.config.ts              # Vite configuration
 ```
 
-## 🎯 Key Improvements from v1
+## 🎮 Development
+
+### Available Scripts
+
+```bash
+# Development
+npm run electron:dev          # Start development server
+npm run dev                   # Vite dev server only
+
+# Building
+npm run build                 # Build React application
+npm run compile:electron      # Compile Electron processes
+npm run build:electron        # Complete production build
+
+# Testing
+npm test                      # Run all tests
+npm run test:ui              # Test with UI interface
+npm run test:coverage        # Test with coverage report
+
+# Distribution
+npm run dist                  # Build distributables
+npm run dist:win             # Windows build
+npm run dist:linux           # Linux build
+```
 
 ### Architecture
-- **Modern Tech Stack**: React 18, TypeScript 5, Vite, Zustand
-- **Better State Management**: Centralized stores with proper separation of concerns
-- **Improved Performance**: Optimized rendering and computation pipelines
-- **Enhanced Type Safety**: Comprehensive type definitions throughout
 
-### User Experience
-- **Intuitive Interface**: Clean, professional design with better UX patterns
-- **Real-time Preview**: Immediate visual feedback for all changes
-- **Better Animation Tools**: More sophisticated animation creation and editing
-- **Enhanced Timeline**: Professional-grade sequencing capabilities
+The application follows a modular architecture:
 
-### Developer Experience
-- **Fast Development**: Vite-based hot reloading and fast builds
-- **Better Testing**: Vitest with comprehensive test coverage
-- **Improved Tooling**: ESLint, Prettier, and modern development tools
-- **Clear Documentation**: Comprehensive docs and architecture guides
+- **Frontend**: React with TypeScript, styled with TailwindCSS
+- **State Management**: Zustand for reactive state management
+- **3D Graphics**: Three.js for real-time animation preview
+- **Communication**: OSC for Holophonix processor control
+- **Desktop**: Electron for cross-platform desktop application
+
+## 📚 Documentation
+
+Comprehensive documentation is available in the `docs/` folder:
+
+- **[Documentation Index](docs/DOCUMENTATION_INDEX.md)** - Complete guide to all features
+- **[Animation Types](docs/features/NEW_ANIMATION_TYPES.md)** - Detailed animation documentation
+- **[OSC Communication](docs/osc/OSC_OPTIMIZATION_STRATEGY.md)** - OSC protocol and optimization
+- **[Multi-Track Modes](docs/features/MULTITRACK_MODES_REDESIGN.md)** - Multi-track animation modes
+- **[Implementation Guide](docs/implementation/ARCHITECTURE.md)** - Technical architecture
 
 ## 🔧 Configuration
 
 ### OSC Settings
-```typescript
-{
-  defaultPort: 8000,
-  retryAttempts: 3,
-  messageTimeout: 1000,
-  bufferSize: 1024,
-  maxRetries: 5
-}
-```
+
+Configure OSC communication in Settings → OSC:
+
+- **Output IP**: Holophonix processor IP address
+- **Output Port**: Typically 8000 (check Holophonix settings)
+- **Input Port**: For bidirectional communication (default: 4003)
+- **Message Throttle**: Balance performance vs. smoothness
 
 ### Animation Settings
-```typescript
-{
-  frameRate: 60,
-  bufferSize: 1024,
-  interpolationMethod: "cubic",
-  coordinateSystem: "xyz"
-}
-```
 
-## 🧪 Testing
+- **Frame Rate**: 60 FPS for smooth animation
+- **Preview Quality**: Adjust based on system performance
+- **Auto-save**: Enable automatic project saving
 
-```bash
-# Run all tests
-npm test
+## 🎯 Use Cases
 
-# Run tests with UI
-npm run test:ui
+### Live Performance
+- Real-time control of spatial audio during concerts
+- Automated movement patterns for installation art
+- Synchronized multi-speaker array control
 
-# Run tests with coverage
-npm run test:coverage
+### Post-Production
+- Precise automation for film and game audio
+- Complex spatial effects design
+- Batch processing of audio movements
 
-# Run specific test file
-npm test TrackList.test.tsx
-```
+### System Integration
+- Integration with show control systems
+- Automated testing of speaker arrays
+- Calibration and alignment procedures
 
-## 📚 Documentation
+## 🐛 Troubleshooting
 
-- [Architecture Guide](./ARCHITECTURE.md) - Detailed technical architecture
-- [Development Guide](./docs/development/) - Development workflows and patterns
-- [API Reference](./docs/api/) - Component and API documentation
-- [User Guide](./docs/user/) - End-user documentation
+### Common Issues
+
+**OSC Messages Not Received**
+- Verify Holophonix processor IP and port settings
+- Check network connectivity and firewall settings
+- Ensure Holophonix is configured to accept OSC messages
+
+**Animation Performance Issues**
+- Reduce track count or animation complexity
+- Adjust message throttle rate in OSC settings
+- Close other applications to free system resources
+
+**Build Issues**
+- Ensure Node.js v18+ is installed
+- Clear node_modules and reinstall: `rm -rf node_modules && npm install`
+- Check system dependencies for your platform
+
+### Performance Optimization
+
+- **Message Batching**: Enabled by default for optimal OSC performance
+- **Background Operation**: Animation continues when app is minimized
+- **Memory Management**: Automatic cleanup of unused resources
 
 ## 🤝 Contributing
 
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes and test thoroughly
+4. Submit a pull request with detailed description
 
 ## 📄 License
 
-This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- Built with modern web technologies
-- Inspired by professional audio workstation interfaces
-- Designed for the needs of sound designers and audio engineers
+- **Holophonix**: For the excellent spatial audio processing platform
+- **Electron Team**: For the cross-platform desktop framework
+- **Three.js**: For the powerful 3D graphics library
+- **React Community**: For the amazing UI framework and ecosystem
+
+## 📞 Support
+
+- **Documentation**: See `docs/` folder for comprehensive guides
+- **Issues**: Report bugs via GitHub Issues
+- **Community**: Join our discussions for questions and ideas
 
 ---
 
-**Version 2.0.0** | Modern 3D Sound Animation System
+**Version**: v2.0.0  
+**Last Updated**: 2024-01-15  
+**Maintainer**: Holophonix Animator Team
+
+---
+
+*For detailed documentation, please refer to the [Documentation Index](docs/DOCUMENTATION_INDEX.md)*
