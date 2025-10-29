@@ -66,22 +66,19 @@ jobs:
 
       # Build step is now part of the electron-builder command
 
-      - name: Build and package Electron app
-        run: |
-          # Set up GitHub token for electron-builder
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > $HOME/.npmrc
-          
-          # Build the application first
-          npm run build
-          
-          # Platform-specific build command
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            # Windows command
-            npx electron-builder --win --config.electronVersion=28.1.4 --config.publish.provider=github --config.publish.releaseType=draft --publish always
-          else
-            # Linux/macOS command
-            npx electron-builder --${{ matrix.platform }} --config.electronVersion=28.1.4 --config.publish.provider=github --config.publish.releaseType=draft --publish always
-          fi
+      - name: Set up GitHub token for electron-builder
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > $HOME/.npmrc
+
+      - name: Build application
+        run: npm run build
+
+      - name: Build and package Electron app (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npx electron-builder --win --config.electronVersion=28.1.4 --config.publish.provider=github --config.publish.releaseType=draft --publish always
+
+      - name: Build and package Electron app (macOS/Linux)
+        if: matrix.os != 'windows-latest'
+        run: npx electron-builder --${{ matrix.platform }} --config.electronVersion=28.1.4 --config.publish.provider=github --config.publish.releaseType=draft --publish always
         env:
           NODE_ENV: production
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
