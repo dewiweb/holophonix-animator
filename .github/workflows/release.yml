@@ -1,4 +1,4 @@
-name: Release Build
+name: Build and Release Electron App
 
 on:
   push:
@@ -6,90 +6,80 @@ on:
       - 'v*'  # Matches tags like v1.0.0, v2.1.0, etc.
   workflow_dispatch:  # Allow manual trigger
 
+env:
+  ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+  ELECTRON_CUSTOM_DIR: '{{ version }}'
+  NODE_OPTIONS: --max-old-space-size=4096
+
 jobs:
   build:
-    name: Build Release
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            build_script: build:linux
+            artifact_patterns: |
+              release/*.AppImage
+              release/*.deb
+              release/*.rpm
+          - os: windows-latest
+            build_script: build:win
+            artifact_patterns: |
+              release/*.exe
+              release/*.blockmap
+          - os: macos-latest
+            build_script: build:mac
+            artifact_patterns: |
+              release/*.dmg
+              release/*.zip
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Set up environment
-        run: |
-          echo "ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/" >> $GITHUB_ENV
-          echo "ELECTRON_CUSTOM_DIR={{ version }}" >> $GITHUB_ENV
-          
-      - name: Install dependencies with retry
-        uses: nick-invision/retry@v2
-        with:
-          max_attempts: 3
-          timeout_minutes: 10
-          command: npm ci
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libx11-dev \
-            libxext-dev \
-            libxss-dev \
-            libxtst-dev \
-            libxkbfile-dev \
-            libsecret-1-dev \
-            libxcb1-dev \
-            libxrandr-dev \
-            libatk1.0-dev \
-            libatk-bridge2.0-dev \
-            libgtk-3-dev \
-            libnss3-dev \
-            libxss-dev \
-            libasound2 \
-            libgbm1 \
-            libxshmfence1 \
-            libarchive-tools \
-            xz-utils \
-            libssl-dev
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build application
         run: npm run build
 
-      - name: Ensure app-builder is executable
-        run: chmod +x node_modules/app-builder-bin/linux/x64/app-builder
-
-      - name: Build Electron app
-        run: npm run build:electron
+      - name: Build and package Electron app
+        run: npm run ${{ matrix.build_script }}
         env:
           NODE_ENV: production
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release
+          name: release-${{ matrix.os }}
           path: |
-            dist/
             release/
+          retention-days: 5
 
-  create-release:
-    name: Create Release
+  release:
     needs: build
     runs-on: ubuntu-latest
-
+    if: startsWith(github.ref, 'refs/tags/')
+    
     steps:
-      - name: Download artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: release
-          path: release
+          path: artifacts
+          pattern: release-*
+          merge-multiple: true
 
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
@@ -97,16 +87,23 @@ jobs:
           body: |
             ## Release Notes
             
-            - Built from ${{ github.sha }}
-            - Built on ${{ github.event.repository.pushed_at }}
+            - Version: ${{ github.ref_name }}
+            - Commit: ${{ github.sha }}
+            - Built on: ${{ github.event.repository.pushed_at }}
+            
+            ### Assets
+            - Windows: .exe (Installer) + .blockmap (Differential updates)
+            - macOS: .dmg (Installer)
+            - Linux: .AppImage (Portable) + .deb (Debian/Ubuntu) + .rpm (Fedora/RedHat)
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref, '-') }}
           files: |
-            release/make/*.zip
-            release/make/*.exe
-            release/make/*.dmg
-            release/make/*.AppImage
-            release/make/*.deb
-            release/make/*.rpm
+            release/*.exe
+            release/*.exe.blockmap
+            release/*.dmg
+            release/*.zip
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

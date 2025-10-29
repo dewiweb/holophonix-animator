@@ -23,12 +23,14 @@
     "compile:electron": "tsc -p tsconfig.electron.json",
     "electron": "electron .",
     "electron:dev": "cross-env NODE_ENV=development concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "build:electron": "cross-env NODE_ENV=production npm run build && electron-builder",
-    "build:win": "cross-env NODE_ENV=production npm run build && electron-builder --win",
-    "build:linux": "cross-env NODE_ENV=production npm run build && electron-builder --linux",
-    "build:deb": "cross-env NODE_ENV=production npm run build && electron-builder --linux deb",
-    "build:appimage": "cross-env NODE_ENV=production npm run build && electron-builder --linux AppImage",
-    "dist": "npm run build:electron"
+    "build:electron": "cross-env NODE_ENV=production npm run build && electron-builder --publish always",
+    "build:win": "cross-env NODE_ENV=production npm run build && electron-builder --win --publish always",
+    "build:linux": "cross-env NODE_ENV=production npm run build && electron-builder --linux --publish always",
+    "build:mac": "cross-env NODE_ENV=production npm run build && electron-builder --mac --publish always",
+    "build:deb": "cross-env NODE_ENV=production npm run build && electron-builder --linux deb --publish always",
+    "build:appimage": "cross-env NODE_ENV=production npm run build && electron-builder --linux AppImage --publish always",
+    "dist": "npm run build:electron",
+    "release": "npm run build:electron"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.17.1",
@@ -75,6 +77,10 @@
   "build": {
     "appId": "com.holophonix.animator",
     "productName": "Holophonix Animator v2",
+    "publish": {
+      "provider": "github",
+      "releaseType": "draft"
+    },
     "directories": {
       "output": "release",
       "buildResources": "assets"
