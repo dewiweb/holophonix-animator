@@ -1,7 +1,21 @@
 import { AnimationType, AnimationParameters, Track, Position } from '@/types'
+import { modelRegistry } from '@/models/registry'
 
 export const getDefaultAnimationParameters = (type: AnimationType, track: Track | null): AnimationParameters => {
   const trackPosition = track?.initialPosition || track?.position || { x: 0, y: 0, z: 0 }
+  
+  // Try to get parameters from the model system first
+  const model = modelRegistry.getModel(type)
+  if (model && model.getDefaultParameters && typeof model.getDefaultParameters === 'function') {
+    try {
+      return model.getDefaultParameters(trackPosition) as AnimationParameters
+    } catch (error) {
+      console.warn(`Failed to get default parameters from model ${type}:`, error)
+      // Fall through to legacy defaults
+    }
+  }
+  
+  // Legacy fallback (mainly for 'custom' type)
   const defaultParams: AnimationParameters = {}
 
   switch (type) {
