@@ -693,6 +693,14 @@ export const useOSCStore = create<OSCState>((set, get) => {
       lastIncomingAt: Date.now(),
     }))
 
+    // Check if this message should trigger a cue
+    if (message.address.startsWith('/cue/')) {
+      ;(async () => {
+        const cueStore = await import('../cues/store').then(m => m.useCueStore.getState())
+        cueStore.handleOscTrigger(message.address, message.args as any[])
+      })()
+    }
+
     // Do not set availability here; rely on strict probe matching only
 
     // Strict availability probe matching: if an expected response arrives, mark matched

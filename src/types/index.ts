@@ -300,10 +300,13 @@ export interface Animation {
   keyframes?: Keyframe[];
   coordinateSystem: CoordinateSystem;
   // Multi-track support
-  multiTrackMode?: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered' | 'leader-followers';
+  multiTrackMode?: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered';
   multiTrackParameters?: Record<string, AnimationParameters>; // Per-track parameters for position-relative mode
   phaseOffsetSeconds?: number; // For phase-offset modes
   centerPoint?: Position; // For centered mode: user-defined center point (default: 0,0,0)
+  // Track locking (NEW)
+  trackIds?: string[];   // If set, animation is locked to these specific tracks
+  trackSelectionLocked?: boolean; // If true, tracks cannot be changed in cue editor
 }
 
 export interface AnimationPreset {
