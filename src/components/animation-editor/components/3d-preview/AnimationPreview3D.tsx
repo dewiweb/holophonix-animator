@@ -9,6 +9,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useAnimationStore } from '@/stores/animationStore'
 import { calculateBarycenter } from '@/components/animation-editor/utils/barycentricCalculations'
+import { modelRuntime } from '@/models/runtime'
 
 interface AnimationPreview3DProps {
   tracks: Track[]  // Changed from single track to array of tracks
@@ -989,87 +990,14 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
 
 // Helper function to calculate position at specific time
 function calculatePositionAtTime(animation: Animation, time: number): { x: number; y: number; z: number } {
-  const progress = Math.min(time / animation.duration, 1)
-  const params = animation.parameters as any
-
-  switch (animation.type) {
-    case 'linear': {
-      const start = params.startPosition || { x: 0, y: 0, z: 0 }
-      const end = params.endPosition || { x: 0, y: 0, z: 0 }
-      return {
-        x: start.x + (end.x - start.x) * progress,
-        y: start.y + (end.y - start.y) * progress,
-        z: start.z + (end.z - start.z) * progress,
-      }
-    }
-
-    case 'circular': {
-      const center = params.center || { x: 0, y: 0, z: 0 }
-      const radius = params.radius || 3
-      const startAngle = ((params.startAngle || 0) * Math.PI) / 180
-      const endAngle = ((params.endAngle || 360) * Math.PI) / 180
-      const angle = startAngle + (endAngle - startAngle) * progress
-      const plane = params.plane || 'xy'
-
-      let x = center.x, y = center.y, z = center.z
-      if (plane === 'xy') {
-        x += Math.cos(angle) * radius
-        y += Math.sin(angle) * radius
-      } else if (plane === 'xz') {
-        x += Math.cos(angle) * radius
-        z += Math.sin(angle) * radius
-      } else if (plane === 'yz') {
-        y += Math.cos(angle) * radius
-        z += Math.sin(angle) * radius
-      }
-      return { x, y, z }
-    }
-
-    case 'elliptical': {
-      const centerX = params.centerX || 0
-      const centerY = params.centerY || 0
-      const centerZ = params.centerZ || 0
-      const radiusX = params.radiusX || 4
-      const radiusY = params.radiusY || 2
-      const radiusZ = params.radiusZ || 0
-      const startAngle = ((params.startAngle || 0) * Math.PI) / 180
-      const endAngle = ((params.endAngle || 360) * Math.PI) / 180
-      const angle = startAngle + (endAngle - startAngle) * progress
-
-      return {
-        x: centerX + Math.cos(angle) * radiusX,
-        y: centerY + Math.sin(angle) * radiusY,
-        z: centerZ + Math.sin(angle) * radiusZ,
-      }
-    }
-
-    case 'spiral': {
-      const center = params.center || { x: 0, y: 0, z: 0 }
-      const startRadius = params.startRadius || 1
-      const endRadius = params.endRadius || 5
-      const rotations = params.rotations || 3
-      const direction = params.direction || 'clockwise'
-      const plane = params.plane || 'xy'
-      
-      const radius = startRadius + (endRadius - startRadius) * progress
-      const totalAngle = rotations * 2 * Math.PI
-      const angle = (direction === 'clockwise' ? 1 : -1) * totalAngle * progress
-
-      let x = center.x, y = center.y, z = center.z
-      if (plane === 'xy') {
-        x += Math.cos(angle) * radius
-        y += Math.sin(angle) * radius
-      } else if (plane === 'xz') {
-        x += Math.cos(angle) * radius
-        z += Math.sin(angle) * radius
-      } else if (plane === 'yz') {
-        y += Math.cos(angle) * radius
-        z += Math.sin(angle) * radius
-      }
-      return { x, y, z }
-    }
-
-    default:
-      return { x: 0, y: 0, z: 0 }
-  }
+  // Use model runtime for all animation types
+  return modelRuntime.calculatePosition(animation, time, 0, {
+    trackId: 'preview',
+    trackIndex: 0,
+    totalTracks: 1,
+    frameCount: 0,
+    deltaTime: 0,
+    realTime: Date.now(),
+    state: new Map()
+  })
 }

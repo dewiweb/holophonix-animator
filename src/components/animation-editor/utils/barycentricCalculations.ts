@@ -127,18 +127,21 @@ export function calculateRotationFromAnimation(
   progress: number, // 0-1
   parameters: any
 ): number {
-  switch (animationType) {
-    case 'circular':
-    case 'orbit':
-      // Full rotation based on progress
-      return progress * Math.PI * 2
-    
-    case 'spiral':
-      // Multiple rotations
-      const rotations = parameters.rotations || 1
-      return progress * Math.PI * 2 * rotations
-    
-    default:
-      return 0
+  // Detect rotational animation types
+  const rotationalTypes = ['circular', 'orbit', 'circular-scan']
+  const spiralTypes = ['spiral']
+  
+  if (rotationalTypes.includes(animationType)) {
+    // Full rotation based on progress
+    return progress * Math.PI * 2
   }
+  
+  if (spiralTypes.includes(animationType)) {
+    // Multiple rotations for spiral
+    const rotations = parameters.rotations || 1
+    return progress * Math.PI * 2 * rotations
+  }
+  
+  // Non-rotational animations
+  return 0
 }

@@ -2,22 +2,19 @@ import React, { useState, useEffect } from 'react'
 import { modelRegistry } from '@/models/registry'
 import { AnimationModel } from '@/models/types'
 import { AnimationType } from '@/types'
-import { Sparkles, Layers, Info } from 'lucide-react'
+import { Sparkles, Info } from 'lucide-react'
 
 interface ModelSelectorProps {
   onModelSelect: (model: AnimationModel | null) => void
-  onLegacySelect: (type: AnimationType) => void
   currentType: AnimationType
   selectedModel: AnimationModel | null
 }
 
 export const ModelSelector: React.FC<ModelSelectorProps> = ({
   onModelSelect,
-  onLegacySelect,
   currentType,
   selectedModel
 }) => {
-  const [mode, setMode] = useState<'legacy' | 'model'>('legacy')
   const [availableModels, setAvailableModels] = useState<AnimationModel[]>([])
   const [selectedModelType, setSelectedModelType] = useState<string>('')
 
@@ -26,29 +23,20 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     const models = modelRegistry.getAllModels()
     setAvailableModels(models)
     
-    // Check if current type has a model
+    // Auto-select current type if it has a model
     if (modelRegistry.hasModel(currentType)) {
-      setMode('model')
       setSelectedModelType(currentType)
       const model = modelRegistry.getModel(currentType)
       if (model) {
         onModelSelect(model)
       }
-    }
-  }, [])
-
-  const handleModeChange = (newMode: 'legacy' | 'model') => {
-    setMode(newMode)
-    if (newMode === 'legacy') {
-      onModelSelect(null)
-      setSelectedModelType('')
-    } else if (availableModels.length > 0 && !selectedModelType) {
-      // Select first available model
-      const firstModel = availableModels[0]
+    } else if (models.length > 0) {
+      // Or select first available model
+      const firstModel = models[0]
       setSelectedModelType(firstModel.metadata.type)
       onModelSelect(firstModel)
     }
-  }
+  }, [])
 
   const handleModelTypeChange = (type: string) => {
     setSelectedModelType(type)
@@ -60,40 +48,20 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Mode Toggle */}
-      <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
-        <button
-          onClick={() => handleModeChange('legacy')}
-          className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md transition-colors ${
-            mode === 'legacy'
-              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span className="text-sm font-medium">Legacy Animations</span>
-        </button>
-        <button
-          onClick={() => handleModeChange('model')}
-          className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md transition-colors ${
-            mode === 'model'
-              ? 'bg-white dark:bg-gray-700 text-purple-600 dark:text-purple-400 shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-          }`}
-        >
+      {/* Model Selection */}
+      <div className="mb-2">
+        <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
           <Sparkles className="w-4 h-4" />
-          <span className="text-sm font-medium">Model System</span>
+          <span className="text-sm font-medium">Animation Models</span>
           {availableModels.length > 0 && (
             <span className="px-1.5 py-0.5 text-xs bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400 rounded">
               {availableModels.length}
             </span>
           )}
-        </button>
+        </div>
       </div>
-
-      {/* Model Selection */}
-      {mode === 'model' && (
-        <div className="space-y-3">
+      
+      <div className="space-y-3">
           {availableModels.length > 0 ? (
             <>
               <div>
@@ -171,26 +139,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             </div>
           )}
         </div>
-      )}
-
-      {/* Legacy Mode Info */}
-      {mode === 'legacy' && (
-        <div className="bg-gradient-to-r from-gray-50 dark:from-gray-800 to-gray-100 dark:to-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-0.5 text-gray-600 dark:text-gray-400">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                Legacy Animation System
-              </h3>
-              <p className="text-xs text-gray-600 dark:text-gray-400">
-                Using the traditional animation system with hardcoded animation types and parameters.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

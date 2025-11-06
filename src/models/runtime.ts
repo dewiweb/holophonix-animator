@@ -3,9 +3,6 @@ import { AnimationModel, CalculationContext } from './types'
 import { modelRegistry } from './registry'
 import { validateParameters } from './validation'
 
-// Import legacy calculation functions
-import { calculatePosition as calculateLegacyPosition } from '@/utils/animations'
-
 /**
  * Runtime engine for executing animation models
  * Provides backward compatibility with legacy animation system
@@ -25,7 +22,7 @@ export class ModelRuntime {
   }
   
   /**
-   * Calculate position using either model system or legacy system
+   * Calculate position using model system
    */
   calculatePosition(
     animation: Animation,
@@ -33,16 +30,16 @@ export class ModelRuntime {
     loopCount: number = 0,
     context?: Partial<CalculationContext>
   ): Position {
-    // Check if this animation type has a registered model
+    // Get the model for this animation type
     const model = modelRegistry.getModel(animation.type)
     
-    if (model) {
-      // Use model system
-      return this.calculateWithModel(model, animation, time, loopCount, context)
-    } else {
-      // Fall back to legacy system
-      return this.calculateWithLegacy(animation, time, loopCount)
+    if (!model) {
+      console.error(`No model found for animation type: ${animation.type}`)
+      return { x: 0, y: 0, z: 0 }
     }
+    
+    // Use model system
+    return this.calculateWithModel(model, animation, time, loopCount, context)
   }
   
   /**
@@ -109,17 +106,6 @@ export class ModelRuntime {
     }
     
     return position
-  }
-  
-  /**
-   * Calculate position using legacy system
-   */
-  private calculateWithLegacy(
-    animation: Animation,
-    time: number,
-    loopCount: number
-  ): Position {
-    return calculateLegacyPosition(animation, time, loopCount, 'playback')
   }
   
   /**

@@ -3,7 +3,7 @@
  * Run this to verify all animation types produce valid outputs
  */
 
-import { calculatePosition } from './animations'
+import { modelRuntime } from '@/models/runtime'
 import { Animation, AnimationType } from '@/types'
 
 interface TestResult {
@@ -57,7 +57,7 @@ function testAnimation(type: AnimationType): TestResult {
     
     // Test at multiple time points (offset slightly to avoid sampling exactly at wave zero-crossings)
     const timePoints = [0, 1.8, 4.3, 6.7, 9.2]
-    const positions = timePoints.map(time => calculatePosition(animation, time))
+    const positions = timePoints.map(time => modelRuntime.calculatePosition(animation, time))
     
     // Verify all positions are valid
     const allValid = positions.every(isValidPosition)

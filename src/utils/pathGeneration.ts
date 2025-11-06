@@ -1,5 +1,4 @@
 import { Animation, Position } from '@/types'
-import { calculatePosition } from './animations'
 import { modelRuntime } from '@/models/runtime'
 
 export interface PathPoint {

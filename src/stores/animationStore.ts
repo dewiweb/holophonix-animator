@@ -3,7 +3,6 @@ import { Animation, AnimationState, Position, AnimationType } from '@/types'
 import { useProjectStore } from './projectStore'
 import { useOSCStore } from './oscStore'
 import { useSettingsStore } from './settingsStore'
-import { calculatePosition } from '@/utils/animations'
 import { modelRuntime } from '@/models/runtime'
 import { oscBatchManager } from '@/utils/oscBatchManager'
 import { oscInputManager } from '@/utils/oscInputManager'
@@ -490,25 +489,17 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             return
           }
 
-          // Calculate position
-          let position: Position
-          
-          // Use model runtime if available
-          if (modelRuntime) {
-            const context: any = {
-              trackId,
-              trackIndex: playingAnimation.trackIds.indexOf(trackId),
-              totalTracks: playingAnimation.trackIds.length,
-              frameCount: state.frameCount,
-              deltaTime: deltaTime / 1000,
-              realTime: timestamp,
-              state: 'playback'
-            }
-            position = modelRuntime.calculatePosition(animation, animationTime, 0, context)
-          } else {
-            // Fallback to legacy calculation
-            position = calculatePosition(animation, animationTime)
+          // Calculate position using model runtime
+          const context: any = {
+            trackId,
+            trackIndex: playingAnimation.trackIds.indexOf(trackId),
+            totalTracks: playingAnimation.trackIds.length,
+            frameCount: state.frameCount,
+            deltaTime: deltaTime / 1000,
+            realTime: timestamp,
+            state: new Map()  // Must be a Map for stateful models
           }
+          let position = modelRuntime.calculatePosition(animation, animationTime, 0, context)
 
           // Apply any track-specific offsets
           const params = animation.parameters as any

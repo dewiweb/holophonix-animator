@@ -1,5 +1,4 @@
 import { Animation, AnimationType, Track, AnimationParameters, Keyframe } from '@/types'
-import { generateRandomWaypoints } from '@/utils/animations/basicAnimations'
 import { checkUserModifiedParameters } from '../utils/parameterModification'
 import { calculateBarycenter, calculateOffsets } from '../utils/barycentricCalculations'
 
@@ -61,15 +60,7 @@ export const handleSaveAnimation = ({
     parameters = { ...parameters, keyframes }
   }
   
-  // For random animations, generate and store waypoints once
-  if (animationForm.type === 'random') {
-    const center = parameters.center || { x: 0, y: 0, z: 0 }
-    const bounds = parameters.bounds || { x: 5, y: 5, z: 5 }
-    const updateFrequency = Number(parameters.updateFrequency) || 2
-    const randomWaypoints = generateRandomWaypoints(center, bounds, animationForm.duration || 10, updateFrequency)
-    parameters = { ...parameters, randomWaypoints }
-    console.log(` Generated ${randomWaypoints.length} random waypoints`)
-  }
+  // Random animation waypoints are now handled internally by the random model
 
   // Generate a new ID only if we're creating a new animation
   const animationId = currentAnimation?.id || `anim-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
@@ -439,13 +430,9 @@ const applyPositionRelativeParameters = (
       break
 
     case 'random':
-      // For random animation, regenerate waypoints centered at each track's position
+      // Random waypoints generated internally by model
       if (!userModifiedParams.center) {
         updatedParams.center = { ...trackPos }
-        const bounds = updatedParams.bounds || { x: 5, y: 5, z: 5 }
-        const updateFrequency = Number(updatedParams.updateFrequency) || 2
-        updatedParams.randomWaypoints = generateRandomWaypoints(trackPos, bounds, duration, updateFrequency)
-        console.log(`🎲 Track: generated ${updatedParams.randomWaypoints.length} waypoints at (${trackPos.x.toFixed(1)}, ${trackPos.y.toFixed(1)}, ${trackPos.z.toFixed(1)})`)
       }
       break
 

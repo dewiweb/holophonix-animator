@@ -4,7 +4,7 @@ import { useAnimationStore } from '@/stores/animationStore'
 import { usePresetStore } from '@/stores/presetStore'
 import { useAnimationEditorStore } from '@/stores/animationEditorStore'
 import { cn } from '@/utils'
-import { Track, Position, Animation, AnimationState } from '@/types'
+import { Track, Position, Animation, AnimationType, AnimationState, Keyframe } from '@/types'
 import { AnimationModel } from '@/models/types'
 import { Save, Target, PanelRightOpen, PanelRightClose } from 'lucide-react'
 
@@ -13,7 +13,6 @@ import { AnimationPreview3D } from './components/3d-preview/AnimationPreview3D'
 import { ControlPointEditor } from './components/control-points-editor/ControlPointEditor'
 import { PresetBrowser } from './components/modals/PresetBrowser'
 import { PresetNameDialog } from './components/modals/PresetNameDialog'
-import { AnimationParametersRenderer } from './components/models-forms'
 import { ModelParametersForm } from './components/models-forms/ModelParametersForm'
 import { AnimationLibrary } from './components/AnimationLibrary'
 import {
@@ -946,12 +945,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
                   onModelSelect={(model) => {
                     setSelectedModel(model)
                     if (model) {
-                      handleAnimationTypeChange(model.metadata.type)
+                      handleAnimationTypeChange(model.metadata.type as AnimationType)
                     }
-                  }}
-                  onLegacySelect={(type) => {
-                    setSelectedModel(null)
-                    handleAnimationTypeChange(type)
                   }}
                   currentType={animationForm.type || 'linear'}
                   selectedModel={selectedModel}
@@ -1045,12 +1040,10 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
                         trackPosition={selectedTrack?.position}
                       />
                     ) : (
-                      <AnimationParametersRenderer
-                        type={animationForm.type || 'linear'}
-                        parameters={animationForm.parameters || {}}
-                        keyframesCount={keyframes.length}
-                        onParameterChange={onParameterChange}
-                      />
+                      <div className="text-center py-8 text-gray-500">
+                        <p className="text-sm">No model selected</p>
+                        <p className="text-xs mt-1">Select an animation type above</p>
+                      </div>
                     )}
                   </div>
                 </div>
