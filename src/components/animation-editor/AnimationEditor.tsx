@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useProjectStore } from '@/stores/projectStore'
 import { useAnimationStore } from '@/stores/animationStore'
 import { usePresetStore } from '@/stores/presetStore'
+import { useAnimationEditorStore } from '@/stores/animationEditorStore'
 import { cn } from '@/utils'
 import { Track, Position, Animation, AnimationState } from '@/types'
+import { AnimationModel } from '@/models/types'
 import { Save, Target, PanelRightOpen, PanelRightClose } from 'lucide-react'
 
 // Import modular components
@@ -12,11 +14,14 @@ import { ControlPointEditor } from './components/control-points-editor/ControlPo
 import { PresetBrowser } from './components/modals/PresetBrowser'
 import { PresetNameDialog } from './components/modals/PresetNameDialog'
 import { AnimationParametersRenderer } from './components/models-forms'
+import { ModelParametersForm } from './components/models-forms/ModelParametersForm'
+import { AnimationLibrary } from './components/AnimationLibrary'
 import {
   MultiTrackModeSelector,
   SelectedTracksIndicator,
   AnimationTypeSelector,
-  AnimationControlButtons
+  AnimationControlButtons,
+  ModelSelector
 } from './components/controls'
 
 // Import constants and utilities
@@ -39,20 +44,27 @@ interface AnimationEditorProps {
 
 export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSelect }) => {
   const { currentProject, tracks, selectedTracks, selectTracks, updateTrack, animations, addAnimation, updateAnimation } = useProjectStore()
-  const { isPlaying, globalTime, playAnimation, pauseAnimation, stopAnimation } = useAnimationStore()
+  const { isPlaying: globalIsPlaying, globalTime, playAnimation, pauseAnimation, stopAnimation, currentAnimationId: playingAnimationId } = useAnimationStore()
   const { addPreset } = usePresetStore()
+  const editorStore = useAnimationEditorStore()
+  const hasRestoredRef = useRef(false)
+  const skipFormInitRef = useRef(false)
 
   // UI State
   const [previewMode, setPreviewMode] = useState(false)
   const [showPresetBrowser, setShowPresetBrowser] = useState(false)
   const [showPresetNameDialog, setShowPresetNameDialog] = useState(false)
+  const [showAnimationLibrary, setShowAnimationLibrary] = useState(false)
   const [activeWorkPane, setActiveWorkPane] = useState<'preview' | 'control'>('preview')
   const [isFormPanelOpen, setIsFormPanelOpen] = useState(false)
+  const [loadedAnimationId, setLoadedAnimationId] = useState<string | null>(null)
   const [multiTrackMode, setMultiTrackMode] = useState<'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered'>('position-relative')
   const [phaseOffsetSeconds, setPhaseOffsetSeconds] = useState(0.5)
   const [centerPoint, setCenterPoint] = useState({ x: 0, y: 0, z: 0 })
   const [activeEditingTrackIds, setActiveEditingTrackIds] = useState<string[]>([])
   const [multiTrackParameters, setMultiTrackParameters] = useState<Record<string, any>>({})
+  const [selectedModel, setSelectedModel] = useState<AnimationModel | null>(null)
+  const [lockTracks, setLockTracks] = useState(false)
 
   // Track Selection - memoize to prevent new array reference on every render
   const selectedTrackIds = useMemo(() => 
@@ -63,7 +75,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   // Get the animation from the project store instead of the track's state to avoid corruption
   const trackAnimationId = selectedTrack?.animationState?.animation?.id
   const currentAnimation = trackAnimationId ? animations.find(a => a.id === trackAnimationId) ?? null : null
-  const isAnimationPlaying = selectedTrack?.animationState?.isPlaying || false
+  // Use global animation store state for accurate playing/paused status
+  const isAnimationPlaying = globalIsPlaying && playingAnimationId === currentAnimation?.id
 
   const selectedTrackObjects = useMemo(() => (
     selectedTrackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[]
@@ -92,9 +105,10 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     keyframes,
     setKeyframes,
     originalAnimationParams,
+    setOriginalAnimationParams,
     handleAnimationTypeChange: onAnimationTypeChange,
     handleResetToDefaults
-  } = useAnimationForm(selectedTrack, currentAnimation)
+  } = useAnimationForm(selectedTrack, currentAnimation, skipFormInitRef)
 
   const {
     selectedKeyframeId,
@@ -105,6 +119,64 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     handleKeyframeRemove,
     handleKeyframeUpdate
   } = useKeyframeManagement(keyframes, setKeyframes)
+
+  // Restore editor state when component mounts (after tab switch)
+  useEffect(() => {
+    if (!hasRestoredRef.current && editorStore.hasRestoredState()) {
+      console.log('🔄 Restoring animation editor state after tab switch')
+      
+      // Set skip flag BEFORE restoring to prevent useAnimationForm interference
+      skipFormInitRef.current = true
+      
+      // Restore all saved state
+      if (editorStore.savedFormState) {
+        setAnimationForm(editorStore.savedFormState)
+      }
+      if (editorStore.savedKeyframes.length > 0) {
+        setKeyframes(editorStore.savedKeyframes)
+      }
+      if (editorStore.savedOriginalParams) {
+        setOriginalAnimationParams(editorStore.savedOriginalParams)
+      }
+      setMultiTrackMode(editorStore.savedMultiTrackMode)
+      setPhaseOffsetSeconds(editorStore.savedPhaseOffsetSeconds)
+      setCenterPoint(editorStore.savedCenterPoint)
+      setMultiTrackParameters(editorStore.savedMultiTrackParameters)
+      setActiveEditingTrackIds(editorStore.savedActiveEditingTrackIds)
+      if (editorStore.savedLoadedAnimationId) {
+        setLoadedAnimationId(editorStore.savedLoadedAnimationId)
+      }
+      
+      hasRestoredRef.current = true
+      
+      // Reset skip flag after all state updates have settled
+      // Use longer timeout to ensure selectedTrack updates don't trigger useAnimationForm
+      setTimeout(() => {
+        skipFormInitRef.current = false
+        console.log('✅ State restoration complete - form init re-enabled')
+      }, 500)
+    }
+  }, []) // Only run on mount
+
+  // Save editor state when component unmounts (tab switch)
+  useEffect(() => {
+    return () => {
+      // Only save if there's actual form data
+      if (animationForm.name || animationForm.type) {
+        editorStore.saveEditorState({
+          animationForm,
+          keyframes,
+          originalAnimationParams,
+          multiTrackMode,
+          phaseOffsetSeconds,
+          centerPoint,
+          multiTrackParameters,
+          activeEditingTrackIds,
+          loadedAnimationId
+        })
+      }
+    }
+  }, [animationForm, keyframes, originalAnimationParams, multiTrackMode, phaseOffsetSeconds, centerPoint, multiTrackParameters, activeEditingTrackIds, loadedAnimationId])
 
   // Derived state
   const supportsControlPoints = useMemo(() => 
@@ -223,9 +295,15 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       selectedTrackIds.forEach(trackId => {
         const track = tracks.find(t => t.id === trackId)
         if (track) {
-          // Generate complete default parameters centered on this track's position
-          // This ensures all position-dependent params (endPosition, control points, etc.) are correct
-          const trackParams = getDefaultAnimationParameters(type, track)
+          // If using a model, get default parameters from the model
+          let trackParams: any
+          if (selectedModel && selectedModel.getDefaultParameters && typeof selectedModel.getDefaultParameters === 'function') {
+            trackParams = selectedModel.getDefaultParameters(track.position || { x: 0, y: 0, z: 0 })
+          } else {
+            // Generate complete default parameters centered on this track's position
+            // This ensures all position-dependent params (endPosition, control points, etc.) are correct
+            trackParams = getDefaultAnimationParameters(type, track)
+          }
           newMultiTrackParams[trackId] = trackParams
         }
       })
@@ -377,9 +455,10 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     // Get the project store state directly to ensure we have the latest data
     const projectStore = useProjectStore.getState()
     
-    // Create a new animation ID if this is a new animation
-    const isNewAnimation = !currentAnimation
-    const animationId = isNewAnimation ? `anim-${Date.now()}` : currentAnimation.id
+    // Check if we're updating an existing animation (either from track or loaded from library)
+    const existingAnimationId = loadedAnimationId || currentAnimation?.id
+    const isNewAnimation = !existingAnimationId
+    const animationId = isNewAnimation ? `anim-${Date.now()}` : existingAnimationId
     
     // Create the base animation object with required properties
     const baseAnimation = {
@@ -396,12 +475,18 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       coordinateSystem: { type: 'xyz' } as const,
       multiTrackMode,
       phaseOffsetSeconds,
-      centerPoint
+      centerPoint,
+      // Track locking (NEW)
+      ...(lockTracks && selectedTrackIds.length > 0 && {
+        trackIds: selectedTrackIds,
+        trackSelectionLocked: true,
+        multiTrackParameters
+      })
     }
 
     // Save the animation to the store
-    if (currentAnimation) {
-      // Update existing animation - use the base animation without ID
+    if (!isNewAnimation) {
+      // Update existing animation
       projectStore.updateAnimation(animationId, baseAnimation)
       console.log('Updated animation:', animationId)
     } else {
@@ -411,13 +496,13 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
         id: animationId
       } as Animation
       projectStore.addAnimation(newAnimation)
+      console.log('Added new animation:', animationId)
       
-      // Check the store immediately after adding
-      const freshProjectStore = useProjectStore.getState() // Get fresh reference
-      const animationsAfterAdd = freshProjectStore.animations
+      // Update the loaded animation ID if we're saving a new animation
+      setLoadedAnimationId(animationId)
       
       // Update the current animation in the parent component if callback exists and this is a new animation
-      if (onAnimationSelect && isNewAnimation) {
+      if (onAnimationSelect) {
         onAnimationSelect(animationId);
       }
     }
@@ -487,8 +572,20 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     if (isAnimationPlaying) {
       pauseAnimation()
     } else {
-      if (!currentAnimation) return
-      playAnimation(currentAnimation.id, selectedTrackIds)
+      // If animation is not saved yet, save it first before playing
+      if (!currentAnimation && animationForm.name && animationForm.type) {
+        console.log('💾 Auto-saving animation before preview playback')
+        onSaveAnimation()
+        // Wait a bit for state to update
+        setTimeout(() => {
+          const savedAnimation = animations.find(a => a.name === animationForm.name)
+          if (savedAnimation) {
+            playAnimation(savedAnimation.id, selectedTrackIds)
+          }
+        }, 200)
+      } else if (currentAnimation) {
+        playAnimation(currentAnimation.id, selectedTrackIds)
+      }
     }
   }
 
@@ -515,6 +612,36 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       return
     }
     setShowPresetNameDialog(true)
+  }
+
+  const handleLoadAnimation = (animation: Animation) => {
+    // Load the animation into the form
+    setAnimationForm({
+      name: animation.name,
+      type: animation.type,
+      duration: animation.duration,
+      loop: animation.loop || false,
+      pingPong: animation.pingPong || false,
+      parameters: animation.parameters || {},
+      coordinateSystem: animation.coordinateSystem
+    })
+    
+    // Set multi-track settings if available
+    if (animation.multiTrackMode) {
+      setMultiTrackMode(animation.multiTrackMode)
+    }
+    if (animation.phaseOffsetSeconds !== undefined) {
+      setPhaseOffsetSeconds(animation.phaseOffsetSeconds)
+    }
+    if (animation.centerPoint) {
+      setCenterPoint(animation.centerPoint)
+    }
+    
+    // Set the loaded animation ID
+    setLoadedAnimationId(animation.id)
+    
+    // Close the library
+    setShowAnimationLibrary(false)
   }
 
   const handleConfirmPresetSave = (presetName: string, description: string) => {
@@ -547,6 +674,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     <div className="h-full flex flex-col min-h-0">
       <div className="flex-1 min-h-0 bg-gray-100">
         <AnimationPreview3D
+          key={`preview-${animationForm.type}-${multiTrackMode}`}
           tracks={selectedTrackObjects}
           animation={previewMode ? null : currentAnimation}
           animationType={animationForm.type}
@@ -577,6 +705,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
 
   const controlPaneContent = supportsControlPoints ? (
     <ControlPointEditor
+      key={`control-${animationForm.type}-${multiTrackMode}-${activeEditingTrackIds.join(',')}`}
       animationType={animationForm.type || 'linear'}
       parameters={
         // In position-relative or phase-offset-relative mode, use the first active track's parameters from multiTrackParameters
@@ -669,7 +798,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
             <AnimationControlButtons
               previewMode={previewMode}
               isAnimationPlaying={isAnimationPlaying}
-              hasAnimation={!!currentAnimation}
+              hasAnimation={!!(animationForm.name && animationForm.type)}
               isCustomAnimation={animationForm.type === 'custom'}
               showKeyframeEditor={false}
               onTogglePreview={() => setPreviewMode(!previewMode)}
@@ -682,14 +811,53 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
               currentAnimationId={currentAnimation?.id}
             />
 
-            <button
-              onClick={onSaveAnimation}
-              disabled={!animationForm.name}
-              className="px-3 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Save Animation
-            </button>
+            {/* Track Locking Option */}
+            {selectedTrackIds.length > 0 && (
+              <div className="mb-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={lockTracks}
+                    onChange={(e) => setLockTracks(e.target.checked)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Lock tracks to this animation
+                  </span>
+                </label>
+                {lockTracks && (
+                  <div className="mt-2 text-xs text-blue-600 flex items-start gap-1">
+                    <span>🔒</span>
+                    <span>
+                      This animation will be locked to {selectedTrackIds.length} track(s). 
+                      Cues cannot reassign it to different tracks.
+                    </span>
+                  </div>
+                )}
+                {!lockTracks && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Unchecked: This animation can be applied to any tracks in cue editor.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAnimationLibrary(true)}
+                className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors flex items-center"
+              >
+                Load Animation
+              </button>
+              <button
+                onClick={onSaveAnimation}
+                disabled={!animationForm.name}
+                className="px-3 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Save Animation
+              </button>
+            </div>
           </div>
         </div>
 
@@ -774,12 +942,30 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
                   />
                 </div>
 
-                <AnimationTypeSelector
-                  selectedType={animationForm.type || 'linear'}
-                  onTypeChange={handleAnimationTypeChange}
-                  categories={animationCategories}
-                  getAnimationInfo={getAnimationInfo}
+                <ModelSelector
+                  onModelSelect={(model) => {
+                    setSelectedModel(model)
+                    if (model) {
+                      handleAnimationTypeChange(model.metadata.type)
+                    }
+                  }}
+                  onLegacySelect={(type) => {
+                    setSelectedModel(null)
+                    handleAnimationTypeChange(type)
+                  }}
+                  currentType={animationForm.type || 'linear'}
+                  selectedModel={selectedModel}
                 />
+
+                {/* Show legacy animation selector if no model selected */}
+                {!selectedModel && (
+                  <AnimationTypeSelector
+                    selectedType={animationForm.type || 'linear'}
+                    onTypeChange={handleAnimationTypeChange}
+                    categories={animationCategories}
+                    getAnimationInfo={getAnimationInfo}
+                  />
+                )}
 
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                   <div>
@@ -851,12 +1037,21 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <AnimationParametersRenderer
-                      type={animationForm.type || 'linear'}
-                      parameters={animationForm.parameters || {}}
-                      keyframesCount={keyframes.length}
-                      onParameterChange={onParameterChange}
-                    />
+                    {selectedModel ? (
+                      <ModelParametersForm
+                        model={selectedModel}
+                        parameters={animationForm.parameters || {}}
+                        onChange={onParameterChange}
+                        trackPosition={selectedTrack?.position}
+                      />
+                    ) : (
+                      <AnimationParametersRenderer
+                        type={animationForm.type || 'linear'}
+                        parameters={animationForm.parameters || {}}
+                        keyframesCount={keyframes.length}
+                        onParameterChange={onParameterChange}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
@@ -898,6 +1093,29 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
         onConfirm={handleConfirmPresetSave}
         onCancel={() => setShowPresetNameDialog(false)}
       />
+
+      {showAnimationLibrary && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] flex flex-col">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">Animation Library</h2>
+              <button
+                onClick={() => setShowAnimationLibrary(false)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <AnimationLibrary
+                onAnimationSelect={handleLoadAnimation}
+                currentAnimationId={loadedAnimationId}
+                showActions={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
