@@ -243,19 +243,74 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
     // Single track mode: generate one path
     if (!animationParameters) return []
 
-    // Derive live parameters for preview; override center from control point if present (elliptical)
+    // Derive live parameters for preview; override parameters from current control point positions
     const derivedParams: any = { ...(animationParameters as any) }
-    if (animationType === 'elliptical') {
-      const centerPoint = controlPoints.find(p =>
-        p.animationType === 'elliptical' && p.type === 'control' && p.id.toLowerCase().includes('center')
-      )
-      if (centerPoint) {
-        derivedParams.center = centerPoint.position
-        if ('centerX' in derivedParams) derivedParams.centerX = centerPoint.position.x
-        if ('centerY' in derivedParams) derivedParams.centerY = centerPoint.position.y
-        if ('centerZ' in derivedParams) derivedParams.centerZ = centerPoint.position.z
+    
+    // Update parameters based on current control point positions for immediate visual feedback
+    controlPoints.forEach(point => {
+      if (point.index === -1 || point.id === 'track-position') return // Skip reference points
+      
+      switch (animationType) {
+        case 'linear':
+          if (point.id === 'linear-start') derivedParams.startPosition = point.position
+          else if (point.id === 'linear-end') derivedParams.endPosition = point.position
+          break
+          
+        case 'circular':
+        case 'spiral':
+        case 'wave':
+        case 'lissajous':
+        case 'orbit':
+          if (point.id.includes('-center')) {
+            derivedParams.center = point.position
+            // For legacy compatibility with individual coordinates
+            derivedParams.centerX = point.position.x
+            derivedParams.centerY = point.position.y
+            derivedParams.centerZ = point.position.z
+          }
+          break
+          
+        case 'elliptical':
+          if (point.id.includes('-center')) {
+            derivedParams.center = point.position
+            derivedParams.centerX = point.position.x
+            derivedParams.centerY = point.position.y
+            derivedParams.centerZ = point.position.z
+          }
+          break
+          
+        case 'bezier':
+          if (point.id === 'bezier-start') derivedParams.bezierStart = point.position
+          else if (point.id === 'bezier-control1') derivedParams.bezierControl1 = point.position
+          else if (point.id === 'bezier-control2') derivedParams.bezierControl2 = point.position
+          else if (point.id === 'bezier-end') derivedParams.bezierEnd = point.position
+          break
+          
+        case 'catmull-rom':
+          if (point.id.startsWith('catmull-point-') && point.index !== undefined) {
+            if (!derivedParams.controlPoints) derivedParams.controlPoints = []
+            derivedParams.controlPoints[point.index] = point.position
+          }
+          break
+          
+        case 'zigzag':
+          if (point.id === 'zigzag-start') derivedParams.zigzagStart = point.position
+          else if (point.id === 'zigzag-end') derivedParams.zigzagEnd = point.position
+          break
+          
+        case 'pendulum':
+          if (point.id === 'pendulum-anchor') derivedParams.anchorPoint = point.position
+          break
+          
+        case 'spring':
+          if (point.id === 'spring-rest') derivedParams.restPosition = point.position
+          break
+          
+        case 'attract-repel':
+          if (point.id === 'attract-target') derivedParams.targetPosition = point.position
+          break
       }
-    }
+    })
 
     const animation: Animation = {
       id: 'plane-editor-preview',

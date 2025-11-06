@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Track, Animation, Keyframe, AnimationType, AnimationParameters } from '@/types'
 import { generateAnimationPath, generateDirectionIndicators } from '@/utils/pathGeneration'
+import { generateMultiTrackPaths } from '@/utils/multiTrackPathGeneration'
 import { themeColors } from '@/theme'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useProjectStore } from '@/stores/projectStore'
@@ -832,51 +833,33 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
       // Colors for different tracks - fallback for tracks without device colors
       const fallbackColors = [0x10b981, 0x3b82f6, 0xf59e0b, 0xef4444, 0x8b5cf6, 0xec4899]
       
-      // Generate path for each track and store first track's path points for indicators
-      let firstTrackPathPoints = animationPath
+      // Use multi-track aware path generation
+      const multiTrackPaths = generateMultiTrackPaths(
+        tracks,
+        previewAnimation,
+        multiTrackMode,
+        100 // Reduced resolution for performance
+      )
       
-      tracks.forEach((track, trackIndex) => {
-        let trackAnimation = track.animationState?.animation
-
-        const shouldForcePreview = trackIndex === 0 || !trackAnimation
-
-        if (trackAnimation && shouldForcePreview) {
-          trackAnimation = {
-            ...trackAnimation,
-            type: previewAnimation.type,
-            duration: previewAnimation.duration,
-            loop: previewAnimation.loop,
-            pingPong: previewAnimation.pingPong,
-            parameters: previewAnimation.parameters,
-            coordinateSystem: previewAnimation.coordinateSystem ?? trackAnimation.coordinateSystem
-          }
-        }
-
-        if (!trackAnimation) {
-          trackAnimation = previewAnimation
-        }
-
-        // Reduced resolution for better multi-track performance
-        const pathPoints = generateAnimationPath(trackAnimation, 100)
-        
-        // Store first track's path for direction indicators
-        if (trackIndex === 0) {
-          firstTrackPathPoints = pathPoints
+      // Store first track's path for direction indicators
+      let firstTrackPath: { position: { x: number; y: number; z: number }; time: number; normalizedTime: number }[] = []
+      
+      multiTrackPaths.forEach((trackPath, index) => {
+        if (index === 0) {
+          firstTrackPath = trackPath.path
         }
         
-        if (pathPoints.length < 2) return
+        if (trackPath.path.length < 2) return
 
         // Create line from path points
-        const points: THREE.Vector3[] = pathPoints.map(p => 
+        const points: THREE.Vector3[] = trackPath.path.map(p => 
           new THREE.Vector3(p.position.x, p.position.z, -p.position.y)
         )
 
         const geometry = new THREE.BufferGeometry().setFromPoints(points)
         
-        // Use track color if available, otherwise use fallback color
-        const color = track.color 
-          ? (track.color.r * 0xFF) << 16 | (track.color.g * 0xFF) << 8 | (track.color.b * 0xFF)
-          : fallbackColors[trackIndex % fallbackColors.length]
+        // Use track color from multiTrackPath or fallback
+        const color = trackPath.color || fallbackColors[index % fallbackColors.length]
           
         const material = new THREE.LineBasicMaterial({
           color,
@@ -892,8 +875,8 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
       pathLinesRef.current = pathsGroup
 
       // Add direction indicators for first track
-      if (firstTrackPathPoints.length >= 2) {
-        const indicators = generateDirectionIndicators(firstTrackPathPoints, 15)
+      if (firstTrackPath.length >= 2) {
+        const indicators = generateDirectionIndicators(firstTrackPath, 15)
         const indicatorGroup = new THREE.Group()
         indicatorGroup.name = 'direction-indicators'
 
@@ -933,7 +916,7 @@ export const AnimationPreview3D: React.FC<AnimationPreview3DProps> = ({
     } catch (error) {
       console.warn('Failed to generate animation path preview:', error)
     }
-  }, [animation, tracks, animationPath])
+  }, [animation, tracks, previewAnimation, multiTrackMode])
 
   return (
     <div ref={containerRef} className="w-full h-full relative">
