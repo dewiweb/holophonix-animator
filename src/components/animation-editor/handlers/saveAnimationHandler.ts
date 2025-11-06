@@ -17,6 +17,7 @@ interface SaveAnimationParams {
   updateAnimation: (id: string, animation: Animation) => void
   updateTrack: (trackId: string, updates: any) => void
   multiTrackParameters?: Record<string, AnimationParameters>
+  lockTracks?: boolean  // NEW: If true, save trackIds with animation
 }
 
 export const handleSaveAnimation = ({
@@ -32,7 +33,8 @@ export const handleSaveAnimation = ({
   addAnimation,
   updateAnimation,
   updateTrack,
-  multiTrackParameters
+  multiTrackParameters,
+  lockTracks = false  // NEW: Default to unlocked
 }: SaveAnimationParams) => {
   // Preserve selection order for phase-offset mode
   const selectedTracksToApply = selectedTrackIds.length > 0 
@@ -72,6 +74,13 @@ export const handleSaveAnimation = ({
   // Generate a new ID only if we're creating a new animation
   const animationId = currentAnimation?.id || `anim-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
   
+  // Clean up old multi-track parameters before setting new ones
+  const cleanedParameters = { ...animationForm.parameters }
+  delete cleanedParameters._multiTrackMode
+  delete cleanedParameters._isobarycenter
+  delete cleanedParameters._trackOffset
+  delete cleanedParameters._centeredPoint
+  
   const animation: Animation = {
     id: animationId,
     name: animationForm.name || 'Unnamed Animation',
@@ -80,12 +89,19 @@ export const handleSaveAnimation = ({
     loop: animationForm.loop ?? false,
     pingPong: animationForm.pingPong ?? false,
     parameters: {
-      ...animationForm.parameters,
+      ...cleanedParameters,
       // Store multi-track mode for OSC optimization
       _multiTrackMode: multiTrackMode
     },
     keyframes: keyframes.length > 0 ? keyframes : undefined,
-    coordinateSystem: animationForm.coordinateSystem || { type: 'xyz' }
+    coordinateSystem: animationForm.coordinateSystem || { type: 'xyz' },
+    // Track locking (NEW)
+    ...(lockTracks && selectedTrackIds.length > 0 && {
+      trackIds: selectedTrackIds,
+      trackSelectionLocked: true,
+      multiTrackMode,
+      multiTrackParameters
+    })
   }
 
   console.log(' Saving animation:', animation)
@@ -129,6 +145,14 @@ export const handleSaveAnimation = ({
           // Stagger start times by phase offset
           initialTime = index * phaseOffsetSeconds
           console.log(`🔄 Track ${track.name} (index ${index}): phase offset = ${phaseOffsetSeconds}s x ${index} = ${initialTime}s`)
+          // Ensure multiTrackMode is set in parameters
+          trackAnimation = {
+            ...trackAnimation,
+            parameters: {
+              ...trackAnimation.parameters,
+              _multiTrackMode: multiTrackMode
+            }
+          }
           break
 
         case 'phase-offset-relative':
@@ -219,7 +243,24 @@ export const handleSaveAnimation = ({
         default:
           // All tracks get identical animation
           console.log(`🔁 Track ${track.name}: identical animation`)
+          // Ensure multiTrackMode is set in parameters
+          trackAnimation = {
+            ...trackAnimation,
+            parameters: {
+              ...trackAnimation.parameters,
+              _multiTrackMode: multiTrackMode
+            }
+          }
           break
+      }
+    } else {
+      // Single track case - ensure multiTrackMode is still set for consistency
+      trackAnimation = {
+        ...trackAnimation,
+        parameters: {
+          ...trackAnimation.parameters,
+          _multiTrackMode: multiTrackMode
+        }
       }
     }
 

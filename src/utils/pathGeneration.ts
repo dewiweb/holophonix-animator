@@ -1,5 +1,6 @@
 import { Animation, Position } from '@/types'
 import { calculatePosition } from './animations'
+import { modelRuntime } from '@/models/runtime'
 
 export interface PathPoint {
   position: Position
@@ -25,8 +26,8 @@ export function generateAnimationPath(
     const normalizedTime = i / numPoints
     
     try {
-      // Pass 'preview' context to separate preview physics state from playback
-      const position = calculatePosition(animation, time, 0, 'preview')
+      // Use ModelRuntime with 'preview' context to separate preview physics state from playback
+      const position = modelRuntime.calculatePosition(animation, time, 0)
       
       // Validate position has valid numbers (not NaN or Infinity)
       if (
