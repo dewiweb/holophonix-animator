@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useProjectStore } from '@/stores/projectStore'
 import { useAnimationStore } from '@/stores/animationStore'
 import { usePresetStore } from '@/stores/presetStore'
-import { useAnimationEditorStore } from '@/stores/animationEditorStore'
+import { useAnimationEditorStoreV2 } from '@/stores/animationEditorStoreV2'
 import { cn } from '@/utils'
 import { Track, Position, Animation, AnimationType, AnimationState, Keyframe } from '@/types'
 import { AnimationModel } from '@/models/types'
@@ -29,7 +29,6 @@ import { getCompatibleModes } from './utils/compatibility'
 import { getDefaultAnimationParameters } from './utils/defaultParameters'
 
 // Import custom hooks
-import { useAnimationForm } from './hooks/useAnimationForm'
 import { useKeyframeManagement } from './hooks/useKeyframeManagement'
 
 // Import handlers
@@ -45,25 +44,59 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   const { currentProject, tracks, selectedTracks, selectTracks, updateTrack, animations, addAnimation, updateAnimation } = useProjectStore()
   const { isPlaying: globalIsPlaying, globalTime, playAnimation, pauseAnimation, stopAnimation, currentAnimationId: playingAnimationId } = useAnimationStore()
   const { addPreset } = usePresetStore()
-  const editorStore = useAnimationEditorStore()
-  const hasRestoredRef = useRef(false)
-  const skipFormInitRef = useRef(false)
-
-  // UI State
-  const [previewMode, setPreviewMode] = useState(false)
-  const [showPresetBrowser, setShowPresetBrowser] = useState(false)
-  const [showPresetNameDialog, setShowPresetNameDialog] = useState(false)
-  const [showAnimationLibrary, setShowAnimationLibrary] = useState(false)
-  const [activeWorkPane, setActiveWorkPane] = useState<'preview' | 'control'>('preview')
-  const [isFormPanelOpen, setIsFormPanelOpen] = useState(false)
-  const [loadedAnimationId, setLoadedAnimationId] = useState<string | null>(null)
-  const [multiTrackMode, setMultiTrackMode] = useState<'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered'>('position-relative')
-  const [phaseOffsetSeconds, setPhaseOffsetSeconds] = useState(0.5)
-  const [centerPoint, setCenterPoint] = useState({ x: 0, y: 0, z: 0 })
-  const [activeEditingTrackIds, setActiveEditingTrackIds] = useState<string[]>([])
-  const [multiTrackParameters, setMultiTrackParameters] = useState<Record<string, any>>({})
-  const [selectedModel, setSelectedModel] = useState<AnimationModel | null>(null)
-  const [lockTracks, setLockTracks] = useState(false)
+  
+  // NEW: Use primary store for all state
+  const {
+    // Form state
+    animationForm,
+    keyframes,
+    originalAnimationParams,
+    selectedModel,
+    loadedAnimationId,
+    // Multi-track state
+    multiTrackMode,
+    phaseOffsetSeconds,
+    centerPoint,
+    multiTrackParameters,
+    activeEditingTrackIds,
+    lockTracks,
+    // UI state
+    previewMode,
+    showPresetBrowser,
+    showPresetNameDialog,
+    showAnimationLibrary,
+    activeWorkPane,
+    isFormPanelOpen,
+    // Form actions
+    updateAnimationForm,
+    setAnimationType,
+    updateParameter,
+    updateParameters,
+    resetToDefaults,
+    loadAnimation,
+    // Keyframe actions
+    setKeyframes,
+    addKeyframe,
+    updateKeyframe,
+    deleteKeyframe,
+    // Multi-track actions
+    setMultiTrackMode,
+    setPhaseOffsetSeconds,
+    setCenterPoint,
+    setMultiTrackParameters,
+    updateMultiTrackParameter,
+    setActiveEditingTrackIds,
+    setLockTracks,
+    // UI actions
+    setPreviewMode,
+    setShowPresetBrowser,
+    setShowPresetNameDialog,
+    setShowAnimationLibrary,
+    setActiveWorkPane,
+    setIsFormPanelOpen,
+    // Utility
+    setSelectedModel
+  } = useAnimationEditorStoreV2()
 
   // Track Selection - memoize to prevent new array reference on every render
   const selectedTrackIds = useMemo(() => 
@@ -97,17 +130,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     }
   }, [activeEditingTrackIds, multiTrackMode])
 
-  // Use custom hooks
-  const {
-    animationForm,
-    setAnimationForm,
-    keyframes,
-    setKeyframes,
-    originalAnimationParams,
-    setOriginalAnimationParams,
-    handleAnimationTypeChange: onAnimationTypeChange,
-    handleResetToDefaults
-  } = useAnimationForm(selectedTrack, currentAnimation, skipFormInitRef)
+  // Keyframe management hook (still needed for keyframe-specific logic)
+  // Note: keyframes state comes from store, but this hook manages selection/placement
 
   const {
     selectedKeyframeId,
