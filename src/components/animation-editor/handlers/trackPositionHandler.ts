@@ -1,8 +1,18 @@
 import { AnimationType, Track, Position } from '@/types'
 
+/**
+ * Handle "Use Track Position" button click - updates animation parameters to use selected track's position
+ * @param animationType - Current animation type
+ * @param currentParameters - Current animation form parameters
+ * @param updateParameters - Store action to update multiple parameters at once
+ * @param selectedTrackIds - Array of selected track IDs
+ * @param tracks - All tracks
+ * @param multiTrackMode - Current multi-track mode
+ */
 export const handleUseTrackPosition = (
-  animationForm: any,
-  setAnimationForm: (form: any) => void,
+  animationType: AnimationType,
+  currentParameters: any,
+  updateParameters: (params: any) => void,
   selectedTrackIds: string[],
   tracks: Track[],
   multiTrackMode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered'
@@ -13,8 +23,7 @@ export const handleUseTrackPosition = (
     
   if (selectedTracksToUse.length === 0) return
   
-  const type = animationForm.type
-  const updatedParams = { ...animationForm.parameters }
+  const updatedParams = { ...currentParameters }
   
   // Behavior depends on multi-track mode
   if (selectedTracksToUse.length === 1 || multiTrackMode === 'identical' || multiTrackMode === 'phase-offset' || multiTrackMode === 'centered') {
@@ -24,9 +33,10 @@ export const handleUseTrackPosition = (
     console.log(`📍 Using ${selectedTracksToUse[0].name} position as center:`, trackPosition)
     
     // Update parameters based on animation type
-    updateParametersForPosition(type, updatedParams, trackPosition)
+    updateParametersForPosition(animationType, updatedParams, trackPosition)
     
-    setAnimationForm({ ...animationForm, parameters: updatedParams })
+    // Update via store action
+    updateParameters(updatedParams)
     console.log(`✅ Updated center/start to ${selectedTracksToUse[0].name}'s position`)
     
   } else if (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') {

@@ -198,13 +198,13 @@ export const PlaneEditor: React.FC<PlaneEditorProps> = ({
   const animationPaths = useMemo(() => {
     if (!animationType) return []
 
-    // Multi-track mode: generate a path for each active track
+    // Multi-track mode: generate a path for each track that has parameters
     if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && 
-        activeEditingTrackIds.length > 0 && 
         Object.keys(allActiveTrackParameters).length > 0) {
-      console.log('🎨 Generating paths for', activeEditingTrackIds.length, 'tracks')
+      const trackIdsWithParams = Object.keys(allActiveTrackParameters)
+      console.log('🎨 Generating paths for', trackIdsWithParams.length, 'tracks')
       
-      return activeEditingTrackIds.map(trackId => {
+      return trackIdsWithParams.map(trackId => {
         const trackParams = allActiveTrackParameters[trackId]
         if (!trackParams) return { trackId, path: [] }
         

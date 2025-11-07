@@ -1,10 +1,21 @@
 import { Position, Track } from '@/types'
 
+/**
+ * Handle parameter changes with relative updates for multi-track modes
+ * @param key - Parameter key to update
+ * @param value - New value for the parameter
+ * @param currentParameters - Current animation form parameters
+ * @param updateParameter - Store action to update a single parameter
+ * @param multiTrackMode - Current multi-track mode
+ * @param selectedTrackIds - Array of selected track IDs
+ * @param tracks - All tracks
+ * @param updateTrack - Function to update a track
+ */
 export const handleParameterChange = (
   key: string,
   value: any,
-  animationForm: any,
-  setAnimationForm: (form: any) => void,
+  currentParameters: any,
+  updateParameter: (key: string, value: any) => void,
   multiTrackMode: string,
   selectedTrackIds: string[],
   tracks: Track[],
@@ -15,7 +26,7 @@ export const handleParameterChange = (
 
   if (isPositionKey && typeof value === 'object') {
     // Merge with existing position to preserve all x, y, z values
-    const existingValue = (animationForm.parameters as any)?.[key] || { x: 0, y: 0, z: 0 }
+    const existingValue = (currentParameters as any)?.[key] || { x: 0, y: 0, z: 0 }
     const newValue = { ...existingValue, ...value }
 
     // If we're in relative modes and this is a position parameter, apply relative changes to other tracks
@@ -23,25 +34,18 @@ export const handleParameterChange = (
       applyRelativeControlPointChange(key, newValue, existingValue, selectedTrackIds, tracks, updateTrack)
     }
 
-    setAnimationForm({
-      ...animationForm,
-      parameters: {
-        ...animationForm.parameters,
-        [key]: newValue
-      }
-    })
+    // Update via store action
+    updateParameter(key, newValue)
     return
   }
 
   // If we're in relative modes and this is a position parameter, apply relative changes to other tracks
   if (selectedTrackIds.length > 1 && (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative' || multiTrackMode === 'isobarycenter') && isPositionKey) {
-    applyRelativeControlPointChange(key, value, (animationForm.parameters as any)?.[key], selectedTrackIds, tracks, updateTrack)
+    applyRelativeControlPointChange(key, value, (currentParameters as any)?.[key], selectedTrackIds, tracks, updateTrack)
   }
 
-  setAnimationForm({
-    ...animationForm,
-    parameters: { ...animationForm.parameters, [key]: value }
-  })
+  // Update via store action
+  updateParameter(key, value)
 }
 
 const applyRelativeControlPointChange = (

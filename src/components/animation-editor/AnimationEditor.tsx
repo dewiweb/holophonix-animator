@@ -15,6 +15,7 @@ import { PresetBrowser } from './components/modals/PresetBrowser'
 import { PresetNameDialog } from './components/modals/PresetNameDialog'
 import { ModelParametersForm } from './components/models-forms/ModelParametersForm'
 import { AnimationLibrary } from './components/AnimationLibrary'
+import { AnimationSettingsPanel } from './components/settings'
 import {
   MultiTrackModeSelector,
   SelectedTracksIndicator,
@@ -108,7 +109,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   const trackAnimationId = selectedTrack?.animationState?.animation?.id
   const currentAnimation = trackAnimationId ? animations.find(a => a.id === trackAnimationId) ?? null : null
   // Use global animation store state for accurate playing/paused status
-  const isAnimationPlaying = globalIsPlaying && playingAnimationId === currentAnimation?.id
+  // Simply use globalIsPlaying - works correctly with pendingAnimations during easing phase
+  const isAnimationPlaying = globalIsPlaying
 
   const selectedTrackObjects = useMemo(() => (
     selectedTrackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[]
@@ -122,13 +124,25 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       const firstActiveTrackId = activeEditingTrackIds[0]
       const trackParams = multiTrackParameters[firstActiveTrackId]
       if (trackParams) {
-        setAnimationForm(prev => ({
-          ...prev,
-          parameters: trackParams
-        }))
+        updateParameters(trackParams)
       }
     }
-  }, [activeEditingTrackIds, multiTrackMode])
+  }, [activeEditingTrackIds, multiTrackMode, multiTrackParameters, updateParameters])
+
+  /**
+   * Helper function to update multi-track parameters and sync to animationForm
+   * Centralizes the common pattern of updating multiTrackParameters and keeping
+   * animationForm.parameters in sync with the first active track
+   */
+  const syncMultiTrackParameters = (updatedParams: Record<string, any>) => {
+    // Update multiTrackParameters in store
+    setMultiTrackParameters(updatedParams)
+    
+    // Sync animationForm to reflect the first active track's parameters
+    if (activeEditingTrackIds.length > 0 && updatedParams[activeEditingTrackIds[0]]) {
+      updateParameters(updatedParams[activeEditingTrackIds[0]])
+    }
+  }
 
   // Keyframe management hook (still needed for keyframe-specific logic)
   // Note: keyframes state comes from store, but this hook manages selection/placement
@@ -143,63 +157,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     handleKeyframeUpdate
   } = useKeyframeManagement(keyframes, setKeyframes)
 
-  // Restore editor state when component mounts (after tab switch)
-  useEffect(() => {
-    if (!hasRestoredRef.current && editorStore.hasRestoredState()) {
-      console.log('🔄 Restoring animation editor state after tab switch')
-      
-      // Set skip flag BEFORE restoring to prevent useAnimationForm interference
-      skipFormInitRef.current = true
-      
-      // Restore all saved state
-      if (editorStore.savedFormState) {
-        setAnimationForm(editorStore.savedFormState)
-      }
-      if (editorStore.savedKeyframes.length > 0) {
-        setKeyframes(editorStore.savedKeyframes)
-      }
-      if (editorStore.savedOriginalParams) {
-        setOriginalAnimationParams(editorStore.savedOriginalParams)
-      }
-      setMultiTrackMode(editorStore.savedMultiTrackMode)
-      setPhaseOffsetSeconds(editorStore.savedPhaseOffsetSeconds)
-      setCenterPoint(editorStore.savedCenterPoint)
-      setMultiTrackParameters(editorStore.savedMultiTrackParameters)
-      setActiveEditingTrackIds(editorStore.savedActiveEditingTrackIds)
-      if (editorStore.savedLoadedAnimationId) {
-        setLoadedAnimationId(editorStore.savedLoadedAnimationId)
-      }
-      
-      hasRestoredRef.current = true
-      
-      // Reset skip flag after all state updates have settled
-      // Use longer timeout to ensure selectedTrack updates don't trigger useAnimationForm
-      setTimeout(() => {
-        skipFormInitRef.current = false
-        console.log('✅ State restoration complete - form init re-enabled')
-      }, 500)
-    }
-  }, []) // Only run on mount
-
-  // Save editor state when component unmounts (tab switch)
-  useEffect(() => {
-    return () => {
-      // Only save if there's actual form data
-      if (animationForm.name || animationForm.type) {
-        editorStore.saveEditorState({
-          animationForm,
-          keyframes,
-          originalAnimationParams,
-          multiTrackMode,
-          phaseOffsetSeconds,
-          centerPoint,
-          multiTrackParameters,
-          activeEditingTrackIds,
-          loadedAnimationId
-        })
-      }
-    }
-  }, [animationForm, keyframes, originalAnimationParams, multiTrackMode, phaseOffsetSeconds, centerPoint, multiTrackParameters, activeEditingTrackIds, loadedAnimationId])
+  // NOTE: No more save/restore effects needed!
+  // State now persists automatically in the Zustand store across tab switches
 
   // Derived state
   const supportsControlPoints = useMemo(() => 
@@ -257,7 +216,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
         }
       })
       if (needsUpdate) {
-        setMultiTrackParameters(newMultiTrackParams)
+        syncMultiTrackParameters(newMultiTrackParams)
       }
     } else {
       // Only clear if not already empty (prevent unnecessary re-renders)
@@ -286,7 +245,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       })
       
       if (needsUpdate) {
-        setMultiTrackParameters(newMultiTrackParams)
+        syncMultiTrackParameters(newMultiTrackParams)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -309,8 +268,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   }, [])
 
   // Handlers
-  const handleAnimationTypeChange = (type: any) => {
-    onAnimationTypeChange(type)
+  const handleAnimationTypeChange = (type: AnimationType) => {
+    setAnimationType(type, selectedTrack)
     
     // In position-relative or phase-offset-relative mode, reinitialize all track parameters with their positions
     if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && selectedTrackIds.length > 0) {
@@ -330,15 +289,9 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
           newMultiTrackParams[trackId] = trackParams
         }
       })
-      setMultiTrackParameters(newMultiTrackParams)
       
-      // Load first active editing track's parameters into form
-      if (activeEditingTrackIds.length > 0 && newMultiTrackParams[activeEditingTrackIds[0]]) {
-        setAnimationForm(prev => ({
-          ...prev,
-          parameters: newMultiTrackParams[activeEditingTrackIds[0]]
-        }))
-      }
+      // Update and sync multi-track parameters
+      syncMultiTrackParameters(newMultiTrackParams)
     }
     
     // Check compatibility and reset to default mode if needed
@@ -360,22 +313,24 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       if (isPositionKey && typeof value === 'object') {
         // When editing multiple tracks: apply RELATIVE offset, not absolute value
         // This preserves each track's individual position while moving them in parallel
-        setMultiTrackParameters(prev => {
-          const updated = { ...prev }
+        
+        // Get current multiTrackParameters
+        const prev = multiTrackParameters
+        const updated = { ...prev }
+        
+        if (activeEditingTrackIds.length === 1) {
+          // Single track: just update directly
+          const trackId = activeEditingTrackIds[0]
+          const trackParams = prev[trackId] as any
+          const formParams = animationForm.parameters as any
+          const existingValue = trackParams?.[key] || formParams?.[key] || { x: 0, y: 0, z: 0 }
+          const newValue = { ...existingValue, ...value }
           
-          if (activeEditingTrackIds.length === 1) {
-            // Single track: just update directly
-            const trackId = activeEditingTrackIds[0]
-            const trackParams = prev[trackId] as any
-            const formParams = animationForm.parameters as any
-            const existingValue = trackParams?.[key] || formParams?.[key] || { x: 0, y: 0, z: 0 }
-            const newValue = { ...existingValue, ...value }
-            
-            updated[trackId] = {
-              ...updated[trackId],
-              [key]: newValue
-            }
-          } else {
+          updated[trackId] = {
+            ...updated[trackId],
+            [key]: newValue
+          }
+        } else {
             // Multiple tracks: calculate offset from first track's original value and apply to all
             const firstTrackId = activeEditingTrackIds[0]
             const firstTrackParams = prev[firstTrackId] as any
@@ -405,64 +360,62 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
                 [key]: newValue
               }
             })
-          }
-          
-          // Update animationForm to reflect the first active track's parameters
-          // This ensures form inputs show current values
-          const firstTrackId = activeEditingTrackIds[0]
-          setAnimationForm(prev => ({
-            ...prev,
-            parameters: {
-              ...prev.parameters,
-              ...updated[firstTrackId]
-            }
-          }))
-          
-          return updated
-        })
+        }
+        
+        // Update and sync multi-track parameters
+        syncMultiTrackParameters(updated)
       } else {
         // Non-position parameters - apply to all active editing tracks
-        setMultiTrackParameters(prev => {
-          const updated = { ...prev }
-          activeEditingTrackIds.forEach(trackId => {
-            updated[trackId] = {
-              ...updated[trackId],
-              [key]: value
-            }
-          })
-          
-          // Update animationForm to reflect the first active track's parameters
-          const firstTrackId = activeEditingTrackIds[0]
-          setAnimationForm(prev2 => ({
-            ...prev2,
-            parameters: {
-              ...prev2.parameters,
-              ...updated[firstTrackId]
-            }
-          }))
-          
-          return updated
+        const prev = multiTrackParameters
+        const updated = { ...prev }
+        activeEditingTrackIds.forEach(trackId => {
+          updated[trackId] = {
+            ...updated[trackId],
+            [key]: value
+          }
         })
+        
+        // Update and sync multi-track parameters
+        syncMultiTrackParameters(updated)
       }
     } else {
-      // For other modes, use the standard handler
-      handleParameterChange(
-        key,
-        value,
-        animationForm,
-        setAnimationForm,
-        multiTrackMode,
-        selectedTrackIds,
-        tracks,
-        updateTrack
-      )
+      // For other modes (single track or identical mode), update directly via store
+      const isPositionKey = ['startPosition', 'endPosition', 'center', 'bounds', 'anchorPoint', 'restPosition', 'targetPosition', 'bezierStart', 'bezierControl1', 'bezierControl2', 'bezierEnd', 'zigzagStart', 'zigzagEnd', 'axisStart', 'axisEnd', 'zoomCenter'].includes(key)
+      
+      if (isPositionKey && typeof value === 'object') {
+        // Merge with existing position to preserve all x, y, z values
+        const existingValue = (animationForm.parameters as any)?.[key] || { x: 0, y: 0, z: 0 }
+        const newValue = { ...existingValue, ...value }
+        updateParameter(key, newValue)
+        
+        // Apply relative changes to other tracks if in multi-track mode
+        if (selectedTrackIds.length > 1 && (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative' || multiTrackMode === 'isobarycenter')) {
+          // Call the relative change handler with store actions
+          handleParameterChange(
+            key,
+            value,
+            animationForm.parameters,
+            updateParameter,
+            multiTrackMode,
+            selectedTrackIds,
+            tracks,
+            updateTrack
+          )
+        }
+      } else {
+        // Simple parameter - update directly
+        updateParameter(key, value)
+      }
     }
   }
 
   const onUseTrackPosition = () => {
+    if (!animationForm.type) return
+    
     handleUseTrackPosition(
-      animationForm,
-      setAnimationForm,
+      animationForm.type,
+      animationForm.parameters,
+      updateParameters,
       selectedTrackIds,
       tracks,
       multiTrackMode
@@ -475,120 +428,31 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       return
     }
 
-    // Get the project store state directly to ensure we have the latest data
+    // Get the project store state directly
     const projectStore = useProjectStore.getState()
     
-    // Check if we're updating an existing animation (either from track or loaded from library)
-    const existingAnimationId = loadedAnimationId || currentAnimation?.id
-    const isNewAnimation = !existingAnimationId
-    const animationId = isNewAnimation ? `anim-${Date.now()}` : existingAnimationId
-    
-    // Create the base animation object with required properties
-    const baseAnimation = {
-      name: animationForm.name,
-      type: animationForm.type || 'linear',
-      duration: animationForm.duration || 10,
-      loop: animationForm.loop ?? false,
-      pingPong: animationForm.pingPong ?? false,
-      parameters: {
-        ...animationForm.parameters,
-        _multiTrackMode: multiTrackMode
-      },
-      keyframes: keyframes.length > 0 ? keyframes : undefined,
-      coordinateSystem: { type: 'xyz' } as const,
+    // Use the proper handleSaveAnimation with full multi-track support
+    handleSaveAnimation({
+      animationForm,
+      keyframes,
+      selectedTrackIds,
+      tracks,
       multiTrackMode,
       phaseOffsetSeconds,
       centerPoint,
-      // Track locking (NEW)
-      ...(lockTracks && selectedTrackIds.length > 0 && {
-        trackIds: selectedTrackIds,
-        trackSelectionLocked: true,
-        multiTrackParameters
-      })
+      currentAnimation: loadedAnimationId ? { id: loadedAnimationId } as Animation : currentAnimation,
+      originalAnimationParams: originalAnimationParams,
+      addAnimation: projectStore.addAnimation,
+      updateAnimation: projectStore.updateAnimation,
+      updateTrack: projectStore.updateTrack,
+      multiTrackParameters,
+      lockTracks
+    })
+    
+    // Update the current animation in the parent component if callback exists
+    if (onAnimationSelect && loadedAnimationId) {
+      onAnimationSelect(loadedAnimationId)
     }
-
-    // Save the animation to the store
-    if (!isNewAnimation) {
-      // Update existing animation
-      projectStore.updateAnimation(animationId, baseAnimation)
-      console.log('Updated animation:', animationId)
-    } else {
-      // For new animation, create the full animation object with ID
-      const newAnimation = {
-        ...baseAnimation,
-        id: animationId
-      } as Animation
-      projectStore.addAnimation(newAnimation)
-      console.log('Added new animation:', animationId)
-      
-      // Update the loaded animation ID if we're saving a new animation
-      setLoadedAnimationId(animationId)
-      
-      // Update the current animation in the parent component if callback exists and this is a new animation
-      if (onAnimationSelect) {
-        onAnimationSelect(animationId);
-      }
-    }
-
-    // Get the updated animation from the store directly
-    // Use a small delay to ensure the store has been updated
-    setTimeout(() => {
-      const freshStore = useProjectStore.getState() // Get fresh reference
-      const updatedAnimations = freshStore.animations
-      const updatedAnimation = updatedAnimations.find(a => a.id === animationId)
-      
-      if (!updatedAnimation) {
-        console.error('Failed to save animation: Animation not found in store after save')
-        console.log('Available IDs:', updatedAnimations.map(a => a.id))
-        return
-      }
-
-      // Update the selected tracks with the new animation
-      if (selectedTrackIds.length > 0) { // Use selectedTrackIds instead of selectedTracks
-        selectedTrackIds.forEach(trackId => { // Iterate over selectedTrackIds
-          const track = freshStore.tracks.find(t => t.id === trackId) // Use fresh store
-          if (!track) {
-            console.warn(`Track ${trackId} not found`)
-            return
-          }
-          
-          // Create a minimal animation state for the track
-          const animationState: AnimationState = {
-            animation: {
-              ...updatedAnimation,
-              parameters: {
-                ...updatedAnimation.parameters,
-                ...(multiTrackParameters?.[trackId] || {})
-              }
-            },
-            isPlaying: false,
-            currentTime: 0,
-            playbackSpeed: 1, // Default playback speed
-            loop: updatedAnimation.loop // Inherit loop setting from animation
-          }
-          
-          // Update the track with the new animation state
-          freshStore.updateTrack(trackId, { animationState }) // Use fresh store
-        })
-      }
-      
-      // Force a re-render by triggering a state update
-      // This ensures the UI recognizes the new animation
-      selectTracks(selectedTracks)
-      
-      // Force the component to re-evaluate the current animation
-      // by adding a small delay and then checking the state
-      setTimeout(() => {
-        selectTracks([...selectedTrackIds]) // Use selectedTrackIds
-      }, 50)
-      
-      // Ensure the animation store is aware of the updated animation
-      // Stop any currently playing animation to prevent using old cached data
-      const animationStore = useAnimationStore.getState()
-      if (animationStore.isPlaying && animationStore.currentAnimationId === animationId) {
-        animationStore.stopAnimation()
-      }
-    }, 100) // Wait 100ms for store to update
   }
 
   const handlePlayPreview = () => {
@@ -617,7 +481,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   }
 
   const handleLoadPreset = (preset: any) => {
-    setAnimationForm({
+    updateAnimationForm({
       name: preset.animation.name,
       type: preset.animation.type,
       duration: preset.animation.duration,
@@ -638,16 +502,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   }
 
   const handleLoadAnimation = (animation: Animation) => {
-    // Load the animation into the form
-    setAnimationForm({
-      name: animation.name,
-      type: animation.type,
-      duration: animation.duration,
-      loop: animation.loop || false,
-      pingPong: animation.pingPong || false,
-      parameters: animation.parameters || {},
-      coordinateSystem: animation.coordinateSystem
-    })
+    // Use store's loadAnimation method
+    loadAnimation(animation)
     
     // Set multi-track settings if available
     if (animation.multiTrackMode) {
@@ -659,9 +515,6 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     if (animation.centerPoint) {
       setCenterPoint(animation.centerPoint)
     }
-    
-    // Set the loaded animation ID
-    setLoadedAnimationId(animation.id)
     
     // Close the library
     setShowAnimationLibrary(false)
@@ -730,13 +583,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     <ControlPointEditor
       key={`control-${animationForm.type}-${multiTrackMode}-${activeEditingTrackIds.join(',')}`}
       animationType={animationForm.type || 'linear'}
-      parameters={
-        // In position-relative or phase-offset-relative mode, use the first active track's parameters from multiTrackParameters
-        // This allows drag operations to update without re-rendering from animationForm changes
-        (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackIds.length > 0 && multiTrackParameters[activeEditingTrackIds[0]]
-          ? multiTrackParameters[activeEditingTrackIds[0]]
-          : animationForm.parameters || {}
-      }
+      parameters={animationForm.parameters || {}}
       keyframes={keyframes}
       onParameterChange={onParameterChange}
       onKeyframeUpdate={handleKeyframeUpdate}
@@ -918,161 +765,34 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
               </div>
             </div>
 
-            <div className="lg:w-4/12 bg-white rounded-lg shadow-sm border border-gray-200 p-6 max-h-full overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Animation Settings</h2>
-                <button
-                  onClick={() => setIsFormPanelOpen(false)}
-                  className="lg:hidden inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-                >
-                  <PanelRightClose className="w-4 h-4" />
-                  Close
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <SelectedTracksIndicator 
-                  selectedTracks={selectedTrackObjects} 
-                  onReorder={(reorderedIds: string[]) => {
-                    selectTracks(reorderedIds)
-                  }}
-                  activeEditingTrackIds={activeEditingTrackIds}
-                  onSetActiveTracks={setActiveEditingTrackIds}
-                  multiTrackMode={multiTrackMode}
-                />
-
-                {selectedTrackIds.length > 1 && (
-                  <MultiTrackModeSelector
-                    animationType={animationForm.type || 'linear'}
-                    multiTrackMode={multiTrackMode}
-                    phaseOffsetSeconds={phaseOffsetSeconds}
-                    centerPoint={centerPoint}
-                    onModeChange={setMultiTrackMode}
-                    onPhaseOffsetChange={setPhaseOffsetSeconds}
-                    onCenterPointChange={setCenterPoint}
-                    getCompatibleModes={getCompatibleModes}
-                  />
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Animation Name</label>
-                  <input
-                    type="text"
-                    value={animationForm.name || ''}
-                    onChange={(e) => setAnimationForm(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="Enter animation name"
-                  />
-                </div>
-
-                <ModelSelector
-                  onModelSelect={(model) => {
-                    setSelectedModel(model)
-                    if (model) {
-                      handleAnimationTypeChange(model.metadata.type as AnimationType)
-                    }
-                  }}
-                  currentType={animationForm.type || 'linear'}
-                  selectedModel={selectedModel}
-                />
-
-                {/* Show legacy animation selector if no model selected */}
-                {!selectedModel && (
-                  <AnimationTypeSelector
-                    selectedType={animationForm.type || 'linear'}
-                    onTypeChange={handleAnimationTypeChange}
-                    categories={animationCategories}
-                    getAnimationInfo={getAnimationInfo}
-                  />
-                )}
-
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration (seconds)</label>
-                    <input
-                      type="number"
-                      min="0.1"
-                      max="300"
-                      step="0.1"
-                      value={animationForm.duration || 10}
-                      onChange={(e) => setAnimationForm(prev => ({ ...prev, duration: parseFloat(e.target.value) }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Loop</label>
-                      <p className="text-xs text-gray-500">Repeat animation when it ends</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={animationForm.loop || false}
-                        onChange={(e) => setAnimationForm(prev => ({ ...prev, loop: e.target.checked }))}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                    </label>
-                  </div>
-                </div>
-
-                {animationForm.loop && (
-                  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div>
-                      <label className="text-sm font-medium text-blue-900">Ping-Pong Mode</label>
-                      <p className="text-xs text-blue-700">Play forward then backward (bounce effect)</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={animationForm.pingPong || false}
-                        onChange={(e) => setAnimationForm(prev => ({ ...prev, pingPong: e.target.checked }))}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-blue-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                )}
-
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-md font-medium text-gray-900">Animation Parameters</h3>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={onUseTrackPosition}
-                        disabled={!selectedTrack}
-                        className="px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-300 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Use Track Position
-                      </button>
-                      <button
-                        onClick={handleResetToDefaults}
-                        disabled={!animationForm.type}
-                        className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Reset to Defaults
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    {selectedModel ? (
-                      <ModelParametersForm
-                        model={selectedModel}
-                        parameters={animationForm.parameters || {}}
-                        onChange={onParameterChange}
-                        trackPosition={selectedTrack?.position}
-                      />
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <p className="text-sm">No model selected</p>
-                        <p className="text-xs mt-1">Select an animation type above</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <AnimationSettingsPanel
+              selectedTracks={selectedTrackObjects}
+              selectedTrackIds={selectedTrackIds}
+              activeEditingTrackIds={activeEditingTrackIds}
+              onReorderTracks={(reorderedIds) => selectTracks(reorderedIds)}
+              onSetActiveTracks={setActiveEditingTrackIds}
+              multiTrackMode={multiTrackMode}
+              phaseOffsetSeconds={phaseOffsetSeconds}
+              centerPoint={centerPoint}
+              onModeChange={setMultiTrackMode}
+              onPhaseOffsetChange={setPhaseOffsetSeconds}
+              onCenterPointChange={setCenterPoint}
+              animationForm={animationForm}
+              onUpdateForm={updateAnimationForm}
+              selectedModel={selectedModel}
+              selectedTrack={selectedTrack}
+              onModelSelect={(model) => {
+                setSelectedModel(model)
+                if (model) {
+                  handleAnimationTypeChange(model.metadata.type as AnimationType)
+                }
+              }}
+              onTypeChange={handleAnimationTypeChange}
+              onParameterChange={onParameterChange}
+              onUseTrackPosition={onUseTrackPosition}
+              onResetToDefaults={resetToDefaults}
+              onClose={() => setIsFormPanelOpen(false)}
+            />
           </div>
         ) : (
           <div className="flex-1 grid gap-6 lg:grid-cols-2">
