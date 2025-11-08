@@ -1,9 +1,11 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react'
-import { Play, Pause, Move3D, RotateCw, Grid3X3, Home, Maximize2 } from 'lucide-react'
+import { Play, Pause, Move3D, RotateCw, Grid3X3, Home, Maximize2, Plus } from 'lucide-react'
+import * as THREE from 'three'
 import { MultiViewRenderer } from './MultiViewRenderer'
 import { useControlPointScene } from './hooks/useControlPointScene'
 import { useMultiViewCameras } from './hooks/useMultiViewCameras'
 import { useControlPointSelection } from './hooks/useControlPointSelection'
+import { useTransformControls } from './hooks/useTransformControls'
 import type { ThreeJsControlPointEditorProps, TransformMode, EditorSettings } from './types'
 
 /**
@@ -50,6 +52,25 @@ export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps>
   const { views, activeViewIndex, setActiveView, frameSelection, frameAll, updateViewports } =
     camerasState
 
+  // Get active camera (perspective view for transform controls)
+  const activeCamera = views.length > 0 ? views[3]?.camera : null // Use perspective camera
+
+  // Initialize Transform Controls for dragging
+  const transformState = useTransformControls({
+    scene,
+    camera: activeCamera,
+    domElement: canvasRef.current,
+    mode: settings.transformMode,
+    snapSize: settings.snapSize,
+    onTransform: (position) => {
+      const selectedPoint = getSelectedPoint()
+      if (selectedPoint) {
+        updateControlPoint(selectedPoint.index, position)
+      }
+    },
+  })
+  const { attachToPoint: attachGizmo, detach: detachGizmo } = transformState
+
   // Handle control point selection
   const { handleClick, handleMouseMove } = useControlPointSelection({
     scene,
@@ -57,6 +78,17 @@ export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps>
     controlPoints,
     onSelect: (index) => {
       selectControlPoint(index)
+      
+      // Attach gizmo to selected point
+      if (index !== null && !readOnly) {
+        const point = controlPoints[index]
+        if (point) {
+          attachGizmo(point.mesh)
+        }
+      } else {
+        detachGizmo()
+      }
+      
       if (onSelectionChange) {
         onSelectionChange(index !== null ? [index] : [])
       }
@@ -122,13 +154,16 @@ export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps>
 
       // Mode shortcuts
       if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault()
         setSettings((prev) => ({ ...prev, transformMode: 'translate' }))
       } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault()
         setSettings((prev) => ({ ...prev, transformMode: 'rotate' }))
       }
 
       // View shortcuts
       else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
         const selectedPoint = getSelectedPoint()
         if (selectedPoint) {
           frameSelection()
@@ -136,16 +171,43 @@ export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps>
           frameAll()
         }
       } else if (e.key === 'Home') {
+        e.preventDefault()
         frameAll()
       }
 
-      // Delete shortcut
+      // CRUD shortcuts
       else if ((e.key === 'Delete' || e.key === 'Backspace') && !e.repeat) {
+        e.preventDefault()
         const selectedPoint = getSelectedPoint()
         if (selectedPoint && controlPoints.length > 2) {
           // Keep at least 2 points
           removeControlPoint(selectedPoint.index)
+          detachGizmo()
         }
+      }
+      
+      // Duplicate (Ctrl+D / Cmd+D)
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'd' && !e.repeat) {
+        e.preventDefault()
+        const selectedPoint = getSelectedPoint()
+        if (selectedPoint) {
+          // Duplicate point with small offset
+          const offset = new THREE.Vector3(0.5, 0.5, 0.5)
+          const newPos = selectedPoint.position.clone().add(offset)
+          addControlPoint(newPos, selectedPoint.index + 1)
+        }
+      }
+      
+      // Add point at origin (Shift+A)
+      else if (e.shiftKey && e.key === 'A' && !e.repeat) {
+        e.preventDefault()
+        const selectedPoint = getSelectedPoint()
+        const insertIndex = selectedPoint ? selectedPoint.index + 1 : controlPoints.length
+        // Add at origin or near selected point
+        const newPos = selectedPoint 
+          ? selectedPoint.position.clone().add(new THREE.Vector3(1, 0, 0))
+          : new THREE.Vector3(0, 0, 0)
+        addControlPoint(newPos, insertIndex)
       }
     }
 
@@ -155,11 +217,13 @@ export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps>
     }
   }, [
     readOnly,
-    controlPoints.length,
+    controlPoints,
     getSelectedPoint,
     removeControlPoint,
+    addControlPoint,
     frameSelection,
     frameAll,
+    detachGizmo,
   ])
 
   return (
@@ -210,6 +274,25 @@ export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps>
             disabled={!getSelectedPoint()}
           >
             <Home size={18} />
+          </button>
+        </div>
+
+        {/* Point Operations */}
+        <div className="flex gap-1 border-r border-gray-700 pr-2">
+          <button
+            className="p-2 rounded bg-green-700 text-white hover:bg-green-600"
+            onClick={() => {
+              const selectedPoint = getSelectedPoint()
+              const insertIndex = selectedPoint ? selectedPoint.index + 1 : controlPoints.length
+              const newPos = selectedPoint 
+                ? selectedPoint.position.clone().add(new THREE.Vector3(1, 0, 0))
+                : new THREE.Vector3(0, 0, 0)
+              addControlPoint(newPos, insertIndex)
+            }}
+            title="Add Point (Shift+A)"
+            disabled={readOnly}
+          >
+            <Plus size={18} />
           </button>
         </div>
 

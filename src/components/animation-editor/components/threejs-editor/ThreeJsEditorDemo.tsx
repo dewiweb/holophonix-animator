@@ -51,15 +51,43 @@ export const ThreeJsEditorDemo: React.FC = () => {
       
       {/* Instructions */}
       <div className="mt-4 p-4 bg-gray-800 rounded-lg text-gray-300 text-sm">
-        <h3 className="font-bold mb-2">Controls:</h3>
-        <ul className="space-y-1">
-          <li><kbd className="px-2 py-1 bg-gray-700 rounded">G</kbd> - Switch to Translate mode</li>
-          <li><kbd className="px-2 py-1 bg-gray-700 rounded">R</kbd> - Switch to Rotate mode</li>
-          <li><kbd className="px-2 py-1 bg-gray-700 rounded">F</kbd> - Frame selected / Frame all</li>
-          <li><kbd className="px-2 py-1 bg-gray-700 rounded">Home</kbd> - Frame all points</li>
-          <li><kbd className="px-2 py-1 bg-gray-700 rounded">Delete</kbd> - Delete selected point</li>
-          <li>Click to select control point</li>
-        </ul>
+        <h3 className="font-bold mb-2 text-lg">🎮 Controls:</h3>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <h4 className="font-semibold mb-2 text-blue-400">Transform Modes</h4>
+            <ul className="space-y-1">
+              <li><kbd className="px-2 py-1 bg-gray-700 rounded">G</kbd> - Translate mode</li>
+              <li><kbd className="px-2 py-1 bg-gray-700 rounded">R</kbd> - Rotate mode</li>
+              <li className="text-gray-500">💡 Drag gizmo to move point</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold mb-2 text-green-400">Point Operations</h4>
+            <ul className="space-y-1">
+              <li><kbd className="px-2 py-1 bg-gray-700 rounded">Shift+A</kbd> - Add point</li>
+              <li><kbd className="px-2 py-1 bg-gray-700 rounded">Ctrl+D</kbd> - Duplicate point</li>
+              <li><kbd className="px-2 py-1 bg-gray-700 rounded">Delete</kbd> - Delete point</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold mb-2 text-purple-400">View Controls</h4>
+            <ul className="space-y-1">
+              <li><kbd className="px-2 py-1 bg-gray-700 rounded">F</kbd> - Frame selected/all</li>
+              <li><kbd className="px-2 py-1 bg-gray-700 rounded">Home</kbd> - Frame all</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold mb-2 text-yellow-400">Selection</h4>
+            <ul className="space-y-1">
+              <li>🖱️ Click - Select point</li>
+              <li>🎯 Any viewport works!</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   )

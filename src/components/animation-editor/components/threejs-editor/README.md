@@ -2,11 +2,11 @@
 
 A modern 3D control point editor for animation curves, featuring multi-viewport rendering and industry-standard editing tools.
 
-## Status: Phase 1 Complete ✅
+## Status: Phase 1 & 2 In Progress ✅
 
-Foundation is built and working! See the migration plan in `docs/THREEJS_CONTROL_POINT_EDITOR_MIGRATION.md`.
+Foundation complete + TransformControls working! See the migration plan in `docs/THREEJS_CONTROL_POINT_EDITOR_MIGRATION.md`.
 
-## Features Implemented (Phase 1)
+## Features Implemented
 
 ### ✅ Multi-View Rendering
 - 4 simultaneous viewports (Top, Front, Side, Perspective)
@@ -41,15 +41,32 @@ Foundation is built and working! See the migration plan in `docs/THREEJS_CONTROL
 - Automatic camera adjustment
 - Resize handling
 
+### ✅ Transform Controls (Phase 2)
+- Interactive gizmos for dragging points
+- Translate and Rotate modes
+- Snap to grid support
+- Real-time curve updates during drag
+- Works with perspective camera
+
+### ✅ CRUD Operations (Phase 2)
+- Add point (Shift+A or toolbar button)
+- Duplicate point (Ctrl+D)
+- Delete point (Delete key)
+- Insert point after selected
+- Maintains curve smoothness
+
 ### ✅ Keyboard Shortcuts
 - `G` - Switch to Translate mode
 - `R` - Switch to Rotate mode  
 - `F` - Frame selected / Frame all
 - `Home` - Frame all points
 - `Delete` - Delete selected point
+- `Shift+A` - Add new point
+- `Ctrl+D` - Duplicate selected point
 
 ### ✅ Editor UI
 - Toolbar with mode buttons
+- Add point button (green)
 - Grid toggle
 - Snap size input
 - Stats display
@@ -156,8 +173,11 @@ function App() {
 | `R` | Rotate mode |
 | `F` | Frame selection / Frame all |
 | `Home` | Frame all points |
-| `Delete` | Delete selected point |
+| `Delete` / `Backspace` | Delete selected point |
+| `Shift+A` | Add new point (after selected or at end) |
+| `Ctrl+D` / `Cmd+D` | Duplicate selected point |
 | `Click` | Select control point |
+| `Drag gizmo` | Move selected point |
 
 ## Dependencies
 
@@ -166,16 +186,28 @@ function App() {
 - `react` - ^18.2.0
 - `lucide-react` - ^0.303.0 (for icons)
 
-## What's Next (Phase 2)
+## What's Next
 
-- [ ] TransformControls integration (drag to move)
-- [ ] Add point operations (Shift+Click to add)
+### ✅ Phase 2 Progress
+- [x] TransformControls integration (drag to move)
+- [x] Add point operations (Shift+A)
+- [x] Duplicate point (Ctrl+D)
+- [x] Delete with gizmo detach
+
+### 🔜 Phase 2 Remaining
 - [ ] Context menu (right-click)
-- [ ] Duplicate point (Ctrl+D)
-- [ ] Numerical position input
+- [ ] Numerical position input (X/Y/Z fields)
 - [ ] Direction indicators on curve
 - [ ] Per-viewport camera controls (pan, zoom)
+- [ ] Insert point between two points
+- [ ] Align to axis tools
+
+### 📋 Phase 3 & Beyond
 - [ ] Undo/redo system
+- [ ] Data migration from 2D format
+- [ ] Integration with AnimationEditor
+- [ ] Replace PlaneEditor
+- [ ] Performance optimization
 
 ## Performance
 
