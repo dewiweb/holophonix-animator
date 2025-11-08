@@ -78,16 +78,16 @@ export const useMultiViewCameras = (
 
     const newViews: ViewConfig[] = [
       {
-        name: 'top',
-        camera: topCamera,
+        name: 'perspective',
+        camera: perspectiveCamera,
         viewport: {
           x: 0,
           y: halfHeight,
           width: halfWidth,
           height: halfHeight,
         },
-        label: 'Top (XZ)',
-        backgroundColor: new THREE.Color(0x1a1a2e),
+        label: 'Perspective',
+        backgroundColor: new THREE.Color(0x16213e),
       },
       {
         name: 'front',
@@ -102,28 +102,28 @@ export const useMultiViewCameras = (
         backgroundColor: new THREE.Color(0x1a1a2e),
       },
       {
-        name: 'side',
-        camera: sideCamera,
+        name: 'top',
+        camera: topCamera,
         viewport: {
           x: 0,
           y: 0,
           width: halfWidth,
           height: halfHeight,
         },
-        label: 'Side (YZ)',
+        label: 'Top (XZ)',
         backgroundColor: new THREE.Color(0x1a1a2e),
       },
       {
-        name: 'perspective',
-        camera: perspectiveCamera,
+        name: 'side',
+        camera: sideCamera,
         viewport: {
           x: halfWidth,
           y: 0,
           width: halfWidth,
           height: halfHeight,
         },
-        label: 'Perspective',
-        backgroundColor: new THREE.Color(0x16213e),
+        label: 'Side (YZ)',
+        backgroundColor: new THREE.Color(0x1a1a2e),
       },
     ]
 

@@ -94,50 +94,51 @@ export const useControlPointScene = (
     (points: ControlPoint3D[]) => {
       if (!sceneRef.current) return
 
-      // Remove old curve
-      if (curve) {
-        sceneRef.current.remove(curve)
-        curve.geometry.dispose()
-        ;(curve.material as THREE.Material).dispose()
-      }
+      // Remove old curve using state setter callback to get current value
+      setCurve((prevCurve) => {
+        if (prevCurve) {
+          sceneRef.current?.remove(prevCurve)
+          prevCurve.geometry.dispose()
+          ;(prevCurve.material as THREE.Material).dispose()
+        }
 
-      if (points.length < 2) {
-        setCurve(null)
-        return
-      }
+        if (points.length < 2) {
+          return null
+        }
 
-      // Create Catmull-Rom curve through points
-      const curvePoints = points.map((p) => p.position.clone())
-      const curve3D = new THREE.CatmullRomCurve3(curvePoints, false, 'catmullrom', 0.5)
+        // Create Catmull-Rom curve through points
+        const curvePoints = points.map((p) => p.position.clone())
+        const curve3D = new THREE.CatmullRomCurve3(curvePoints, false, 'catmullrom', 0.5)
 
-      // Generate points along curve
-      const curveSegments = Math.max(50, points.length * 20)
-      const curveGeometry = new THREE.BufferGeometry().setFromPoints(
-        curve3D.getPoints(curveSegments)
-      )
+        // Generate points along curve
+        const curveSegments = Math.max(50, points.length * 20)
+        const curveGeometry = new THREE.BufferGeometry().setFromPoints(
+          curve3D.getPoints(curveSegments)
+        )
 
-      // Create gradient material (start=green, end=red)
-      const colors = new Float32Array(curveSegments * 3)
-      for (let i = 0; i <= curveSegments; i++) {
-        const t = i / curveSegments
-        const color = new THREE.Color()
-        color.setHSL(0.3 - t * 0.3, 1.0, 0.5) // Green to red gradient
-        colors[i * 3] = color.r
-        colors[i * 3 + 1] = color.g
-        colors[i * 3 + 2] = color.b
-      }
-      curveGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+        // Create gradient material (start=green, end=red)
+        const colors = new Float32Array(curveSegments * 3)
+        for (let i = 0; i <= curveSegments; i++) {
+          const t = i / curveSegments
+          const color = new THREE.Color()
+          color.setHSL(0.3 - t * 0.3, 1.0, 0.5) // Green to red gradient
+          colors[i * 3] = color.r
+          colors[i * 3 + 1] = color.g
+          colors[i * 3 + 2] = color.b
+        }
+        curveGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
 
-      const curveMaterial = new THREE.LineBasicMaterial({
-        vertexColors: true,
-        linewidth: 2,
+        const curveMaterial = new THREE.LineBasicMaterial({
+          vertexColors: true,
+          linewidth: 2,
+        })
+
+        const newCurve = new THREE.Line(curveGeometry, curveMaterial)
+        sceneRef.current?.add(newCurve)
+        return newCurve
       })
-
-      const newCurve = new THREE.Line(curveGeometry, curveMaterial)
-      sceneRef.current.add(newCurve)
-      setCurve(newCurve)
     },
-    [curve]
+    [] // Remove curve dependency to break infinite loop
   )
 
   // Load control points from animation
