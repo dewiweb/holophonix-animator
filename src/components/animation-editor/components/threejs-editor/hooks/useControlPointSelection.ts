@@ -19,6 +19,14 @@ export const useControlPointSelection = ({
   onSelect,
 }: UseControlPointSelectionProps) => {
   const raycaster = useRef(new THREE.Raycaster())
+  
+  // Use refs to prevent callback recreation on every render
+  const viewsRef = useRef(views)
+  const controlPointsRef = useRef(controlPoints)
+  
+  // Update refs when props change
+  viewsRef.current = views
+  controlPointsRef.current = controlPoints
 
   // Increase threshold for easier clicking
   raycaster.current.params.Points = { threshold: 0.3 }
@@ -32,18 +40,21 @@ export const useControlPointSelection = ({
       const x = event.clientX - rect.left
       const y = event.clientY - rect.top
 
-      // Normalize to 0-1
+      // Normalize to 0-1 (DOM coordinates where 0,0 is top-left)
       const nx = x / rect.width
       const ny = y / rect.height
 
       // Find which viewport contains this point
-      for (const view of views) {
+      // Convert viewport from Three.js coords (y=0 at bottom) to DOM coords (y=0 at top)
+      for (const view of viewsRef.current) {
         const vp = view.viewport
+        const domY = 1 - vp.y - vp.height
+        
         if (
           nx >= vp.x &&
           nx <= vp.x + vp.width &&
-          ny >= vp.y &&
-          ny <= vp.y + vp.height
+          ny >= domY &&
+          ny <= domY + vp.height
         ) {
           return view
         }
@@ -51,7 +62,7 @@ export const useControlPointSelection = ({
 
       return null
     },
-    [views]
+    []
   )
 
   /**
@@ -63,11 +74,14 @@ export const useControlPointSelection = ({
       const x = event.clientX - rect.left
       const y = event.clientY - rect.top
 
+      // Convert viewport from Three.js coords (y=0 at bottom) to DOM coords (y=0 at top)
+      const domY = (1 - viewport.y - viewport.height) * rect.height
+      
       // Convert to viewport-relative coordinates
       const vpX = x - viewport.x * rect.width
-      const vpY = y - viewport.y * rect.height
+      const vpY = y - domY
 
-      // Normalize to -1 to 1
+      // Normalize to -1 to 1 for raycasting
       const mouse = new THREE.Vector2(
         (vpX / (viewport.width * rect.width)) * 2 - 1,
         -(vpY / (viewport.height * rect.height)) * 2 + 1
@@ -99,7 +113,7 @@ export const useControlPointSelection = ({
       raycaster.current.setFromCamera(mouse, view.camera)
 
       // Check for intersections with control point meshes
-      const meshes = controlPoints.map((p) => p.mesh)
+      const meshes = controlPointsRef.current.map((p) => p.mesh)
       const intersects = raycaster.current.intersectObjects(meshes, false)
 
       if (intersects.length > 0) {
@@ -111,7 +125,7 @@ export const useControlPointSelection = ({
         onSelect(null)
       }
     },
-    [scene, views, controlPoints, onSelect, getViewFromMouseEvent, getNormalizedMouseCoords]
+    [scene, onSelect, getViewFromMouseEvent, getNormalizedMouseCoords]
   )
 
   /**
@@ -135,7 +149,7 @@ export const useControlPointSelection = ({
       raycaster.current.setFromCamera(mouse, view.camera)
 
       // Check for intersections
-      const meshes = controlPoints.map((p) => p.mesh)
+      const meshes = controlPointsRef.current.map((p) => p.mesh)
       const intersects = raycaster.current.intersectObjects(meshes, false)
 
       // Update cursor style
@@ -148,7 +162,7 @@ export const useControlPointSelection = ({
       // TODO: Add hover highlight effect
       // Could scale up mesh slightly or change outline opacity
     },
-    [scene, views, controlPoints, getViewFromMouseEvent, getNormalizedMouseCoords]
+    [scene, getViewFromMouseEvent, getNormalizedMouseCoords]
   )
 
   /**
@@ -167,17 +181,17 @@ export const useControlPointSelection = ({
       const mouse = getNormalizedMouseCoords(event, canvas, view.viewport)
       raycaster.current.setFromCamera(mouse, view.camera)
 
-      const meshes = controlPoints.map((p) => p.mesh)
+      const meshes = controlPointsRef.current.map((p) => p.mesh)
       const intersects = raycaster.current.intersectObjects(meshes, false)
 
       if (intersects.length > 0) {
         const index = intersects[0].object.userData.index as number
-        return controlPoints[index] || null
+        return controlPointsRef.current[index] || null
       }
 
       return null
     },
-    [scene, views, controlPoints, getViewFromMouseEvent, getNormalizedMouseCoords]
+    [scene, getViewFromMouseEvent, getNormalizedMouseCoords]
   )
 
   return {
