@@ -8,6 +8,7 @@ import { Timeline } from '@/components/Timeline'
 import { OSCManager } from '@/components/OSCManager'
 import { Settings } from '@/components/Settings'
 import { CueGrid } from '@/components/cue-grid/CueGrid'
+import { EditorTestPage } from '@/pages/EditorTest'
 import { useProjectStore } from '@/stores/projectStore'
 import { useOSCStore } from '@/stores/oscStore'
 import { logger } from '@/utils/logger'
@@ -138,6 +139,7 @@ function App() {
           <Route path="/cues" element={<CueGrid />} />
           <Route path="/osc" element={<OSCManager />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/editor-test" element={<EditorTestPage />} />
         </Routes>
       </Layout>
     </ErrorBoundary>
