@@ -6,6 +6,7 @@ import { useControlPointScene } from './hooks/useControlPointScene'
 import { useMultiViewCameras } from './hooks/useMultiViewCameras'
 import { useControlPointSelection } from './hooks/useControlPointSelection'
 import { useTransformControls } from './hooks/useTransformControls'
+import { useViewportControls } from './hooks/useViewportControls'
 import type { ThreeJsControlPointEditorProps, TransformMode, EditorSettings } from './types'
 
 /**
@@ -21,9 +22,8 @@ export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps>
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 })
-
-  // Editor settings
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+  const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null)
   const [settings, setSettings] = useState<EditorSettings>({
     transformMode: 'translate',
     showGrid: true,
@@ -52,24 +52,37 @@ export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps>
   const { views, activeViewIndex, setActiveView, frameSelection, frameAll, updateViewports } =
     camerasState
 
+  // Initialize viewport controls (OrbitControls for each view)
+  const { resetView, activeViewportName } = useViewportControls(canvasRef.current, views, containerSize.width, containerSize.height)
+
   // Get active camera (perspective view for transform controls)
-  const activeCamera = views.length > 0 ? views[3]?.camera : null // Use perspective camera
+  // Perspective is now at index 0 (top-left)
+  const activeCamera = views.length > 0 ? views[0]?.camera : null // Use perspective camera
+
+  // Track if gizmo is being dragged to prevent deselection
+  const [isGizmoDragging, setIsGizmoDragging] = useState(false)
 
   // Initialize Transform Controls for dragging
   const transformState = useTransformControls({
     scene,
     camera: activeCamera,
-    domElement: canvasRef.current,
+    domElement: canvasElement, // Use state instead of ref for proper initialization
     mode: settings.transformMode,
     snapSize: settings.snapSize,
+    onTransformStart: () => {
+      setIsGizmoDragging(true)
+    },
     onTransform: (position) => {
       const selectedPoint = getSelectedPoint()
       if (selectedPoint) {
         updateControlPoint(selectedPoint.index, position)
       }
     },
+    onTransformEnd: () => {
+      setIsGizmoDragging(false)
+    },
   })
-  const { attachToPoint: attachGizmo, detach: detachGizmo } = transformState
+  const { attachToPoint: attachGizmo, detach: detachGizmo, transformControls } = transformState
 
   // Handle control point selection
   const { handleClick, handleMouseMove } = useControlPointSelection({
@@ -95,26 +108,59 @@ export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps>
     },
   })
 
-  // Handle canvas events
-  const setupCanvasEvents = useCallback(
-    (canvas: HTMLCanvasElement) => {
-      canvasRef.current = canvas
+  // Setup canvas event listeners for selection ONCE
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !transformControls) return
 
-      // Click for selection
-      const clickHandler = (e: MouseEvent) => handleClick(e)
-      canvas.addEventListener('click', clickHandler)
-
-      // Hover effects
-      const mouseMoveHandler = (e: MouseEvent) => handleMouseMove(e)
-      canvas.addEventListener('mousemove', mouseMoveHandler)
-
-      return () => {
-        canvas.removeEventListener('click', clickHandler)
-        canvas.removeEventListener('mousemove', mouseMoveHandler)
+    // Click for selection - but ignore clicks when gizmo is being used
+    const clickHandler = (e: MouseEvent) => {
+      // Don't process clicks if we're dragging the gizmo
+      if (isGizmoDragging) return
+      
+      // Check if we clicked on the gizmo itself (only if there's an active selection)
+      const selectedPoint = getSelectedPoint()
+      if (selectedPoint && activeCamera) {
+        const raycaster = new THREE.Raycaster()
+        const rect = canvas.getBoundingClientRect()
+        const mouse = new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1
+        )
+        raycaster.setFromCamera(mouse, activeCamera)
+        
+        // Check if clicking on gizmo
+        const gizmoObjects = transformControls.children
+        const gizmoIntersects = raycaster.intersectObjects(gizmoObjects, true)
+        if (gizmoIntersects.length > 0) {
+          // Clicked on gizmo - let it handle the event
+          return
+        }
       }
-    },
-    [handleClick, handleMouseMove]
-  )
+      
+      // Process normal selection
+      handleClick(e)
+    }
+    canvas.addEventListener('click', clickHandler)
+
+    // Hover effects - for control points only
+    // Don't interfere with gizmo hover
+    const mouseMoveHandler = (e: MouseEvent) => {
+      handleMouseMove(e)
+    }
+    canvas.addEventListener('mousemove', mouseMoveHandler, { passive: true })
+
+    return () => {
+      canvas.removeEventListener('click', clickHandler)
+      canvas.removeEventListener('mousemove', mouseMoveHandler)
+    }
+  }, [transformControls, activeCamera]) // Only re-setup when these core deps change
+  
+  // Store canvas ref when it becomes available
+  const handleCanvasReady = useCallback((canvas: HTMLCanvasElement) => {
+    canvasRef.current = canvas
+    setCanvasElement(canvas) // Update state to trigger TransformControls initialization
+  }, [])
 
   // Handle container resize
   useEffect(() => {
@@ -139,11 +185,17 @@ export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps>
     }
   }, [updateViewports])
 
-  // Notify parent when control points change
+  // Notify parent when control point POSITIONS change (not selection)
+  const prevPositionsRef = useRef<string>('')
   useEffect(() => {
     if (onControlPointsChange) {
       const positions = controlPoints.map((p) => p.position)
-      onControlPointsChange(positions)
+      // Only notify if positions actually changed (not just selection)
+      const positionsKey = positions.map(p => `${p.x},${p.y},${p.z}`).join('|')
+      if (positionsKey !== prevPositionsRef.current) {
+        prevPositionsRef.current = positionsKey
+        onControlPointsChange(positions)
+      }
     }
   }, [controlPoints, onControlPointsChange])
 
@@ -342,7 +394,9 @@ export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps>
             views={views}
             width={containerSize.width}
             height={containerSize.height - 48} // Subtract toolbar height
-            onCanvasReady={setupCanvasEvents}
+            onCanvasReady={handleCanvasReady}
+            onResetView={resetView}
+            activeViewportName={activeViewportName}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-gray-500">

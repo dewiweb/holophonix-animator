@@ -29,15 +29,31 @@ export const useTransformControls = ({
 }: UseTransformControlsProps): TransformControlsState => {
   const transformControlsRef = useRef<TransformControls | null>(null)
   const [attachedObject, setAttachedObject] = useState<THREE.Object3D | null>(null)
+  
+  // Store callbacks in refs to avoid recreating TransformControls
+  const onTransformStartRef = useRef(onTransformStart)
+  const onTransformRef = useRef(onTransform)
+  const onTransformEndRef = useRef(onTransformEnd)
+  
+  // Update refs when callbacks change
+  useEffect(() => {
+    onTransformStartRef.current = onTransformStart
+    onTransformRef.current = onTransform
+    onTransformEndRef.current = onTransformEnd
+  }, [onTransformStart, onTransform, onTransformEnd])
 
-  // Initialize TransformControls
+  // Initialize TransformControls ONCE
   useEffect(() => {
     if (!camera || !domElement || !scene) return
+    if (transformControlsRef.current) return // Already initialized
 
     const controls = new TransformControls(camera, domElement)
     controls.setMode(mode)
-    controls.setSpace('world')
-    controls.setSize(0.8)
+    controls.setSpace('world') // Always use world space for consistent orientation
+    controls.setSize(1.0) // Standard size
+    
+    // Hide gizmo initially - only show when attached to an object
+    controls.visible = false
     
     // Set snapping
     if (snapSize > 0) {
@@ -50,18 +66,18 @@ export const useTransformControls = ({
 
     // Add to scene
     scene.add(controls)
+    
+    // Ensure controls are enabled for interaction
+    ;(controls as any).enabled = true
 
-    // Event listeners
+    // Event listeners using refs
     controls.addEventListener('dragging-changed', (event: any) => {
-      // Notify that dragging state changed
-      // This can be used to disable orbit controls
       if (event.value) {
-        onTransformStart?.()
+        onTransformStartRef.current?.()
       } else {
-        // Access attached object via getters if available
         const obj = (controls as any).object
         if (obj) {
-          onTransformEnd?.(
+          onTransformEndRef.current?.(
             obj.position.clone(),
             obj.rotation.clone()
           )
@@ -70,10 +86,9 @@ export const useTransformControls = ({
     })
 
     controls.addEventListener('change', () => {
-      // Notify on every change during drag
       const obj = (controls as any).object
       if (obj) {
-        onTransform?.(
+        onTransformRef.current?.(
           obj.position.clone(),
           obj.rotation.clone()
         )
@@ -87,7 +102,7 @@ export const useTransformControls = ({
       scene.remove(controls)
       transformControlsRef.current = null
     }
-  }, [scene, camera, domElement, mode, snapSize, onTransformStart, onTransform, onTransformEnd])
+  }, [scene, camera, domElement]) // Only reinitialize if these core dependencies change
 
   // Update mode when it changes
   useEffect(() => {
@@ -115,9 +130,16 @@ export const useTransformControls = ({
 
     if (object) {
       transformControlsRef.current.attach(object)
+      transformControlsRef.current.visible = true // Show gizmo
+      ;(transformControlsRef.current as any).enabled = true // Ensure enabled
       setAttachedObject(object)
+      
+      // Force update to sync gizmo position
+      transformControlsRef.current.updateMatrixWorld()
+      object.updateMatrixWorld()
     } else {
       transformControlsRef.current.detach()
+      transformControlsRef.current.visible = false // Hide gizmo
       setAttachedObject(null)
     }
   }, [])
@@ -126,6 +148,7 @@ export const useTransformControls = ({
   const detach = useCallback(() => {
     if (transformControlsRef.current) {
       transformControlsRef.current.detach()
+      transformControlsRef.current.visible = false // Hide gizmo
       setAttachedObject(null)
     }
   }, [])
