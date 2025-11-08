@@ -5,11 +5,11 @@ import { ThreeJsEditorDemo } from '../components/animation-editor/components/thr
  * Test page for the new Three.js Control Point Editor
  * Navigate to /editor-test to see it
  * 
- * This page takes the full screen (outside Layout) for testing
+ * Now integrated as a tab in the main application
  */
 export const EditorTestPage: React.FC = () => {
   return (
-    <div className="fixed inset-0 w-full h-full bg-gray-950 overflow-hidden">
+    <div className="w-full h-full bg-gray-950 overflow-hidden rounded-lg">
       <ThreeJsEditorDemo />
     </div>
   )

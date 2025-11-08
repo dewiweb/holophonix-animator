@@ -15,7 +15,8 @@ import {
   Plus,
   Save,
   FolderOpen,
-  Grid3x3
+  Grid3x3,
+  Box
 } from 'lucide-react'
 
 interface LayoutProps {
@@ -63,6 +64,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigation = [
     { name: 'Tracks', href: '/', icon: Home },
     { name: 'Animations', href: '/animations', icon: Play },
+    { name: '3D Editor (Test)', href: '/editor-test', icon: Box },
     { name: 'Timeline', href: '/timeline', icon: Clock },
     { name: 'Cue Grid', href: '/cues', icon: Grid3x3 },
     { name: 'OSC Manager', href: '/osc', icon: Radio },
