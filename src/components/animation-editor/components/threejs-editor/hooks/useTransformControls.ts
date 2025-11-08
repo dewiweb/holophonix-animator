@@ -38,8 +38,15 @@ export const useTransformControls = ({
     controls.setMode(mode)
     controls.setSpace('world')
     controls.setSize(0.8)
-    controls.setTranslationSnap(snapSize > 0 ? snapSize : null)
-    controls.setRotationSnap(snapSize > 0 ? THREE.MathUtils.degToRad(15) : null)
+    
+    // Set snapping
+    if (snapSize > 0) {
+      controls.setTranslationSnap(snapSize)
+      controls.setRotationSnap(THREE.MathUtils.degToRad(15))
+    } else {
+      controls.setTranslationSnap(null as any) // Disable snapping
+      controls.setRotationSnap(null as any)
+    }
 
     // Add to scene
     scene.add(controls)
@@ -51,10 +58,12 @@ export const useTransformControls = ({
       if (event.value) {
         onTransformStart?.()
       } else {
-        if (controls.object) {
+        // Access attached object via getters if available
+        const obj = (controls as any).object
+        if (obj) {
           onTransformEnd?.(
-            controls.object.position.clone(),
-            controls.object.rotation.clone()
+            obj.position.clone(),
+            obj.rotation.clone()
           )
         }
       }
@@ -62,10 +71,11 @@ export const useTransformControls = ({
 
     controls.addEventListener('change', () => {
       // Notify on every change during drag
-      if (controls.object) {
+      const obj = (controls as any).object
+      if (obj) {
         onTransform?.(
-          controls.object.position.clone(),
-          controls.object.rotation.clone()
+          obj.position.clone(),
+          obj.rotation.clone()
         )
       }
     })
@@ -89,8 +99,13 @@ export const useTransformControls = ({
   // Update snap size when it changes
   useEffect(() => {
     if (transformControlsRef.current) {
-      transformControlsRef.current.setTranslationSnap(snapSize > 0 ? snapSize : null)
-      transformControlsRef.current.setRotationSnap(snapSize > 0 ? THREE.MathUtils.degToRad(15) : null)
+      if (snapSize > 0) {
+        transformControlsRef.current.setTranslationSnap(snapSize)
+        transformControlsRef.current.setRotationSnap(THREE.MathUtils.degToRad(15))
+      } else {
+        transformControlsRef.current.setTranslationSnap(null as any)
+        transformControlsRef.current.setRotationSnap(null as any)
+      }
     }
   }, [snapSize])
 

@@ -974,24 +974,8 @@ export const useOSCStore = create<OSCState>((set, get) => {
             }
           })
           
-          // ALSO check pending animations (easing to start)
-          if (!isAnimating) {
-            animationStore.pendingAnimations.forEach((pending, animId) => {
-              if (pending.trackIds.includes(existingTrack.id)) {
-                isAnimating = true
-                foundInAnimationId = `${animId} (pending)`
-              }
-            })
-          }
-          
-          // ALSO check easingTracks (tracks currently in easing animation)
-          if (!isAnimating && animationStore.easingTracks.has(existingTrack.id)) {
-            isAnimating = true
-            foundInAnimationId = 'easing'
-          }
-          
           // DEBUG logging
-          console.log(`🔍 Track ${existingTrack.name} (${existingTrack.id}): playing=${animationStore.playingAnimations.size}, pending=${animationStore.pendingAnimations.size}, easing=${animationStore.easingTracks.size}, found=${isAnimating}, animId=${foundInAnimationId}`)
+          console.log(`🔍 Track ${existingTrack.name} (${existingTrack.id}): playing=${animationStore.playingAnimations.size}, found=${isAnimating}, animId=${foundInAnimationId}`)
           
           if (isAnimating) {
             // Animation is controlling the track (even if paused) - DON'T update position!
