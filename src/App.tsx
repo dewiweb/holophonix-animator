@@ -131,17 +131,24 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<TrackList />} />
-          <Route path="/animations" element={<AnimationEditor />} />
-          <Route path="/timeline" element={<Timeline />} />
-          <Route path="/cues" element={<CueGrid />} />
-          <Route path="/osc" element={<OSCManager />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/editor-test" element={<EditorTestPage />} />
-        </Routes>
-      </Layout>
+      <Routes>
+        {/* Fullscreen test route - outside Layout */}
+        <Route path="/editor-test" element={<EditorTestPage />} />
+        
+        {/* Regular routes - inside Layout */}
+        <Route path="*" element={
+          <Layout>
+            <Routes>
+              <Route path="/" element={<TrackList />} />
+              <Route path="/animations" element={<AnimationEditor />} />
+              <Route path="/timeline" element={<Timeline />} />
+              <Route path="/cues" element={<CueGrid />} />
+              <Route path="/osc" element={<OSCManager />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </Layout>
+        } />
+      </Routes>
     </ErrorBoundary>
   )
 }
