@@ -47,6 +47,7 @@
     "reactflow": "^11.10.1",
     "tailwind-merge": "^3.3.1",
     "three": "^0.159.0",
+    "three-stdlib": "^2.36.0",
     "zustand": "^4.4.7"
   },
   "devDependencies": {
