@@ -4,13 +4,14 @@ import { useAnimationStore } from '@/stores/animationStore'
 import { usePresetStore } from '@/stores/presetStore'
 import { useAnimationEditorStoreV2 } from '@/stores/animationEditorStoreV2'
 import { cn } from '@/utils'
-import { Track, Position, Animation, AnimationType, AnimationState, Keyframe } from '@/types'
+import { Track, Position, Animation, AnimationType, AnimationState, Keyframe, CoordinateSystem } from '@/types'
 import { AnimationModel } from '@/models/types'
 import { Save, Target, PanelRightOpen, PanelRightClose } from 'lucide-react'
 
 // Import modular components
 import { AnimationPreview3D } from './components/3d-preview/AnimationPreview3D'
 import { ControlPointEditor } from './components/control-points-editor/ControlPointEditor'
+import { UnifiedThreeJsEditor } from './components/threejs-editor/UnifiedThreeJsEditor'
 import { PresetBrowser } from './components/modals/PresetBrowser'
 import { PresetNameDialog } from './components/modals/PresetNameDialog'
 import { ModelParametersForm } from './components/models-forms/ModelParametersForm'
@@ -71,6 +72,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     // Form actions
     updateAnimationForm,
     setAnimationType,
+    setAnimationTypeWithTracks,
     updateParameter,
     updateParameters,
     resetToDefaults,
@@ -99,6 +101,9 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     setSelectedModel
   } = useAnimationEditorStoreV2()
 
+  // FEATURE FLAG: Enable unified 3D editor (set to false for easy rollback)
+  const USE_UNIFIED_EDITOR = true
+
   // Track Selection - memoize to prevent new array reference on every render
   const selectedTrackIds = useMemo(() => 
     selectedTracks.length > 0 ? selectedTracks : tracks.map(t => t.id),
@@ -119,15 +124,22 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   // Load active track's parameters when switching tracks in position-relative or phase-offset-relative mode
   // Only reload when the TRACK changes, not when its parameters update (to avoid breaking drag)
   // If multiple tracks are selected for editing, use the first one's parameters as the base
+  // NOTE: multiTrackParameters is intentionally NOT a dependency to avoid re-syncing on every parameter change
   useEffect(() => {
     if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackIds.length > 0) {
       const firstActiveTrackId = activeEditingTrackIds[0]
       const trackParams = multiTrackParameters[firstActiveTrackId]
+      console.log('🔄 Active track changed:', {
+        trackId: firstActiveTrackId,
+        hasParams: !!trackParams,
+        paramsKeys: trackParams ? Object.keys(trackParams) : []
+      })
       if (trackParams) {
         updateParameters(trackParams)
       }
     }
-  }, [activeEditingTrackIds, multiTrackMode, multiTrackParameters, updateParameters])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEditingTrackIds, multiTrackMode])
 
   /**
    * Helper function to update multi-track parameters and sync to animationForm
@@ -184,6 +196,157 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       return acc
     }, {} as Record<string, Position>)
   ), [tracks])
+
+  // Stable preview ID for unsaved animations (prevents control point reload loop)
+  const previewIdRef = useRef<string>(`preview-${Date.now()}`)
+  
+  // Reset preview ID when loading a different animation
+  useEffect(() => {
+    if (loadedAnimationId) {
+      previewIdRef.current = loadedAnimationId
+    }
+  }, [loadedAnimationId])
+  
+  // Serialize multi-track parameters for deep comparison
+  // Include animation type to force re-computation on type change
+  const activeTrackParamsKey = useMemo(() => {
+    console.log('🔑 Computing activeTrackParamsKey', {
+      type: animationForm.type,
+      paramsKeys: animationForm.parameters ? Object.keys(animationForm.parameters) : [],
+      multiTrackMode,
+      isMultiTrack: (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+                    && activeEditingTrackIds.length > 0
+    })
+    
+    const typePrefix = `type:${animationForm.type}|`
+    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+        && activeEditingTrackIds.length > 0 
+        && multiTrackParameters[activeEditingTrackIds[0]]) {
+      return typePrefix + JSON.stringify(multiTrackParameters[activeEditingTrackIds[0]])
+    }
+    return typePrefix + JSON.stringify(animationForm.parameters || {})
+  }, [animationForm.type, animationForm.parameters, multiTrackMode, activeEditingTrackIds, multiTrackParameters])
+
+  // Create animation object for unified editor
+  const unifiedEditorAnimation = useMemo<Animation | null>(() => {
+    if (!animationForm.type || !USE_UNIFIED_EDITOR) {
+      console.log('❌ No animation object created:', { hasType: !!animationForm.type, useUnified: USE_UNIFIED_EDITOR })
+      return null
+    }
+    
+    // Determine which parameters to use based on multi-track mode
+    let parameters = animationForm.parameters || {}
+    
+    // In position-relative mode, use the active track's parameters
+    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+        && activeEditingTrackIds.length > 0) {
+      // Use first active track's parameters
+      const activeTrackParams = multiTrackParameters[activeEditingTrackIds[0]]
+      if (activeTrackParams) {
+        parameters = activeTrackParams
+        console.log('🎯 Using parameters from active track:', activeEditingTrackIds[0])
+      }
+    }
+    
+    // Generate unique ID for position-relative mode to ensure visual updates when switching tracks
+    let animationId = loadedAnimationId || previewIdRef.current
+    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+        && activeEditingTrackIds.length > 0) {
+      // Include active track ID to make animation unique per track
+      animationId = `${animationId}-track-${activeEditingTrackIds[0]}`
+    }
+    
+    const animation = {
+      id: animationId,
+      name: animationForm.name || 'Untitled Animation',
+      type: animationForm.type,
+      parameters, // Use track-specific parameters
+      duration: animationForm.duration || 10,
+      loop: animationForm.loop || false,
+      coordinateSystem: (animationForm.coordinateSystem as CoordinateSystem) || 'xyz',
+      multiTrackMode: multiTrackMode,
+      trackIds: selectedTrackIds,
+      trackSelectionLocked: lockTracks,
+      phaseOffsetSeconds: multiTrackMode.includes('phase-offset') ? phaseOffsetSeconds : undefined,
+      centerPoint: multiTrackMode === 'centered' ? centerPoint : undefined,
+    } as Animation
+    
+    console.log('🎬 Animation object created for unified editor:', {
+      id: animation.id,
+      type: animation.type,
+      multiTrackMode,
+      activeEditingTrack: activeEditingTrackIds[0],
+      trackCount: activeEditingTrackIds.length,
+      paramsKey: activeTrackParamsKey.substring(0, 100) + '...',
+      usingTrackParams: (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+                        && activeEditingTrackIds.length > 0,
+      parameters: animation.parameters,
+      hasStartPosition: !!animation.parameters.startPosition,
+      hasEndPosition: !!animation.parameters.endPosition,
+      hasCenter: !!animation.parameters.center
+    })
+    
+    return animation
+  }, [
+    animationForm.name,
+    animationForm.duration,
+    animationForm.loop,
+    animationForm.coordinateSystem,
+    loadedAnimationId, 
+    multiTrackMode, 
+    selectedTrackIds, 
+    lockTracks, 
+    phaseOffsetSeconds, 
+    centerPoint, 
+    USE_UNIFIED_EDITOR,
+    activeEditingTrackIds,    // ✅ Re-compute when active track changes
+    activeTrackParamsKey      // ✅ Deep comparison includes type + params
+  ])
+
+  // Handle updates from unified editor
+  const handleUnifiedEditorChange = React.useCallback((updatedAnimation: Animation) => {
+    console.log('📝 AnimationEditor received update:', {
+      animationId: updatedAnimation.id,
+      parameters: updatedAnimation.parameters,
+      multiTrackMode,
+      activeEditingTrack: activeEditingTrackIds[0],
+      loadedAnimationId
+    })
+    
+    // In position-relative mode, update the active track's parameters
+    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+        && activeEditingTrackIds.length > 0) {
+      const activeTrackId = activeEditingTrackIds[0]
+      
+      // Update per-track parameters
+      const updatedMultiTrackParams = {
+        ...multiTrackParameters,
+        [activeTrackId]: updatedAnimation.parameters
+      }
+      setMultiTrackParameters(updatedMultiTrackParams)
+      
+      console.log('✅ Parameters updated for track:', activeTrackId)
+    }
+    
+    // Update form parameters with changes from control point editing
+    updateParameters(updatedAnimation.parameters)
+    
+    console.log('✅ Parameters updated in form')
+    
+    // If we have a loaded animation, update it in the project store
+    if (loadedAnimationId) {
+      updateAnimation(loadedAnimationId, updatedAnimation)
+      console.log('✅ Animation updated in project store')
+    }
+  }, [
+    loadedAnimationId, 
+    updateParameters, 
+    updateAnimation,
+    multiTrackMode,
+    activeEditingTrackIds,
+    setMultiTrackParameters,
+    multiTrackParameters
+  ])
 
   // Effects
   useEffect(() => {
@@ -269,14 +432,22 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
 
   // Handlers
   const handleAnimationTypeChange = (type: AnimationType) => {
-    setAnimationType(type, selectedTrack)
+    console.log('🔄 handleAnimationTypeChange called:', {
+      newType: type,
+      multiTrackMode,
+      selectedTrackCount: selectedTrackIds.length,
+      willUseAtomicUpdate: (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && selectedTrackIds.length > 0
+    })
     
-    // In position-relative or phase-offset-relative mode, reinitialize all track parameters with their positions
+    // In position-relative or phase-offset-relative mode, use atomic update to prevent race condition
     if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && selectedTrackIds.length > 0) {
       const newMultiTrackParams: Record<string, any> = {}
+      const selectedTracks: Track[] = []
+      
       selectedTrackIds.forEach(trackId => {
         const track = tracks.find(t => t.id === trackId)
         if (track) {
+          selectedTracks.push(track)
           // If using a model, get default parameters from the model
           let trackParams: any
           if (selectedModel && selectedModel.getDefaultParameters && typeof selectedModel.getDefaultParameters === 'function') {
@@ -287,11 +458,24 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
             trackParams = getDefaultAnimationParameters(type, track)
           }
           newMultiTrackParams[trackId] = trackParams
+          console.log(`  📦 Track ${trackId} params:`, Object.keys(trackParams))
         }
       })
       
-      // Update and sync multi-track parameters
-      syncMultiTrackParameters(newMultiTrackParams)
+      console.log('🔄 Calling setAnimationTypeWithTracks with:', {
+        type,
+        trackCount: selectedTracks.length,
+        paramKeys: Object.keys(newMultiTrackParams)
+      })
+      
+      // ATOMIC UPDATE: type + all track parameters in one operation
+      // This prevents race condition where visual renders with new type but old params
+      setAnimationTypeWithTracks(type, selectedTracks, newMultiTrackParams)
+      console.log('✅ setAnimationTypeWithTracks called')
+    } else {
+      console.log('🔄 Using single-track update')
+      // Single track mode - use simple update
+      setAnimationType(type, selectedTrack)
     }
     
     // Check compatibility and reset to default mode if needed
@@ -610,6 +794,29 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     </div>
   )
 
+  // NEW: Unified editor pane (replaces both preview and control panes)
+  const unifiedPane = (
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex-1 min-h-0 bg-gray-900">
+        <UnifiedThreeJsEditor
+          animation={unifiedEditorAnimation}
+          selectedTracks={selectedTrackObjects}
+          multiTrackMode={multiTrackMode}
+          onAnimationChange={handleUnifiedEditorChange}
+          onSelectionChange={(selectedIndices) => {
+            // Optional: Track which control point is selected
+            console.log('Control point selection:', selectedIndices)
+          }}
+          readOnly={false}
+          className="w-full h-full"
+        />
+      </div>
+      <div className="border-t border-gray-700 px-4 py-2 bg-gray-800/50 text-xs text-gray-300">
+        <span>💡 <kbd className="px-1 bg-gray-700 rounded text-xs">Tab</kbd> Preview/Edit | <kbd className="px-1 bg-gray-700 rounded text-xs">Q/W/E/R</kbd> Views | <kbd className="px-1 bg-gray-700 rounded text-xs">ESC</kbd> Deselect</span>
+      </div>
+    </div>
+  )
+
   if (!selectedTrack) {
     return (
       <div className="h-full flex flex-col">
@@ -635,33 +842,41 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-md p-1 shadow-sm">
-          <button
-            onClick={() => setActiveWorkPane('preview')}
-            className={cn(
-              'px-3 py-2 text-sm font-medium rounded-md transition-colors',
-              activeWorkPane === 'preview'
-                ? 'bg-primary-50 text-primary-700 border border-primary-200'
-                : 'text-gray-600 hover:text-gray-900'
-            )}
-          >
-            3D Preview
-          </button>
-          <button
-            onClick={() => setActiveWorkPane('control')}
-            disabled={!supportsControlPoints}
-            className={cn(
-              'px-3 py-2 text-sm font-medium rounded-md transition-colors',
-              activeWorkPane === 'control'
-                ? 'bg-primary-50 text-primary-700 border border-primary-200'
-                : supportsControlPoints
-                  ? 'text-gray-600 hover:text-gray-900'
-                  : 'text-gray-400 cursor-not-allowed'
-            )}
-          >
-            Control Points
-          </button>
-        </div>
+        {!USE_UNIFIED_EDITOR && (
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-md p-1 shadow-sm">
+            <button
+              onClick={() => setActiveWorkPane('preview')}
+              className={cn(
+                'px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                activeWorkPane === 'preview'
+                  ? 'bg-primary-50 text-primary-700 border border-primary-200'
+                  : 'text-gray-600 hover:text-gray-900'
+              )}
+            >
+              3D Preview
+            </button>
+            <button
+              onClick={() => setActiveWorkPane('control')}
+              disabled={!supportsControlPoints}
+              className={cn(
+                'px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                activeWorkPane === 'control'
+                  ? 'bg-primary-50 text-primary-700 border border-primary-200'
+                  : supportsControlPoints
+                    ? 'text-gray-600 hover:text-gray-900'
+                    : 'text-gray-400 cursor-not-allowed'
+              )}
+            >
+              Control Points
+            </button>
+          </div>
+        )}
+
+        {USE_UNIFIED_EDITOR && (
+          <div className="flex items-center gap-2 bg-blue-900/70 text-blue-200 text-xs px-3 py-1.5 rounded backdrop-blur-sm">
+            <span>💡 Press <kbd className="px-1 bg-gray-700 rounded">Tab</kbd> to toggle Preview/Edit modes | <kbd className="px-1 bg-gray-700 rounded">Q/W/E/R</kbd> for views</span>
+          </div>
+        )}
 
         <div className="flex-1 flex justify-center">
           <div className="flex items-center gap-3">
@@ -757,11 +972,14 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
             <div className="flex-1 min-w-0 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
               <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 bg-gray-50 rounded-t-lg">
                 <p className="text-sm text-gray-600">
-                  {activeWorkPane === 'preview' ? '3D preview of the current animation.' : 'Adjust control points to refine the path.'}
+                  {USE_UNIFIED_EDITOR 
+                    ? 'Unified 3D editor with preview and edit modes (Tab to toggle)'
+                    : (activeWorkPane === 'preview' ? '3D preview of the current animation.' : 'Adjust control points to refine the path.')
+                  }
                 </p>
               </div>
               <div className="flex-1 overflow-hidden">
-                {activeWorkPane === 'preview' ? previewPane : controlPaneContent}
+                {USE_UNIFIED_EDITOR ? unifiedPane : (activeWorkPane === 'preview' ? previewPane : controlPaneContent)}
               </div>
             </div>
 
@@ -795,25 +1013,40 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
             />
           </div>
         ) : (
-          <div className="flex-1 grid gap-6 lg:grid-cols-2">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
-              <div className="border-b border-gray-200 px-4 py-3 bg-gray-50">
-                <p className="text-sm text-gray-600">3D preview of the current animation.</p>
+          USE_UNIFIED_EDITOR ? (
+            // Single unified editor pane
+            <div className="flex-1 bg-gray-900 rounded-lg shadow-sm border border-gray-700 flex flex-col overflow-hidden">
+              <div className="border-b border-gray-700 px-4 py-3 bg-gray-800/50">
+                <p className="text-sm text-gray-300">
+                  Unified 3D editor - Press Tab for Preview/Edit modes, Q/W/E/R for view angles
+                </p>
               </div>
               <div className="flex-1 overflow-hidden">
-                {previewPane}
+                {unifiedPane}
               </div>
             </div>
+          ) : (
+            // Old dual-pane layout
+            <div className="flex-1 grid gap-6 lg:grid-cols-2">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+                <div className="border-b border-gray-200 px-4 py-3 bg-gray-50">
+                  <p className="text-sm text-gray-600">3D preview of the current animation.</p>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  {previewPane}
+                </div>
+              </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
-              <div className="border-b border-gray-200 px-4 py-3 bg-gray-50">
-                <p className="text-sm text-gray-600">Adjust control points to refine the path.</p>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                {controlPaneContent}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+                <div className="border-b border-gray-200 px-4 py-3 bg-gray-50">
+                  <p className="text-sm text-gray-600">Adjust control points to refine the path.</p>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  {controlPaneContent}
+                </div>
               </div>
             </div>
-          </div>
+          )
         )}
       </div>
 

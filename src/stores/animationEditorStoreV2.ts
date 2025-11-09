@@ -51,6 +51,7 @@ export interface AnimationEditorState {
   setAnimationForm: (form: Partial<Animation>) => void
   updateAnimationForm: (updates: Partial<Animation>) => void
   setAnimationType: (type: AnimationType, track?: Track) => void
+  setAnimationTypeWithTracks: (type: AnimationType, tracks: Track[], multiTrackParams: Record<string, any>) => void
   updateParameter: (key: string, value: any) => void
   updateParameters: (params: Record<string, any>) => void
   resetToDefaults: (track?: Track) => void
@@ -189,12 +190,63 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
       // Generate default parameters for new type
       const defaultParams = getDefaultAnimationParameters(type, trackWithPosition)
       
+      console.log('🏪 STORE: setAnimationType called', {
+        oldType: state.animationForm.type,
+        newType: type,
+        newParamsKeys: Object.keys(defaultParams),
+        hasTrack: !!track,
+        trackPosition: track?.position
+      })
+      
       return {
         animationForm: {
           ...state.animationForm,
           type,
           parameters: defaultParams
         }
+      }
+    })
+  },
+  
+  setAnimationTypeWithTracks: (type, tracks, multiTrackParams) => {
+    console.log('🏪 STORE: setAnimationTypeWithTracks called', {
+      type,
+      trackCount: tracks.length,
+      multiTrackParamKeys: Object.keys(multiTrackParams),
+      firstTrackParams: multiTrackParams[Object.keys(multiTrackParams)[0]] 
+        ? Object.keys(multiTrackParams[Object.keys(multiTrackParams)[0]]) 
+        : []
+    })
+    
+    set((state) => {
+      // Use first track or default position for base parameters
+      const firstTrack = tracks[0]
+      const currentPosition = firstTrack?.position || 
+                             firstTrack?.initialPosition || 
+                             { x: 0, y: 0, z: 0 }
+      
+      const trackWithPosition = firstTrack || { 
+        position: currentPosition, 
+        initialPosition: currentPosition 
+      } as Track
+      
+      // Generate default parameters for new type
+      const defaultParams = getDefaultAnimationParameters(type, trackWithPosition)
+      
+      console.log('🏪 STORE: Updating state with:', {
+        newType: type,
+        newBaseParams: Object.keys(defaultParams),
+        multiTrackParamCount: Object.keys(multiTrackParams).length
+      })
+      
+      // ATOMIC UPDATE: type + parameters + multiTrackParameters
+      return {
+        animationForm: {
+          ...state.animationForm,
+          type,
+          parameters: defaultParams
+        },
+        multiTrackParameters: { ...multiTrackParams }
       }
     })
   },
