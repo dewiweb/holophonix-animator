@@ -9,8 +9,6 @@ import { AnimationModel } from '@/models/types'
 import { Save, Target, PanelRightOpen, PanelRightClose } from 'lucide-react'
 
 // Import modular components
-import { AnimationPreview3D } from './components/3d-preview/AnimationPreview3D'
-import { ControlPointEditor } from './components/control-points-editor/ControlPointEditor'
 import { UnifiedThreeJsEditor } from './components/threejs-editor/UnifiedThreeJsEditor'
 import { PresetBrowser } from './components/modals/PresetBrowser'
 import { PresetNameDialog } from './components/modals/PresetNameDialog'
@@ -58,7 +56,6 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     // Multi-track state
     multiTrackMode,
     phaseOffsetSeconds,
-    centerPoint,
     multiTrackParameters,
     activeEditingTrackIds,
     lockTracks,
@@ -85,7 +82,6 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     // Multi-track actions
     setMultiTrackMode,
     setPhaseOffsetSeconds,
-    setCenterPoint,
     setMultiTrackParameters,
     updateMultiTrackParameter,
     setActiveEditingTrackIds,
@@ -126,7 +122,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   // If multiple tracks are selected for editing, use the first one's parameters as the base
   // NOTE: multiTrackParameters is intentionally NOT a dependency to avoid re-syncing on every parameter change
   useEffect(() => {
-    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackIds.length > 0) {
+    if ((multiTrackMode === 'relative') && activeEditingTrackIds.length > 0) {
       const firstActiveTrackId = activeEditingTrackIds[0]
       const trackParams = multiTrackParameters[firstActiveTrackId]
       console.log('🔄 Active track changed:', {
@@ -214,12 +210,12 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       type: animationForm.type,
       paramsKeys: animationForm.parameters ? Object.keys(animationForm.parameters) : [],
       multiTrackMode,
-      isMultiTrack: (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+      isMultiTrack: (multiTrackMode === 'relative') 
                     && activeEditingTrackIds.length > 0
     })
     
     const typePrefix = `type:${animationForm.type}|`
-    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+    if ((multiTrackMode === 'relative') 
         && activeEditingTrackIds.length > 0 
         && multiTrackParameters[activeEditingTrackIds[0]]) {
       return typePrefix + JSON.stringify(multiTrackParameters[activeEditingTrackIds[0]])
@@ -238,19 +234,44 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     let parameters = animationForm.parameters || {}
     
     // In position-relative mode, use the active track's parameters
-    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+    if ((multiTrackMode === 'relative') 
         && activeEditingTrackIds.length > 0) {
       // Use first active track's parameters
       const activeTrackParams = multiTrackParameters[activeEditingTrackIds[0]]
       if (activeTrackParams) {
-        parameters = activeTrackParams
-        console.log('🎯 Using parameters from active track:', activeEditingTrackIds[0])
+        // Clean formation-mode parameters from relative mode
+        const { _isobarycenter, _trackOffset, ...cleanParams } = activeTrackParams
+        parameters = cleanParams
+        console.log('🎯 RELATIVE mode - using clean parameters from active track:', activeEditingTrackIds[0])
       }
+    }
+    // In formation mode, reset position parameters to origin and add barycenter
+    else if (multiTrackMode === 'formation' && selectedTrackObjects.length > 1) {
+      // Calculate barycenter from INITIAL track positions, not current animated positions
+      // Use the initial position if tracks are animating
+      const barycenter = {
+        x: selectedTrackObjects.reduce((sum, t) => sum + (t.initialPosition?.x ?? t.position.x), 0) / selectedTrackObjects.length,
+        y: selectedTrackObjects.reduce((sum, t) => sum + (t.initialPosition?.y ?? t.position.y), 0) / selectedTrackObjects.length,
+        z: selectedTrackObjects.reduce((sum, t) => sum + (t.initialPosition?.z ?? t.position.z), 0) / selectedTrackObjects.length,
+      }
+      
+      // Reset position-based parameters to origin so they're relative to barycenter
+      const resetParams = { ...parameters }
+      if (resetParams.center) resetParams.center = { x: 0, y: 0, z: 0 }
+      if (resetParams.startPosition) resetParams.startPosition = { x: 0, y: 0, z: 0 }
+      if (resetParams.endPosition) resetParams.endPosition = { x: 10, y: 0, z: 0 }
+      if (resetParams.anchorPoint) resetParams.anchorPoint = { x: 0, y: 0, z: 0 }
+      
+      parameters = {
+        ...resetParams,
+        _isobarycenter: barycenter
+      }
+      console.log('🎯 Formation mode - using initial positions for barycenter:', barycenter)
     }
     
     // Generate unique ID for position-relative mode to ensure visual updates when switching tracks
     let animationId = loadedAnimationId || previewIdRef.current
-    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+    if ((multiTrackMode === 'relative') 
         && activeEditingTrackIds.length > 0) {
       // Include active track ID to make animation unique per track
       animationId = `${animationId}-track-${activeEditingTrackIds[0]}`
@@ -267,28 +288,31 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       multiTrackMode: multiTrackMode,
       trackIds: selectedTrackIds,
       trackSelectionLocked: lockTracks,
-      phaseOffsetSeconds: multiTrackMode.includes('phase-offset') ? phaseOffsetSeconds : undefined,
-      centerPoint: multiTrackMode === 'centered' ? centerPoint : undefined,
+      phaseOffsetSeconds: phaseOffsetSeconds > 0 ? phaseOffsetSeconds : undefined,
     } as Animation
     
     console.log('🎬 Animation object created for unified editor:', {
       id: animation.id,
       type: animation.type,
       multiTrackMode,
+      loop: animation.loop,
+      duration: animation.duration,
       activeEditingTrack: activeEditingTrackIds[0],
       trackCount: activeEditingTrackIds.length,
       paramsKey: activeTrackParamsKey.substring(0, 100) + '...',
-      usingTrackParams: (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+      usingTrackParams: (multiTrackMode === 'relative') 
                         && activeEditingTrackIds.length > 0,
-      parameters: animation.parameters,
-      hasStartPosition: !!animation.parameters.startPosition,
-      hasEndPosition: !!animation.parameters.endPosition,
-      hasCenter: !!animation.parameters.center
+      paramKeys: Object.keys(animation.parameters),
+      hasIsobarycenter: !!animation.parameters._isobarycenter,
+      isobarycenter: animation.parameters._isobarycenter,
+      hasCenter: !!animation.parameters.center,
+      center: animation.parameters.center
     })
     
     return animation
   }, [
     animationForm.name,
+    animationForm.type,          // ✅ CRITICAL: Re-compute when animation TYPE changes
     animationForm.duration,
     animationForm.loop,
     animationForm.coordinateSystem,
@@ -297,10 +321,11 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     selectedTrackIds, 
     lockTracks, 
     phaseOffsetSeconds, 
-    centerPoint, 
     USE_UNIFIED_EDITOR,
     activeEditingTrackIds,    // ✅ Re-compute when active track changes
-    activeTrackParamsKey      // ✅ Deep comparison includes type + params
+    activeTrackParamsKey,      // ✅ Deep comparison includes type + params
+    multiTrackParameters,     // ✅ CRITICAL: Re-compute when track parameters change in relative mode
+    selectedTrackObjects      // ✅ CRITICAL: Re-compute barycenter when track positions change
   ])
 
   // Handle updates from unified editor
@@ -314,7 +339,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     })
     
     // In position-relative mode, update the active track's parameters
-    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') 
+    if ((multiTrackMode === 'relative') 
         && activeEditingTrackIds.length > 0) {
       const activeTrackId = activeEditingTrackIds[0]
       
@@ -357,7 +382,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
 
   // Initialize active editing tracks when selection changes
   useEffect(() => {
-    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && selectedTrackIds.length > 0) {
+    if ((multiTrackMode === 'relative') && selectedTrackIds.length > 0) {
       // If no tracks are actively being edited, or if the active tracks are not in selection, reset to first track
       if (activeEditingTrackIds.length === 0 || !activeEditingTrackIds.every(id => selectedTrackIds.includes(id))) {
         setActiveEditingTrackIds([selectedTrackIds[0]])
@@ -390,9 +415,45 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTrackIds, multiTrackMode, animationForm.type]) // Only depend on type, not parameters object (prevents infinite loop)
 
+  // Reinitialize parameters when switching to relative mode from formation mode
+  useEffect(() => {
+    if (multiTrackMode === 'relative' && selectedTrackIds.length > 0 && animationForm.type) {
+      // Check if shared parameters OR any track has formation mode parameters
+      const sharedHasFormationParams = animationForm.parameters?._isobarycenter || animationForm.parameters?._trackOffset
+      const trackHasFormationParams = Object.values(multiTrackParameters).some(
+        params => params._isobarycenter || params._trackOffset
+      )
+      
+      if (sharedHasFormationParams || trackHasFormationParams || Object.keys(multiTrackParameters).length === 0) {
+        console.log('🔄 Switching to relative mode - reinitializing ALL parameters')
+        
+        // Regenerate parameters for each track centered on its position
+        const newParams: Record<string, any> = {}
+        selectedTrackIds.forEach(trackId => {
+          const track = tracks.find(t => t.id === trackId)
+          if (track) {
+            // Get fresh parameters centered on this track's position
+            const trackParams = getDefaultAnimationParameters(animationForm.type!, track)
+            newParams[trackId] = trackParams
+            console.log(`  Track ${track.name}: center at`, trackParams.center || trackParams.startPosition)
+          }
+        })
+        
+        setMultiTrackParameters(newParams)
+        
+        // Also clean the shared animationForm parameters
+        if (sharedHasFormationParams) {
+          const params = animationForm.parameters as any
+          const { _isobarycenter, _trackOffset, ...cleanSharedParams } = params
+          updateAnimationForm({ parameters: cleanSharedParams })
+        }
+      }
+    }
+  }, [multiTrackMode, selectedTrackIds, animationForm.type])
+
   // Ensure all active editing tracks have their parameters initialized
   useEffect(() => {
-    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackIds.length > 0) {
+    if ((multiTrackMode === 'relative') && activeEditingTrackIds.length > 0) {
       const newMultiTrackParams: Record<string, any> = { ...multiTrackParameters }
       let needsUpdate = false
       
@@ -436,11 +497,11 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       newType: type,
       multiTrackMode,
       selectedTrackCount: selectedTrackIds.length,
-      willUseAtomicUpdate: (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && selectedTrackIds.length > 0
+      willUseAtomicUpdate: (multiTrackMode === 'relative') && selectedTrackIds.length > 0
     })
     
     // In position-relative or phase-offset-relative mode, use atomic update to prevent race condition
-    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && selectedTrackIds.length > 0) {
+    if ((multiTrackMode === 'relative') && selectedTrackIds.length > 0) {
       const newMultiTrackParams: Record<string, any> = {}
       const selectedTracks: Track[] = []
       
@@ -448,15 +509,9 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
         const track = tracks.find(t => t.id === trackId)
         if (track) {
           selectedTracks.push(track)
-          // If using a model, get default parameters from the model
-          let trackParams: any
-          if (selectedModel && selectedModel.getDefaultParameters && typeof selectedModel.getDefaultParameters === 'function') {
-            trackParams = selectedModel.getDefaultParameters(track.position || { x: 0, y: 0, z: 0 })
-          } else {
-            // Generate complete default parameters centered on this track's position
-            // This ensures all position-dependent params (endPosition, control points, etc.) are correct
-            trackParams = getDefaultAnimationParameters(type, track)
-          }
+          // CRITICAL FIX: Use getDefaultAnimationParameters which looks up the NEW type from registry
+          // Don't use selectedModel because it's stale (still pointing to the OLD model)
+          const trackParams = getDefaultAnimationParameters(type, track)
           newMultiTrackParams[trackId] = trackParams
           console.log(`  📦 Track ${trackId} params:`, Object.keys(trackParams))
         }
@@ -472,6 +527,24 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       // This prevents race condition where visual renders with new type but old params
       setAnimationTypeWithTracks(type, selectedTracks, newMultiTrackParams)
       console.log('✅ setAnimationTypeWithTracks called')
+      
+      // CRITICAL: Immediately sync the first track's parameters to animationForm
+      // This ensures ThreeJS gets the new default parameters for visualization
+      if (activeEditingTrackIds.length > 0 && newMultiTrackParams[activeEditingTrackIds[0]]) {
+        const paramsToSync = newMultiTrackParams[activeEditingTrackIds[0]]
+        console.log('📤 About to sync parameters:', {
+          trackId: activeEditingTrackIds[0],
+          paramKeys: Object.keys(paramsToSync),
+          startPosition: paramsToSync.startPosition,
+          endPosition: paramsToSync.endPosition,
+          center: paramsToSync.center
+        })
+        updateParameters(paramsToSync)
+        console.log('✅ Synced parameters to form - checking if form updated...', {
+          formParamsKeys: Object.keys(animationForm.parameters || {}),
+          formStartPosition: animationForm.parameters?.startPosition
+        })
+      }
     } else {
       console.log('🔄 Using single-track update')
       // Single track mode - use simple update
@@ -483,14 +556,14 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       const compatibleModes = getCompatibleModes(type)
       if (!compatibleModes[multiTrackMode].compatible) {
         console.log(`⚠️ Current mode "${multiTrackMode}" incompatible with ${type}, switching to "position-relative"`)
-        setMultiTrackMode('position-relative')
+        setMultiTrackMode('relative')
       }
     }
   }
 
   const onParameterChange = (key: string, value: any) => {
     // In position-relative or phase-offset-relative mode, update ALL active editing tracks' parameters
-    if ((multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackIds.length > 0) {
+    if ((multiTrackMode === 'relative') && activeEditingTrackIds.length > 0) {
       // For Position objects, merge with existing values to preserve all coordinates
       const isPositionKey = ['startPosition', 'endPosition', 'center', 'bounds', 'anchorPoint', 'restPosition', 'targetPosition', 'bezierStart', 'bezierControl1', 'bezierControl2', 'bezierEnd', 'zigzagStart', 'zigzagEnd', 'axisStart', 'axisEnd', 'zoomCenter'].includes(key)
       
@@ -573,7 +646,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
         updateParameter(key, newValue)
         
         // Apply relative changes to other tracks if in multi-track mode
-        if (selectedTrackIds.length > 1 && (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative' || multiTrackMode === 'isobarycenter')) {
+        if (selectedTrackIds.length > 1 && (multiTrackMode === 'relative' || multiTrackMode === 'formation')) {
           // Call the relative change handler with store actions
           handleParameterChange(
             key,
@@ -623,7 +696,6 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       tracks,
       multiTrackMode,
       phaseOffsetSeconds,
-      centerPoint,
       currentAnimation: loadedAnimationId ? { id: loadedAnimationId } as Animation : currentAnimation,
       originalAnimationParams: originalAnimationParams,
       addAnimation: projectStore.addAnimation,
@@ -696,9 +768,6 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     if (animation.phaseOffsetSeconds !== undefined) {
       setPhaseOffsetSeconds(animation.phaseOffsetSeconds)
     }
-    if (animation.centerPoint) {
-      setCenterPoint(animation.centerPoint)
-    }
     
     // Close the library
     setShowAnimationLibrary(false)
@@ -730,69 +799,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   }
 
   // Render functions
-  const previewPane = (
-    <div className="h-full flex flex-col min-h-0">
-      <div className="flex-1 min-h-0 bg-gray-100">
-        <AnimationPreview3D
-          key={`preview-${animationForm.type}-${multiTrackMode}`}
-          tracks={selectedTrackObjects}
-          animation={previewMode ? null : currentAnimation}
-          animationType={animationForm.type}
-          animationParameters={animationForm.parameters}
-          currentTime={globalTime}
-          keyframes={animationForm.type === 'custom' ? keyframes : []}
-          onUpdateKeyframe={handleKeyframeUpdate}
-          isKeyframePlacementMode={isKeyframePlacementMode && animationForm.type === 'custom'}
-          selectedKeyframeId={selectedKeyframeId}
-          onSelectKeyframe={setSelectedKeyframeId}
-          isFormPanelOpen={isFormPanelOpen}
-          multiTrackMode={multiTrackMode}
-        />
-      </div>
-      <div className="border-t border-gray-200 px-4 py-3 bg-gray-50">
-        {previewMode ? (
-          <p className="text-sm text-blue-700">
-            Preview mode active. Configure animation parameters to see real-time preview.
-          </p>
-        ) : (
-          <p className="text-sm text-gray-600">
-            Tip: Toggle control points to adjust path waypoints visually.
-          </p>
-        )}
-      </div>
-    </div>
-  )
 
-  const controlPaneContent = supportsControlPoints ? (
-    <ControlPointEditor
-      key={`control-${animationForm.type}-${multiTrackMode}-${activeEditingTrackIds.join(',')}`}
-      animationType={animationForm.type || 'linear'}
-      parameters={animationForm.parameters || {}}
-      keyframes={keyframes}
-      onParameterChange={onParameterChange}
-      onKeyframeUpdate={handleKeyframeUpdate}
-      trackPosition={
-        // In position-relative or phase-offset-relative mode, show the first active editing track's position
-        (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && activeEditingTrackIds.length > 0
-          ? tracks.find(t => t.id === activeEditingTrackIds[0])?.position || selectedTrack?.position
-          : selectedTrack?.initialPosition || selectedTrack?.position
-      }
-      trackColors={trackColors}
-      trackNames={tracks.reduce((acc, track) => {
-        acc[track.id] = track.name
-        return acc
-      }, {} as Record<string, string>)}
-      selectedTracks={selectedTrackIds}
-      trackPositions={trackPositions}
-      multiTrackMode={multiTrackMode}
-      activeEditingTrackIds={activeEditingTrackIds}
-      allActiveTrackParameters={multiTrackParameters}
-    />
-  ) : (
-    <div className="h-full flex items-center justify-center text-sm text-gray-500 px-6">
-      Control points are not available for the selected animation type.
-    </div>
-  )
 
   // NEW: Unified editor pane (replaces both preview and control panes)
   const unifiedPane = (
@@ -884,7 +891,6 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
               previewMode={previewMode}
               isAnimationPlaying={isAnimationPlaying}
               hasAnimation={!!(animationForm.name && animationForm.type)}
-              isCustomAnimation={animationForm.type === 'custom'}
               showKeyframeEditor={false}
               onTogglePreview={() => setPreviewMode(!previewMode)}
               onPlay={handlePlayPreview}
@@ -979,7 +985,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
                 </p>
               </div>
               <div className="flex-1 overflow-hidden">
-                {USE_UNIFIED_EDITOR ? unifiedPane : (activeWorkPane === 'preview' ? previewPane : controlPaneContent)}
+                {unifiedPane}
               </div>
             </div>
 
@@ -991,10 +997,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
               onSetActiveTracks={setActiveEditingTrackIds}
               multiTrackMode={multiTrackMode}
               phaseOffsetSeconds={phaseOffsetSeconds}
-              centerPoint={centerPoint}
               onModeChange={setMultiTrackMode}
               onPhaseOffsetChange={setPhaseOffsetSeconds}
-              onCenterPointChange={setCenterPoint}
               animationForm={animationForm}
               onUpdateForm={updateAnimationForm}
               selectedModel={selectedModel}
@@ -1033,7 +1037,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
                   <p className="text-sm text-gray-600">3D preview of the current animation.</p>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  {previewPane}
+                  {unifiedPane}
                 </div>
               </div>
 
@@ -1042,7 +1046,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
                   <p className="text-sm text-gray-600">Adjust control points to refine the path.</p>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  {controlPaneContent}
+                  {unifiedPane}
                 </div>
               </div>
             </div>
