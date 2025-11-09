@@ -1,9 +1,21 @@
+/**
+ * ⚠️ DEPRECATED - This demo is replaced by UnifiedEditorDemo
+ * 
+ * @deprecated Use UnifiedEditorDemo instead
+ * 
+ * This demo used the old quad-view ThreeJsControlPointEditor.
+ * The new UnifiedEditorDemo showcases the single-view editor with mode switching.
+ * 
+ * This file will be removed in a future release.
+ */
+
 import React, { useState } from 'react'
 import * as THREE from 'three'
 import { ThreeJsControlPointEditor } from './ThreeJsControlPointEditor'
 
 /**
- * Demo component for testing the Three.js Control Point Editor
+ * @deprecated Use UnifiedEditorDemo instead
+ * Demo component for testing the Three.js Control Point Editor (QUAD VIEW)
  * This shows how to use the editor with sample data
  */
 export const ThreeJsEditorDemo: React.FC = () => {

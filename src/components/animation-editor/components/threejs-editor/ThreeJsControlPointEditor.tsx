@@ -1,3 +1,18 @@
+/**
+ * ⚠️ DEPRECATED - This component is replaced by UnifiedThreeJsEditor
+ * 
+ * @deprecated Use UnifiedThreeJsEditor instead (single-view with mode switching)
+ * 
+ * This quad-view implementation had a limitation where the transform gizmo
+ * only worked in the perspective viewport. The new unified editor solves this
+ * by using a single-view approach with view switching, allowing the gizmo to
+ * work in any view mode (perspective, top, front, or side).
+ * 
+ * This file will be removed in a future release.
+ * 
+ * See: docs/SINGLE_VIEW_EDITOR_MIGRATION_PLAN.md for migration guide
+ */
+
 import React, { useRef, useState, useCallback, useEffect } from 'react'
 import { Play, Pause, Move3D, RotateCw, Grid3X3, Home, Maximize2, Plus } from 'lucide-react'
 import * as THREE from 'three'
@@ -10,7 +25,8 @@ import { useViewportControls } from './hooks/useViewportControls'
 import type { ThreeJsControlPointEditorProps, TransformMode, EditorSettings } from './types'
 
 /**
- * Main Three.js Control Point Editor Component
+ * @deprecated Use UnifiedThreeJsEditor instead
+ * Main Three.js Control Point Editor Component (QUAD VIEW - DEPRECATED)
  * Provides multi-view 3D editing of animation control points
  */
 export const ThreeJsControlPointEditor: React.FC<ThreeJsControlPointEditorProps> = ({

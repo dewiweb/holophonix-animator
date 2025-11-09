@@ -1,3 +1,15 @@
+/**
+ * ⚠️ DEPRECATED - This component is replaced by SingleViewRenderer
+ * 
+ * @deprecated Use SingleViewRenderer with UnifiedThreeJsEditor instead
+ * 
+ * This multi-viewport renderer was part of the quad-view implementation
+ * which had limitations with transform gizmo interaction. The new single-view
+ * renderer is simpler and more efficient.
+ * 
+ * This file will be removed in a future release.
+ */
+
 import React, { useRef, useEffect } from 'react'
 import * as THREE from 'three'
 import type { ViewConfig } from './types'
@@ -13,6 +25,7 @@ interface MultiViewRendererProps {
 }
 
 /**
+ * @deprecated Use SingleViewRenderer instead
  * Component that renders multiple viewports in a single canvas
  */
 export const MultiViewRenderer: React.FC<MultiViewRendererProps> = ({
