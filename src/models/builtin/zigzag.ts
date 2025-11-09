@@ -73,6 +73,46 @@ export function createZigzagModel(): AnimationModel {
     supportedModes: ['identical', 'position-relative', 'phase-offset'],
     defaultMultiTrackMode: 'position-relative',
     
+    visualization: {
+      controlPoints: [
+        { parameter: 'zigzagStart', type: 'start' },
+        { parameter: 'zigzagEnd', type: 'end' }
+      ],
+      generatePath: (controlPoints, params) => {
+        if (controlPoints.length < 2) return []
+        const start = controlPoints[0]
+        const end = controlPoints[1]
+        const count = params.zigzagCount || 3
+        const amplitude = params.amplitude || 2
+        const points = [start]
+        
+        for (let i = 1; i <= count; i++) {
+          const t = i / (count + 1)
+          const mid = {
+            x: start.x + (end.x - start.x) * t,
+            y: start.y + (end.y - start.y) * t,
+            z: start.z + (end.z - start.z) * t
+          }
+          
+          // Offset perpendicular
+          const offset = amplitude * (i % 2 === 0 ? 1 : -1)
+          mid.x += offset
+          points.push(mid)
+        }
+        
+        points.push(end)
+        return points
+      },
+      pathStyle: { type: 'line' },
+      positionParameter: 'zigzagStart',
+      updateFromControlPoints: (controlPoints, params) => {
+        const updated = { ...params }
+        if (controlPoints.length > 0) updated.zigzagStart = controlPoints[0]
+        if (controlPoints.length > 1) updated.zigzagEnd = controlPoints[1]
+        return updated
+      }
+    },
+    
     performance: {
       complexity: 'constant',
       stateful: false,

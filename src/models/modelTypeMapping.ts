@@ -17,7 +17,6 @@ export const legacyToModelType: Record<AnimationType, string> = {
   'elliptical': 'elliptical',
   'spiral': 'spiral',
   'random': 'random',
-  'custom': 'custom', // Special case - handled separately
   
   // Physics-based
   'pendulum': 'pendulum',
@@ -75,16 +74,16 @@ export function getLegacyType(modelType: string): AnimationType | undefined {
 
 /**
  * Check if an animation type has a corresponding model
+ * All animation types now have models (custom was removed)
  */
 export function hasModel(animationType: AnimationType): boolean {
-  const modelType = getModelType(animationType)
-  return modelType !== 'custom' // Custom animations don't have models
+  return true
 }
 
 /**
  * All animation types that should have models
  */
-export const EXPECTED_MODEL_TYPES = Object.values(legacyToModelType).filter(type => type !== 'custom')
+export const EXPECTED_MODEL_TYPES = Object.values(legacyToModelType)
 
 /**
  * Verify all expected models are present

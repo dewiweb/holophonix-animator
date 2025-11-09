@@ -40,7 +40,6 @@ export type AnimationType =
   | 'elliptical'
   | 'spiral'
   | 'random'
-  | 'custom'
   // Physics-based animations
   | 'pendulum'
   | 'bounce'
@@ -299,11 +298,10 @@ export interface Animation {
   parameters: AnimationParameters;
   keyframes?: Keyframe[];
   coordinateSystem: CoordinateSystem;
-  // Multi-track support
-  multiTrackMode?: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered';
-  multiTrackParameters?: Record<string, AnimationParameters>; // Per-track parameters for position-relative mode
-  phaseOffsetSeconds?: number; // For phase-offset modes
-  centerPoint?: Position; // For centered mode: user-defined center point (default: 0,0,0)
+  // Multi-track support (CLEAN: 2 modes + formation)
+  multiTrackMode?: 'shared' | 'relative' | 'formation';
+  multiTrackParameters?: Record<string, AnimationParameters>; // Per-track parameters (relative mode)
+  phaseOffsetSeconds?: number; // Time delay between tracks (works with any mode)
   // Track locking (NEW)
   trackIds?: string[];   // If set, animation is locked to these specific tracks
   trackSelectionLocked?: boolean; // If true, tracks cannot be changed in cue editor

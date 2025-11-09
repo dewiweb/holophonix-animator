@@ -60,10 +60,6 @@ export const getDefaultAnimationParameters = (type: AnimationType, track: Track 
       defaultParams.updateFrequency = 10
       break
 
-    case 'custom':
-      defaultParams.interpolation = 'linear'
-      break
-
     case 'pendulum':
       defaultParams.anchorPoint = { x: trackPosition.x, y: trackPosition.y + 5, z: trackPosition.z }
       defaultParams.pendulumLength = 3
@@ -214,68 +210,21 @@ export const getDefaultAnimationParameters = (type: AnimationType, track: Track 
       break
   }
 
-  return defaultParams
+return defaultParams
 }
 
 export const getDefaultParametersForPosition = (animationType: AnimationType, trackPosition: Position): AnimationParameters => {
-  const trackPos = trackPosition
-  const defaults: AnimationParameters = {}
-
-  switch (animationType) {
-    case 'linear':
-    case 'bezier':
-    case 'catmull-rom':
-    case 'zigzag':
-    case 'doppler':
-      defaults.startPosition = { ...trackPos }
-      break
-
-    case 'circular':
-    case 'spiral':
-    case 'wave':
-    case 'lissajous':
-    case 'orbit':
-    case 'rose-curve':
-    case 'epicycloid':
-    case 'circular-scan':
-    case 'perlin-noise':
-      defaults.center = { ...trackPos }
-      break
-
-    case 'elliptical':
-      defaults.centerX = trackPos.x
-      defaults.centerY = trackPos.y
-      defaults.centerZ = trackPos.z
-      break
-
-    case 'pendulum':
-      defaults.anchorPoint = { ...trackPos }
-      break
-
-    case 'spring':
-      defaults.restPosition = { ...trackPos }
-      break
-
-    case 'bounce':
-      defaults.groundLevel = trackPos.y
-      break
-
-    case 'attract-repel':
-      defaults.targetPosition = { ...trackPos }
-      break
-
-    case 'zoom':
-      defaults.zoomCenter = { ...trackPos }
-      break
-
-    case 'helix':
-      defaults.axisStart = { ...trackPos }
-      break
-
-    case 'random':
-      defaults.center = { ...trackPos }
-      break
+  // Use model's getDefaultParameters method instead of switch-case
+  const model = modelRegistry.getModel(animationType)
+  if (model && model.getDefaultParameters && typeof model.getDefaultParameters === 'function') {
+    try {
+      return model.getDefaultParameters(trackPosition) as AnimationParameters
+    } catch (error) {
+      console.warn(`Failed to get default parameters from model ${animationType}:`, error)
+    }
   }
-
-  return defaults
+  
+  // Fallback: return empty defaults (shouldn't happen with all models having getDefaultParameters)
+  console.warn(`No getDefaultParameters for ${animationType}, returning empty defaults`)
+  return {}
 }

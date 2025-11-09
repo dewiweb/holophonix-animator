@@ -69,8 +69,31 @@ export function createZoomModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'position-relative', 'phase-offset', 'centered'],
-    defaultMultiTrackMode: 'identical',
+    supportedModes: ['position-relative'],
+    defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [{ parameter: 'zoomCenter', type: 'center' }],
+      generatePath: (controlPoints, params) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const startDist = params.startDistance || 5
+        const endDist = params.endDistance || 1
+        // Show radial movement
+        return [
+          { x: center.x, y: center.y, z: center.z + startDist },
+          { x: center.x, y: center.y, z: center.z + endDist }
+        ]
+      },
+      pathStyle: { type: 'line', showDirection: true },
+      positionParameter: 'zoomCenter',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, zoomCenter: controlPoints[0] }
+        }
+        return params
+      }
+    },
     
     performance: {
       complexity: 'constant',

@@ -49,8 +49,29 @@ export function createDopplerModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'position-relative', 'phase-offset'],
-    defaultMultiTrackMode: 'identical',
+    supportedModes: ['position-relative'],
+    defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'pathStart', type: 'start' },
+        { parameter: 'pathEnd', type: 'end' }
+      ],
+      generatePath: (controlPoints) => {
+        if (controlPoints.length >= 2) {
+          return [controlPoints[0], controlPoints[1]]
+        }
+        return []
+      },
+      pathStyle: { type: 'line', showDirection: true },
+      positionParameter: 'pathStart',
+      updateFromControlPoints: (controlPoints, params) => {
+        const updated = { ...params }
+        if (controlPoints.length > 0) updated.pathStart = controlPoints[0]
+        if (controlPoints.length > 1) updated.pathEnd = controlPoints[1]
+        return updated
+      }
+    },
     
     performance: {
       complexity: 'constant',

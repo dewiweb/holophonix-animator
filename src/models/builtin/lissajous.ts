@@ -37,17 +37,17 @@ export function createLissajousModel(): AnimationModel {
       // Handle multi-track modes
       const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'centered' && params._centeredPoint) {
+      if (multiTrackMode === 'shared' && params._centeredPoint) {
         centerX = params._centeredPoint.x
         centerY = params._centeredPoint.y
         centerZ = params._centeredPoint.z
-      } else if (multiTrackMode === 'isobarycenter' && params._isobarycenter) {
+      } else if (multiTrackMode === 'formation' && params._isobarycenter) {
         // For formation mode, use barycenter as center
         // Do NOT apply track offset here - it's applied after in animationStore.ts
         centerX = params._isobarycenter.x
         centerY = params._isobarycenter.y
         centerZ = params._isobarycenter.z
-      } else if (multiTrackMode === 'position-relative') {
+      } else if (multiTrackMode === 'relative') {
         // Use track position as center
         if (context?.trackOffset) {
           centerX += context.trackOffset.x
@@ -89,5 +89,40 @@ export function createLissajousModel(): AnimationModel {
     
     supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
     defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'center', type: 'center' }
+      ],
+      generatePath: (controlPoints, params, segments = 200) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const ampX = params.amplitudeX || 5
+        const ampY = params.amplitudeY || 3
+        const ampZ = params.amplitudeZ || 0
+        const freqX = params.frequencyRatioA || 3
+        const freqY = params.frequencyRatioB || 2
+        const freqZ = 0
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const t = (i / segments) * Math.PI * 2
+          points.push({
+            x: center.x + Math.sin(t * freqX) * ampX,
+            y: center.y + Math.sin(t * freqY) * ampY,
+            z: center.z + Math.sin(t * freqZ) * ampZ
+          })
+        }
+        return points
+      },
+      pathStyle: { type: 'closed', segments: 200 },
+      positionParameter: 'center',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    }
   }
 }

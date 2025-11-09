@@ -1,6 +1,5 @@
 // New unified editor (single-view with mode switching)
 export { UnifiedThreeJsEditor } from './UnifiedThreeJsEditor'
-export { UnifiedEditorDemo } from './UnifiedEditorDemo'
 export { ViewModeSelector } from './ViewModeSelector'
 export { EditModeSelector } from './EditModeSelector'
 export { SingleViewRenderer } from './SingleViewRenderer'

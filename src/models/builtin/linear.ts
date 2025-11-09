@@ -50,6 +50,27 @@ export function createLinearModel(): AnimationModel {
     supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
     defaultMultiTrackMode: 'position-relative',
     
+    visualization: {
+      controlPoints: [
+        { parameter: 'startPosition', type: 'start' },
+        { parameter: 'endPosition', type: 'end' }
+      ],
+      generatePath: (controlPoints) => {
+        if (controlPoints.length >= 2) {
+          return [controlPoints[0], controlPoints[1]]
+        }
+        return []
+      },
+      pathStyle: { type: 'line' },
+      positionParameter: 'startPosition',
+      updateFromControlPoints: (controlPoints, params) => {
+        const updated = { ...params }
+        if (controlPoints.length > 0) updated.startPosition = controlPoints[0]
+        if (controlPoints.length > 1) updated.endPosition = controlPoints[1]
+        return updated
+      }
+    },
+    
     performance: {
       complexity: 'constant',
       stateful: false,
@@ -69,7 +90,7 @@ export function createLinearModel(): AnimationModel {
       // Apply multi-track mode adjustments
       const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') {
+      if (multiTrackMode === 'relative' || multiTrackMode === 'relative') {
         // Use track position as offset for both start and end
         if (context?.trackOffset) {
           start = {

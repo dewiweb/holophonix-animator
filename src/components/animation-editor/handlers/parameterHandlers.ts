@@ -30,7 +30,7 @@ export const handleParameterChange = (
     const newValue = { ...existingValue, ...value }
 
     // If we're in relative modes and this is a position parameter, apply relative changes to other tracks
-    if (selectedTrackIds.length > 1 && (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative' || multiTrackMode === 'isobarycenter')) {
+    if (selectedTrackIds.length > 1 && (multiTrackMode === 'relative')) {
       applyRelativeControlPointChange(key, newValue, existingValue, selectedTrackIds, tracks, updateTrack)
     }
 
@@ -40,7 +40,7 @@ export const handleParameterChange = (
   }
 
   // If we're in relative modes and this is a position parameter, apply relative changes to other tracks
-  if (selectedTrackIds.length > 1 && (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative' || multiTrackMode === 'isobarycenter') && isPositionKey) {
+  if (selectedTrackIds.length > 1 && (multiTrackMode === 'relative') && isPositionKey) {
     applyRelativeControlPointChange(key, value, (currentParameters as any)?.[key], selectedTrackIds, tracks, updateTrack)
   }
 

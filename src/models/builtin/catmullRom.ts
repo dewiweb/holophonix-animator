@@ -55,8 +55,21 @@ export function createCatmullRomModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'phase-offset'],
-    defaultMultiTrackMode: 'identical',
+    supportedModes: ['identical', 'position-relative', 'phase-offset'],
+    defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [{ parameter: 'controlPoints', type: 'control' }],
+      generatePath: (controlPoints) => {
+        // Catmull-Rom already has the points, just return them for curve generation
+        return controlPoints
+      },
+      pathStyle: { type: 'curve', segments: 50 },
+      positionParameter: 'controlPoints',
+      updateFromControlPoints: (controlPoints, params) => {
+        return { ...params, controlPoints }
+      }
+    },
     
     performance: {
       complexity: 'linear',

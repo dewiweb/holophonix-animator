@@ -95,6 +95,47 @@ export function createPendulumModel(): AnimationModel {
     supportedModes: ['position-relative', 'phase-offset-relative'],
     defaultMultiTrackMode: 'position-relative',
     
+    visualization: {
+      controlPoints: [
+        { parameter: 'anchorPoint', type: 'anchor' }
+      ],
+      generatePath: (controlPoints, params, segments = 30) => {
+        if (controlPoints.length < 1) return []
+        const anchor = controlPoints[0]
+        const length = params.pendulumLength || 3
+        const maxAngle = ((params.maxAngle || params.initialAngle || 45) * Math.PI) / 180
+        const plane = params.plane || 'xz'
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const t = (i / segments) * 2 - 1
+          const angle = t * maxAngle
+          const point = { x: anchor.x, y: anchor.y, z: anchor.z }
+          
+          if (plane === 'xz') {
+            point.x += Math.sin(angle) * length
+            point.z -= Math.cos(angle) * length
+          } else if (plane === 'yz') {
+            point.y += Math.cos(angle) * length
+            point.z += Math.sin(angle) * length
+          } else {
+            point.x += Math.sin(angle) * length
+            point.y -= Math.cos(angle) * length
+          }
+          points.push(point)
+        }
+        return points
+      },
+      pathStyle: { type: 'arc', segments: 30 },
+      positionParameter: 'anchorPoint',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, anchorPoint: controlPoints[0] }
+        }
+        return params
+      }
+    },
+    
     performance: {
       complexity: 'linear',
       stateful: true,
@@ -133,7 +174,7 @@ export function createPendulumModel(): AnimationModel {
       // Apply multi-track mode adjustments
       const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') {
+      if (multiTrackMode === 'relative' || multiTrackMode === 'relative') {
         // Use track position as offset for anchor point
         if (context?.trackOffset) {
           anchorPoint = {

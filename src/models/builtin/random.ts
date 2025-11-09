@@ -41,15 +41,15 @@ export function createRandomModel(): AnimationModel {
       let centerZ = params.centerZ ?? 0
       
       // Handle multi-track modes
-      if (params._multiTrackMode === 'centered' && params._centeredPoint) {
+      if (params._multiTrackMode === 'shared' && params._centeredPoint) {
         centerX = params._centeredPoint.x
         centerY = params._centeredPoint.y
         centerZ = params._centeredPoint.z
-      } else if (params._multiTrackMode === 'isobarycenter' && params._isobarycenter) {
+      } else if (params._multiTrackMode === 'formation' && params._isobarycenter) {
         centerX = params._isobarycenter.x
         centerY = params._isobarycenter.y
         centerZ = params._isobarycenter.z
-      } else if (params._multiTrackMode === 'position-relative' && context?.trackOffset) {
+      } else if (params._multiTrackMode === 'relative' && context?.trackOffset) {
         centerX += context.trackOffset.x
         centerY += context.trackOffset.y
         centerZ += context.trackOffset.z
@@ -121,5 +121,39 @@ export function createRandomModel(): AnimationModel {
     
     supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
     defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'center', type: 'center' }
+      ],
+      generatePath: (controlPoints, params) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const bx = params.boundsX || 5
+        const by = params.boundsY || 5
+        const bz = params.boundsZ || 2
+        // Draw wireframe box showing bounds
+        return [
+          { x: center.x - bx, y: center.y - by, z: center.z - bz },
+          { x: center.x + bx, y: center.y - by, z: center.z - bz },
+          { x: center.x + bx, y: center.y + by, z: center.z - bz },
+          { x: center.x - bx, y: center.y + by, z: center.z - bz },
+          { x: center.x - bx, y: center.y - by, z: center.z - bz },
+          { x: center.x - bx, y: center.y - by, z: center.z + bz },
+          { x: center.x + bx, y: center.y - by, z: center.z + bz },
+          { x: center.x + bx, y: center.y + by, z: center.z + bz },
+          { x: center.x - bx, y: center.y + by, z: center.z + bz },
+          { x: center.x - bx, y: center.y - by, z: center.z + bz }
+        ]
+      },
+      pathStyle: { type: 'box' },
+      positionParameter: 'center',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    }
   }
 }

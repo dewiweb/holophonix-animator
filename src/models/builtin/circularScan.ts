@@ -74,8 +74,41 @@ export function createCircularScanModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'position-relative', 'phase-offset', 'centered'],
-    defaultMultiTrackMode: 'identical',
+    supportedModes: ['identical', 'phase-offset'],
+    defaultMultiTrackMode: 'phase-offset',
+    
+    visualization: {
+      controlPoints: [{ parameter: 'center', type: 'center' }],
+      generatePath: (controlPoints, params, segments = 64) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const radius = params.radius || 5
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI * 2
+          points.push({
+            x: center.x + Math.cos(angle) * radius,
+            y: center.y,
+            z: center.z + Math.sin(angle) * radius
+          })
+        }
+        return points
+      },
+      pathStyle: { type: 'closed', segments: 64 },
+      positionParameter: 'center',
+      calculateRotationAngle: (time, duration, params) => {
+        const startAngle = (params.startAngle || 0) * Math.PI / 180
+        const t = duration > 0 ? Math.min(time / duration, 1) : 0
+        return startAngle + t * 2 * Math.PI
+      },
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    },
     
     performance: {
       complexity: 'constant',

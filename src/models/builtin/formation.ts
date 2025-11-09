@@ -43,6 +43,31 @@ export function createFormationModel(): AnimationModel {
     supportedModes: ['isobarycenter'],
     defaultMultiTrackMode: 'isobarycenter',
     
+    visualization: {
+      controlPoints: [{ parameter: 'center', type: 'center' }],
+      generatePath: (controlPoints) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const size = 2
+        // Draw cross indicator
+        return [
+          { x: center.x - size, y: center.y, z: center.z },
+          { x: center.x + size, y: center.y, z: center.z },
+          center,
+          { x: center.x, y: center.y, z: center.z - size },
+          { x: center.x, y: center.y, z: center.z + size }
+        ]
+      },
+      pathStyle: { type: 'line' },
+      positionParameter: 'center',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    },
+    
     performance: {
       complexity: 'constant',
       stateful: false,

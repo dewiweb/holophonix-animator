@@ -10,7 +10,8 @@ import { generateAnimationPath } from '../utils/generateAnimationPath'
  * React handles caching and re-rendering automatically
  */
 export const useControlPointScene = (
-  animation: any | null
+  animation: any | null,
+  forceUpdateTrigger?: any
 ): ControlPointSceneState => {
   const sceneRef = useRef<THREE.Scene | null>(null)
   const curveRef = useRef<THREE.Line | null>(null)
@@ -29,12 +30,13 @@ export const useControlPointScene = (
       type: animation?.type,
       hasParams: !!animation?.parameters,
       animationId: animation?.id,
-      paramsKey: paramsKey.substring(0, 50) + '...'
+      paramsKey: paramsKey.substring(0, 50) + '...',
+      forceUpdateTrigger
     })
     const points = extractControlPointsFromAnimation(animation)
     console.log('✅ Control points computed:', points.length)
     return points
-  }, [animation?.id, animation?.type, paramsKey])
+  }, [animation?.id, animation?.type, paramsKey, forceUpdateTrigger])
 
   // ========================================
   // STEP 2: Initialize scene once

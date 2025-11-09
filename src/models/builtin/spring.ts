@@ -77,8 +77,39 @@ export function createSpringModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['position-relative', 'centered'],
+    supportedModes: ['position-relative', 'phase-offset'],
     defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'restPosition', type: 'center' }
+      ],
+      generatePath: (controlPoints, params, segments = 50) => {
+        if (controlPoints.length < 1) return []
+        const rest = controlPoints[0]
+        const amplitude = params.initialDisplacement || 3
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const t = i / segments
+          const displacement = amplitude * Math.cos(t * Math.PI * 4) * Math.exp(-t * 2)
+          points.push({
+            x: rest.x,
+            y: rest.y + displacement,
+            z: rest.z
+          })
+        }
+        return points
+      },
+      pathStyle: { type: 'curve', segments: 50 },
+      positionParameter: 'restPosition',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, restPosition: controlPoints[0] }
+        }
+        return params
+      }
+    },
     
     performance: {
       complexity: 'linear',
@@ -122,10 +153,10 @@ export function createSpringModel(): AnimationModel {
       // Apply multi-track mode adjustments
       const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'centered' && parameters._centeredPoint) {
+      if (multiTrackMode === 'shared' && parameters._centeredPoint) {
         // Use user-defined center point
         restPosition = parameters._centeredPoint
-      } else if (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') {
+      } else if (multiTrackMode === 'relative' || multiTrackMode === 'relative') {
         // Use track position as offset for rest position
         if (context?.trackOffset) {
           restPosition = {

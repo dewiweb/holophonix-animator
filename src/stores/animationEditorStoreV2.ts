@@ -18,12 +18,10 @@ export interface AnimationEditorState {
   loadedAnimationId: string | null
   
   // --------------------------------------------
-  // MULTI-TRACK STATE
+  // MULTI-TRACK STATE (CLEAN: 2 modes + formation)
   // --------------------------------------------
-  multiTrackMode: 'identical' | 'phase-offset' | 'position-relative' | 
-                  'phase-offset-relative' | 'isobarycenter' | 'centered'
+  multiTrackMode: 'shared' | 'relative' | 'formation'
   phaseOffsetSeconds: number
-  centerPoint: Position
   multiTrackParameters: Record<string, any>
   activeEditingTrackIds: string[]
   lockTracks: boolean
@@ -69,10 +67,8 @@ export interface AnimationEditorState {
   // --------------------------------------------
   // MULTI-TRACK ACTIONS
   // --------------------------------------------
-  setMultiTrackMode: (mode: 'identical' | 'phase-offset' | 'position-relative' | 
-                            'phase-offset-relative' | 'isobarycenter' | 'centered') => void
+  setMultiTrackMode: (mode: 'shared' | 'relative' | 'formation') => void
   setPhaseOffsetSeconds: (seconds: number) => void
-  setCenterPoint: (point: Position) => void
   setMultiTrackParameters: (params: Record<string, any>) => void
   updateMultiTrackParameter: (trackId: string, key: string, value: any) => void
   setActiveEditingTrackIds: (ids: string[]) => void
@@ -115,10 +111,9 @@ const getInitialState = () => ({
   selectedModel: null,
   loadedAnimationId: null,
   
-  // Multi-Track State
-  multiTrackMode: 'position-relative' as const,
+  // Multi-Track State (relative by default - most flexible)
+  multiTrackMode: 'relative' as const,
   phaseOffsetSeconds: 0.5,
-  centerPoint: { x: 0, y: 0, z: 0 },
   multiTrackParameters: {},
   activeEditingTrackIds: [],
   lockTracks: false,
@@ -303,11 +298,34 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
   },
   
   loadAnimation: (animation) => {
+    // MIGRATION: Convert old 6 modes to new 3 modes
+    const migrateMode = (oldMode?: string): 'shared' | 'relative' | 'formation' => {
+      switch (oldMode) {
+        case 'identical':
+        case 'centered':
+        case 'phase-offset':
+          return 'shared'
+        case 'position-relative':
+        case 'phase-offset-relative':
+        case 'per-track':
+          return 'relative'
+        case 'isobarycenter':
+        case 'formation':
+          return 'formation'
+        default:
+          return 'relative'
+      }
+    }
+    
     set({
       animationForm: animation,
       keyframes: animation.keyframes || [],
-      originalAnimationParams: animation.parameters,
-      loadedAnimationId: animation.id || null
+      originalAnimationParams: JSON.parse(JSON.stringify(animation.parameters || {})),
+      loadedAnimationId: animation.id,
+      multiTrackMode: migrateMode(animation.multiTrackMode),
+      multiTrackParameters: animation.multiTrackParameters || {},
+      phaseOffsetSeconds: animation.phaseOffsetSeconds || 0.5,
+      lockTracks: animation.trackSelectionLocked || false
     })
   },
   
@@ -361,9 +379,7 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
     set({ phaseOffsetSeconds: seconds })
   },
   
-  setCenterPoint: (point) => {
-    set({ centerPoint: point })
-  },
+  // setCenterPoint removed - center is now a parameter, not a mode
   
   setMultiTrackParameters: (params) => {
     set({ multiTrackParameters: params })

@@ -61,8 +61,29 @@ export function createAttractRepelModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'position-relative'],
+    supportedModes: ['position-relative'],
     defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'sourcePosition', type: 'start' },
+        { parameter: 'targetPosition', type: 'end' }
+      ],
+      generatePath: (controlPoints) => {
+        if (controlPoints.length >= 2) {
+          return [controlPoints[0], controlPoints[1]]
+        }
+        return []
+      },
+      pathStyle: { type: 'line', showDirection: true },
+      positionParameter: 'sourcePosition',
+      updateFromControlPoints: (controlPoints, params) => {
+        const updated = { ...params }
+        if (controlPoints.length > 0) updated.sourcePosition = controlPoints[0]
+        if (controlPoints.length > 1) updated.targetPosition = controlPoints[1]
+        return updated
+      }
+    },
     
     performance: {
       complexity: 'constant',

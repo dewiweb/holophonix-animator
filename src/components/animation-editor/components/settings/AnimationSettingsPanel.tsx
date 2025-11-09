@@ -12,8 +12,7 @@ import { ModelParametersForm } from '../models-forms/ModelParametersForm'
 import { animationCategories, getAnimationInfo } from '../../constants/animationCategories'
 import { getCompatibleModes } from '../../utils/compatibility'
 
-type MultiTrackMode = 'identical' | 'phase-offset' | 'position-relative' | 
-                      'phase-offset-relative' | 'isobarycenter' | 'centered'
+type MultiTrackMode = 'shared' | 'relative' | 'formation'
 
 interface AnimationSettingsPanelProps {
   // Track selection
@@ -26,10 +25,8 @@ interface AnimationSettingsPanelProps {
   // Multi-track mode
   multiTrackMode: MultiTrackMode
   phaseOffsetSeconds: number
-  centerPoint: Position
   onModeChange: (mode: MultiTrackMode) => void
   onPhaseOffsetChange: (seconds: number) => void
-  onCenterPointChange: (point: Position) => void
   
   // Animation form
   animationForm: Partial<Animation>
@@ -58,10 +55,8 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
   onSetActiveTracks,
   multiTrackMode,
   phaseOffsetSeconds,
-  centerPoint,
   onModeChange,
   onPhaseOffsetChange,
-  onCenterPointChange,
   animationForm,
   onUpdateForm,
   selectedModel,
@@ -102,10 +97,8 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
             animationType={animationForm.type || 'linear'}
             multiTrackMode={multiTrackMode}
             phaseOffsetSeconds={phaseOffsetSeconds}
-            centerPoint={centerPoint}
             onModeChange={onModeChange}
             onPhaseOffsetChange={onPhaseOffsetChange}
-            onCenterPointChange={onCenterPointChange}
             getCompatibleModes={getCompatibleModes}
           />
         )}

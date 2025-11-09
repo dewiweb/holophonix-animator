@@ -30,7 +30,6 @@ export const ALL_ANIMATION_TYPES: AnimationType[] = [
   'elliptical',
   'spiral',
   'random',
-  'custom',
   'pendulum',
   'bounce',
   'spring',
@@ -89,9 +88,9 @@ export function recordTestResult(type: AnimationType, result: Partial<AnimationT
 
 /**
  * Check if animation type has a model
+ * All animation types now have models (custom was removed)
  */
 export function checkModelExists(type: AnimationType): boolean {
-  if (type === 'custom') return false // Custom uses legacy
   const model = modelRegistry.getModel(type)
   return model !== undefined
 }
@@ -167,18 +166,9 @@ export function quickTestModel(type: AnimationType): AnimationTestResult {
   
   try {
     // Check model exists
-    if (!result.modelExists && type !== 'custom') {
-      result.issues.push('Model not found in registry')
-      return result
-    }
-    
-    // For custom, skip model tests
-    if (type === 'custom') {
-      result.playbackWorks = true
-      result.parametersValid = true
-      result.motionCorrect = true
-      result.easingWorks = true
-      result.issues.push('Uses legacy system (expected)')
+    if (!result.modelExists) {
+      result.playbackWorks = false
+      result.issues.push('No model found in registry')
       return result
     }
     

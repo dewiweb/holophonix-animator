@@ -46,17 +46,17 @@ export function createEllipticalModel(): AnimationModel {
       // Support multi-track modes - check both parameters and context
       const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'centered' && params._centeredPoint) {
+      if (multiTrackMode === 'shared' && params._centeredPoint) {
         centerX = params._centeredPoint.x
         centerY = params._centeredPoint.y
         centerZ = params._centeredPoint.z
-      } else if (multiTrackMode === 'isobarycenter' && params._isobarycenter) {
+      } else if (multiTrackMode === 'formation' && params._isobarycenter) {
         // For formation mode, use barycenter as center
         // Do NOT apply track offset here - it's applied after in animationStore.ts
         centerX = params._isobarycenter.x
         centerY = params._isobarycenter.y
         centerZ = params._isobarycenter.z
-      } else if (multiTrackMode === 'position-relative') {
+      } else if (multiTrackMode === 'relative') {
         if (context?.trackOffset) {
           centerX += context.trackOffset.x
           centerY += context.trackOffset.y
@@ -118,5 +118,45 @@ export function createEllipticalModel(): AnimationModel {
     
     supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
     defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'center', type: 'center' }
+      ],
+      generatePath: (controlPoints, params, segments = 64) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const radiusX = params.radiusX || 5
+        const radiusY = params.radiusY || 3
+        const plane = params.plane || 'xy'
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI * 2
+          const point = { x: center.x, y: center.y, z: center.z }
+          
+          if (plane === 'xy') {
+            point.x += Math.cos(angle) * radiusX
+            point.y += Math.sin(angle) * radiusY
+          } else if (plane === 'xz') {
+            point.x += Math.cos(angle) * radiusX
+            point.z += Math.sin(angle) * radiusY
+          } else if (plane === 'yz') {
+            point.y += Math.cos(angle) * radiusX
+            point.z += Math.sin(angle) * radiusY
+          }
+          points.push(point)
+        }
+        return points
+      },
+      pathStyle: { type: 'closed', segments: 64 },
+      positionParameter: 'center',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    }
   }
 }

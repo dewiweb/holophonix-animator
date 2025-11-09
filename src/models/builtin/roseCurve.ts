@@ -73,8 +73,49 @@ export function createRoseCurveModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'position-relative', 'phase-offset', 'centered'],
-    defaultMultiTrackMode: 'identical',
+    supportedModes: ['identical', 'phase-offset', 'position-relative'],
+    defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'center', type: 'center' }
+      ],
+      generatePath: (controlPoints, params, segments = 200) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const radius = params.radius || 5
+        const petals = params.petalCount || 5
+        const plane = params.plane || 'xy'
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI * 2
+          const r = radius * Math.cos(petals * angle)
+          const point = { x: center.x, y: center.y, z: center.z }
+          
+          if (plane === 'xy') {
+            point.x += Math.cos(angle) * r
+            point.y += Math.sin(angle) * r
+          } else if (plane === 'xz') {
+            point.x += Math.cos(angle) * r
+            point.z += Math.sin(angle) * r
+          } else if (plane === 'yz') {
+            point.y += Math.cos(angle) * r
+            point.z += Math.sin(angle) * r
+          }
+          points.push(point)
+        }
+        return points
+      },
+      pathStyle: { type: 'closed', segments: 200 },
+      positionParameter: 'center',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    },
     
     performance: {
       complexity: 'constant',

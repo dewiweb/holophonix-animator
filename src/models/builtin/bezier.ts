@@ -56,7 +56,7 @@ export function createBezierModel(): AnimationModel {
       // Handle multi-track modes
       const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'position-relative') {
+      if (multiTrackMode === 'relative') {
         // For position-relative, offset the entire curve
         if (context?.trackOffset) {
           const offset = context.trackOffset
@@ -65,7 +65,7 @@ export function createBezierModel(): AnimationModel {
           control2 = { x: control2.x + offset.x, y: control2.y + offset.y, z: control2.z + offset.z }
           end = { x: end.x + offset.x, y: end.y + offset.y, z: end.z + offset.z }
         }
-      } else if (multiTrackMode === 'isobarycenter' && params._isobarycenter) {
+      } else if (multiTrackMode === 'formation' && params._isobarycenter) {
         // For formation mode, move entire curve to barycenter
         const center = params._isobarycenter
         const curveCenter = {
@@ -91,7 +91,7 @@ export function createBezierModel(): AnimationModel {
           control2 = { x: control2.x + trackOffset.x, y: control2.y + trackOffset.y, z: control2.z + trackOffset.z }
           end = { x: end.x + trackOffset.x, y: end.y + trackOffset.y, z: end.z + trackOffset.z }
         }
-      } else if (multiTrackMode === 'centered' && params._centeredPoint) {
+      } else if (multiTrackMode === 'shared' && params._centeredPoint) {
         // For centered mode, move curve to center point
         const center = params._centeredPoint
         const curveCenter = {
@@ -153,5 +153,59 @@ export function createBezierModel(): AnimationModel {
     
     supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
     defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'start', type: 'start' },
+        { parameter: 'control1', type: 'control' },
+        { parameter: 'control2', type: 'control' },
+        { parameter: 'end', type: 'end' }
+      ],
+      generatePath: (controlPoints, params, segments = 50) => {
+        if (controlPoints.length < 4) return []
+        const points = []
+        for (let i = 0; i <= segments; i++) {
+          const t = i / segments
+          const mt = 1 - t
+          const mt2 = mt * mt
+          const mt3 = mt2 * mt
+          const t2 = t * t
+          const t3 = t2 * t
+          
+          points.push({
+            x: mt3 * controlPoints[0].x + 3 * mt2 * t * controlPoints[1].x + 3 * mt * t2 * controlPoints[2].x + t3 * controlPoints[3].x,
+            y: mt3 * controlPoints[0].y + 3 * mt2 * t * controlPoints[1].y + 3 * mt * t2 * controlPoints[2].y + t3 * controlPoints[3].y,
+            z: mt3 * controlPoints[0].z + 3 * mt2 * t * controlPoints[1].z + 3 * mt * t2 * controlPoints[2].z + t3 * controlPoints[3].z
+          })
+        }
+        return points
+      },
+      pathStyle: { type: 'curve', segments: 50 },
+      positionParameter: 'start',
+      updateFromControlPoints: (controlPoints, params) => {
+        const updated = { ...params }
+        if (controlPoints.length > 0) {
+          updated.startX = controlPoints[0].x
+          updated.startY = controlPoints[0].y
+          updated.startZ = controlPoints[0].z
+        }
+        if (controlPoints.length > 1) {
+          updated.control1X = controlPoints[1].x
+          updated.control1Y = controlPoints[1].y
+          updated.control1Z = controlPoints[1].z
+        }
+        if (controlPoints.length > 2) {
+          updated.control2X = controlPoints[2].x
+          updated.control2Y = controlPoints[2].y
+          updated.control2Z = controlPoints[2].z
+        }
+        if (controlPoints.length > 3) {
+          updated.endX = controlPoints[3].x
+          updated.endY = controlPoints[3].y
+          updated.endZ = controlPoints[3].z
+        }
+        return updated
+      }
+    }
   }
 }

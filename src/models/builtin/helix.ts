@@ -69,8 +69,47 @@ export function createHelixModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'position-relative', 'phase-offset', 'centered'],
+    supportedModes: ['identical', 'phase-offset', 'position-relative'],
     defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'axisStart', type: 'start' },
+        { parameter: 'axisEnd', type: 'end' }
+      ],
+      generatePath: (controlPoints, params, segments = 100) => {
+        if (controlPoints.length < 2) return []
+        const start = controlPoints[0]
+        const end = controlPoints[1]
+        const radius = params.radius || 2
+        const turns = params.turns || 3
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const t = i / segments
+          const angle = t * turns * Math.PI * 2
+          const base = {
+            x: start.x + (end.x - start.x) * t,
+            y: start.y + (end.y - start.y) * t,
+            z: start.z + (end.z - start.z) * t
+          }
+          
+          // In app coords (Z-up): circular motion in XY plane (horizontal)
+          base.x += Math.cos(angle) * radius
+          base.y += Math.sin(angle) * radius
+          points.push(base)
+        }
+        return points
+      },
+      pathStyle: { type: 'curve', segments: 100 },
+      positionParameter: 'axisStart',
+      updateFromControlPoints: (controlPoints, params) => {
+        const updated = { ...params }
+        if (controlPoints.length > 0) updated.axisStart = controlPoints[0]
+        if (controlPoints.length > 1) updated.axisEnd = controlPoints[1]
+        return updated
+      }
+    },
     
     performance: {
       complexity: 'constant',

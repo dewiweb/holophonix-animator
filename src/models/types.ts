@@ -98,6 +98,49 @@ export interface MultiTrackHandler {
 }
 
 /**
+ * Visualization configuration for ThreeJS editor
+ */
+export interface VisualizationConfig {
+  // Control point extraction: which parameters represent points in space
+  controlPoints?: {
+    parameter: string           // Parameter name
+    type: 'start' | 'end' | 'center' | 'control' | 'anchor'
+  }[]
+  
+  // Path generation function
+  generatePath?: (
+    controlPoints: { x: number; y: number; z: number }[],
+    parameters: Record<string, any>,
+    segments?: number
+  ) => { x: number; y: number; z: number }[]
+  
+  // Path visualization style hints
+  pathStyle?: {
+    type: 'line' | 'curve' | 'arc' | 'closed' | 'box' | 'sphere'
+    showDirection?: boolean
+    segments?: number
+  }
+  
+  // Which parameter represents the primary "position" for track position updates
+  // Examples: 'center', 'startPosition', 'anchorPoint', 'restPosition'
+  positionParameter?: string
+  
+  // Calculate rotation angle for formation mode (rigid body rotation)
+  // Only needed for rotational animations
+  calculateRotationAngle?: (
+    time: number,
+    duration: number,
+    parameters: Record<string, any>
+  ) => number
+  
+  // Update parameters from moved control points (reverse mapping)
+  updateFromControlPoints?: (
+    controlPoints: { x: number; y: number; z: number }[],
+    currentParameters: Record<string, any>
+  ) => Record<string, any>
+}
+
+/**
  * Model metadata for organization and discovery
  */
 export interface ModelMetadata {
@@ -144,6 +187,9 @@ export interface AnimationModel {
   supportedModes?: ('identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered')[]
   defaultMultiTrackMode?: string
   multiTrackHandlers?: MultiTrackHandler[]
+  
+  // Visualization configuration for ThreeJS editor
+  visualization?: VisualizationConfig
   
   // Performance hints
   performance?: PerformanceHints

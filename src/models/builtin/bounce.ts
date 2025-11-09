@@ -33,15 +33,15 @@ export function createBounceModel(): AnimationModel {
       let centerZ = params.centerZ ?? 0
       
       // Handle multi-track modes
-      if (params._multiTrackMode === 'centered' && params._centeredPoint) {
+      if (params._multiTrackMode === 'shared' && params._centeredPoint) {
         centerX = params._centeredPoint.x
         centerY = params._centeredPoint.y
         centerZ = params._centeredPoint.z
-      } else if (params._multiTrackMode === 'isobarycenter' && params._isobarycenter) {
+      } else if (params._multiTrackMode === 'formation' && params._isobarycenter) {
         centerX = params._isobarycenter.x
         centerY = params._isobarycenter.y
         centerZ = params._isobarycenter.z
-      } else if (params._multiTrackMode === 'position-relative') {
+      } else if (params._multiTrackMode === 'relative') {
         // For position-relative, use track's actual position
         if (context?.trackOffset) {
           centerX += context.trackOffset.x
@@ -116,7 +116,34 @@ export function createBounceModel(): AnimationModel {
       }
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
+    supportedModes: ['identical', 'position-relative', 'phase-offset'],
     defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'center', type: 'center' }
+      ],
+      generatePath: (controlPoints, params, segments = 50) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const height = params.initialHeight || 5
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const t = i / segments
+          const y = center.y + height * (1 - (2 * t - 1) ** 2)
+          points.push({ x: center.x, y, z: center.z })
+        }
+        return points
+      },
+      pathStyle: { type: 'arc', segments: 50 },
+      positionParameter: 'center',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    }
   }
 }

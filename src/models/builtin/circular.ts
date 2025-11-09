@@ -87,8 +87,61 @@ export function createCircularModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative', 'centered', 'isobarycenter'],
-    defaultMultiTrackMode: 'phase-offset',
+    supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
+    defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'center', type: 'center' }
+      ],
+      generatePath: (controlPoints, params, segments = 64) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const radius = params.radius ?? 5
+        const plane = params.plane ?? 'xy'
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI * 2
+          const point = { x: center.x, y: center.y, z: center.z }
+          
+          // Generate in app coordinates, conversion happens in editor
+          if (plane === 'xy') {
+            point.x += Math.cos(angle) * radius
+            point.y += Math.sin(angle) * radius
+          } else if (plane === 'xz') {
+            point.x += Math.cos(angle) * radius
+            point.z += Math.sin(angle) * radius
+          } else if (plane === 'yz') {
+            point.y += Math.cos(angle) * radius
+            point.z += Math.sin(angle) * radius
+          }
+          
+          points.push(point)
+        }
+        return points
+      },
+      pathStyle: {
+        type: 'closed',
+        segments: 64
+      },
+      positionParameter: 'center',
+      calculateRotationAngle: (time, duration, params) => {
+        const speed = params.speed || 1
+        const startAngle = (params.startAngle || 0) * Math.PI / 180
+        const direction = params.direction || 'clockwise'
+        const progress = duration > 0 ? time / duration : 0
+        const rotations = progress * speed
+        const angleDirection = direction === 'clockwise' ? -1 : 1
+        return startAngle + (rotations * Math.PI * 2 * angleDirection)
+      },
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    },
     
     performance: {
       complexity: 'constant',
@@ -110,23 +163,19 @@ export function createCircularModel(): AnimationModel {
       const plane = parameters.plane || 'xy'
       const direction = parameters.direction || 'clockwise'
       
-      // Apply multi-track mode adjustments - check both context AND parameters
+      // Apply multi-track mode adjustments - simplified for new architecture
       const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'centered' && parameters._centeredPoint) {
-        center = parameters._centeredPoint
-      } else if (multiTrackMode === 'isobarycenter' && parameters._isobarycenter) {
-        // For formation mode, use barycenter as center
-        // Do NOT apply track offset here - it's applied after in animationStore.ts
+      // Formation mode: use barycenter as center (offset applied after in animationStore)
+      if (multiTrackMode === 'formation' && parameters._isobarycenter) {
         center = parameters._isobarycenter
-      } else if (multiTrackMode === 'position-relative') {
-        // Use track position as center
-        if (context?.trackOffset) {
-          center = {
-            x: center.x + context.trackOffset.x,
-            y: center.y + context.trackOffset.y,
-            z: center.z + context.trackOffset.z
-          }
+      } 
+      // Relative mode: offset by track position
+      else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        center = {
+          x: center.x + context.trackOffset.x,
+          y: center.y + context.trackOffset.y,
+          z: center.z + context.trackOffset.z
         }
       }
       

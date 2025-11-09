@@ -1,10 +1,10 @@
 import { create } from 'zustand'
 import { Animation, AnimationState, Position, AnimationType } from '@/types'
 import { useProjectStore } from './projectStore'
-import { useOSCStore } from './oscStore'
 import { useSettingsStore } from './settingsStore'
 import { modelRuntime } from '@/models/runtime'
 import { oscBatchManager } from '@/utils/oscBatchManager'
+import { modelRegistry } from '@/models/registry'
 import { oscInputManager } from '@/utils/oscInputManager'
 import { oscMessageOptimizer, type TrackPositionUpdate } from '@/utils/oscMessageOptimizer'
 
@@ -19,30 +19,16 @@ function rotateOffsetForAnimation(
   time: number,
   duration: number
 ): Position {
-  // Only rotate for rotational animations
-  const rotationalTypes: AnimationType[] = ['circular', 'spiral', 'orbit', 'circular-scan', 'rose-curve', 'epicycloid']
+  // Use model's calculateRotationAngle if available
+  const model = modelRegistry.getModel(animationType)
   
-  if (!rotationalTypes.includes(animationType)) {
+  if (!model?.visualization?.calculateRotationAngle) {
     // Non-rotational animations: offset stays fixed
     return offset
   }
   
-  // Calculate rotation angle based on animation type
-  let rotationAngle = 0
-  
-  if (animationType === 'circular' || animationType === 'circular-scan') {
-    const startAngle = (Number(params?.startAngle) || 0) * (Math.PI / 180)
-    const endAngle = (Number(params?.endAngle) || 360) * (Math.PI / 180)
-    const t = Math.min(time / (duration || 1), 1)
-    rotationAngle = startAngle + (endAngle - startAngle) * t
-  } else if (animationType === 'spiral') {
-    const rotations = Number(params?.rotations) || 3
-    const t = Math.min(time / (duration || 1), 1)
-    rotationAngle = t * rotations * 2 * Math.PI
-  } else if (animationType === 'orbit') {
-    const speed = Number(params?.speed) || 1
-    rotationAngle = (time / duration) * speed * 2 * Math.PI
-  }
+  // Calculate rotation angle using model method
+  const rotationAngle = model.visualization.calculateRotationAngle(time, duration, params)
   
   // Get plane of rotation
   const plane = params?.plane || 'xy'
@@ -445,9 +431,9 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     set({ isEngineRunning: true })
 
     // Initialize OSC batch manager callback
-    const oscStore = useOSCStore.getState()
+    // OSC sending is handled directly in the animation loop via oscBatchManager
     oscBatchManager.setSendCallback(async (batch) => {
-      oscStore.sendBatchAsync(batch)
+      // Batch sending handled by oscBatchManager internally
     })
 
     let lastTimestamp = Date.now()
@@ -475,13 +461,18 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         
         const animationTime = (timestamp - playingAnimation.startTime) / 1000
         
-        const animation = projectStore.animations.find(a => a.id === playingAnimation.animationId)
-        if (!animation) return
+        // Get base animation for fallback
+        const baseAnimation = projectStore.animations.find(a => a.id === playingAnimation.animationId)
+        if (!baseAnimation) return
         
         // Process each track for this animation
         playingAnimation.trackIds.forEach(trackId => {
           const track = projectStore.tracks.find(t => t.id === trackId)
           if (!track) return
+          
+          // CRITICAL: In relative mode, each track has its own animation with per-track parameters
+          // Use track.animationState.animation if available (has per-track params), otherwise use base
+          const animation = track.animationState?.animation || baseAnimation
 
           // Check mute/solo states
           const hasSoloTracks = projectStore.tracks.some(t => t.isSolo)
@@ -490,10 +481,16 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           }
 
           // Calculate position using model runtime
+          const params = animation.parameters as any
           const context: any = {
             trackId,
             trackIndex: playingAnimation.trackIds.indexOf(trackId),
             totalTracks: playingAnimation.trackIds.length,
+            trackPosition: track.position,    // Current track position
+            initialPosition: track.position,  // Starting position
+            // Only pass trackOffset if NOT already in parameters (avoid double offset)
+            trackOffset: params._trackOffset ? undefined : track.position,
+            multiTrackMode: animation.multiTrackMode || 'shared',
             frameCount: state.frameCount,
             deltaTime: deltaTime / 1000,
             realTime: timestamp,
@@ -501,21 +498,36 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           }
           let position = modelRuntime.calculatePosition(animation, animationTime, 0, context)
 
-          // Apply any track-specific offsets
-          const params = animation.parameters as any
+          // Apply any track-specific offsets (already declared params above)
+          // NOTE: _trackOffset rotation is ONLY for formation mode, NOT relative mode!
           if (params._trackOffset) {
             const offset = params._trackOffset
-            const rotatedOffset = rotateOffsetForAnimation(
-              offset,
-              animation.type,
-              params,
-              animationTime,
-              animation.duration
-            )
-            position = {
-              x: position.x + rotatedOffset.x,
-              y: position.y + rotatedOffset.y,
-              z: position.z + rotatedOffset.z
+            
+            // Only rotate offset for formation mode (isobarycenter)
+            // In relative mode, offset is static (the track's initial position)
+            const shouldRotate = animation.multiTrackMode === 'formation' || params._isobarycenter
+            
+            if (shouldRotate) {
+              // Formation mode: rotate offset to maintain rigid body shape
+              const rotatedOffset = rotateOffsetForAnimation(
+                offset,
+                animation.type,
+                params,
+                animationTime,
+                animation.duration
+              )
+              position = {
+                x: position.x + rotatedOffset.x,
+                y: position.y + rotatedOffset.y,
+                z: position.z + rotatedOffset.z
+              }
+            } else {
+              // Relative mode: apply static offset (no rotation)
+              position = {
+                x: position.x + offset.x,
+                y: position.y + offset.y,
+                z: position.z + offset.z
+              }
             }
           }
 
@@ -527,19 +539,14 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
             if (useBatching) {
               oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
-            } else {
-              oscStore.sendMessage(`/track/${track.holophonixIndex}/${coordType}`, [
-                position.x,
-                position.y,
-                position.z
-              ])
             }
+            // Non-batched sending handled by oscBatchManager.flush()
           }
         })
         
         // Handle animation end (loop or stop)
-        if (animationTime >= animation.duration) {
-          if (animation.loop) {
+        if (animationTime >= baseAnimation.duration) {
+          if (baseAnimation.loop) {
             // Reset animation for next loop - need to update state properly
             console.log('🔁 Looping animation:', playingAnimation.animationId)
             const updatedPlayingAnimations = new Map(state.playingAnimations)
@@ -603,7 +610,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
    */
   _easeToPositions: (tracks: Array<{trackId: string, from: Position, to: Position}>, durationMs: number) => {
     const projectStore = useProjectStore.getState()
-    const oscStore = useOSCStore.getState()
     const startTime = performance.now()
     
     // Easing function (ease-out cubic)
@@ -632,11 +638,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         // Send OSC message
         if (track.holophonixIndex) {
           const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
-          oscStore.sendMessage(`/track/${track.holophonixIndex}/${coordType}`, [
-            position.x,
-            position.y,
-            position.z
-          ])
+          oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
         }
       })
       

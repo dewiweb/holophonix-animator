@@ -41,17 +41,17 @@ export function createOrbitModel(): AnimationModel {
       // Handle multi-track modes
       const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'centered' && params._centeredPoint) {
+      if (multiTrackMode === 'shared' && params._centeredPoint) {
         centerX = params._centeredPoint.x
         centerY = params._centeredPoint.y
         centerZ = params._centeredPoint.z
-      } else if (multiTrackMode === 'isobarycenter' && params._isobarycenter) {
+      } else if (multiTrackMode === 'formation' && params._isobarycenter) {
         // For formation mode, use barycenter as center
         // Do NOT apply track offset here - it's applied after in animationStore.ts
         centerX = params._isobarycenter.x
         centerY = params._isobarycenter.y
         centerZ = params._isobarycenter.z
-      } else if (multiTrackMode === 'position-relative') {
+      } else if (multiTrackMode === 'relative') {
         if (context?.trackOffset) {
           centerX += context.trackOffset.x
           centerY += context.trackOffset.y
@@ -110,7 +110,42 @@ export function createOrbitModel(): AnimationModel {
       }
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
-    defaultMultiTrackMode: 'phase-offset',
+    supportedModes: ['position-relative', 'phase-offset'],
+    defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'center', type: 'center' }
+      ],
+      generatePath: (controlPoints, params, segments = 64) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const radius = params.radius || 5
+        const inclination = (params.inclination || 0) * Math.PI / 180
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI * 2
+          points.push({
+            x: center.x + Math.cos(angle) * radius,
+            y: center.y + Math.sin(angle) * radius * Math.sin(inclination),
+            z: center.z + Math.sin(angle) * radius * Math.cos(inclination)
+          })
+        }
+        return points
+      },
+      pathStyle: { type: 'closed', segments: 64 },
+      positionParameter: 'center',
+      calculateRotationAngle: (time, duration, params) => {
+        const speed = params.orbitalSpeed || params.speed || 1
+        return (time / (duration || 1)) * speed * 2 * Math.PI
+      },
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    }
   }
 }

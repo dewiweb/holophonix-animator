@@ -86,6 +86,38 @@ export function createWaveModel(): AnimationModel {
     supportedModes: ['identical', 'phase-offset', 'position-relative', 'centered'],
     defaultMultiTrackMode: 'phase-offset',
     
+    visualization: {
+      controlPoints: [
+        { parameter: 'center', type: 'center' }
+      ],
+      generatePath: (controlPoints, params, segments = 100) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const amp = params.amplitude || { x: 5, y: 0, z: 0 }
+        const freq = params.frequency || 1
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const t = i / segments
+          const angle = t * Math.PI * 2 * freq
+          points.push({
+            x: center.x + Math.sin(angle) * amp.x,
+            y: center.y + Math.sin(angle) * amp.y,
+            z: center.z + Math.sin(angle) * amp.z
+          })
+        }
+        return points
+      },
+      pathStyle: { type: 'curve', segments: 100 },
+      positionParameter: 'center',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    },
+    
     performance: {
       complexity: 'constant',
       stateful: false,
@@ -108,10 +140,10 @@ export function createWaveModel(): AnimationModel {
       // Apply multi-track mode adjustments
       const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'centered' && parameters._centeredPoint) {
+      if (multiTrackMode === 'shared' && parameters._centeredPoint) {
         // Use user-defined center point
         center = parameters._centeredPoint
-      } else if (multiTrackMode === 'position-relative') {
+      } else if (multiTrackMode === 'relative') {
         // Use track position as offset for center
         if (context?.trackOffset) {
           center = {

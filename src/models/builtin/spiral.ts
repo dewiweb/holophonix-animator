@@ -50,17 +50,17 @@ export function createSpiralModel(): AnimationModel {
       // Support multi-track modes - check both parameters and context
       const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'centered' && params._centeredPoint) {
+      if (multiTrackMode === 'shared' && params._centeredPoint) {
         centerX = params._centeredPoint.x
         centerY = params._centeredPoint.y
         centerZ = params._centeredPoint.z
-      } else if (multiTrackMode === 'isobarycenter' && params._isobarycenter) {
+      } else if (multiTrackMode === 'formation' && params._isobarycenter) {
         // For formation mode, use barycenter as center
         // Do NOT apply track offset here - it's applied after in animationStore.ts
         centerX = params._isobarycenter.x
         centerY = params._isobarycenter.y
         centerZ = params._isobarycenter.z
-      } else if (multiTrackMode === 'position-relative') {
+      } else if (multiTrackMode === 'relative') {
         if (context?.trackOffset) {
           centerX += context.trackOffset.x
           centerY += context.trackOffset.y
@@ -123,5 +123,53 @@ export function createSpiralModel(): AnimationModel {
     
     supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
     defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'center', type: 'center' }
+      ],
+      generatePath: (controlPoints, params, segments = 100) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const startRadius = params.startRadius || 1
+        const endRadius = params.endRadius || 5
+        const turns = params.turns || 3
+        const plane = params.plane || 'xy'
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const t = i / segments
+          const angle = t * turns * Math.PI * 2
+          const r = startRadius + (endRadius - startRadius) * t
+          const point = { x: center.x, y: center.y, z: center.z }
+          
+          if (plane === 'xy') {
+            point.x += Math.cos(angle) * r
+            point.y += Math.sin(angle) * r
+          } else if (plane === 'xz') {
+            point.x += Math.cos(angle) * r
+            point.z += Math.sin(angle) * r
+          } else if (plane === 'yz') {
+            point.y += Math.cos(angle) * r
+            point.z += Math.sin(angle) * r
+          }
+          points.push(point)
+        }
+        return points
+      },
+      pathStyle: { type: 'curve', segments: 100 },
+      positionParameter: 'center',
+      calculateRotationAngle: (time, duration, params) => {
+        const rotations = params.rotations || 3
+        const t = duration > 0 ? Math.min(time / duration, 1) : 0
+        return t * rotations * 2 * Math.PI
+      },
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    }
   }
 }

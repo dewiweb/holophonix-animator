@@ -1,5 +1,6 @@
 import { AnimationType, AnimationParameters, Position } from '@/types'
 import { getDefaultParametersForPosition } from './defaultParameters'
+import { modelRegistry } from '@/models/registry'
 
 export const checkUserModifiedParameters = (
   animationType: AnimationType, 
@@ -10,60 +11,19 @@ export const checkUserModifiedParameters = (
   const modified: Record<string, boolean> = {}
   const defaults = originalParams || getDefaultParametersForPosition(animationType, trackPosition)
 
-  switch (animationType) {
-    case 'linear':
-    case 'bezier':
-    case 'catmull-rom':
-    case 'zigzag':
-    case 'doppler':
-      modified.startPosition = JSON.stringify(currentParams.startPosition) !== JSON.stringify(defaults.startPosition)
-      break
-
-    case 'circular':
-    case 'spiral':
-    case 'wave':
-    case 'lissajous':
-    case 'orbit':
-    case 'rose-curve':
-    case 'epicycloid':
-    case 'circular-scan':
-    case 'perlin-noise':
-      modified.center = JSON.stringify(currentParams.center) !== JSON.stringify(defaults.center)
-      break
-
-    case 'elliptical':
-      modified.centerX = currentParams.centerX !== defaults.centerX
-      modified.centerY = currentParams.centerY !== defaults.centerY
-      modified.centerZ = currentParams.centerZ !== defaults.centerZ
-      break
-
-    case 'pendulum':
-      modified.anchorPoint = JSON.stringify(currentParams.anchorPoint) !== JSON.stringify(defaults.anchorPoint)
-      break
-
-    case 'spring':
-      modified.restPosition = JSON.stringify(currentParams.restPosition) !== JSON.stringify(defaults.restPosition)
-      break
-
-    case 'bounce':
-      modified.groundLevel = currentParams.groundLevel !== defaults.groundLevel
-      break
-
-    case 'attract-repel':
-      modified.targetPosition = JSON.stringify(currentParams.targetPosition) !== JSON.stringify(defaults.targetPosition)
-      break
-
-    case 'zoom':
-      modified.zoomCenter = JSON.stringify(currentParams.zoomCenter) !== JSON.stringify(defaults.zoomCenter)
-      break
-
-    case 'helix':
-      modified.axisStart = JSON.stringify(currentParams.axisStart) !== JSON.stringify(defaults.axisStart)
-      break
-
-    case 'random':
-      modified.center = JSON.stringify(currentParams.center) !== JSON.stringify(defaults.center)
-      break
+  // Use model metadata instead of switch-case
+  const model = modelRegistry.getModel(animationType)
+  const positionParam = model?.visualization?.positionParameter
+  
+  if (positionParam) {
+    const currentValue = (currentParams as any)[positionParam]
+    const defaultValue = (defaults as any)[positionParam]
+    
+    // Check if position parameter was modified
+    modified[positionParam] = JSON.stringify(currentValue) !== JSON.stringify(defaultValue)
+  } else {
+    // Fallback for models without visualization metadata
+    console.warn(`No positionParameter defined for ${animationType}`)
   }
 
   return modified

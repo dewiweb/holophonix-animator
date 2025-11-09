@@ -14,7 +14,7 @@ interface TestResult {
 }
 
 const animationTypes: AnimationType[] = [
-  'linear', 'circular', 'elliptical', 'spiral', 'random', 'custom',
+  'linear', 'circular', 'elliptical', 'spiral', 'random',
   'pendulum', 'bounce', 'spring',
   'wave', 'lissajous', 'helix',
   'bezier', 'catmull-rom', 'zigzag',

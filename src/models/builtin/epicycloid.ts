@@ -82,8 +82,51 @@ export function createEpicycloidModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'position-relative', 'phase-offset', 'centered'],
-    defaultMultiTrackMode: 'identical',
+    supportedModes: ['identical', 'position-relative', 'phase-offset'],
+    defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [
+        { parameter: 'center', type: 'center' }
+      ],
+      generatePath: (controlPoints, params, segments = 200) => {
+        if (controlPoints.length < 1) return []
+        const center = controlPoints[0]
+        const R = params.fixedRadius || 3
+        const r = params.rollingRadius || 1
+        const plane = params.plane || 'xy'
+        const points = []
+        
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI * 2
+          const ratio = (R + r) / r
+          const x = (R + r) * Math.cos(angle) - r * Math.cos(ratio * angle)
+          const y = (R + r) * Math.sin(angle) - r * Math.sin(ratio * angle)
+          const point = { x: center.x, y: center.y, z: center.z }
+          
+          if (plane === 'xy') {
+            point.x += x
+            point.y += y
+          } else if (plane === 'xz') {
+            point.x += x
+            point.z += y
+          } else if (plane === 'yz') {
+            point.y += x
+            point.z += y
+          }
+          points.push(point)
+        }
+        return points
+      },
+      pathStyle: { type: 'closed', segments: 200 },
+      positionParameter: 'center',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    },
     
     performance: {
       complexity: 'constant',

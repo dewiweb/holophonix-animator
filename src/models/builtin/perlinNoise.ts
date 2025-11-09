@@ -86,8 +86,37 @@ export function createPerlinNoiseModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'position-relative', 'phase-offset'],
+    supportedModes: ['identical', 'phase-offset', 'position-relative'],
     defaultMultiTrackMode: 'position-relative',
+    
+    visualization: {
+      controlPoints: [{ parameter: 'center', type: 'center' }],
+      generatePath: (controlPoints, params) => {
+        const origin = controlPoints[0] || { x: 0, y: 0, z: 0 }
+        const scale = params.scale || 5
+        // Draw cube showing noise space
+        return [
+          { x: origin.x - scale, y: origin.y - scale, z: origin.z - scale },
+          { x: origin.x + scale, y: origin.y - scale, z: origin.z - scale },
+          { x: origin.x + scale, y: origin.y - scale, z: origin.z + scale },
+          { x: origin.x - scale, y: origin.y - scale, z: origin.z + scale },
+          { x: origin.x - scale, y: origin.y - scale, z: origin.z - scale },
+          { x: origin.x - scale, y: origin.y + scale, z: origin.z - scale },
+          { x: origin.x + scale, y: origin.y + scale, z: origin.z - scale },
+          { x: origin.x + scale, y: origin.y + scale, z: origin.z + scale },
+          { x: origin.x - scale, y: origin.y + scale, z: origin.z + scale },
+          { x: origin.x - scale, y: origin.y + scale, z: origin.z - scale }
+        ]
+      },
+      pathStyle: { type: 'box' },
+      positionParameter: 'center',
+      updateFromControlPoints: (controlPoints, params) => {
+        if (controlPoints.length > 0) {
+          return { ...params, center: controlPoints[0] }
+        }
+        return params
+      }
+    },
     
     performance: {
       complexity: 'linear',
