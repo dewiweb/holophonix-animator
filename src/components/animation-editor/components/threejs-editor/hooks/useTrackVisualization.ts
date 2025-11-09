@@ -7,18 +7,22 @@ interface UseTrackVisualizationProps {
   scene: THREE.Scene | null
   tracks: Track[]
   showTracks: boolean
+  multiTrackMode?: 'shared' | 'relative' | 'formation'
 }
 
 /**
  * Hook to visualize tracks in preview mode
  * Renders tracks as colored spheres at their positions
+ * In formation mode, also shows barycenter
  */
 export const useTrackVisualization = ({
   scene,
   tracks,
   showTracks,
+  multiTrackMode = 'shared',
 }: UseTrackVisualizationProps) => {
   const trackMeshesRef = useRef<Map<string, THREE.Mesh>>(new Map())
+  const barycenterMeshRef = useRef<THREE.Group | null>(null)
 
   // Update track visualizations
   useEffect(() => {
@@ -122,6 +126,99 @@ export const useTrackVisualization = ({
       trackMeshesRef.current.clear()
     }
   }, [scene, tracks, showTracks])
+  
+  // Barycenter visualization for formation mode
+  useEffect(() => {
+    if (!scene) return
+    
+    // Remove existing barycenter if it exists
+    if (barycenterMeshRef.current) {
+      scene.remove(barycenterMeshRef.current)
+      barycenterMeshRef.current.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose()
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.dispose())
+          } else {
+            child.material.dispose()
+          }
+        }
+      })
+      barycenterMeshRef.current = null
+    }
+    
+    // Show barycenter only in formation mode with multiple tracks
+    if (multiTrackMode === 'formation' && tracks.length > 1 && showTracks) {
+      // Calculate barycenter (center of mass)
+      const barycenter = {
+        x: tracks.reduce((sum, t) => sum + t.position.x, 0) / tracks.length,
+        y: tracks.reduce((sum, t) => sum + t.position.y, 0) / tracks.length,
+        z: tracks.reduce((sum, t) => sum + t.position.z, 0) / tracks.length,
+      }
+      
+      const threePos = appToThreePosition(barycenter)
+      
+      // Create barycenter marker (cross/star shape)
+      const group = new THREE.Group()
+      
+      // Central sphere
+      const sphereGeometry = new THREE.SphereGeometry(0.4, 32, 32)
+      const sphereMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffaa00,
+        emissive: 0xffaa00,
+        emissiveIntensity: 0.5,
+        opacity: 0.8,
+        transparent: true,
+      })
+      const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
+      group.add(sphere)
+      
+      // Cross lines
+      const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2 })
+      const size = 1.2
+      
+      // X-axis line
+      const xPoints = [new THREE.Vector3(-size, 0, 0), new THREE.Vector3(size, 0, 0)]
+      const xGeometry = new THREE.BufferGeometry().setFromPoints(xPoints)
+      group.add(new THREE.Line(xGeometry, lineMaterial))
+      
+      // Y-axis line (in ThreeJS coords - vertical)
+      const yPoints = [new THREE.Vector3(0, -size, 0), new THREE.Vector3(0, size, 0)]
+      const yGeometry = new THREE.BufferGeometry().setFromPoints(yPoints)
+      group.add(new THREE.Line(yGeometry, lineMaterial))
+      
+      // Z-axis line
+      const zPoints = [new THREE.Vector3(0, 0, -size), new THREE.Vector3(0, 0, size)]
+      const zGeometry = new THREE.BufferGeometry().setFromPoints(zPoints)
+      group.add(new THREE.Line(zGeometry, lineMaterial))
+      
+      // Label
+      const label = createTextSprite('Barycenter')
+      label.position.set(0, 0.8, 0)
+      group.add(label)
+      
+      group.position.copy(threePos)
+      scene.add(group)
+      barycenterMeshRef.current = group
+    }
+    
+    return () => {
+      if (barycenterMeshRef.current) {
+        scene?.remove(barycenterMeshRef.current)
+        barycenterMeshRef.current.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.geometry.dispose()
+            if (Array.isArray(child.material)) {
+              child.material.forEach(m => m.dispose())
+            } else {
+              child.material.dispose()
+            }
+          }
+        })
+        barycenterMeshRef.current = null
+      }
+    }
+  }, [scene, tracks, multiTrackMode, showTracks])
 
   return {}
 }

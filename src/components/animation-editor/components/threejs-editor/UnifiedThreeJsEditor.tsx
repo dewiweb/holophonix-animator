@@ -21,12 +21,9 @@ import type { Track, Animation } from '@/types'
 
 // Multi-track mode type (from Animation interface)
 export type MultiTrackMode = 
-  | 'identical' 
-  | 'phase-offset' 
-  | 'position-relative' 
-  | 'phase-offset-relative' 
-  | 'isobarycenter' 
-  | 'centered'
+  | 'shared' 
+  | 'relative' 
+  | 'formation'
 
 export interface UnifiedEditorSettings {
   viewMode: ViewMode
@@ -59,7 +56,7 @@ export interface UnifiedThreeJsEditorProps {
 export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
   animation,
   selectedTracks = [],
-  multiTrackMode = 'identical',
+  multiTrackMode = 'shared',
   onAnimationChange,
   onControlPointsChange,
   onSelectionChange,
@@ -96,7 +93,9 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
   })
 
   // Initialize scene with control points (edit mode) or tracks/paths (preview mode)
-  const sceneState = useControlPointScene(animation)
+  // Force update when multiTrackMode or selected tracks change
+  const forceUpdateKey = `${multiTrackMode}-${selectedTracks.map(t => t.id).join(',')}`
+  const sceneState = useControlPointScene(animation, forceUpdateKey)
   const {
     scene,
     controlPoints,
@@ -124,6 +123,7 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
     scene,
     tracks: selectedTracks,
     showTracks: true, // Always show tracks
+    multiTrackMode,
   })
 
   // Throttle ref for real-time updates
