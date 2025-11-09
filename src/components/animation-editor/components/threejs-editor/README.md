@@ -1,10 +1,22 @@
 # Three.js Control Point Editor
 
-A modern 3D control point editor for animation curves, featuring multi-viewport rendering and industry-standard editing tools.
+A modern 3D control point editor for animation curves, featuring **single-view rendering with mode switching** and industry-standard editing tools.
 
-## Status: Phase 1 & 2 In Progress ✅
+## Status: Phase 1 Complete ✅ - Unified Editor Live!
 
-Foundation complete + TransformControls working! See the migration plan in `docs/THREEJS_CONTROL_POINT_EDITOR_MIGRATION.md`.
+The new **UnifiedThreeJsEditor** is now the primary editor, replacing the old quad-view approach. See the migration plan in `docs/SINGLE_VIEW_EDITOR_MIGRATION_PLAN.md`.
+
+**Test it now**: Navigate to `/editor-test` in your browser!
+
+### What's New?
+- ✨ **Single-view with view switching** (Perspective, Top, Front, Side)
+- ✨ **Preview/Edit mode separation** (Green/Orange indicators)
+- ✨ **Gizmo works in ALL views** (not just perspective!)
+- ✨ **Keyboard shortcuts** (1-4 for views, Tab for modes)
+- ✨ **Simpler, cleaner architecture**
+
+### Old Quad-View (Deprecated)
+The old `ThreeJsControlPointEditor` (quad-view) is deprecated and will be removed. All functionality has been migrated to the new unified editor.
 
 ## Features Implemented
 
@@ -74,36 +86,58 @@ Foundation complete + TransformControls working! See the migration plan in `docs
 
 ## Architecture
 
+### New Unified Editor (Active)
 ```
 threejs-editor/
-├── ThreeJsControlPointEditor.tsx    [Main component]
-├── MultiViewRenderer.tsx            [4-viewport renderer]
-├── ThreeJsEditorDemo.tsx            [Demo/test component]
+├── UnifiedThreeJsEditor.tsx         [Main component - single view]
+├── SingleViewRenderer.tsx           [Simple renderer]
+├── ViewModeSelector.tsx             [View switching UI]
+├── EditModeSelector.tsx             [Mode switching UI]
+├── UnifiedEditorDemo.tsx            [Demo component]
 ├── types.ts                         [TypeScript definitions]
 ├── index.ts                         [Public exports]
+├── hooks/
+│   ├── useCamera.ts                 [Single camera management]
+│   ├── useSingleViewportControl.ts  [OrbitControls]
+│   ├── useControlPointScene.ts      [Scene & point management]
+│   ├── useControlPointSelection.ts  [Selection logic]
+│   └── useTransformControls.ts      [Gizmo controls]
+└── utils/
+    └── CameraConfigs.ts             [Camera presets]
+```
+
+### Old Quad-View (Deprecated)
+```
+threejs-editor/
+├── ThreeJsControlPointEditor.tsx    [DEPRECATED - use UnifiedThreeJsEditor]
+├── MultiViewRenderer.tsx            [DEPRECATED - use SingleViewRenderer]
+├── ThreeJsEditorDemo.tsx            [DEPRECATED - use UnifiedEditorDemo]
 └── hooks/
-    ├── useControlPointScene.ts      [Scene & point management]
-    ├── useMultiViewCameras.ts       [Camera system]
-    └── useControlPointSelection.ts  [Selection logic]
+    ├── useMultiViewCameras.ts       [DEPRECATED - use useCamera]
+    └── useViewportControls.ts       [DEPRECATED - use useSingleViewportControl]
 ```
 
 ## Usage
 
-### Basic Example
+### Basic Example (New Unified Editor)
 
 ```typescript
-import { ThreeJsControlPointEditor } from './components/threejs-editor'
+import { UnifiedThreeJsEditor } from './components/threejs-editor'
 import * as THREE from 'three'
 
 // Sample animation data
 const animation = {
   id: 'my-animation',
   name: 'My Animation',
-  controlPoints: [
-    new THREE.Vector3(-3, 0, -3),
-    new THREE.Vector3(0, 2, 0),
-    new THREE.Vector3(3, 0, 3),
-  ]
+  type: 'bezier',
+  parameters: {
+    controlPoints: [
+      new THREE.Vector3(-3, 0, -3),
+      new THREE.Vector3(0, 2, 0),
+      new THREE.Vector3(3, 0, 3),
+    ]
+  },
+  coordinateSystem: { type: 'xyz' }
 }
 
 function MyComponent() {
@@ -113,12 +147,15 @@ function MyComponent() {
 
   return (
     <div style={{ width: '100%', height: '600px' }}>
-      <ThreeJsControlPointEditor
+      <UnifiedThreeJsEditor
         animation={animation}
+        selectedTracks={[]}
+        multiTrackMode="identical"
         onControlPointsChange={handleChange}
         onSelectionChange={(indices) => console.log('Selected:', indices)}
         initialSettings={{
-          transformMode: 'translate',
+          viewMode: 'perspective',
+          editMode: 'edit',
           showGrid: true,
           snapSize: 0.5,
         }}
@@ -130,15 +167,17 @@ function MyComponent() {
 
 ### Demo Component
 
-To see the editor in action, use the demo component:
+To see the editor in action:
 
 ```typescript
-import { ThreeJsEditorDemo } from './components/threejs-editor/ThreeJsEditorDemo'
+import { UnifiedEditorDemo } from './components/threejs-editor'
 
 function App() {
-  return <ThreeJsEditorDemo />
+  return <UnifiedEditorDemo />
 }
 ```
+
+Or navigate to `/editor-test` in your browser!
 
 ## Props
 
@@ -165,19 +204,22 @@ function App() {
 }
 ```
 
-## Keyboard Shortcuts
+## Keyboard Shortcuts (Unified Editor)
 
 | Key | Action |
 |-----|--------|
-| `G` | Translate mode |
-| `R` | Rotate mode |
-| `F` | Frame selection / Frame all |
-| `Home` | Frame all points |
-| `Delete` / `Backspace` | Delete selected point |
-| `Shift+A` | Add new point (after selected or at end) |
-| `Ctrl+D` / `Cmd+D` | Duplicate selected point |
-| `Click` | Select control point |
-| `Drag gizmo` | Move selected point |
+| `1` | Perspective view |
+| `2` | Top view (XZ plane) |
+| `3` | Front view (XY plane) |
+| `4` | Side view (YZ plane) |
+| `Tab` | Toggle Preview/Edit mode |
+| `Home` | Reset camera |
+| `Shift+A` | Add new point (edit mode) |
+| `Ctrl+D` / `Cmd+D` | Duplicate selected point (edit mode) |
+| `Delete` / `Backspace` | Delete selected point (edit mode) |
+| `F` | Frame selection (coming soon) |
+| `Click` | Select control point (edit mode) |
+| `Drag gizmo` | Move selected point (works in ALL views!) |
 
 ## Dependencies
 

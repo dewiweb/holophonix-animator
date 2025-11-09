@@ -1,317 +1,236 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useMemo, useState, useCallback } from 'react'
 import * as THREE from 'three'
 import type { ControlPoint3D, ControlPointSceneState } from '../types'
+import { extractControlPointsFromAnimation } from '../utils/extractControlPoints'
+import { generateAnimationPath } from '../utils/generateAnimationPath'
 
 /**
  * Hook to manage the Three.js scene with control points and curve
+ * SIMPLE ARCHITECTURE: Control points are derived from animation.parameters
+ * React handles caching and re-rendering automatically
  */
 export const useControlPointScene = (
   animation: any | null
 ): ControlPointSceneState => {
   const sceneRef = useRef<THREE.Scene | null>(null)
+  const curveRef = useRef<THREE.Line | null>(null)
+  const meshesRef = useRef<THREE.Mesh[]>([]) // Track meshes for proper cleanup
   const [controlPoints, setControlPoints] = useState<ControlPoint3D[]>([])
-  const [curve, setCurve] = useState<THREE.Line | null>(null)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
 
-  // Initialize scene
+  // ========================================
+  // STEP 1: Derive control points from animation (cached by React)
+  // ========================================
+  // Serialize parameters to detect deep changes
+  const paramsKey = animation?.parameters ? JSON.stringify(animation.parameters) : ''
+  
+  const controlPointPositions = useMemo(() => {
+    console.log('🔍 Computing control points from animation:', {
+      type: animation?.type,
+      hasParams: !!animation?.parameters,
+      animationId: animation?.id,
+      paramsKey: paramsKey.substring(0, 50) + '...'
+    })
+    const points = extractControlPointsFromAnimation(animation)
+    console.log('✅ Control points computed:', points.length)
+    return points
+  }, [animation?.id, animation?.type, paramsKey])
+
+  // ========================================
+  // STEP 2: Initialize scene once
+  // ========================================
   useEffect(() => {
+    console.log('🎬 Initializing Three.js scene')
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x1a1a1a)
 
-    // Add grid helper
+    // Add grid
     const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222)
     scene.add(gridHelper)
 
-    // Add axes helper (X=red, Y=green, Z=blue)
+    // Add axes (X=red, Y=green, Z=blue)
     const axesHelper = new THREE.AxesHelper(5)
     scene.add(axesHelper)
 
-    // Add ambient light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+    // Add lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8)
     scene.add(ambientLight)
 
-    // Add directional light
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.4)
-    dirLight.position.set(5, 10, 5)
-    scene.add(dirLight)
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.5)
+    dirLight1.position.set(5, 10, 5)
+    scene.add(dirLight1)
+
+    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3)
+    dirLight2.position.set(-5, 5, -5)
+    scene.add(dirLight2)
+
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4)
+    scene.add(hemiLight)
 
     sceneRef.current = scene
+    console.log('✅ Scene initialized')
 
     return () => {
-      // Cleanup
+      console.log('🧹 Cleaning up scene')
       scene.clear()
       sceneRef.current = null
     }
   }, [])
 
-  // Create control point mesh
-  const createControlPointMesh = useCallback(
-    (position: THREE.Vector3, index: number, isSelected: boolean) => {
-      const geometry = new THREE.SphereGeometry(0.2, 16, 16)
-      
-      // Color based on index and selection state
+  // ========================================
+  // STEP 3: Update meshes and control points when positions change
+  // ========================================
+  useEffect(() => {
+    if (!sceneRef.current) return
+
+    console.log('🔄 Updating control point meshes:', controlPointPositions.length, '(cleaning up', meshesRef.current.length, 'old meshes)')
+
+    // Remove old meshes (from ref, not state!)
+    meshesRef.current.forEach(mesh => {
+      sceneRef.current?.remove(mesh)
+      mesh.geometry.dispose()
+      ;(mesh.material as THREE.Material).dispose()
+      // Also dispose children (outlines)
+      mesh.children.forEach(child => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose()
+          ;(child.material as THREE.Material).dispose()
+        }
+      })
+    })
+    meshesRef.current = []
+
+    // Remove old curve
+    if (curveRef.current) {
+      sceneRef.current.remove(curveRef.current)
+      curveRef.current.geometry.dispose()
+      ;(curveRef.current.material as THREE.Material).dispose()
+      curveRef.current = null
+    }
+
+    // Create new control points
+    const newControlPoints: ControlPoint3D[] = controlPointPositions.map((position, index) => {
+      // Determine color
+      const isSelected = index === selectedIndex
       let color: number
       if (isSelected) {
         color = 0xffff00 // Yellow for selected
       } else if (index === 0) {
         color = 0x00ff00 // Green for start
       } else {
-        color = 0x4a9eff // Blue for regular points
+        color = 0x4a9eff // Blue for others
       }
 
+      // Create sphere
+      const geometry = new THREE.SphereGeometry(0.2, 16, 16)
       const material = new THREE.MeshBasicMaterial({
         color,
-        depthTest: false, // Always render on top
+        depthTest: false,
         depthWrite: false,
       })
-
       const mesh = new THREE.Mesh(geometry, material)
       mesh.position.copy(position)
       mesh.userData.index = index
-      mesh.renderOrder = 999 // Render last (on top)
+      mesh.renderOrder = 999
 
-      // Add hover effect with outline
-      const outlineGeometry = new THREE.SphereGeometry(0.22, 16, 16)
-      const outlineMaterial = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        side: THREE.BackSide,
-        transparent: true,
-        opacity: 0.3,
-        depthTest: false,
-      })
-      const outline = new THREE.Mesh(outlineGeometry, outlineMaterial)
-      outline.visible = isSelected
-      outline.userData.isOutline = true
-      mesh.add(outline)
-
-      return mesh
-    },
-    []
-  )
-
-  // Update curve visualization
-  const updateCurve = useCallback(
-    (points: ControlPoint3D[]) => {
-      if (!sceneRef.current) return
-
-      // Remove old curve using state setter callback to get current value
-      setCurve((prevCurve) => {
-        if (prevCurve) {
-          sceneRef.current?.remove(prevCurve)
-          prevCurve.geometry.dispose()
-          ;(prevCurve.material as THREE.Material).dispose()
-        }
-
-        if (points.length < 2) {
-          return null
-        }
-
-        // Create Catmull-Rom curve through points
-        const curvePoints = points.map((p) => p.position.clone())
-        const curve3D = new THREE.CatmullRomCurve3(curvePoints, false, 'catmullrom', 0.5)
-
-        // Generate points along curve
-        const curveSegments = Math.max(50, points.length * 20)
-        const curveGeometry = new THREE.BufferGeometry().setFromPoints(
-          curve3D.getPoints(curveSegments)
-        )
-
-        // Create gradient material (start=green, end=red)
-        const colors = new Float32Array(curveSegments * 3)
-        for (let i = 0; i <= curveSegments; i++) {
-          const t = i / curveSegments
-          const color = new THREE.Color()
-          color.setHSL(0.3 - t * 0.3, 1.0, 0.5) // Green to red gradient
-          colors[i * 3] = color.r
-          colors[i * 3 + 1] = color.g
-          colors[i * 3 + 2] = color.b
-        }
-        curveGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-
-        const curveMaterial = new THREE.LineBasicMaterial({
-          vertexColors: true,
-          linewidth: 2,
+      // Add outline if selected
+      if (isSelected) {
+        const outlineGeometry = new THREE.SphereGeometry(0.22, 16, 16)
+        const outlineMaterial = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          side: THREE.BackSide,
+          transparent: true,
+          opacity: 0.3,
+          depthTest: false,
         })
+        const outline = new THREE.Mesh(outlineGeometry, outlineMaterial)
+        mesh.add(outline)
+      }
 
-        const newCurve = new THREE.Line(curveGeometry, curveMaterial)
-        sceneRef.current?.add(newCurve)
-        return newCurve
-      })
-    },
-    [] // Remove curve dependency to break infinite loop
-  )
-
-  // Load control points from animation
-  useEffect(() => {
-    if (!animation || !sceneRef.current) return
-
-    // Clear existing control points
-    controlPoints.forEach((point) => {
-      sceneRef.current?.remove(point.mesh)
-      point.mesh.geometry.dispose()
-      ;(point.mesh.material as THREE.Material).dispose()
-    })
-
-    // Extract control points from animation
-    // TODO: Adapt to actual animation data structure
-    const animationPoints: THREE.Vector3[] = []
-    
-    if (animation.controlPoints) {
-      // V3 format (already 3D)
-      animationPoints.push(...animation.controlPoints)
-    } else if (animation.keyframes) {
-      // Extract from keyframes
-      animation.keyframes.forEach((kf: any) => {
-        animationPoints.push(
-          new THREE.Vector3(
-            kf.position?.x ?? 0,
-            kf.position?.y ?? 0,
-            kf.position?.z ?? 0
-          )
-        )
-      })
-    }
-
-    // Create control point objects
-    const newPoints: ControlPoint3D[] = animationPoints.map((pos, index) => {
-      const mesh = createControlPointMesh(pos.clone(), index, false)
       sceneRef.current!.add(mesh)
+      meshesRef.current.push(mesh) // Track for cleanup
 
       return {
-        id: `cp-${index}-${Date.now()}`,
-        index,
-        position: pos.clone(),
-        mesh,
-        isSelected: false,
-      }
-    })
-
-    setControlPoints(newPoints)
-    updateCurve(newPoints)
-  }, [animation, createControlPointMesh, updateCurve])
-
-  // Update control point position
-  const updateControlPoint = useCallback(
-    (index: number, position: THREE.Vector3) => {
-      setControlPoints((prev) => {
-        const updated = [...prev]
-        if (updated[index]) {
-          updated[index].position.copy(position)
-          updated[index].mesh.position.copy(position)
-          updateCurve(updated)
-        }
-        return updated
-      })
-    },
-    [updateCurve]
-  )
-
-  // Add new control point
-  const addControlPoint = useCallback(
-    (position: THREE.Vector3, insertIndex?: number) => {
-      if (!sceneRef.current) return
-
-      const index = insertIndex ?? controlPoints.length
-      const mesh = createControlPointMesh(position, index, false)
-      sceneRef.current.add(mesh)
-
-      const newPoint: ControlPoint3D = {
-        id: `cp-${index}-${Date.now()}`,
+        id: `cp-${index}`,
         index,
         position: position.clone(),
         mesh,
-        isSelected: false,
+        isSelected,
       }
+    })
 
-      setControlPoints((prev) => {
-        const updated = [...prev]
-        updated.splice(index, 0, newPoint)
-        
-        // Re-index all points after insertion
-        updated.forEach((p, i) => {
-          p.index = i
-          p.mesh.userData.index = i
-        })
-        
-        updateCurve(updated)
-        return updated
-      })
-    },
-    [controlPoints.length, createControlPointMesh, updateCurve]
-  )
-
-  // Remove control point
-  const removeControlPoint = useCallback(
-    (index: number) => {
-      if (!sceneRef.current) return
-
-      setControlPoints((prev) => {
-        const updated = [...prev]
-        const removed = updated[index]
-        
-        if (removed) {
-          sceneRef.current!.remove(removed.mesh)
-          removed.mesh.geometry.dispose()
-          ;(removed.mesh.material as THREE.Material).dispose()
-          
-          updated.splice(index, 1)
-          
-          // Re-index remaining points
-          updated.forEach((p, i) => {
-            p.index = i
-            p.mesh.userData.index = i
-          })
-          
-          updateCurve(updated)
-        }
-        
-        return updated
-      })
-    },
-    [updateCurve]
-  )
-
-  // Select control point
-  const selectControlPoint = useCallback((index: number | null) => {
-    setSelectedIndex(index)
+    // Generate animation-specific path visualization
+    const pathPoints = generateAnimationPath(animation, controlPointPositions)
     
-    setControlPoints((prev) => {
-      const updated = prev.map((point) => {
-        const isSelected = point.index === index
-        point.isSelected = isSelected
-        
-        // Update mesh color
-        const material = point.mesh.material as THREE.MeshBasicMaterial
-        if (isSelected) {
-          material.color.set(0xffff00) // Yellow
-        } else if (point.index === 0) {
-          material.color.set(0x00ff00) // Green
-        } else {
-          material.color.set(0x4a9eff) // Blue
-        }
-        
-        // Show/hide outline
-        const outline = point.mesh.children.find((child) => child.userData.isOutline)
-        if (outline) {
-          outline.visible = isSelected
-        }
-        
-        return point
+    if (pathPoints.length >= 2) {
+      const curveGeometry = new THREE.BufferGeometry().setFromPoints(pathPoints)
+
+      // Add gradient color
+      const colors = new Float32Array(pathPoints.length * 3)
+      for (let i = 0; i < pathPoints.length; i++) {
+        const t = i / (pathPoints.length - 1)
+        const color = new THREE.Color()
+        color.setHSL(0.3 - t * 0.3, 1.0, 0.5) // Green to red
+        colors[i * 3] = color.r
+        colors[i * 3 + 1] = color.g
+        colors[i * 3 + 2] = color.b
+      }
+      curveGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+
+      const curveMaterial = new THREE.LineBasicMaterial({
+        vertexColors: true,
+        linewidth: 2,
       })
+
+      const curve = new THREE.Line(curveGeometry, curveMaterial)
+      sceneRef.current.add(curve)
+      curveRef.current = curve
       
+      console.log('✅ Path generated:', pathPoints.length, 'points for type:', animation?.type)
+    } else {
+      console.log('⚠️ No path generated for type:', animation?.type, '(need 2+ points)')
+    }
+
+    setControlPoints(newControlPoints)
+    console.log('✅ Control points updated:', newControlPoints.length)
+  }, [controlPointPositions, selectedIndex])
+
+  // ========================================
+  // Helper functions
+  // ========================================
+  const updateControlPoint = useCallback((index: number, position: THREE.Vector3) => {
+    setControlPoints(prev => {
+      const updated = [...prev]
+      if (updated[index]) {
+        updated[index].position.copy(position)
+        updated[index].mesh.position.copy(position)
+      }
       return updated
     })
   }, [])
 
-  // Get selected point
+  const selectControlPoint = useCallback((index: number | null) => {
+    setSelectedIndex(index)
+  }, [])
+
   const getSelectedPoint = useCallback(() => {
-    return controlPoints.find((p) => p.isSelected) ?? null
-  }, [controlPoints])
+    if (selectedIndex === null) return null
+    return controlPoints[selectedIndex] || null
+  }, [selectedIndex, controlPoints])
+
+  // Dummy functions for compatibility (not needed in simple architecture)
+  const addControlPoint = useCallback(() => {
+    console.warn('addControlPoint not implemented in simple architecture')
+  }, [])
+
+  const removeControlPoint = useCallback(() => {
+    console.warn('removeControlPoint not implemented in simple architecture')
+  }, [])
 
   return {
     scene: sceneRef.current,
     controlPoints,
-    curve,
+    curve: curveRef.current,
     updateControlPoint,
     addControlPoint,
     removeControlPoint,

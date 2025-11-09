@@ -97,31 +97,48 @@ export const useControlPointSelection = ({
    */
   const handleClick = useCallback(
     (event: MouseEvent) => {
-      if (!scene) return
+      console.log('🖱️ Click detected in selection handler')
+      
+      if (!scene) {
+        console.log('❌ No scene')
+        return
+      }
 
       const canvas = event.target as HTMLCanvasElement
-      if (!canvas) return
+      if (!canvas) {
+        console.log('❌ No canvas')
+        return
+      }
 
       // Find which viewport was clicked
       const view = getViewFromMouseEvent(event, canvas)
-      if (!view) return
+      if (!view) {
+        console.log('❌ No view found')
+        return
+      }
 
       // Get normalized mouse coordinates for this viewport
       const mouse = getNormalizedMouseCoords(event, canvas, view.viewport)
+      console.log('📍 Mouse coords:', mouse)
 
       // Update raycaster
       raycaster.current.setFromCamera(mouse, view.camera)
 
       // Check for intersections with control point meshes
       const meshes = controlPointsRef.current.map((p) => p.mesh)
+      console.log('🎯 Testing', meshes.length, 'control point meshes')
+      
       const intersects = raycaster.current.intersectObjects(meshes, false)
+      console.log('🎯 Intersections found:', intersects.length)
 
       if (intersects.length > 0) {
         // Select the clicked point
         const index = intersects[0].object.userData.index as number
+        console.log('✅ Selected control point:', index)
         onSelect(index)
       } else {
         // Clicked empty space - deselect
+        console.log('⭕ Clicked empty space - deselect')
         onSelect(null)
       }
     },
