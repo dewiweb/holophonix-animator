@@ -1,0 +1,72 @@
+name: Version Bump and Tag
+
+on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'package.json'
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up environment
+        run: |
+          echo "ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/" >> $GITHUB_ENV
+          echo "ELECTRON_CUSTOM_DIR={{ version }}" >> $GITHUB_ENV
+          
+      - name: Install dependencies with retry
+        uses: nick-invision/retry@v2
+        with:
+          max_attempts: 3
+          timeout_minutes: 10
+          command: npm ci
+          
+      - name: Get previous and current versions
+        id: versions
+        run: |
+          # Get current version from the commit
+          CURRENT_VERSION=$(jq -r .version package.json)
+          
+          # Get previous version from the parent commit
+          git checkout HEAD^ -- package.json 2>/dev/null || true
+          PREVIOUS_VERSION=$(jq -r .version package.json 2>/dev/null || echo "")
+          
+          # Restore package.json
+          git checkout HEAD -- package.json
+          
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "previous_version=$PREVIOUS_VERSION" >> $GITHUB_OUTPUT
+          
+          # Only continue if version has changed and package.json was actually modified
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ] && [ -n "$PREVIOUS_VERSION" ]; then
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          
+          # Only proceed if version has changed
+          if [ "${{ steps.versions.outputs.version_changed }}" = "true" ] && [ -n "${{ steps.versions.outputs.current_version }}" ]; then
+            VERSION="${{ steps.versions.outputs.current_version }}"
+            # Check if tag already exists
+            if ! git show-ref --tags "v$VERSION"; then
+              git tag -a "v$VERSION" -m "Release v$VERSION"
+              git push origin "v$VERSION"
+              echo "Created and pushed tag v$VERSION"
+            else
+              echo "Tag v$VERSION already exists"
+            fi
+          else
+            echo "Version not changed or invalid, skipping tag creation"
+          fi

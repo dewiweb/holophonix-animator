@@ -324,6 +324,15 @@ export const useProjectStore = create<ProjectState>()(
     },
 
     updateTrack: (id: string, updates: Partial<Track>) => {
+      // DEBUG: Log animationState updates
+      if (updates.animationState) {
+        console.log(`🔧 projectStore.updateTrack: Updating track ${id} animationState:`, {
+          hasAnimation: !!updates.animationState.animation,
+          animationId: updates.animationState.animation?.id,
+          isPlaying: updates.animationState.isPlaying
+        })
+      }
+      
       set(state => {
         // Find the track
         const trackIndex = state.tracks.findIndex(t => t.id === id)

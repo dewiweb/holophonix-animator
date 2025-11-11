@@ -15,6 +15,7 @@ export interface Position {
   x: number;
   y: number;
   z: number;
+  radius?: number; // Optional: for custom barycentric variant orbital arrangement
 }
 
 export interface CoordinateSystem {
@@ -40,7 +41,6 @@ export type AnimationType =
   | 'elliptical'
   | 'spiral'
   | 'random'
-  | 'custom'
   // Physics-based animations
   | 'pendulum'
   | 'bounce'
@@ -57,10 +57,6 @@ export type AnimationType =
   | 'perlin-noise'
   | 'rose-curve'
   | 'epicycloid'
-  // Multi-object & interactive
-  | 'orbit'
-  | 'formation'
-  | 'attract-repel'
   // Specialized spatial audio
   | 'doppler'
   | 'circular-scan'
@@ -72,6 +68,31 @@ export type InterpolationType =
   | 'ease-out'
   | 'ease-in-out'
   | 'cubic-bezier';
+
+// ========================================
+// SUBANIMATION SYSTEM (Fade-in/Fade-out)
+// ========================================
+
+export type SubanimationType = 
+  | 'fade-in'      // Ease to animation start position
+  | 'fade-out'     // Ease to initial/home position
+  | 'crossfade'    // Blend between two animations (future)
+  | 'hold';        // Hold at position (future)
+
+export interface SubanimationConfig {
+  id: string;
+  type: SubanimationType;
+  duration: number;          // Duration in seconds
+  easing: InterpolationType; // Reuse existing easing types
+  
+  // Target positions (if undefined, use defaults)
+  fromPosition?: Position;   // If undefined, use current position
+  toPosition?: Position;     // If undefined, use animation start or initial position
+  
+  // Behavior
+  autoTrigger: boolean;      // Auto-play when animation starts/stops
+  enabled: boolean;          // Can be disabled without removing config
+}
 
 export interface Keyframe {
   id: string;
@@ -278,15 +299,58 @@ export interface AnimationParameters {
   // INTERNAL PARAMETERS (for multi-track modes)
   // ========================================
 
-  // Isobarycenter mode
-  _isobarycenter?: Position;   // Internal: barycenter position for formation
+  // Barycentric mode internals
+  _isobarycenter?: Position;   // Internal: auto-calculated barycenter (isobarycentric variant)
+  _customCenter?: Position;    // Internal: user-defined center (centered variant)
   _trackOffset?: Position;     // Internal: offset from barycenter/center for this track
   
-  // Centered mode
-  _centeredPoint?: Position;   // Internal: user-defined center point for centered mode
+  // Multi-track mode
+  _multiTrackMode?: 'relative' | 'barycentric';  // Internal: base mode (relative or barycentric/formation)
+}
+
+// ========================================
+// UNIFIED TRANSFORM MODEL (v3 Architecture)
+// ========================================
+
+/**
+ * Track transformation: how to transform animation for a specific track
+ * Applied AFTER model calculation, never inside model
+ */
+export interface TrackTransform {
+  offset: Position;      // Position offset to apply after calculation
+  timeShift: number;     // Phase offset in seconds
+}
+
+/**
+ * Transform modes define how animation is distributed across tracks
+ */
+export type TransformMode = 
+  | 'absolute'    // Single track, no transformation (default)
+  | 'relative'    // Each track has own offset (independent movement)
+  | 'formation'   // Tracks move as formation around anchor
+
+/**
+ * Formation patterns for formation mode
+ */
+export type FormationPattern =
+  | 'rigid'      // Tracks maintain exact offsets (isobarycentric/centered)
+  | 'spherical'  // Tracks distributed on sphere surface (custom variant)
+
+/**
+ * Animation transform metadata
+ * Defines how animation is transformed for multi-track playback
+ */
+export interface AnimationTransform {
+  mode: TransformMode;
   
-  // Multi-track mode (for OSC optimization)
-  _multiTrackMode?: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered';  // Internal: mode used for OSC message optimization
+  // Per-track transformations (offset + time shift)
+  tracks: Record<string, TrackTransform>;
+  
+  // Formation-specific data (only for mode === 'formation')
+  formation?: {
+    anchor: Position;          // Center point of formation
+    pattern: FormationPattern; // How tracks are arranged
+  };
 }
 
 export interface Animation {
@@ -296,14 +360,20 @@ export interface Animation {
   duration: number;      // Duration in seconds
   loop: boolean;
   pingPong?: boolean;    // When true, animation plays forward then backward (requires loop)
-  parameters: AnimationParameters;
+  parameters: AnimationParameters;  // ALWAYS in absolute coordinates
   keyframes?: Keyframe[];
   coordinateSystem: CoordinateSystem;
-  // Multi-track support
-  multiTrackMode?: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered' | 'leader-followers';
-  multiTrackParameters?: Record<string, AnimationParameters>; // Per-track parameters for position-relative mode
-  phaseOffsetSeconds?: number; // For phase-offset modes
-  centerPoint?: Position; // For centered mode: user-defined center point (default: 0,0,0)
+  
+  // V3 UNIFIED TRANSFORM
+  transform?: AnimationTransform;  // Optional: if undefined, single-track absolute mode
+  
+  // Track locking
+  trackIds?: string[];   // If set, animation is locked to these specific tracks
+  trackSelectionLocked?: boolean; // If true, tracks cannot be changed in cue editor
+  
+  // SUBANIMATIONS (Fade-in/Fade-out)
+  fadeIn?: SubanimationConfig;   // Ease to animation start position before playback
+  fadeOut?: SubanimationConfig;  // Ease to initial/home position after playback
 }
 
 export interface AnimationPreset {

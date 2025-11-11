@@ -1,80 +1,28 @@
 import { create } from 'zustand'
 import { Animation, AnimationState, Position, AnimationType } from '@/types'
 import { useProjectStore } from './projectStore'
-import { useOSCStore } from './oscStore'
 import { useSettingsStore } from './settingsStore'
-import { calculatePosition } from '@/utils/animations'
+import { modelRuntime } from '@/models/runtime'
+import { type CalculationContext } from '@/models/types'
 import { oscBatchManager } from '@/utils/oscBatchManager'
+import { modelRegistry } from '@/models/registry'
 import { oscInputManager } from '@/utils/oscInputManager'
 import { oscMessageOptimizer, type TrackPositionUpdate } from '@/utils/oscMessageOptimizer'
+import { applyTransform, getTrackTime } from '@/utils/transformApplication'
+import { 
+  calculateAnimationTime,
+  createTimingState,
+  pauseTimingState,
+  resumeTimingState,
+  resetTimingState,
+  type AnimationTimingState
+} from '@/utils/animationTiming'
 
-/**
- * Rotate offset for rotational animations to maintain formation shape
- * For circular/spiral/etc animations, offsets must rotate with the animation
- */
-function rotateOffsetForAnimation(
-  offset: Position,
-  animationType: AnimationType,
-  params: any,
-  time: number,
-  duration: number
-): Position {
-  // Only rotate for rotational animations
-  const rotationalTypes: AnimationType[] = ['circular', 'spiral', 'orbit', 'circular-scan', 'rose-curve', 'epicycloid']
-  
-  if (!rotationalTypes.includes(animationType)) {
-    // Non-rotational animations: offset stays fixed
-    return offset
-  }
-  
-  // Calculate rotation angle based on animation type
-  let rotationAngle = 0
-  
-  if (animationType === 'circular' || animationType === 'circular-scan') {
-    const startAngle = (Number(params?.startAngle) || 0) * (Math.PI / 180)
-    const endAngle = (Number(params?.endAngle) || 360) * (Math.PI / 180)
-    const t = Math.min(time / (duration || 1), 1)
-    rotationAngle = startAngle + (endAngle - startAngle) * t
-  } else if (animationType === 'spiral') {
-    const rotations = Number(params?.rotations) || 3
-    const t = Math.min(time / (duration || 1), 1)
-    rotationAngle = t * rotations * 2 * Math.PI
-  } else if (animationType === 'orbit') {
-    const speed = Number(params?.speed) || 1
-    rotationAngle = (time / duration) * speed * 2 * Math.PI
-  }
-  
-  // Get plane of rotation
-  const plane = params?.plane || 'xy'
-  
-  // Rotate offset in the appropriate plane
-  if (plane === 'xy') {
-    const cos = Math.cos(rotationAngle)
-    const sin = Math.sin(rotationAngle)
-    return {
-      x: offset.x * cos - offset.y * sin,
-      y: offset.x * sin + offset.y * cos,
-      z: offset.z
-    }
-  } else if (plane === 'xz') {
-    const cos = Math.cos(rotationAngle)
-    const sin = Math.sin(rotationAngle)
-    return {
-      x: offset.x * cos - offset.z * sin,
-      y: offset.y,
-      z: offset.x * sin + offset.z * cos
-    }
-  } else if (plane === 'yz') {
-    const cos = Math.cos(rotationAngle)
-    const sin = Math.sin(rotationAngle)
-    return {
-      x: offset.x,
-      y: offset.y * cos - offset.z * sin,
-      z: offset.y * sin + offset.z * cos
-    }
-  }
-  
-  return offset
+// Track playing animation instances
+interface PlayingAnimation {
+  animationId: string
+  trackIds: string[]
+  timingState: AnimationTimingState  // v3: Use dedicated timing engine
 }
 
 interface AnimationEngineState {
@@ -82,16 +30,21 @@ interface AnimationEngineState {
   isPlaying: boolean
   globalTime: number
   playbackSpeed: number
-  currentAnimationId: string | null
-  currentTrackIds: string[]  // Changed from singular to array for multi-track support
+  currentAnimationId: string | null  // Keep for backward compatibility
+  currentTrackIds: string[]  // Keep for backward compatibility
+  
+  // Multiple animation support
+  playingAnimations: Map<string, PlayingAnimation>  // Map of animationId to PlayingAnimation
 
   // Animation management
   playAnimation: (animationId: string, trackIds?: string[]) => void  // Support multiple tracks
-  pauseAnimation: () => void
-  stopAnimation: () => void
+  pauseAnimation: (animationId?: string) => void  // Optional animationId to pause specific animation
+  stopAnimation: (animationId?: string) => void  // Optional animationId to stop specific animation
+  stopAllAnimations: () => void  // Stop all playing animations
   seekTo: (time: number) => void
   goToStart: (durationMs?: number, trackIds?: string[]) => void
   _startPlayback: (animationId: string, trackIds: string[]) => void
+  _easeToPositions: (tracks: Array<{trackId: string, from: Position, to: Position}>, durationMs: number, onComplete?: () => void) => void
 
   // Real-time computation
   getTrackPosition: (trackId: string, time?: number) => Position | null
@@ -118,7 +71,6 @@ interface AnimationEngineState {
   pendingPlay: { animationId: string; trackIds: string[] } | null
 }
 
-
 export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
   // Initial state
   isPlaying: false,
@@ -126,6 +78,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
   playbackSpeed: 1,
   currentAnimationId: null,
   currentTrackIds: [],
+  playingAnimations: new Map(),
   frameCount: 0,
   averageFrameTime: 0,
   isEngineRunning: false,
@@ -139,343 +92,520 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
 
   playAnimation: (animationId: string, trackIds: string[] = []) => {
     console.log('playAnimation called with ID:', animationId, 'tracks:', trackIds)
-    // Queue a go-to-start transition, then start playback automatically
-    set({ pendingPlay: { animationId, trackIds } })
-    // Use a short easing; configurable if needed later
-    get().goToStart(400, trackIds)
-  },
-
-  _startPlayback: (animationId: string, trackIds: string[] = []) => {
-    set({ 
-      isPlaying: true,
-      globalTime: 0,
-      currentAnimationId: animationId,
-      currentTrackIds: trackIds,
-      loopCount: 0,
-      isReversed: false
-    })
-
-    // Configure OSC optimizer
+    
+    const playingAnimations = new Map(get().playingAnimations)
+    
+    // Check if this animation is already playing
+    const existingAnimation = playingAnimations.get(animationId)
+    if (existingAnimation) {
+      // If paused, resume it using timing engine
+      if (existingAnimation.timingState.isPaused) {
+        console.log('▶️ Resuming paused animation:', animationId)
+        
+        const resumedState = resumeTimingState(existingAnimation.timingState, Date.now())
+        const updatedAnimation: PlayingAnimation = {
+          ...existingAnimation,
+          timingState: resumedState
+        }
+        playingAnimations.set(animationId, updatedAnimation)
+        
+        set({ 
+          playingAnimations,
+          isPlaying: true,
+          currentAnimationId: animationId,
+          currentTrackIds: existingAnimation.trackIds
+        })
+        
+        // Make sure engine is running
+        if (!get().isEngineRunning) {
+          get().startEngine()
+        }
+        return
+      } else {
+        // Already playing and not paused
+        console.log('Animation', animationId, 'is already playing')
+        return
+      }
+    }
+    
+    // NEW ANIMATION START: Check for fade-in subanimation
+    console.log('🎬 Starting new animation - checking for fade-in subanimation')
+    
     const projectStore = useProjectStore.getState()
-    oscMessageOptimizer.updateSettings({
-      enableIncrementalUpdates: true,
-      enablePatternMatching: true,
-      autoSelectCoordinateSystem: true,
-      incrementalThreshold: 0.5,
-      singleAxisThreshold: 0.9,
-      forceCoordinateSystem: undefined
-    })
-    oscMessageOptimizer.setTotalTracks(projectStore.tracks.length)
-    oscMessageOptimizer.reset()
-
-    // Store initial positions and mark tracks as playing
-    if (trackIds.length > 0) {
+    const baseAnimation = projectStore.animations.find(a => a.id === animationId)
+    
+    // Check if animation has fade-in subanimation configured
+    const hasFadeIn = baseAnimation?.fadeIn?.enabled && baseAnimation?.fadeIn?.autoTrigger
+    
+    if (hasFadeIn && baseAnimation) {
+      console.log(`  🎭 Fade-in detected: ${baseAnimation.fadeIn!.duration}s ${baseAnimation.fadeIn!.easing}`)
+      console.log(`  📐 Computing animation start positions at t=0...`)
+      
+      // Collect tracks to ease from current position to animation start position
+      const tracksToEase: Array<{trackId: string, from: Position, to: Position}> = []
+      
       trackIds.forEach(trackId => {
         const track = projectStore.tracks.find(t => t.id === trackId)
-        if (track) {
-          const shouldSetInitialPos = !track.initialPosition
+        if (!track) return
+        
+        // Store track's current position as initialPosition (for fade-out later)
+        if (!track.initialPosition) {
+          console.log(`  💾 Storing initial position for track ${track.name || trackId}`)
           projectStore.updateTrack(trackId, {
-            ...(shouldSetInitialPos ? { initialPosition: { ...track.position } } : {}),
-            animationState: track.animationState ? { ...track.animationState, isPlaying: true } : null
+            initialPosition: { ...track.position }
+          })
+        }
+        
+        // Calculate the animation's starting position at t=0
+        // Use per-track animation if available (relative mode), otherwise base animation
+        const animation = track.animationState?.animation || baseAnimation
+        
+        // Build calculation context for t=0
+        const context: CalculationContext = {
+          trackId,
+          time: 0,
+          duration: animation.duration,
+          deltaTime: 0,
+          frameCount: 0,
+          state: new Map(),
+        }
+        
+        // Calculate base position at t=0
+        const basePositionAtStart = modelRuntime.calculatePosition(animation, 0, 0, context)
+        
+        // Apply transform to get final start position (handles multi-track offsets, etc.)
+        const animationStartPos = applyTransform(basePositionAtStart, trackId, animation, 0)
+        
+        // Check if current position differs from animation start
+        const posChanged = 
+          Math.abs(track.position.x - animationStartPos.x) > 0.001 ||
+          Math.abs(track.position.y - animationStartPos.y) > 0.001 ||
+          Math.abs(track.position.z - animationStartPos.z) > 0.001
+        
+        if (posChanged) {
+          console.log(`  📍 ${track.name || trackId}:`)
+          console.log(`     Current: ${JSON.stringify(track.position)}`)
+          console.log(`     → Animation start (t=0): ${JSON.stringify(animationStartPos)}`)
+          tracksToEase.push({
+            trackId,
+            from: { ...track.position },
+            to: { ...animationStartPos }
+          })
+        } else {
+          console.log(`  ✓ ${track.name || trackId}: Already at animation start position`)
+        }
+      })
+      
+      // Execute fade-in subanimation if needed
+      if (tracksToEase.length > 0) {
+        console.log(`  🎯 Fade-in: ${tracksToEase.length} tracks, ${baseAnimation.fadeIn!.duration}s`)
+        const fadeInDurationMs = baseAnimation.fadeIn!.duration * 1000
+        
+        get()._easeToPositions(tracksToEase, fadeInDurationMs, () => {
+          // After fade-in completes: Start main animation
+          console.log('✅ Fade-in complete - starting main animation')
+          
+          const currentPlayingAnimations = new Map(get().playingAnimations)
+          currentPlayingAnimations.set(animationId, {
+            animationId,
+            trackIds,
+            timingState: createTimingState(Date.now())
+          })
+          
+          set({ 
+            playingAnimations: currentPlayingAnimations,
+            isPlaying: true,
+            currentAnimationId: animationId,
+            currentTrackIds: trackIds
+          })
+          
+          // Start the engine if not running
+          if (!get().isEngineRunning) {
+            get().startEngine()
+          }
+        })
+        return // Wait for fade-in to complete
+      } else {
+        console.log('  ✓ Already at start position - no fade-in needed')
+      }
+    } else {
+      console.log('  ℹ️ No fade-in subanimation configured')
+      
+      // Store initial positions for tracks that don't have them
+      trackIds.forEach(trackId => {
+        const track = projectStore.tracks.find(t => t.id === trackId)
+        if (track && !track.initialPosition) {
+          projectStore.updateTrack(trackId, {
+            initialPosition: { ...track.position }
           })
         }
       })
     }
-
+    
+    // Start immediately (no fade-in or already at position)
+    playingAnimations.set(animationId, {
+      animationId,
+      trackIds,
+      timingState: createTimingState(Date.now())
+    })
+    
+    set({ 
+      playingAnimations,
+      isPlaying: true,
+      currentAnimationId: animationId,
+      currentTrackIds: trackIds
+    })
+    
     if (!get().isEngineRunning) {
       get().startEngine()
     }
   },
 
-  goToStart: (durationMs?: number, trackIdsParam?: string[]) => {
-    const state = get()
-    // Pause playback during transition
-    if (state.isPlaying) {
-      get().pauseAnimation()
-    }
-
-    const projectStore = useProjectStore.getState()
-    const settingsStore = useSettingsStore.getState()
-    const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
-
-    // Ensure OSC batch manager has a send callback even when engine is not running (pre-roll easing)
-    const oscStoreForGoToStart = useOSCStore.getState()
-    oscBatchManager.setSendCallback(async (batch) => {
-      oscStoreForGoToStart.sendBatchAsync(batch)
-    })
-
-    const targetTrackIds = (trackIdsParam && trackIdsParam.length > 0) ? [...trackIdsParam] : [...state.currentTrackIds]
-    if (targetTrackIds.length === 0) {
-      // No targets to ease; if a play is pending, start immediately
-      const pending = get().pendingPlay
-      if (pending) {
-        get()._startPlayback(pending.animationId, pending.trackIds)
-      }
-      return
-    }
-
-    // Cancel any ongoing go-to-start interpolation
-    if (state.goToStartInterpolationId !== null) {
-      clearTimeout(state.goToStartInterpolationId)
-    }
-
-    const duration = typeof durationMs === 'number' && durationMs > 0 ? durationMs : 1000 // ms
-    const startTime = Date.now()
-
-    // Build targets at t=0 per track using same offset logic as engine
-    const trackTargets = targetTrackIds.map(trackId => {
-      const track = projectStore.tracks.find(t => t.id === trackId)
-      if (!track || !track.animationState?.animation) return null
-      const animation = track.animationState.animation
-      const enhancedAnimation = animation.type === 'custom' && track.initialPosition
-        ? {
-            ...animation,
-            parameters: {
-              ...animation.parameters,
-              initialPosition: track.initialPosition
-            }
-          }
-        : animation
-
-      let position = calculatePosition(enhancedAnimation, 0, 0)
-      const params = enhancedAnimation.parameters as any
-
-      if (params._isobarycenter && params._trackOffset) {
-        const offset = params._trackOffset
-        const rotatedOffset = rotateOffsetForAnimation(
-          offset,
-          enhancedAnimation.type,
-          params,
-          0,
-          enhancedAnimation.duration
-        )
-        position = { x: position.x + rotatedOffset.x, y: position.y + rotatedOffset.y, z: position.z + rotatedOffset.z }
-      }
-
-      if (params._centeredPoint && params._trackOffset) {
-        const offset = params._trackOffset
-        const rotatedOffset = rotateOffsetForAnimation(
-          offset,
-          enhancedAnimation.type,
-          params,
-          0,
-          enhancedAnimation.duration
-        )
-        position = { x: position.x + rotatedOffset.x, y: position.y + rotatedOffset.y, z: position.z + rotatedOffset.z }
-      }
-
-      return { track, target: position }
-    }).filter(Boolean) as Array<{ track: any; target: Position }>
-
-    if (trackTargets.length === 0) return
-
-    set({ isGoingToStart: true })
-
-    let lastFlush = 0
-    const step = () => {
-      const now = Date.now()
-      const t = Math.min((now - startTime) / duration, 1)
-      const eased = t * (2 - t)
-
-      trackTargets.forEach(({ track, target }) => {
-        const current = track.position
-        const newPos = {
-          x: current.x + (target.x - current.x) * eased,
-          y: current.y + (target.y - current.y) * eased,
-          z: current.z + (target.z - current.z) * eased
+  pauseAnimation: (animationId?: string) => {
+    const currentTime = Date.now()
+    
+    if (animationId) {
+      // Pause specific animation using timing engine
+      const playingAnimations = new Map(get().playingAnimations)
+      const animation = playingAnimations.get(animationId)
+      if (animation) {
+        console.log('⏸️ Pausing animation:', animationId)
+        
+        const pausedState = pauseTimingState(animation.timingState, currentTime)
+        const updatedAnimation: PlayingAnimation = {
+          ...animation,
+          timingState: pausedState
         }
-        projectStore.updateTrack(track.id, { position: newPos })
-        if (track.holophonixIndex) {
-          oscBatchManager.addMessage(track.holophonixIndex, newPos, coordType)
+        playingAnimations.set(animationId, updatedAnimation)
+        
+        // Check if any animations are still playing (not paused)
+        const anyStillPlaying = Array.from(playingAnimations.values()).some(a => !a.timingState.isPaused)
+        
+        set({ 
+          playingAnimations,
+          isPlaying: anyStillPlaying,
+          // Update current animation if this was the current one
+          ...(get().currentAnimationId === animationId && !anyStillPlaying ? {
+            currentAnimationId: null,
+            currentTrackIds: []
+          } : {})
+        })
+      }
+    } else {
+      // Pause all animations using timing engine
+      const playingAnimations = new Map(get().playingAnimations)
+      playingAnimations.forEach((animation, id) => {
+        console.log('⏸️ Pausing animation (all):', id)
+        
+        const pausedState = pauseTimingState(animation.timingState, currentTime)
+        const updatedAnimation: PlayingAnimation = {
+          ...animation,
+          timingState: pausedState
         }
+        playingAnimations.set(id, updatedAnimation)
       })
-
-      const currentTime = Date.now()
-      if (currentTime - lastFlush >= 33) {
-        oscBatchManager.flushBatch()
-        lastFlush = currentTime
-      }
-
-      if (t < 1 && get().isGoingToStart) {
-        const id = setTimeout(step, 16) as unknown as number
-        set({ goToStartInterpolationId: id })
-      } else {
-        // Final flush and clear state
-        oscBatchManager.flushBatch()
-        const pending = get().pendingPlay
-        set({ goToStartInterpolationId: null, isGoingToStart: false, pendingPlay: null })
-        if (pending) {
-          get()._startPlayback(pending.animationId, pending.trackIds)
-        }
-      }
+      set({ playingAnimations, isPlaying: false })
     }
-
-    step()
   },
 
-  pauseAnimation: () => {
+  stopAnimation: (animationId?: string) => {
     const state = get()
-    set({ isPlaying: false })
+    const projectStore = useProjectStore.getState()
     
-    // Update all tracks' animationState.isPlaying in project store
-    if (state.currentTrackIds.length > 0) {
-      const projectStore = useProjectStore.getState()
-      state.currentTrackIds.forEach(trackId => {
-        const track = projectStore.tracks.find(t => t.id === trackId)
-        if (track?.animationState) {
-          projectStore.updateTrack(trackId, {
-            animationState: {
-              ...track.animationState,
-              isPlaying: false
+    if (animationId) {
+      // Stop specific animation
+      const playingAnimations = new Map(state.playingAnimations)
+      const playingAnimation = playingAnimations.get(animationId)
+      if (playingAnimation) {
+        // Get base animation to check for fade-out config
+        const baseAnimation = projectStore.animations.find(a => a.id === animationId)
+        const hasFadeOut = baseAnimation?.fadeOut?.enabled && baseAnimation?.fadeOut?.autoTrigger
+        
+        if (hasFadeOut && baseAnimation) {
+          console.log(`🎭 Fade-out detected: ${baseAnimation.fadeOut!.duration}s ${baseAnimation.fadeOut!.easing}`)
+          console.log(`📐 Returning tracks to initial positions...`)
+          
+          // Collect tracks to return to initial position
+          const tracksToReturn: Array<{trackId: string, from: Position, to: Position}> = []
+          
+          playingAnimation.trackIds.forEach(trackId => {
+            const track = projectStore.tracks.find(t => t.id === trackId)
+            if (track && track.initialPosition) {
+              // Check if position differs from initial
+              const posChanged = 
+                Math.abs(track.position.x - track.initialPosition.x) > 0.001 ||
+                Math.abs(track.position.y - track.initialPosition.y) > 0.001 ||
+                Math.abs(track.position.z - track.initialPosition.z) > 0.001
+              
+              if (posChanged) {
+                console.log(`  📍 ${track.name || trackId}:`)
+                console.log(`     Current: ${JSON.stringify(track.position)}`)
+                console.log(`     → Initial: ${JSON.stringify(track.initialPosition)}`)
+                tracksToReturn.push({
+                  trackId,
+                  from: { ...track.position },
+                  to: { ...track.initialPosition }
+                })
+              } else {
+                console.log(`  ✓ ${track.name || trackId}: Already at initial position`)
+              }
             }
           })
-        }
-      })
-    }
-  },
-
-  stopAnimation: () => {
-    const state = get()
-    
-    // CRITICAL: Capture currentTrackIds BEFORE clearing state
-    const trackIdsToReturn = [...state.currentTrackIds]
-    
-    // CRITICAL: Cancel any ongoing return-to-initial interpolation
-    if (state.returnInterpolationId !== null) {
-      clearTimeout(state.returnInterpolationId)
-    }
-    
-    // CRITICAL: Stop the engine FIRST to prevent more frames
-    get().stopEngine()
-    
-    // CRITICAL: Clear any pending OSC messages immediately
-    oscBatchManager.clearBatch()
-    
-    // CRITICAL: Clear OSC socket buffer to prevent desync
-    // Buffered messages would continue sending to device after UI stops
-    const oscStore = useOSCStore.getState()
-    const activeConnection = oscStore.getActiveConnection()
-    if (activeConnection?.isConnected) {
-      const hasElectronAPI = typeof window !== 'undefined' && (window as any).electronAPI
-      if (hasElectronAPI && (window as any).electronAPI.oscClearDeviceBuffer) {
-        // Fire-and-forget: clear the buffer without waiting
-        ;(window as any).electronAPI.oscClearDeviceBuffer(activeConnection.id).catch(() => {
-          console.warn('Could not clear OSC buffer')
-        })
-      }
-    }
-    
-    // CRITICAL: Clear animating tracks - listen to incoming positions again
-    oscInputManager.clearAnimatingTracks()
-    
-    set({
-      isPlaying: false,
-      globalTime: 0,
-      loopCount: 0,
-      isReversed: false,
-      isEngineRunning: false,
-      returnInterpolationId: null,
-      isReturningToInitial: false,
-      currentTrackIds: [], // Clear tracks to prevent any further processing
-    })
-    
-    // CRITICAL: Reduced delay to ensure all async operations complete/abort
-    // This prevents stale animation frames from interfering with return-to-initial
-    const cleanupDelay = 10 // ms - Reduced from 50ms for faster OSC response
-    
-    // Return all tracks to initial positions with smooth interpolation
-    if (trackIdsToReturn.length > 0) {
-      const projectStore = useProjectStore.getState()
-      const oscStore = useOSCStore.getState()
-      const settingsStore = useSettingsStore.getState()
-      const returnDuration = 1000 // ms - Keep 1 second return
-      const startTime = Date.now()
-      
-      // Store initial state for all tracks
-      const trackStates = trackIdsToReturn.map(trackId => {
-        const track = projectStore.tracks.find(t => t.id === trackId)
-        if (track) {
-          return {
-            trackId,
-            track,
-            initialPos: track.initialPosition || track.position,
-            currentPos: { ...track.position }
-          }
-        }
-        return null
-      }).filter(Boolean) as Array<{ trackId: string; track: any; initialPos: any; currentPos: any }>
-      
-      set({ isReturningToInitial: true })
-      
-      let lastInterpolationSendTime = 0
-      const interpolateBack = () => {
-        // Check if we should stop interpolation (user called stop again)
-        if (!get().isReturningToInitial) {
-          return
-        }
-        
-        const elapsed = Date.now() - startTime
-        const currentTime = Date.now()
-        const t = Math.min(elapsed / returnDuration, 1)
-        // Smooth easing with immediate start (ease-out-quad for gentler motion)
-        const eased = t * (2 - t)
-        
-        // Update all track positions and add to OSC batch
-        trackStates.forEach(({ track, initialPos, currentPos }) => {
-          const newPos = {
-            x: currentPos.x + (initialPos.x - currentPos.x) * eased,
-            y: currentPos.y + (initialPos.y - currentPos.y) * eased,
-            z: currentPos.z + (initialPos.z - currentPos.z) * eased
-          }
           
-          projectStore.updateTrack(track.id, { position: newPos })
-          
-          // ALWAYS add to batch - don't throttle adding, only throttle flushing
-          if (track.holophonixIndex) {
-            const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
-            oscBatchManager.addMessage(track.holophonixIndex, newPos, coordType)
+          // Execute fade-out if needed
+          if (tracksToReturn.length > 0) {
+            console.log(`  🎯 Fade-out: ${tracksToReturn.length} tracks, ${baseAnimation.fadeOut!.duration}s`)
+            const fadeOutDurationMs = baseAnimation.fadeOut!.duration * 1000
+            
+            // Remove from playing animations first
+            playingAnimations.delete(animationId)
+            const stillPlaying = playingAnimations.size > 0
+            
+            set({ 
+              playingAnimations,
+              isPlaying: stillPlaying,
+              // Clear backward compatibility fields if this was the current animation
+              ...(state.currentAnimationId === animationId ? {
+                currentAnimationId: null,
+                currentTrackIds: [],
+                globalTime: 0
+              } : {})
+            })
+            
+            // Execute fade-out with callback to stop engine AFTER fade-out completes
+            get()._easeToPositions(tracksToReturn, fadeOutDurationMs, () => {
+              console.log('✅ Fade-out complete')
+              // Stop engine only if no other animations are playing
+              if (get().playingAnimations.size === 0) {
+                get().stopEngine()
+              }
+            })
+          } else {
+            // No fade-out needed - stop immediately
+            playingAnimations.delete(animationId)
+            const stillPlaying = playingAnimations.size > 0
+            
+            set({ 
+              playingAnimations,
+              isPlaying: stillPlaying,
+              ...(state.currentAnimationId === animationId ? {
+                currentAnimationId: null,
+                currentTrackIds: [],
+                globalTime: 0
+              } : {})
+            })
+            
+            // Stop engine if no more animations
+            if (!stillPlaying) {
+              get().stopEngine()
+            }
           }
-        })
-        
-        // Flush batch at consistent intervals for smooth interpolation
-        const throttleRate = oscBatchManager.getAdaptiveThrottleRate()
-        if ((currentTime - lastInterpolationSendTime) >= throttleRate) {
-          oscBatchManager.flushBatch()
-          lastInterpolationSendTime = currentTime
-        }
-        
-        // Continue or finish
-        if (t < 1) {
-          const timeoutId = setTimeout(interpolateBack, 16) as unknown as number
-          set({ returnInterpolationId: timeoutId })
         } else {
-          // Flush any remaining messages
-          oscBatchManager.flushBatch()
+          console.log(`  ℹ️ No fade-out configured - stopping immediately`)
           
-          // Update animation states
-          trackStates.forEach(({ trackId, track }) => {
-            if (track.animationState) {
-              projectStore.updateTrack(trackId, {
-                animationState: {
-                  ...track.animationState,
-                  isPlaying: false
-                }
+          // Remove from playing animations
+          playingAnimations.delete(animationId)
+          const stillPlaying = playingAnimations.size > 0
+          
+          set({ 
+            playingAnimations,
+            isPlaying: stillPlaying,
+            ...(state.currentAnimationId === animationId ? {
+              currentAnimationId: null,
+              currentTrackIds: [],
+              globalTime: 0
+            } : {})
+          })
+          
+          // Stop engine if no more animations
+          if (!stillPlaying) {
+            get().stopEngine()
+          }
+        }
+      }
+    } else {
+      // Stop all animations
+      console.log('⏹️ Stopping all animations')
+      
+      // Check each animation's fade-out config and collect unique tracks
+      const tracksToReturn: Array<{trackId: string, from: Position, to: Position}> = []
+      const processedTracks = new Set<string>()
+      
+      state.playingAnimations.forEach((playingAnimation, animId) => {
+        const baseAnimation = projectStore.animations.find(a => a.id === animId)
+        const hasFadeOut = baseAnimation?.fadeOut?.enabled && baseAnimation?.fadeOut?.autoTrigger
+        
+        if (hasFadeOut) {
+          console.log(`  🎭 Animation "${baseAnimation?.name}" has fade-out configured`)
+        }
+        
+        playingAnimation.trackIds.forEach(trackId => {
+          // Skip if already processed (track could be in multiple animations)
+          if (processedTracks.has(trackId)) return
+          processedTracks.add(trackId)
+          
+          const track = projectStore.tracks.find(t => t.id === trackId)
+          if (track && track.initialPosition && hasFadeOut) {
+            const posChanged = 
+              Math.abs(track.position.x - track.initialPosition.x) > 0.001 ||
+              Math.abs(track.position.y - track.initialPosition.y) > 0.001 ||
+              Math.abs(track.position.z - track.initialPosition.z) > 0.001
+            
+            if (posChanged) {
+              tracksToReturn.push({
+                trackId,
+                from: { ...track.position },
+                to: { ...track.initialPosition }
               })
             }
-          })
-          
-          // Clear return state
-          set({ returnInterpolationId: null, isReturningToInitial: false })
-        }
-      }
+          }
+        })
+      })
       
-      // Start after cleanup delay to ensure no interference from stale frames
-      setTimeout(() => {
-        // Double-check we're still supposed to return (user didn't restart)
-        if (get().isReturningToInitial) {
-          interpolateBack()
+      // Clear all playing animations first
+      set({ 
+        playingAnimations: new Map(),
+        isPlaying: false,
+        currentAnimationId: null,
+        currentTrackIds: [],
+        globalTime: 0,
+        loopCount: 0,
+        isReversed: false
+      })
+      
+      // Execute fade-out if any tracks need returning
+      if (tracksToReturn.length > 0) {
+        // Use default fade-out duration when multiple animations (can be improved later)
+        console.log(`  🎯 Fade-out: ${tracksToReturn.length} tracks, 0.5s (default)`)
+        get()._easeToPositions(tracksToReturn, 500, () => {
+          console.log('✅ Fade-out complete - stopping engine')
+          get().stopEngine()
+          oscBatchManager.clearBatch()
+          oscInputManager.clearAnimatingTracks()
+        })
+      } else {
+        // No fade-out needed - stop immediately
+        get().stopEngine()
+        oscBatchManager.clearBatch()
+        oscInputManager.clearAnimatingTracks()
+      }
+    }
+  },
+  
+  stopAllAnimations: () => {
+    get().stopAnimation()
+  },
+
+  _startPlayback: (animationId: string, trackIds: string[] = []) => {
+    // Legacy function for compatibility - now just calls playAnimation
+    get().playAnimation(animationId, trackIds)
+  },
+
+  goToStart: (durationMs: number = 500, trackIds?: string[]) => {
+    const state = get()
+    const projectStore = useProjectStore.getState()
+    
+    // Determine which tracks to reset
+    let targetTracks: string[] = []
+    let affectedAnimationIds: string[] = []
+    
+    if (trackIds) {
+      // Use provided track IDs
+      targetTracks = trackIds
+    } else {
+      // Get tracks from ALL active playing animations
+      state.playingAnimations.forEach((playingAnimation) => {
+        targetTracks.push(...playingAnimation.trackIds)
+      })
+    }
+    
+    // Remove duplicates
+    targetTracks = [...new Set(targetTracks)]
+    
+    if (targetTracks.length === 0) {
+      console.warn('goToStart: No tracks to reset')
+      return
+    }
+    
+    console.log('🔄 goToStart for tracks:', targetTracks)
+    
+    // Collect tracks to ease to start position
+    const tracksToEase: Array<{trackId: string, from: Position, to: Position}> = []
+    targetTracks.forEach(trackId => {
+      const track = projectStore.tracks.find(t => t.id === trackId)
+      if (track && track.initialPosition) {
+        tracksToEase.push({
+          trackId,
+          from: { ...track.position },
+          to: { ...track.initialPosition }
+        })
+      }
+    })
+    
+    // IMPORTANT: Pause animations that use these tracks during easing
+    // This prevents the animation loop from overriding easing positions
+    const updatedPlayingAnimations = new Map(state.playingAnimations)
+    const currentTime = Date.now()
+    
+    updatedPlayingAnimations.forEach((playingAnimation, animationId) => {
+      // Check if this animation uses any of the target tracks
+      const hasTargetTrack = playingAnimation.trackIds.some(id => targetTracks.includes(id))
+      if (hasTargetTrack) {
+        console.log('  ⏸️ Pausing animation during goToStart:', animationId)
+        affectedAnimationIds.push(animationId)
+        
+        // Pause and reset timing state
+        updatedPlayingAnimations.set(animationId, {
+          ...playingAnimation,
+          timingState: {
+            ...resetTimingState(currentTime),
+            isPaused: true,  // Pause during easing
+            pausedTime: 0    // Start from 0 when resumed
+          }
+        })
+      }
+    })
+    
+    set({ 
+      playingAnimations: updatedPlayingAnimations,
+      globalTime: 0  // Keep for backward compat
+    })
+    
+    // Start easing animation to move tracks smoothly to start
+    if (tracksToEase.length > 0 && durationMs > 0) {
+      get()._easeToPositions(tracksToEase, durationMs, () => {
+        // Callback after easing completes: Resume paused animations
+        console.log('  ▶️ Resuming animations after goToStart easing')
+        const finalAnimations = new Map(get().playingAnimations)
+        affectedAnimationIds.forEach(animId => {
+          const anim = finalAnimations.get(animId)
+          if (anim && anim.timingState.isPaused) {
+            finalAnimations.set(animId, {
+              ...anim,
+              timingState: resumeTimingState(anim.timingState, Date.now())
+            })
+          }
+        })
+        set({ playingAnimations: finalAnimations })
+      })
+    } else if (tracksToEase.length > 0) {
+      // Instant move (no easing) - resume immediately
+      tracksToEase.forEach(({ trackId, to }) => {
+        projectStore.updateTrack(trackId, { position: to })
+      })
+      
+      // Resume animations immediately
+      const finalAnimations = new Map(get().playingAnimations)
+      affectedAnimationIds.forEach(animId => {
+        const anim = finalAnimations.get(animId)
+        if (anim && anim.timingState.isPaused) {
+          finalAnimations.set(animId, {
+            ...anim,
+            timingState: resumeTimingState(anim.timingState, Date.now())
+          })
         }
-      }, cleanupDelay)
+      })
+      set({ playingAnimations: finalAnimations })
     }
   },
 
@@ -483,14 +613,13 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     set({ globalTime: Math.max(0, time) })
   },
 
-  getTrackPosition: (trackId: string, time?: number): Position | null => {
-    const currentTime = time ?? get().globalTime
-    // Implementation will compute position based on animation state
+  getTrackPosition: (trackId: string, time?: number) => {
+    // Implementation would compute position based on animation state
     return null
   },
 
-  getAnimationState: (trackId: string): AnimationState | null => {
-    // Implementation will return current animation state for track
+  getAnimationState: (trackId: string) => {
+    // Implementation would return current animation state for track
     return null
   },
 
@@ -499,327 +628,232 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
 
     set({ isEngineRunning: true })
 
-    // Initialize OSC batch manager callback (use async non-blocking version)
-    const oscStore = useOSCStore.getState()
+    // Initialize OSC batch manager callback to actually send messages
     oscBatchManager.setSendCallback(async (batch) => {
-      // Use async fire-and-forget for animation performance
-      oscStore.sendBatchAsync(batch)
+      // Send batch through OSC store to electron/device
+      const oscStore = await import('./oscStore').then(m => m.useOSCStore.getState())
+      await oscStore.sendBatch(batch)
     })
 
     let lastTimestamp = Date.now()
-    let lastSuccessfulFlushTime = 0
-    let cleanupListener: (() => void) | null = null
-    
-    // Track previous positions for incremental OSC updates
-    const previousPositions = new Map<string, Position>()
-    let isFirstFrame = true  // Flag to send absolute positions on first frame
+    let animationFrameId: number | null = null
 
-    const targetFPS = 60
-    const frameInterval = 1000 / targetFPS // ~16.67ms for 60 FPS
-    
-    // Check if we're in Electron (use main process timer) or browser (fallback to setInterval)
-    const hasElectronAPI = typeof window !== 'undefined' && (window as any).electronAPI
-
-    const animate = (tickData?: { timestamp: number; deltaTime: number }) => {
+    const animate = () => {
       const state = get()
       
-      // CRITICAL: Check FIRST if engine is still running
-      if (!state.isEngineRunning || !state.isPlaying) {
-        return // Immediately bail if stopped
+      // Check if engine should continue running
+      if (!state.isEngineRunning || state.playingAnimations.size === 0) {
+        return
       }
-      // Use tick data from main process if available, otherwise calculate
-      const timestamp = tickData?.timestamp || Date.now()
-      const deltaTime = tickData?.deltaTime || (timestamp - lastTimestamp)
+
+      const timestamp = Date.now()
+      const deltaTime = timestamp - lastTimestamp
       lastTimestamp = timestamp
-      
-      const newFrameCount = state.frameCount + 1
-      
-      // Calculate time increment (reverse if in ping-pong reverse mode)
-      const timeIncrement = (deltaTime / 1000) * state.playbackSpeed
-      const direction = state.isReversed ? -1 : 1
-      
-      const newGlobalTime = state.isPlaying
-        ? state.globalTime + (timeIncrement * direction)
-        : state.globalTime
-      
-      // Timing is working correctly - debug logs removed
 
-      // Update frame statistics
-      const frameTime = deltaTime
-      const newAverageFrameTime = state.averageFrameTime === 0
-        ? frameTime
-        : (state.averageFrameTime * 0.9) + (frameTime * 0.1)
+      const projectStore = useProjectStore.getState()
+      const settingsStore = useSettingsStore.getState()
+      const useBatching = settingsStore.osc?.useBatching !== false
 
-      // Check playback state BEFORE updating state
-      const shouldProcessTracks = state.isPlaying && state.currentTrackIds.length > 0 && state.currentAnimationId
-      
-      set({
-        globalTime: newGlobalTime,
-        frameCount: newFrameCount,
-        averageFrameTime: newAverageFrameTime,
-      })
-
-      // If playing, calculate and send positions for ALL tracks
-      if (shouldProcessTracks) {
-        const projectStore = useProjectStore.getState()
-        const settingsStore = useSettingsStore.getState()
+      // Process each playing animation
+      state.playingAnimations.forEach((playingAnimation, animationId) => {
+        // Get base animation
+        const baseAnimation = projectStore.animations.find(a => a.id === playingAnimation.animationId)
+        if (!baseAnimation) return
         
-        const useBatching = settingsStore.osc?.useBatching !== false // Default to true
-        const useOptimizer = false // DISABLED: Optimizer causing slow movement and queue buildup
+        // UNIFIED TIMING ENGINE - Calculate animation time with ping-pong support
+        const timingResult = calculateAnimationTime(
+          timestamp,
+          baseAnimation,
+          playingAnimation.timingState
+        )
         
-        // Collect track position updates for optimizer
-        const trackUpdates: TrackPositionUpdate[] = []
+        // Skip if paused or should stop
+        if (timingResult.newState.isPaused) return
+        if (timingResult.shouldStop) {
+          get().stopAnimation(playingAnimation.animationId)
+          return
+        }
         
-        // Process each track
-        state.currentTrackIds.forEach(trackId => {
+        // Update timing state if it changed (loop increment, direction change)
+        if (timingResult.shouldLoop || timingResult.isReversed !== playingAnimation.timingState.isReversed) {
+          const updatedPlayingAnimations = new Map(state.playingAnimations)
+          updatedPlayingAnimations.set(playingAnimation.animationId, {
+            ...playingAnimation,
+            timingState: timingResult.newState
+          })
+          set({ playingAnimations: updatedPlayingAnimations })
+          
+          if (timingResult.shouldLoop) {
+            console.log(`🔁 Loop ${timingResult.loopCount}: ${timingResult.isReversed ? '⬅️ Backward' : '➡️ Forward'}`)
+          }
+        }
+        
+        // Process each track for this animation
+        playingAnimation.trackIds.forEach(trackId => {
           const track = projectStore.tracks.find(t => t.id === trackId)
-
-          if (!track) {
-            console.error('❌ Track not found:', trackId)
-            return
+          if (!track) return
+          
+          // CRITICAL: In relative mode, each track has its own animation with per-track parameters
+          // Use track.animationState.animation if available (has per-track params), otherwise use base
+          const trackAnimation = track.animationState?.animation
+          const animation = trackAnimation || baseAnimation
+          
+          // DEBUG: Log which animation is being used
+          if (state.frameCount % 60 === 0) { // Log every 60 frames to avoid spam
+            console.log(`🎬 Track ${track.name || trackId}:`, {
+              hasAnimationState: !!track.animationState,
+              trackAnimationId: trackAnimation?.id,
+              baseAnimationId: baseAnimation.id,
+              usingPerTrack: !!trackAnimation,
+              animationId: animation.id,
+              parameters: animation.parameters,
+              transform: animation.transform?.mode
+            })
           }
 
           // Check mute/solo states
           const hasSoloTracks = projectStore.tracks.some(t => t.isSolo)
           if (track.isMuted || (hasSoloTracks && !track.isSolo)) {
-            // Skip muted tracks or non-solo tracks when solo mode is active
             return
           }
 
-          if (!track.animationState?.animation) {
-            console.error('❌ No animation assigned to track:', track.name)
-            return
+          // V3 UNIFIED TRANSFORM APPLICATION
+          // 1. Get adjusted time for this track (applies phase offset)
+          // Use timing engine's calculated time (handles ping-pong)
+          const trackTime = getTrackTime(trackId, timingResult.animationTime, animation)
+          
+          // 2. Build v3 context (clean and simple)
+          const context: CalculationContext = {
+            trackId,
+            time: trackTime,
+            duration: animation.duration,
+            deltaTime: deltaTime / 1000,
+            frameCount: state.frameCount,
+            state: new Map(),  // For stateful models (pendulum, spring, etc.)
           }
           
-          const animation = track.animationState.animation
+          // 3. Calculate base position (model returns position in absolute coordinates)
+          const basePosition = modelRuntime.calculatePosition(animation, trackTime, 0, context)
           
-          // For custom animations, inject initial position into parameters
-          const enhancedAnimation = animation.type === 'custom' && track.initialPosition
-            ? {
-                ...animation,
-                parameters: {
-                  ...animation.parameters,
-                  initialPosition: track.initialPosition
-                }
-              }
-            : animation
-          
-          // Calculate position using the track's specific animation time (for phase-offset support)
-          // Subtract offset to delay tracks: Track with offset=5 starts 5 seconds later
-          const phaseOffset = track.animationState.currentTime || 0
-          let rawTrackTime = Math.max(0, newGlobalTime - phaseOffset)
-          
-          // Handle loop/ping-pong PER TRACK based on track's own timeline
-          // This allows each track to loop independently in phase-offset mode
-          let trackTime = rawTrackTime
-          let trackLoopCount = 0
-          
-          if (animation.duration > 0 && rawTrackTime > 0) {
-            if (animation.loop && animation.pingPong) {
-              // Per-track ping-pong: calculate which loop cycle and direction
-              trackLoopCount = Math.floor(rawTrackTime / animation.duration)
-              const isTrackReversed = trackLoopCount % 2 === 1
-              const timeInCycle = rawTrackTime % animation.duration
-              trackTime = isTrackReversed ? animation.duration - timeInCycle : timeInCycle
-              
-              // Per-track ping-pong working correctly
-            } else if (animation.loop) {
-              // Per-track normal loop: wrap with modulo
-              trackLoopCount = Math.floor(rawTrackTime / animation.duration)
-              trackTime = rawTrackTime % animation.duration
-              
-              // Per-track normal loop working correctly
-            } else {
-              // No loop: clamp to duration
-              trackTime = Math.min(rawTrackTime, animation.duration)
-            }
-          }
-          
-          let position = calculatePosition(enhancedAnimation, trackTime, trackLoopCount)
-          
-          // Handle isobarycenter mode: position is the barycenter, apply track's offset
-          const params = enhancedAnimation.parameters as any
-          if (params._isobarycenter && params._trackOffset) {
-            const offset = params._trackOffset
-            
-            // For rotational animations, rotate the offset along with the animation
-            const rotatedOffset = rotateOffsetForAnimation(
-              offset,
-              enhancedAnimation.type,
-              params,
-              trackTime,
-              enhancedAnimation.duration
-            )
-            
-            position = {
-              x: position.x + rotatedOffset.x,
-              y: position.y + rotatedOffset.y,
-              z: position.z + rotatedOffset.z
-            }
-          }
-          
-          // Handle centered mode: position is around center point, apply track's offset
-          if (params._centeredPoint && params._trackOffset) {
-            const offset = params._trackOffset
-            
-            // For rotational animations, rotate the offset along with the animation
-            const rotatedOffset = rotateOffsetForAnimation(
-              offset,
-              enhancedAnimation.type,
-              params,
-              trackTime,
-              enhancedAnimation.duration
-            )
-            
-            position = {
-              x: position.x + rotatedOffset.x,
-              y: position.y + rotatedOffset.y,
-              z: position.z + rotatedOffset.z
-            }
-          }
-          
-          // Validate position - check for NaN
-          if (isNaN(position.x) || isNaN(position.y) || isNaN(position.z)) {
-            console.error('❌ Invalid position calculated:', { trackId, position, time: trackTime })
-            return
-          }
-          
-          // Update track position in UI immediately (every frame)
-          projectStore.updateTrack(track.id, {
-            position
-            // Note: Do NOT update currentTime here - it should remain as phase offset
-            // Updating it creates accumulation since it's added to newGlobalTime
-          })
-          
-          // Collect track position for optimizer
-          if (track.holophonixIndex && useOptimizer) {
-            // Get previous position from last frame (not initialPosition!)
-            const prevPos = previousPositions.get(track.id) || position
-            
-            trackUpdates.push({
-              trackIndex: track.holophonixIndex,
-              position,
-              previousPosition: prevPos // Use actual previous frame position for delta calculation
-            })
-            
-            // Store current position as previous for next frame
-            previousPositions.set(track.id, position)
-          } else if (track.holophonixIndex) {
-            // Fallback to legacy batch manager
+          // 4. Apply transform (SINGLE unified application point)
+          const position = applyTransform(basePosition, trackId, animation, trackTime)
+
+          // Update track position
+          projectStore.updateTrack(trackId, { position })
+
+          // Send OSC message immediately for each track
+          // Note: holophonixIndex can be 0 (Track 1), so check for undefined/null explicitly
+          if (track.holophonixIndex !== undefined && track.holophonixIndex !== null) {
             const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
-            
-            if (useBatching) {
-              oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
-            } else {
-              // Legacy mode: send individual messages every frame
-              const oscStore = useOSCStore.getState()
-              oscStore.sendMessage(`/track/${track.holophonixIndex}/${coordType}`, [position.x, position.y, position.z])
-            }
+            oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
           }
         })
-        
-        // Use optimizer to generate optimized OSC messages
-        if (useOptimizer && trackUpdates.length > 0) {
-          // Determine multi-track mode from first track's animation
-          const firstTrack = projectStore.tracks.find(t => t.id === state.currentTrackIds[0])
-          const animation = firstTrack?.animationState?.animation
-          const multiTrackMode = (animation?.parameters as any)?._multiTrackMode || 'identical'
-          
-          // Debug logging removed for performance with multi-track animations
-          
-          // Generate optimized messages
-          const optimizedMessages = oscMessageOptimizer.optimize(
-            trackUpdates,
-            animation?.type || 'linear',
-            multiTrackMode
-          )
-          
-          // Send optimized messages directly (non-blocking for performance)
-          const oscStore = useOSCStore.getState()
-          optimizedMessages.forEach(msg => {
-            oscStore.sendMessageAsync(msg.address, msg.args)
-          })
-          
-          // Optimization stats logging removed for performance
-          // Enable manually via browser console if needed: window.enableAnimationDebug = true
-          
-          isFirstFrame = false  // Clear first frame flag after first send
-        }
-        
-        // Flush batch at controlled rate to prevent drift
-        if (useBatching && !useOptimizer) {
-          const pendingCount = oscBatchManager.getPendingCount()
-          const timeSinceLastFlush = timestamp - lastSuccessfulFlushTime
-          
-          // Throttle to 30 FPS (33ms) to prevent network congestion
-          // 60 FPS was too aggressive, causing jitter and drift
-          const shouldFlush = timeSinceLastFlush >= 33 && pendingCount > 0
-          
-          if (shouldFlush) {
-            // Fire-and-forget (don't await to avoid blocking animation loop)
-            oscBatchManager.flushBatch().then(flushed => {
-              if (flushed) {
-                lastSuccessfulFlushTime = Date.now()
-              }
-            })
-          }
-        }
-        
-        // Handle loop/end - check first track's animation for duration
-        const firstTrack = projectStore.tracks.find(t => t.id === state.currentTrackIds[0])
-        const animation = firstTrack?.animationState?.animation
-        
-        // Calculate effective duration including phase offsets
-        // Find the maximum phase offset across all tracks
-        let maxPhaseOffset = 0
-        if (animation) {
-          state.currentTrackIds.forEach(trackId => {
-            const track = projectStore.tracks.find(t => t.id === trackId)
-            const phaseOffset = track?.animationState?.currentTime || 0
-            maxPhaseOffset = Math.max(maxPhaseOffset, phaseOffset)
-          })
-        }
-        const effectiveDuration = animation ? animation.duration + maxPhaseOffset : 0
-        
-        // Handle end of animation (only for non-looping animations)
-        // Loop/ping-pong is now handled PER TRACK in the position calculation above
-        if (animation && !animation.loop && newGlobalTime >= effectiveDuration) {
-          set({ isPlaying: false, globalTime: 0, loopCount: 0, isReversed: false, isEngineRunning: false })
-        }
-      }
+      })
 
-      // No need to schedule next frame - timer handles it
+      // Always flush OSC batch at end of frame
+      // (oscBatchManager.addMessage accumulates messages, flush sends them)
+      oscBatchManager.flushBatch()
+
+      // Update frame statistics
+      set({
+        frameCount: state.frameCount + 1,
+        averageFrameTime: state.averageFrameTime === 0
+          ? deltaTime
+          : (state.averageFrameTime * 0.9) + (deltaTime * 0.1)
+      })
+
+      // Schedule next frame
+      animationFrameId = requestAnimationFrame(animate)
     }
 
-    // Start the animation timer
-    if (hasElectronAPI) {
-      // Use main process timer (never throttled when minimized)
-      cleanupListener = (window as any).electronAPI.onAnimationTick(animate);
-      (window as any).electronAPI.startAnimationTimer(frameInterval)
-    } else {
-      // Fallback to setInterval for browser mode
-      const animationInterval = setInterval(() => animate(), frameInterval)
-      cleanupListener = () => clearInterval(animationInterval)
-    }
-    
-    // Store cleanup function for stopEngine
-    (get() as any)._cleanupTimer = cleanupListener
+    // Start animation loop
+    animate()
+
+    // Store cleanup function
+    ;(get() as any)._animationFrameId = animationFrameId
   },
 
   stopEngine: () => {
-    const state = get() as any
+    const state = get()
+    if (!state.isEngineRunning) return
+
     set({ isEngineRunning: false })
-    
-    // Stop the timer
-    const hasElectronAPI = typeof window !== 'undefined' && (window as any).electronAPI
-    if (hasElectronAPI) {
-      (window as any).electronAPI.stopAnimationTimer()
+
+    // Cancel animation frame
+    if ((state as any)._animationFrameId) {
+      cancelAnimationFrame((state as any)._animationFrameId)
+      ;(state as any)._animationFrameId = null
     }
-    
-    // Cleanup listener
-    if (state._cleanupTimer) {
-      state._cleanupTimer()
-      state._cleanupTimer = null
-    }
+
+    // Clear OSC
+    oscBatchManager.clearBatch()
+    oscInputManager.clearAnimatingTracks()
   },
+  
+  /**
+   * PRIVATE: Ease tracks to target positions with smooth interpolation
+   */
+  _easeToPositions: (tracks: Array<{trackId: string, from: Position, to: Position}>, durationMs: number, onComplete?: () => void) => {
+    const projectStore = useProjectStore.getState()
+    const startTime = performance.now()
+    
+    // Easing function (ease-out cubic)
+    const easeOutCubic = (t: number): number => {
+      return 1 - Math.pow(1 - t, 3)
+    }
+    
+    const animate = () => {
+      const elapsed = performance.now() - startTime
+      const progress = Math.min(elapsed / durationMs, 1)
+      const easedProgress = easeOutCubic(progress)
+      
+      // Update each track position
+      tracks.forEach(({ trackId, from, to }) => {
+        const track = projectStore.tracks.find(t => t.id === trackId)
+        if (!track) return
+        
+        const position: Position = {
+          x: from.x + (to.x - from.x) * easedProgress,
+          y: from.y + (to.y - from.y) * easedProgress,
+          z: from.z + (to.z - from.z) * easedProgress
+        }
+        
+        projectStore.updateTrack(trackId, { position })
+        
+        // Send OSC message
+        if (track.holophonixIndex) {
+          const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
+          oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
+        }
+      })
+      
+      // Continue animation or finish
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        // Set final positions and update animation state
+        tracks.forEach(({ trackId, to }) => {
+          const track = projectStore.tracks.find(t => t.id === trackId)
+          projectStore.updateTrack(trackId, {
+            position: to,
+            animationState: track?.animationState ? {
+              ...track.animationState,
+              isPlaying: false,
+              currentTime: 0,
+              // DON'T clear animation field - preserve per-track animations!
+              // animation: null  // ❌ This was destroying per-track animations
+            } : undefined
+          })
+        })
+        
+        // Call completion callback if provided
+        if (onComplete) {
+          onComplete()
+        }
+      }
+    }
+    
+    // Start the easing animation
+    requestAnimationFrame(animate)
+  }
 }))

@@ -14,6 +14,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "test:unit": "vitest --config vitest.unit.config.ts",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
@@ -23,12 +24,14 @@
     "compile:electron": "tsc -p tsconfig.electron.json",
     "electron": "electron .",
     "electron:dev": "cross-env NODE_ENV=development concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "build:electron": "cross-env NODE_ENV=production npm run build && electron-builder",
-    "build:win": "cross-env NODE_ENV=production npm run build && electron-builder --win",
-    "build:linux": "cross-env NODE_ENV=production npm run build && electron-builder --linux",
-    "build:deb": "cross-env NODE_ENV=production npm run build && electron-builder --linux deb",
-    "build:appimage": "cross-env NODE_ENV=production npm run build && electron-builder --linux AppImage",
-    "dist": "npm run build:electron"
+    "build:electron": "cross-env NODE_ENV=production ELECTRON_RETRY_DOWNLOAD=true ELECTRON_MIRROR_OPT_OUT=1 npm run build && electron-builder --publish always",
+    "build:win": "cross-env NODE_ENV=production ELECTRON_RETRY_DOWNLOAD=true ELECTRON_MIRROR_OPT_OUT=1 npm run build && electron-builder --win --publish always",
+    "build:linux": "cross-env NODE_ENV=production ELECTRON_RETRY_DOWNLOAD=true ELECTRON_MIRROR_OPT_OUT=1 npm run build && electron-builder --linux --publish always",
+    "build:mac": "cross-env NODE_ENV=production ELECTRON_RETRY_DOWNLOAD=true ELECTRON_MIRROR_OPT_OUT=1 npm run build && electron-builder --mac --publish always",
+    "build:deb": "cross-env NODE_ENV=production ELECTRON_RETRY_DOWNLOAD=true ELECTRON_MIRROR_OPT_OUT=1 npm run build && electron-builder --linux deb --publish always",
+    "build:appimage": "cross-env NODE_ENV=production ELECTRON_RETRY_DOWNLOAD=true ELECTRON_MIRROR_OPT_OUT=1 npm run build && electron-builder --linux AppImage --publish always",
+    "dist": "npm run build:electron",
+    "release": "npm run build:electron"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.17.1",
@@ -44,6 +47,7 @@
     "reactflow": "^11.10.1",
     "tailwind-merge": "^3.3.1",
     "three": "^0.159.0",
+    "three-stdlib": "^2.36.0",
     "zustand": "^4.4.7"
   },
   "devDependencies": {
@@ -75,6 +79,7 @@
   "build": {
     "appId": "com.holophonix.animator",
     "productName": "Holophonix Animator v2",
+    "publish": null,
     "directories": {
       "output": "release",
       "buildResources": "assets"

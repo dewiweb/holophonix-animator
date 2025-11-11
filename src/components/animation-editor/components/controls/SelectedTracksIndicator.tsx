@@ -45,7 +45,7 @@ export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = (
   }
 
   const handleTrackClick = (trackId: string, event: React.MouseEvent) => {
-    if (!onSetActiveTracks || (multiTrackMode !== 'position-relative' && multiTrackMode !== 'phase-offset-relative')) return
+    if (!onSetActiveTracks || multiTrackMode !== 'relative') return
     
     if (event.ctrlKey || event.metaKey) {
       // Ctrl+click: toggle track in/out of editing selection
@@ -79,7 +79,7 @@ export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = (
               (drag to reorder for phase-offset)
             </span>
           )}
-          {activeEditingTrackIds.length > 1 && (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && (
+          {activeEditingTrackIds.length > 1 && multiTrackMode === 'relative' && (
             <span className={`text-xs text-green-600 dark:text-green-400 font-semibold`}>
               ({activeEditingTrackIds.length} tracks for editing)
             </span>
@@ -89,7 +89,7 @@ export const SelectedTracksIndicator: React.FC<SelectedTracksIndicatorProps> = (
       <div className="mt-2 flex flex-wrap gap-2">
         {selectedTracks.map((track, index) => {
           const isActiveEditing = activeEditingTrackIds.includes(track.id)
-          const isClickable = (multiTrackMode === 'position-relative' || multiTrackMode === 'phase-offset-relative') && onSetActiveTracks
+          const isClickable = multiTrackMode === 'relative' && onSetActiveTracks
           
           return (
             <span 

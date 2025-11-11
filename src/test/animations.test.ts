@@ -1,29 +1,25 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import {
-  calculateLinearPosition,
-  calculateCircularPosition,
-  calculateEllipticalPosition,
-  calculateSpiralPosition,
-  calculateRandomPosition,
-  calculatePendulumPosition,
-  calculateBouncePosition,
-  calculateSpringPosition,
-  calculateWavePosition,
-  calculateLissajousPosition,
-  calculateHelixPosition,
-  calculateBezierPosition,
-  calculateCatmullRomPosition,
-  calculateZigzagPosition,
-  calculatePerlinNoisePosition,
-  calculateRoseCurvePosition,
-  calculateEpicycloidPosition,
-  calculateOrbitPosition,
-  calculateFormationPosition,
-  calculateAttractRepelPosition,
-  calculateDopplerPosition,
-  calculateCircularScanPosition,
-  calculateZoomPosition
-} from '@/utils/animations'
+import { modelRuntime } from '@/models/runtime'
+import { Animation, AnimationType } from '@/types'
+
+// Helper function to test animation calculations using model runtime
+function testAnimation(
+  type: AnimationType,
+  params: any,
+  time: number,
+  duration: number = 10
+) {
+  const animation: Animation = {
+    id: 'test',
+    name: 'Test Animation',
+    type,
+    duration,
+    loop: false,
+    parameters: params,
+    coordinateSystem: { type: 'xyz' }
+  }
+  return modelRuntime.calculatePosition(animation, time)
+}
 
 // ========================================
 // BASIC ANIMATIONS TESTS
@@ -37,18 +33,18 @@ describe('Basic Animations', () => {
         endPosition: { x: 10, y: 10, z: 10 }
       }
       
-      const start = calculateLinearPosition(params, 0, 10)
+      const start = testAnimation('linear', params, 0, 10)
       expect(start).toEqual({ x: 0, y: 0, z: 0 })
       
-      const mid = calculateLinearPosition(params, 5, 10)
+      const mid = testAnimation('linear', params, 5, 10)
       expect(mid).toEqual({ x: 5, y: 5, z: 5 })
       
-      const end = calculateLinearPosition(params, 10, 10)
+      const end = testAnimation('linear', params, 10, 10)
       expect(end).toEqual({ x: 10, y: 10, z: 10 })
     })
 
     it('should handle default parameters', () => {
-      const result = calculateLinearPosition({}, 5, 10)
+      const result = testAnimation('linear', {}, 5, 10)
       expect(result).toBeDefined()
       expect(result.x).toBeGreaterThanOrEqual(0)
     })
@@ -64,12 +60,12 @@ describe('Basic Animations', () => {
         plane: 'xy'
       }
       
-      const start = calculateCircularPosition(params, 0, 10)
+      const start = testAnimation('circular', params, 0, 10)
       expect(start.x).toBeCloseTo(5, 1)
       expect(start.y).toBeCloseTo(0, 1)
       expect(start.z).toBe(0)
       
-      const quarter = calculateCircularPosition(params, 2.5, 10)
+      const quarter = testAnimation('circular', params, 2.5, 10)
       expect(quarter.x).toBeCloseTo(0, 1)
       expect(quarter.y).toBeCloseTo(5, 1)
     })
@@ -83,7 +79,7 @@ describe('Basic Animations', () => {
         plane: 'xz'
       }
       
-      const result = calculateCircularPosition(paramsXZ, 0, 10)
+      const result = testAnimation('circular', paramsXZ, 0, 10)
       expect(result.y).toBe(0)
       expect(result.x).toBeCloseTo(3, 1)
     })
@@ -101,7 +97,7 @@ describe('Basic Animations', () => {
         plane: 'xy'
       }
       
-      const start = calculateEllipticalPosition(params, 0, 10)
+      const start = testAnimation('elliptical', params, 0, 10)
       expect(start.x).toBeCloseTo(5, 1)
       expect(start.y).toBeCloseTo(0, 1)
     })
@@ -118,8 +114,8 @@ describe('Basic Animations', () => {
         plane: 'xy'
       }
       
-      const start = calculateSpiralPosition(params, 0, 10)
-      const end = calculateSpiralPosition(params, 10, 10)
+      const start = testAnimation('spiral', params, 0, 10)
+      const end = testAnimation('spiral', params, 10, 10)
       
       const startDist = Math.sqrt(start.x ** 2 + start.y ** 2)
       const endDist = Math.sqrt(end.x ** 2 + end.y ** 2)
@@ -140,7 +136,7 @@ describe('Basic Animations', () => {
       }
       
       for (let i = 0; i < 10; i++) {
-        const result = calculateRandomPosition(params, i, 10)
+        const result = testAnimation('random', params, i, 10)
         expect(Math.abs(result.x)).toBeLessThanOrEqual(10)
         expect(Math.abs(result.y)).toBeLessThanOrEqual(10)
         expect(Math.abs(result.z)).toBeLessThanOrEqual(10)
@@ -164,7 +160,7 @@ describe('Physics Animations', () => {
         gravity: 9.81
       }
       
-      const result = calculatePendulumPosition(params, 0.1, 10)
+      const result = testAnimation('pendulum', params, 0.1, 10)
       expect(result.y).toBeLessThan(5) // Should be below anchor
     })
   })
@@ -180,7 +176,7 @@ describe('Physics Animations', () => {
         gravity: 9.81
       }
       
-      const start = calculateBouncePosition(params, 0, 10)
+      const start = testAnimation('bounce', params, 0, 10)
       expect(start.y).toBeCloseTo(10, 0)
     })
 
@@ -193,7 +189,7 @@ describe('Physics Animations', () => {
       }
       
       for (let t = 0; t <= 10; t += 0.5) {
-        const result = calculateBouncePosition(params, t, 10)
+        const result = testAnimation('bounce', params, t, 10)
         expect(result.y).toBeGreaterThanOrEqual(0)
       }
     })
@@ -209,7 +205,7 @@ describe('Physics Animations', () => {
         mass: 1
       }
       
-      const start = calculateSpringPosition(params, 0.5, 10)
+      const start = testAnimation('spring', params, 0.5, 10)
       // Spring should have moved from initial position after 0.5 seconds
       expect(isFinite(start.x)).toBe(true)
       expect(isFinite(start.y)).toBe(true)
@@ -232,7 +228,7 @@ describe('Wave Animations', () => {
         waveType: 'sine'
       }
       
-      const result = calculateWavePosition(params, 0, 10)
+      const result = testAnimation('wave', params, 0, 10)
       expect(result).toBeDefined()
     })
 
@@ -245,7 +241,7 @@ describe('Wave Animations', () => {
 
       const types = ['sine', 'square', 'triangle', 'sawtooth']
       types.forEach(waveType => {
-        const result = calculateWavePosition({ ...params, waveType }, 1, 10)
+        const result = testAnimation('wave', { ...params, waveType }, 1, 10)
         expect(result).toBeDefined()
       })
     })
@@ -263,7 +259,7 @@ describe('Wave Animations', () => {
         amplitudeZ: 1
       }
       
-      const result = calculateLissajousPosition(params, 1, 10)
+      const result = testAnimation('lissajous', params, 1, 10)
       expect(result).toBeDefined()
     })
   })
@@ -278,8 +274,8 @@ describe('Wave Animations', () => {
         direction: 'clockwise'
       }
       
-      const start = calculateHelixPosition(params, 0, 10)
-      const end = calculateHelixPosition(params, 10, 10)
+      const start = testAnimation('helix', params, 0, 10)
+      const end = testAnimation('helix', params, 10, 10)
       
       expect(start.y).toBeCloseTo(-5, 1)
       expect(end.y).toBeCloseTo(5, 1)
@@ -302,8 +298,8 @@ describe('Curve Animations', () => {
         easingFunction: 'linear'
       }
       
-      const start = calculateBezierPosition(params, 0, 10)
-      const end = calculateBezierPosition(params, 10, 10)
+      const start = testAnimation('bezier', params, 0, 10)
+      const end = testAnimation('bezier', params, 10, 10)
       
       expect(start.x).toBeCloseTo(-5, 1)
       expect(end.x).toBeCloseTo(5, 1)
@@ -317,7 +313,7 @@ describe('Curve Animations', () => {
 
       const easings = ['linear', 'ease-in', 'ease-out', 'ease-in-out']
       easings.forEach(easingFunction => {
-        const result = calculateBezierPosition({ ...params, easingFunction }, 5, 10)
+        const result = testAnimation('bezier', { ...params, easingFunction }, 5, 10)
         expect(result).toBeDefined()
       })
     })
@@ -336,7 +332,7 @@ describe('Curve Animations', () => {
         closedLoop: false
       }
       
-      const result = calculateCatmullRomPosition(params, 5, 10)
+      const result = testAnimation('catmull-rom', params, 5, 10)
       expect(result).toBeDefined()
     })
   })
@@ -351,7 +347,7 @@ describe('Curve Animations', () => {
         zigzagPlane: 'xy'
       }
       
-      const result = calculateZigzagPosition(params, 5, 10)
+      const result = testAnimation('zigzag', params, 5, 10)
       expect(result).toBeDefined()
     })
   })
@@ -374,7 +370,7 @@ describe('Procedural Animations', () => {
         noiseSeed: 12345
       }
       
-      const result = calculatePerlinNoisePosition(params, 1, 10)
+      const result = testAnimation('perlin-noise', params, 1, 10)
       expect(result).toBeDefined()
     })
 
@@ -384,8 +380,8 @@ describe('Procedural Animations', () => {
         noiseSeed: 42
       }
       
-      const result1 = calculatePerlinNoisePosition(params, 1, 10)
-      const result2 = calculatePerlinNoisePosition(params, 1, 10)
+      const result1 = testAnimation('perlin-noise', params, 1, 10)
+      const result2 = testAnimation('perlin-noise', params, 1, 10)
       
       expect(result1.x).toBeCloseTo(result2.x, 5)
       expect(result1.y).toBeCloseTo(result2.y, 5)
@@ -403,7 +399,7 @@ describe('Procedural Animations', () => {
         plane: 'xy'
       }
       
-      const result = calculateRoseCurvePosition(params, 1, 10)
+      const result = testAnimation('rose-curve', params, 1, 10)
       expect(result).toBeDefined()
     })
   })
@@ -419,7 +415,7 @@ describe('Procedural Animations', () => {
         plane: 'xy'
       }
       
-      const result = calculateEpicycloidPosition(params, 1, 10)
+      const result = testAnimation('epicycloid', params, 1, 10)
       expect(result).toBeDefined()
     })
 
@@ -431,7 +427,7 @@ describe('Procedural Animations', () => {
         rollingType: 'hypocycloid'
       }
       
-      const result = calculateEpicycloidPosition(params, 1, 10)
+      const result = testAnimation('epicycloid', params, 1, 10)
       expect(result).toBeDefined()
     })
   })
@@ -452,7 +448,7 @@ describe('Interactive Animations', () => {
         inclination: 30
       }
       
-      const result = calculateOrbitPosition(params, 1, 10)
+      const result = testAnimation('orbit', params, 1, 10)
       expect(result).toBeDefined()
       
       const distance = Math.sqrt(result.x ** 2 + result.y ** 2 + result.z ** 2)
@@ -468,7 +464,7 @@ describe('Interactive Animations', () => {
         formationShape: 'line'
       }
       
-      const result = calculateFormationPosition(params, 1, 10)
+      const result = testAnimation('formation', params, 1, 10)
       expect(result).toBeDefined()
     })
   })
@@ -483,7 +479,7 @@ describe('Interactive Animations', () => {
         center: { x: 0, y: 0, z: 0 }
       }
       
-      const result = calculateAttractRepelPosition(params, 1, 10)
+      const result = testAnimation('attract-repel', params, 1, 10)
       expect(result).toBeDefined()
     })
   })
@@ -502,8 +498,8 @@ describe('Spatial Audio Animations', () => {
         passBySpeed: 1
       }
       
-      const start = calculateDopplerPosition(params, 0, 10)
-      const end = calculateDopplerPosition(params, 10, 10)
+      const start = testAnimation('doppler', params, 0, 10)
+      const end = testAnimation('doppler', params, 10, 10)
       
       expect(start.x).toBeCloseTo(-10, 1)
       expect(end.x).toBeCloseTo(10, 1)
@@ -520,7 +516,7 @@ describe('Spatial Audio Animations', () => {
         startAngleOffset: 0
       }
       
-      const result = calculateCircularScanPosition(params, 1, 10)
+      const result = testAnimation('circular-scan', params, 1, 10)
       expect(result).toBeDefined()
       
       const distance = Math.sqrt(result.x ** 2 + result.z ** 2)
@@ -537,8 +533,8 @@ describe('Spatial Audio Animations', () => {
         accelerationCurve: 'linear'
       }
       
-      const start = calculateZoomPosition(params, 0, 10)
-      const end = calculateZoomPosition(params, 10, 10)
+      const start = testAnimation('zoom', params, 0, 10)
+      const end = testAnimation('zoom', params, 10, 10)
       
       const startDist = Math.sqrt(start.x ** 2 + start.z ** 2)
       const endDist = Math.sqrt(end.x ** 2 + end.z ** 2)

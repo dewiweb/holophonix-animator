@@ -1,7 +1,6 @@
 export * from './validation'
 export * from './logger'
 export * from './pathGeneration'
-export * from './animations'
 export { oscBatchManager } from './oscBatchManager'
 export type { OSCBatch, OSCMessage as OSCBatchMessage, OSCBatchStats } from './oscBatchManager'
 export { oscInputManager } from './oscInputManager'

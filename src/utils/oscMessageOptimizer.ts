@@ -106,7 +106,6 @@ export function getOptimalCoordinateSystem(animationType: AnimationType): Coordi
   // AED-optimal animations (rotational/radial)
   const aedAnimations: AnimationType[] = [
     'circular',
-    'orbit',
     'circular-scan',
     'zoom',
     'spiral',
@@ -292,7 +291,8 @@ export class OSCMessageOptimizer {
   optimize(
     updates: TrackPositionUpdate[],
     animationType: AnimationType,
-    multiTrackMode: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered'
+    multiTrackMode: 'relative' | 'barycentric',
+    barycentricVariant?: 'shared' | 'isobarycentric' | 'centered' | 'custom'
   ): OptimizedOSCMessage[] {
     if (updates.length === 0) {
       return []
@@ -310,27 +310,18 @@ export class OSCMessageOptimizer {
     })
     
     // Apply optimization strategy based on multi-track mode
-    switch (multiTrackMode) {
-      case 'identical':
+    if (multiTrackMode === 'barycentric') {
+      if (barycentricVariant === 'shared') {
+        // All tracks identical
         return this.optimizeIdenticalMode(updates, coordSystem)
-      
-      case 'isobarycenter':
-      case 'centered':
+      } else {
+        // isobarycentric, centered, custom: formation with preserved offsets
         // Offsets are STATIC - all tracks move by SAME delta each frame
-        // Center position changes, but offsets don't, so delta is identical for all
         return this.optimizeFormationMode(updates, coordSystem)
-      
-      case 'phase-offset':
-        // CRITICAL: Tracks are at DIFFERENT positions (phase-shifted in time)
-        // Cannot use formation mode - each track has different delta
-        return this.optimizePositionRelativeMode(updates, coordSystem)
-      
-      case 'position-relative':
-      case 'phase-offset-relative':
-        return this.optimizePositionRelativeMode(updates, coordSystem)
-      
-      default:
-        return this.fallbackOptimization(updates, coordSystem)
+      }
+    } else {
+      // relative mode: each track independent
+      return this.optimizePositionRelativeMode(updates, coordSystem)
     }
   }
   

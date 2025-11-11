@@ -1,7 +1,21 @@
 import { AnimationType, AnimationParameters, Track, Position } from '@/types'
+import { modelRegistry } from '@/models/registry'
 
 export const getDefaultAnimationParameters = (type: AnimationType, track: Track | null): AnimationParameters => {
   const trackPosition = track?.initialPosition || track?.position || { x: 0, y: 0, z: 0 }
+  
+  // Try to get parameters from the model system first
+  const model = modelRegistry.getModel(type)
+  if (model && model.getDefaultParameters && typeof model.getDefaultParameters === 'function') {
+    try {
+      return model.getDefaultParameters(trackPosition) as AnimationParameters
+    } catch (error) {
+      console.warn(`Failed to get default parameters from model ${type}:`, error)
+      // Fall through to legacy defaults
+    }
+  }
+  
+  // Legacy fallback (mainly for 'custom' type)
   const defaultParams: AnimationParameters = {}
 
   switch (type) {
@@ -44,10 +58,6 @@ export const getDefaultAnimationParameters = (type: AnimationType, track: Track 
       defaultParams.speed = 1
       defaultParams.smoothness = 0.5
       defaultParams.updateFrequency = 10
-      break
-
-    case 'custom':
-      defaultParams.interpolation = 'linear'
       break
 
     case 'pendulum':
@@ -155,29 +165,6 @@ export const getDefaultAnimationParameters = (type: AnimationType, track: Track 
       defaultParams.plane = 'xy'
       break
 
-    case 'orbit':
-      defaultParams.center = { ...trackPosition }
-      defaultParams.orbitalRadius = 4
-      defaultParams.orbitalSpeed = 1
-      defaultParams.orbitalPhase = 0
-      defaultParams.inclination = 0
-      break
-
-    case 'formation':
-      defaultParams.center = { ...trackPosition }
-      defaultParams.formationShape = 'line'
-      defaultParams.formationSpacing = 2
-      defaultParams.followStiffness = 0.8
-      break
-
-    case 'attract-repel':
-      defaultParams.center = { ...trackPosition }
-      defaultParams.targetPosition = { x: 0, y: 0, z: 0 }
-      defaultParams.attractionStrength = 5
-      defaultParams.repulsionRadius = 1
-      defaultParams.maxSpeed = 10
-      break
-
     case 'doppler':
       defaultParams.pathStart = { x: -10, y: trackPosition.y, z: trackPosition.z }
       defaultParams.pathEnd = { x: 10, y: trackPosition.y, z: trackPosition.z }
@@ -200,68 +187,21 @@ export const getDefaultAnimationParameters = (type: AnimationType, track: Track 
       break
   }
 
-  return defaultParams
+return defaultParams
 }
 
 export const getDefaultParametersForPosition = (animationType: AnimationType, trackPosition: Position): AnimationParameters => {
-  const trackPos = trackPosition
-  const defaults: AnimationParameters = {}
-
-  switch (animationType) {
-    case 'linear':
-    case 'bezier':
-    case 'catmull-rom':
-    case 'zigzag':
-    case 'doppler':
-      defaults.startPosition = { ...trackPos }
-      break
-
-    case 'circular':
-    case 'spiral':
-    case 'wave':
-    case 'lissajous':
-    case 'orbit':
-    case 'rose-curve':
-    case 'epicycloid':
-    case 'circular-scan':
-    case 'perlin-noise':
-      defaults.center = { ...trackPos }
-      break
-
-    case 'elliptical':
-      defaults.centerX = trackPos.x
-      defaults.centerY = trackPos.y
-      defaults.centerZ = trackPos.z
-      break
-
-    case 'pendulum':
-      defaults.anchorPoint = { ...trackPos }
-      break
-
-    case 'spring':
-      defaults.restPosition = { ...trackPos }
-      break
-
-    case 'bounce':
-      defaults.groundLevel = trackPos.y
-      break
-
-    case 'attract-repel':
-      defaults.targetPosition = { ...trackPos }
-      break
-
-    case 'zoom':
-      defaults.zoomCenter = { ...trackPos }
-      break
-
-    case 'helix':
-      defaults.axisStart = { ...trackPos }
-      break
-
-    case 'random':
-      defaults.center = { ...trackPos }
-      break
+  // Use model's getDefaultParameters method instead of switch-case
+  const model = modelRegistry.getModel(animationType)
+  if (model && model.getDefaultParameters && typeof model.getDefaultParameters === 'function') {
+    try {
+      return model.getDefaultParameters(trackPosition) as AnimationParameters
+    } catch (error) {
+      console.warn(`Failed to get default parameters from model ${animationType}:`, error)
+    }
   }
-
-  return defaults
+  
+  // Fallback: return empty defaults (shouldn't happen with all models having getDefaultParameters)
+  console.warn(`No getDefaultParameters for ${animationType}, returning empty defaults`)
+  return {}
 }

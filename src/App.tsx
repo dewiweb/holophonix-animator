@@ -7,19 +7,29 @@ import { AnimationEditor } from '@/components/animation-editor/AnimationEditor'
 import { Timeline } from '@/components/Timeline'
 import { OSCManager } from '@/components/OSCManager'
 import { Settings } from '@/components/Settings'
+import { CueGrid } from '@/components/cue-grid/CueGrid'
 import { useProjectStore } from '@/stores/projectStore'
 import { useOSCStore } from '@/stores/oscStore'
 import { logger } from '@/utils/logger'
 import { testAllAnimations } from '@/utils/testAnimations'
+import { runStartupVerification, verifyModels } from '@/models/verifyModels'
+import { setupTestingUtilities } from '@/utils/testModelSystem'
 
 function App() {
   const { currentProject, createProject, saveProject, openProject } = useProjectStore()
 
+  // Verify model system on startup (development only)
+  useEffect(() => {
+    runStartupVerification()
+  }, [])
+
   // Expose test function to window for browser console testing
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).testAnimations = testAllAnimations
-      console.log('✅ Test utility loaded. Run window.testAnimations() to test all animations.')
+      const w = window as any
+      w.testAnimations = testAllAnimations
+      w.verifyAnimationModels = verifyModels
+      setupTestingUtilities()
     }
   }, [])
 
@@ -125,6 +135,7 @@ function App() {
           <Route path="/" element={<TrackList />} />
           <Route path="/animations" element={<AnimationEditor />} />
           <Route path="/timeline" element={<Timeline />} />
+          <Route path="/cues" element={<CueGrid />} />
           <Route path="/osc" element={<OSCManager />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

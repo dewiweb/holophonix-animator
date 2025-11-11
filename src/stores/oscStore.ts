@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { OSCConnection, OSCMessage, OSCConfiguration } from '@/types'
 import { generateId } from '@/utils'
 import { useProjectStore } from './projectStore'
+import { useAnimationStore } from './animationStore'
 import { oscBatchManager, OSCBatch } from '@/utils/oscBatchManager'
 import { oscInputManager } from '@/utils/oscInputManager'
 
@@ -693,6 +694,14 @@ export const useOSCStore = create<OSCState>((set, get) => {
       lastIncomingAt: Date.now(),
     }))
 
+    // Check if this message should trigger a cue
+    if (message.address.startsWith('/cue/')) {
+      ;(async () => {
+        const cueStore = await import('../cues/store').then(m => m.useCueStore.getState())
+        cueStore.handleOscTrigger(message.address, message.args as any[])
+      })()
+    }
+
     // Do not set availability here; rely on strict probe matching only
 
     // Strict availability probe matching: if an expected response arrives, mark matched
@@ -951,13 +960,27 @@ export const useOSCStore = create<OSCState>((set, get) => {
         if (existingTrack) {
           console.log(`✅ Updating track ${trackIndex} position`)
           
-          // If track is not currently animating, also update initialPosition
-          // This allows user to refresh the base position from Holophonix
-          const isAnimating = existingTrack.animationState?.isPlaying
+          // CRITICAL: Check if track is in ANY animation (playing, paused, OR easing)
+          // Use global animation store to check, not track-level state
+          const animationStore = useAnimationStore.getState()
+          let isAnimating = false
+          let foundInAnimationId = null
+          
+          // Check all playing animations (including paused ones)
+          animationStore.playingAnimations.forEach((animation, animId) => {
+            if (animation.trackIds.includes(existingTrack.id)) {
+              isAnimating = true
+              foundInAnimationId = animId
+            }
+          })
+          
+          // DEBUG logging
+          console.log(`🔍 Track ${existingTrack.name} (${existingTrack.id}): playing=${animationStore.playingAnimations.size}, found=${isAnimating}, animId=${foundInAnimationId}`)
           
           if (isAnimating) {
-            // Only update current position (animation is controlling the track)
-            projectStore.updateTrack(existingTrack.id, { position: { x, y, z } })
+            // Animation is controlling the track (even if paused) - DON'T update position!
+            // Ignore OSC position updates completely while animating
+            console.log(`🔒 Animation active (or paused) - ignoring OSC position update`)
           } else {
             // Update both position and initialPosition (base position changed in Holophonix)
             projectStore.updateTrack(existingTrack.id, { 

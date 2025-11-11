@@ -8,7 +8,6 @@ interface AnimationControlButtonsProps {
   previewMode: boolean
   isAnimationPlaying: boolean
   hasAnimation: boolean
-  isCustomAnimation: boolean
   showKeyframeEditor: boolean
   onTogglePreview: () => void
   onPlay: () => void
@@ -24,7 +23,6 @@ export const AnimationControlButtons: React.FC<AnimationControlButtonsProps> = (
   previewMode,
   isAnimationPlaying,
   hasAnimation,
-  isCustomAnimation,
   showKeyframeEditor,
   onTogglePreview,
   onPlay,
@@ -131,20 +129,6 @@ export const AnimationControlButtons: React.FC<AnimationControlButtonsProps> = (
         <Square className="w-4 h-4 mr-2" />
         Stop
       </button>
-
-      {isCustomAnimation && (
-        <button
-          onClick={onToggleKeyframeEditor}
-          onContextMenu={(e) => handleContextMenu(e, OSC_INPUT_SPEC.UI.TOGGLE_CONTROL_POINTS)}
-          className={cn(
-            "px-3 py-2 rounded-md text-sm transition-colors flex items-center",
-            showKeyframeEditor ? "bg-purple-600 dark:bg-purple-700 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-          )}
-        >
-          <Clock className="w-4 h-4 mr-2" />
-          Keyframe Editor
-        </button>
-      )}
 
       <button
         onClick={onLoadPreset}

@@ -5,6 +5,16 @@ import { HashRouter } from 'react-router-dom'
 import App from './App'
 import './index.css'
 
+// Initialize Animation Model System
+import { modelRegistry } from './models/registry'
+import { createBuiltinModels } from './models/builtin'
+
+// Register built-in animation models
+createBuiltinModels().forEach(model => {
+  modelRegistry.register(model)
+  console.log(`✅ Registered model: ${model.metadata.name}`)
+})
+
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {

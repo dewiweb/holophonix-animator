@@ -1,58 +1,143 @@
-name: Release Build
+name: Build and Release Electron App
 
 on:
   push:
     tags:
       - 'v*'  # Matches tags like v1.0.0, v2.1.0, etc.
+  workflow_dispatch:  # Allow manual trigger
+
+# Add permissions for the workflow
+permissions:
+  contents: write
+  packages: write
+  actions: write
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+  ELECTRON_RETRY_DOWNLOAD: 'true'
+  ELECTRON_MIRROR_OPT_OUT: '1'  # Use default Electron mirror
 
 jobs:
   build:
-    name: Build Release
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            artifact_patterns: |
+              release/*.AppImage
+              release/*.deb
+              release/*.rpm
+          - os: windows-latest
+            platform: win
+            artifact_patterns: |
+              release/*.exe
+              release/*.blockmap
+          - os: macos-latest
+            platform: mac
+            artifact_patterns: |
+              release/*.dmg
+              release/*.zip
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
+      - name: Clear npm cache
+        run: npm cache clean --force
+
+      - name: Set npm registry
+        run: npm config set registry https://registry.npmjs.org/
+
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm config delete https-proxy
+          npm config delete proxy
+
+      # Build step is now part of the electron-builder command
+
+      - name: Set up GitHub token for electron-builder
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > $HOME/.npmrc
 
       - name: Build application
         run: npm run build
 
-      - name: Build Electron app
-        run: npm run build:electron
+      - name: Build and package Electron app (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npx electron-builder --win --config.electronVersion=28.1.4 --publish=never
         env:
           NODE_ENV: production
+          ELECTRON_RETRY_DOWNLOAD: 'true'
+          ELECTRON_MIRROR_OPT_OUT: '1'
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+
+      - name: Build and package Electron app (macOS/Linux)
+        if: matrix.os != 'windows-latest'
+        run: |
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            npx electron-builder --mac --config.electronVersion=28.1.4 --publish=never
+          else
+            npx electron-builder --linux --config.electronVersion=28.1.4 --publish=never
+          fi
+        env:
+          NODE_ENV: production
+          ELECTRON_RETRY_DOWNLOAD: 'true'
+          ELECTRON_MIRROR_OPT_OUT: '1'
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release
-          path: |
-            dist/
-            release/
+          name: release-${{ matrix.os }}
+          path: release/**/*
+          if-no-files-found: error
+          retention-days: 5
 
-  create-release:
-    name: Create Release
+  release:
     needs: build
     runs-on: ubuntu-latest
-
+    if: startsWith(github.ref, 'refs/tags/')
+    
     steps:
-      - name: Download artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: release
-          path: release
+          path: artifacts
+          pattern: release-*
+          merge-multiple: true
+
+      - name: List all downloaded artifacts
+        run: |
+          echo "Artifacts directory structure:"
+          find artifacts -type f | sort
+          echo "\nRelease directory contents:"
+          find release -type f 2>/dev/null || echo "No release directory found"
+
+      - name: Prepare release assets
+        run: |
+          # Create a clean release directory
+          mkdir -p release_assets
+          
+          # Copy all files from all artifact directories
+          find artifacts -type f -exec cp {} release_assets/ \;
+          
+          # List all files that will be included
+          echo "\nFiles to be included in the release:"
+          find release_assets -type f | sort
 
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
@@ -60,16 +145,25 @@ jobs:
           body: |
             ## Release Notes
             
-            - Built from ${{ github.sha }}
-            - Built on ${{ github.event.repository.pushed_at }}
+            - Version: ${{ github.ref_name }}
+            - Commit: ${{ github.sha }}
+            - Built on: ${{ github.event.repository.pushed_at }}
+            
+            ### Assets
+            - Windows: .exe (Installer) + .blockmap (Differential updates)
+            - macOS: .dmg (Installer)
+            - Linux: .AppImage (Portable) + .deb (Debian/Ubuntu) + .rpm (Fedora/RedHat)
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref, '-') }}
           files: |
-            release/make/*.zip
-            release/make/*.exe
-            release/make/*.dmg
-            release/make/*.AppImage
-            release/make/*.deb
-            release/make/*.rpm
+            release_assets/*.AppImage
+            release_assets/*.deb
+            release_assets/*.rpm
+            release_assets/*.exe
+            release_assets/*.blockmap
+            release_assets/*.dmg
+            release_assets/*.zip
+            release_assets/*.yml
+            release_assets/*.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
