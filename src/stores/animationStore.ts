@@ -487,9 +487,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             trackIndex: playingAnimation.trackIds.indexOf(trackId),
             totalTracks: playingAnimation.trackIds.length,
             trackPosition: track.position,    // Current track position
-            initialPosition: track.position,  // Starting position
-            // Only pass trackOffset if NOT already in parameters (avoid double offset)
-            trackOffset: params._trackOffset ? undefined : track.position,
+            initialPosition: track.initialPosition || track.position,  // Starting position (FIXED)
+            // Pass trackOffset to model context
+            // For multi-track: use strategy-provided offset (params._trackOffset)
+            // For single-track: use track's initial position so models can offset relative to track
+            trackOffset: params._trackOffset || (track.initialPosition || track.position),
             multiTrackMode: animation.multiTrackMode || 'relative',
             barycentricVariant: animation.barycentricVariant,
             frameCount: state.frameCount,
@@ -497,16 +499,17 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             realTime: timestamp,
             state: new Map()  // Must be a Map for stateful models
           }
+          // Calculate position using model
           let position = modelRuntime.calculatePosition(animation, animationTime, 0, context)
 
-          // Apply any track-specific offsets (already declared params above)
-          // NOTE: _trackOffset rotation is ONLY for formation mode, NOT relative mode!
-          if (params._trackOffset) {
+          // Apply track offset ONLY for barycentric mode
+          // In barycentric mode, model calculates barycenter path, then we add track offset
+          // In relative mode, model handles offset internally via context.trackOffset
+          if (params._trackOffset && animation.multiTrackMode === 'barycentric') {
             const offset = params._trackOffset
             
-            // Only rotate offset for barycentric mode with preserved offsets
-            // In relative mode, offset is static (the track's initial position)
-            const shouldRotate = (animation.multiTrackMode === 'barycentric' && animation.barycentricVariant !== 'shared') || params._isobarycenter
+            // Only rotate offset for barycentric variants that preserve offsets
+            const shouldRotate = (animation.barycentricVariant !== 'shared' && animation.barycentricVariant !== undefined) || params._isobarycenter
             
             if (shouldRotate) {
               // Formation mode: rotate offset to maintain rigid body shape
@@ -523,11 +526,14 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
                 z: position.z + rotatedOffset.z
               }
             } else {
-              // Relative mode: apply static offset (no rotation)
-              position = {
-                x: position.x + offset.x,
-                y: position.y + offset.y,
-                z: position.z + offset.z
+              // Shared variant: no offset (all tracks at barycenter)
+              // Offset already zero from strategy, but double-check
+              if (animation.barycentricVariant !== 'shared') {
+                position = {
+                  x: position.x + offset.x,
+                  y: position.y + offset.y,
+                  z: position.z + offset.z
+                }
               }
             }
           }
@@ -535,13 +541,10 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           // Update track position
           projectStore.updateTrack(trackId, { position })
 
-          // Send OSC message
+          // Send OSC message immediately for each track
           if (track.holophonixIndex) {
             const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
-            if (useBatching) {
-              oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
-            }
-            // Non-batched sending handled by oscBatchManager.flush()
+            oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
           }
         })
         
@@ -565,10 +568,9 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         }
       })
 
-      // Flush OSC batch if using batching
-      if (useBatching) {
-        oscBatchManager.flushBatch()
-      }
+      // Always flush OSC batch at end of frame
+      // (oscBatchManager.addMessage accumulates messages, flush sends them)
+      oscBatchManager.flushBatch()
 
       // Update frame statistics
       set({
