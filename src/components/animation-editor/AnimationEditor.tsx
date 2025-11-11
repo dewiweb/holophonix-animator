@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useProjectStore } from '@/stores/projectStore'
 import { useAnimationStore } from '@/stores/animationStore'
 import { usePresetStore } from '@/stores/presetStore'
@@ -653,11 +653,19 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     )
   }
 
-  const onSaveAnimation = () => {
+  const onSaveAnimation = useCallback(() => {
     if (!animationForm.name) {
       console.warn('Cannot save animation: Name is required')
       return
     }
+
+    console.log('💾 onSaveAnimation called with:', {
+      name: animationForm.name,
+      duration: animationForm.duration,
+      loop: animationForm.loop,
+      pingPong: animationForm.pingPong,
+      type: animationForm.type
+    })
 
     // Get the project store state directly
     const projectStore = useProjectStore.getState()
@@ -693,21 +701,38 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     if (onAnimationSelect && loadedAnimationId) {
       onAnimationSelect(loadedAnimationId)
     }
-  }
+  }, [
+    animationForm,
+    keyframes,
+    selectedTrackIds,
+    tracks,
+    multiTrackMode,
+    barycentricVariant,
+    customCenter,
+    preserveOffsets,
+    phaseOffsetSeconds,
+    loadedAnimationId,
+    currentAnimation,
+    originalAnimationParams,
+    multiTrackParameters,
+    lockTracks,
+    fadeInEnabled,
+    fadeInDuration,
+    fadeInEasing,
+    fadeOutEnabled,
+    fadeOutDuration,
+    fadeOutEasing,
+    onAnimationSelect
+  ])
 
-  // Keyboard shortcuts - use ref to always call latest onSaveAnimation with current state
-  const onSaveAnimationRef = useRef(onSaveAnimation)
-  useEffect(() => {
-    onSaveAnimationRef.current = onSaveAnimation
-  }, [onSaveAnimation])
-
+  // Keyboard shortcuts - useCallback ensures we always have the latest state
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+S or Cmd+S to save
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault()
         if (animationForm.name) {
-          onSaveAnimationRef.current() // Use ref to get latest version with current state
+          onSaveAnimation() // useCallback ensures this has latest state
           console.log('💾 Animation saved via keyboard shortcut (Ctrl+S / Cmd+S)')
         } else {
           console.warn('⚠️ Cannot save: Animation name is required')
@@ -717,7 +742,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [animationForm.name]) // Only re-attach when name changes for validation
+  }, [animationForm.name, onSaveAnimation]) // Depend on onSaveAnimation to update when deps change
 
   const handlePlayPreview = () => {
     if (isAnimationPlaying) {

@@ -356,30 +356,71 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           if (tracksToReturn.length > 0) {
             console.log(`  🎯 Fade-out: ${tracksToReturn.length} tracks, ${baseAnimation.fadeOut!.duration}s`)
             const fadeOutDurationMs = baseAnimation.fadeOut!.duration * 1000
-            get()._easeToPositions(tracksToReturn, fadeOutDurationMs)
+            
+            // Remove from playing animations first
+            playingAnimations.delete(animationId)
+            const stillPlaying = playingAnimations.size > 0
+            
+            set({ 
+              playingAnimations,
+              isPlaying: stillPlaying,
+              // Clear backward compatibility fields if this was the current animation
+              ...(state.currentAnimationId === animationId ? {
+                currentAnimationId: null,
+                currentTrackIds: [],
+                globalTime: 0
+              } : {})
+            })
+            
+            // Execute fade-out with callback to stop engine AFTER fade-out completes
+            get()._easeToPositions(tracksToReturn, fadeOutDurationMs, () => {
+              console.log('✅ Fade-out complete')
+              // Stop engine only if no other animations are playing
+              if (get().playingAnimations.size === 0) {
+                get().stopEngine()
+              }
+            })
+          } else {
+            // No fade-out needed - stop immediately
+            playingAnimations.delete(animationId)
+            const stillPlaying = playingAnimations.size > 0
+            
+            set({ 
+              playingAnimations,
+              isPlaying: stillPlaying,
+              ...(state.currentAnimationId === animationId ? {
+                currentAnimationId: null,
+                currentTrackIds: [],
+                globalTime: 0
+              } : {})
+            })
+            
+            // Stop engine if no more animations
+            if (!stillPlaying) {
+              get().stopEngine()
+            }
           }
         } else {
           console.log(`  ℹ️ No fade-out configured - stopping immediately`)
-        }
-        
-        // Remove from playing animations
-        playingAnimations.delete(animationId)
-        
-        const stillPlaying = playingAnimations.size > 0
-        set({ 
-          playingAnimations,
-          isPlaying: stillPlaying,
-          // Clear backward compatibility fields if this was the current animation
-          ...(state.currentAnimationId === animationId ? {
-            currentAnimationId: null,
-            currentTrackIds: [],
-            globalTime: 0
-          } : {})
-        })
-        
-        // Stop engine if no more animations
-        if (!stillPlaying) {
-          get().stopEngine()
+          
+          // Remove from playing animations
+          playingAnimations.delete(animationId)
+          const stillPlaying = playingAnimations.size > 0
+          
+          set({ 
+            playingAnimations,
+            isPlaying: stillPlaying,
+            ...(state.currentAnimationId === animationId ? {
+              currentAnimationId: null,
+              currentTrackIds: [],
+              globalTime: 0
+            } : {})
+          })
+          
+          // Stop engine if no more animations
+          if (!stillPlaying) {
+            get().stopEngine()
+          }
         }
       }
     } else {
@@ -421,14 +462,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         })
       })
       
-      // Execute fade-out if any tracks need returning
-      if (tracksToReturn.length > 0) {
-        // Use default fade-out duration when multiple animations (can be improved later)
-        console.log(`  🎯 Fade-out: ${tracksToReturn.length} tracks, 0.5s (default)`)
-        get()._easeToPositions(tracksToReturn, 500)
-      }
-      
-      // Clear all playing animations
+      // Clear all playing animations first
       set({ 
         playingAnimations: new Map(),
         isPlaying: false,
@@ -439,12 +473,22 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         isReversed: false
       })
       
-      // Stop the engine
-      get().stopEngine()
-      
-      // Clear OSC
-      oscBatchManager.clearBatch()
-      oscInputManager.clearAnimatingTracks()
+      // Execute fade-out if any tracks need returning
+      if (tracksToReturn.length > 0) {
+        // Use default fade-out duration when multiple animations (can be improved later)
+        console.log(`  🎯 Fade-out: ${tracksToReturn.length} tracks, 0.5s (default)`)
+        get()._easeToPositions(tracksToReturn, 500, () => {
+          console.log('✅ Fade-out complete - stopping engine')
+          get().stopEngine()
+          oscBatchManager.clearBatch()
+          oscInputManager.clearAnimatingTracks()
+        })
+      } else {
+        // No fade-out needed - stop immediately
+        get().stopEngine()
+        oscBatchManager.clearBatch()
+        oscInputManager.clearAnimatingTracks()
+      }
     }
   },
   
