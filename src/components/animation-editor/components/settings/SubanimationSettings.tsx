@@ -39,21 +39,11 @@ export const SubanimationSettings: React.FC<SubanimationSettingsProps> = ({
   onFadeOutDurationChange,
   onFadeOutEasingChange
 }) => {
-  const [fadeInExpanded, setFadeInExpanded] = React.useState(true)
+  const [fadeInExpanded, setFadeInExpanded] = React.useState(false)
   const [fadeOutExpanded, setFadeOutExpanded] = React.useState(false)
 
   return (
     <div className="space-y-4">
-      {/* Section Header */}
-      <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-        <span>Subanimations</span>
-        <div className="group relative">
-          <Info className="w-4 h-4 text-gray-400 cursor-help" />
-          <div className="absolute left-0 top-6 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-            Fade-in/fade-out transitions before and after animation playback. Useful for smooth starts and returns to home position.
-          </div>
-        </div>
-      </div>
 
       {/* Fade-In Section */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">

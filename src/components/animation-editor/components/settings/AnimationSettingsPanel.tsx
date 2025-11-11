@@ -10,6 +10,7 @@ import {
 } from '../controls'
 import { ModelParametersForm } from '../models-forms/ModelParametersForm'
 import { SubanimationSettings } from './SubanimationSettings'
+import { CollapsibleSection } from './CollapsibleSection'
 import { animationCategories, getAnimationInfo } from '../../constants/animationCategories'
 import { getCompatibleModes } from '../../utils/compatibility'
 
@@ -124,6 +125,7 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
       </div>
 
       <div className="space-y-4">
+        {/* Track Selection - Always visible */}
         <SelectedTracksIndicator 
           selectedTracks={selectedTracks} 
           onReorder={onReorderTracks}
@@ -132,6 +134,7 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
           multiTrackMode={multiTrackMode}
         />
 
+        {/* Multi-Track Mode - Always visible when multiple tracks */}
         {selectedTrackIds.length > 1 && (
           <MultiTrackModeSelector
             animationType={animationForm.type || 'linear'}
@@ -150,101 +153,121 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
           />
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Animation Name</label>
-          <input
-            type="text"
-            value={animationForm.name || ''}
-            onChange={(e) => onUpdateForm({ name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Enter animation name"
-          />
-        </div>
+        {/* SECTION 1: Animation Setup */}
+        <CollapsibleSection title="Animation Setup" defaultExpanded={true}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Animation Name</label>
+              <input
+                type="text"
+                value={animationForm.name || ''}
+                onChange={(e) => onUpdateForm({ name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                placeholder="Enter animation name"
+              />
+            </div>
 
-        <ModelSelector
-          onModelSelect={onModelSelect}
-          currentType={animationForm.type || 'linear'}
-          selectedModel={selectedModel}
-        />
-
-        {/* Show legacy animation selector if no model selected */}
-        {!selectedModel && (
-          <AnimationTypeSelector
-            selectedType={animationForm.type || 'linear'}
-            onTypeChange={onTypeChange}
-            categories={animationCategories}
-            getAnimationInfo={getAnimationInfo}
-          />
-        )}
-
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Duration (seconds)</label>
-            <input
-              type="number"
-              min="0.1"
-              max="300"
-              step="0.1"
-              value={animationForm.duration || 10}
-              onChange={(e) => onUpdateForm({ duration: parseFloat(e.target.value) })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            <ModelSelector
+              onModelSelect={onModelSelect}
+              currentType={animationForm.type || 'linear'}
+              selectedModel={selectedModel}
             />
-          </div>
 
-          <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-            <div>
-              <label className="text-sm font-medium text-gray-700">Loop</label>
-              <p className="text-xs text-gray-500">Repeat animation when it ends</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={animationForm.loop || false}
-                onChange={(e) => onUpdateForm({ loop: e.target.checked })}
-                className="sr-only peer"
+            {/* Show legacy animation selector if no model selected */}
+            {!selectedModel && (
+              <AnimationTypeSelector
+                selectedType={animationForm.type || 'linear'}
+                onTypeChange={onTypeChange}
+                categories={animationCategories}
+                getAnimationInfo={getAnimationInfo}
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-            </label>
+            )}
           </div>
-        </div>
+        </CollapsibleSection>
 
-        {animationForm.loop && (
-          <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-3">
+        {/* SECTION 2: Timing */}
+        <CollapsibleSection 
+          title="Timing" 
+          defaultExpanded={false}
+          badge={`${animationForm.duration || 10}s${animationForm.loop ? ' • Loop' : ''}${animationForm.pingPong ? ' • Ping-Pong' : ''}`}
+        >
+          <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-blue-900">Ping-Pong Mode</label>
-              <p className="text-xs text-blue-700">Play forward then backward (bounce effect)</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Duration (seconds)</label>
               <input
-                type="checkbox"
-                checked={animationForm.pingPong || false}
-                onChange={(e) => onUpdateForm({ pingPong: e.target.checked })}
-                className="sr-only peer"
+                type="number"
+                min="0.1"
+                max="300"
+                step="0.1"
+                value={animationForm.duration || 10}
+                onChange={(e) => onUpdateForm({ duration: parseFloat(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               />
-              <div className="w-11 h-6 bg-blue-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
+            </div>
+
+            <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2">
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Loop</label>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Repeat animation when it ends</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={animationForm.loop || false}
+                  onChange={(e) => onUpdateForm({ loop: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+              </label>
+            </div>
+
+            {animationForm.loop && (
+              <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+                <div>
+                  <label className="text-sm font-medium text-blue-900 dark:text-blue-300">Ping-Pong Mode</label>
+                  <p className="text-xs text-blue-700 dark:text-blue-400">Play forward then backward (bounce effect)</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={animationForm.pingPong || false}
+                    onChange={(e) => onUpdateForm({ pingPong: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-blue-200 dark:bg-blue-800 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+            )}
           </div>
-        )}
+        </CollapsibleSection>
 
-        {/* Subanimation Settings (Fade-in/Fade-out) */}
-        <SubanimationSettings
-          fadeInEnabled={fadeInEnabled}
-          fadeInDuration={fadeInDuration}
-          fadeInEasing={fadeInEasing}
-          onFadeInEnabledChange={onFadeInEnabledChange}
-          onFadeInDurationChange={onFadeInDurationChange}
-          onFadeInEasingChange={onFadeInEasingChange}
-          fadeOutEnabled={fadeOutEnabled}
-          fadeOutDuration={fadeOutDuration}
-          fadeOutEasing={fadeOutEasing}
-          onFadeOutEnabledChange={onFadeOutEnabledChange}
-          onFadeOutDurationChange={onFadeOutDurationChange}
-          onFadeOutEasingChange={onFadeOutEasingChange}
-        />
+        {/* SECTION 3: Subanimations */}
+        <CollapsibleSection 
+          title="Subanimations" 
+          defaultExpanded={false}
+          badge={fadeInEnabled || fadeOutEnabled ? `${fadeInEnabled ? 'Fade-In' : ''}${fadeInEnabled && fadeOutEnabled ? ' • ' : ''}${fadeOutEnabled ? 'Fade-Out' : ''}` : undefined}
+        >
+          <SubanimationSettings
+            fadeInEnabled={fadeInEnabled}
+            fadeInDuration={fadeInDuration}
+            fadeInEasing={fadeInEasing}
+            onFadeInEnabledChange={onFadeInEnabledChange}
+            onFadeInDurationChange={onFadeInDurationChange}
+            onFadeInEasingChange={onFadeInEasingChange}
+            fadeOutEnabled={fadeOutEnabled}
+            fadeOutDuration={fadeOutDuration}
+            fadeOutEasing={fadeOutEasing}
+            onFadeOutEnabledChange={onFadeOutEnabledChange}
+            onFadeOutDurationChange={onFadeOutDurationChange}
+            onFadeOutEasingChange={onFadeOutEasingChange}
+          />
+        </CollapsibleSection>
 
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-md font-medium text-gray-900">Animation Parameters</h3>
+        {/* SECTION 4: Parameters */}
+        <CollapsibleSection title="Parameters" defaultExpanded={true}>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Animation Parameters</h3>
             <div className="flex gap-2">
               <button
                 onClick={onUseTrackPosition}
@@ -262,7 +285,6 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
               </button>
             </div>
           </div>
-          <div className="space-y-4">
             {selectedModel ? (
               <ModelParametersForm
                 model={selectedModel}
@@ -271,13 +293,13 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
                 trackPosition={selectedTrack?.position}
               />
             ) : (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                 <p className="text-sm">No model selected</p>
                 <p className="text-xs mt-1">Select an animation type above</p>
               </div>
             )}
           </div>
-        </div>
+        </CollapsibleSection>
       </div>
     </div>
   )
