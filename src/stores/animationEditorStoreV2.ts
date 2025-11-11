@@ -3,6 +3,7 @@ import { Animation, AnimationType, Keyframe, Position, Track } from '@/types'
 import { AnimationModel } from '@/models/types'
 import { getDefaultAnimationParameters } from '@/components/animation-editor/utils/defaultParameters'
 import { extractUIState } from '@/utils/transformBuilder'
+import { generateDefaultAnimationName } from '@/utils/animationNameGenerator'
 
 // ============================================
 // STATE INTERFACE
@@ -103,7 +104,7 @@ export interface AnimationEditorState {
 const getInitialState = () => ({
   // Form State
   animationForm: {
-    name: '',
+    name: 'Linear Animation', // Auto-generated default name
     type: 'linear' as AnimationType,
     duration: 10,
     loop: false,
@@ -176,38 +177,21 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
   },
   
   setAnimationType: (type, track) => {
-    set((state) => {
-      // Get current position for default parameters
-      const currentPosition = state.animationForm.parameters?.startPosition || 
-                             state.animationForm.parameters?.center || 
-                             track?.position || 
-                             track?.initialPosition || 
-                             { x: 0, y: 0, z: 0 }
-      
-      const trackWithPosition = track || { 
-        position: currentPosition, 
-        initialPosition: currentPosition 
-      } as Track
-      
-      // Generate default parameters for new type
-      const defaultParams = getDefaultAnimationParameters(type, trackWithPosition)
-      
-      console.log('🏪 STORE: setAnimationType called', {
-        oldType: state.animationForm.type,
-        newType: type,
-        newParamsKeys: Object.keys(defaultParams),
-        hasTrack: !!track,
-        trackPosition: track?.position
-      })
-      
-      return {
-        animationForm: {
-          ...state.animationForm,
-          type,
-          parameters: defaultParams
-        }
+    const defaultParams = track 
+      ? getDefaultAnimationParameters(type, track)
+      : getDefaultAnimationParameters(type, { position: { x: 0, y: 0, z: 0 }, initialPosition: { x: 0, y: 0, z: 0 } } as Track)
+    
+    // Generate default name based on type
+    const defaultName = generateDefaultAnimationName(type, [])
+    
+    set((state) => ({
+      animationForm: {
+        ...state.animationForm,
+        name: defaultName,
+        type,
+        parameters: defaultParams
       }
-    })
+    }))
   },
   
   setAnimationTypeWithTracks: (type, tracks, multiTrackParams) => {
@@ -241,10 +225,14 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
         multiTrackParamCount: Object.keys(multiTrackParams).length
       })
       
-      // ATOMIC UPDATE: type + parameters + multiTrackParameters
+      // Generate default name based on type
+      const defaultName = generateDefaultAnimationName(type, [])
+      
+      // ATOMIC UPDATE: name + type + parameters + multiTrackParameters
       return {
         animationForm: {
           ...state.animationForm,
+          name: defaultName,
           type,
           parameters: defaultParams
         },
