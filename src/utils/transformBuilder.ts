@@ -115,11 +115,11 @@ export function buildTransform(
   const phaseOffset = phaseOffsetSeconds || 0
   
   if (mode === 'relative') {
-    // Relative mode: each track has offset = its position
+    // Relative mode: NO spatial offset (each track's parameters define absolute position)
+    // Only timeShift is used for phase offset
     tracks.forEach((track, index) => {
-      const trackPos = track.initialPosition || track.position
       trackTransforms[track.id] = {
-        offset: trackPos,
+        offset: { x: 0, y: 0, z: 0 },  // Zero offset - params define absolute position
         timeShift: index * phaseOffset,
       }
     })

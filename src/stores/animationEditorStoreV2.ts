@@ -4,6 +4,7 @@ import { AnimationModel } from '@/models/types'
 import { getDefaultAnimationParameters } from '@/components/animation-editor/utils/defaultParameters'
 import { extractUIState } from '@/utils/transformBuilder'
 import { generateDefaultAnimationName } from '@/utils/animationNameGenerator'
+import { useProjectStore } from './projectStore'
 
 // ============================================
 // STATE INTERFACE
@@ -347,6 +348,27 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
     // Extract phase offset from transform
     const phaseOffset = animation.transform && Object.values(animation.transform.tracks)[0]?.timeShift || 0
     
+    // CRITICAL: In relative mode, extract per-track parameters from tracks
+    const multiTrackParams: Record<string, any> = {}
+    
+    if (uiState.mode === 'relative') {
+      console.log('📥 Loading relative mode animation - extracting per-track parameters from tracks')
+      const projectStore = useProjectStore.getState()
+      const trackIds = animation.trackIds || []
+      
+      trackIds.forEach(trackId => {
+        const track = projectStore.tracks.find((t: Track) => t.id === trackId)
+        if (track?.animationState?.animation) {
+          // Extract per-track parameters from the track's animation
+          const trackAnimation = track.animationState.animation
+          if (trackAnimation.parameters) {
+            multiTrackParams[trackId] = JSON.parse(JSON.stringify(trackAnimation.parameters))
+            console.log(`  📍 Track ${track.name || trackId}: Loaded per-track params`, trackAnimation.parameters)
+          }
+        }
+      })
+    }
+    
     set({
       animationForm: animation,
       keyframes: animation.keyframes || [],
@@ -356,7 +378,7 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
       barycentricVariant: uiState.variant || 'isobarycentric',
       customCenter: uiState.customCenter,
       preserveOffsets: true,  // V3 always preserves offsets in formation mode
-      multiTrackParameters: {},  // V3 uses transform, not per-track params
+      multiTrackParameters: multiTrackParams,  // Load per-track params in relative mode
       phaseOffsetSeconds: phaseOffset,
       lockTracks: animation.trackSelectionLocked || false
     })
