@@ -21,8 +21,7 @@ import {
   MultiTrackModeSelector,
   SelectedTracksIndicator,
   AnimationTypeSelector,
-  AnimationControlButtons,
-  AnimationTimingIndicator,
+  PlaybackControlBar,
   ModelSelector
 } from './components/controls'
 
@@ -66,7 +65,6 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     activeEditingTrackIds,
     lockTracks,
     // UI state
-    previewMode,
     showPresetBrowser,
     showPresetNameDialog,
     showAnimationLibrary,
@@ -96,7 +94,6 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     setActiveEditingTrackIds,
     setLockTracks,
     // UI actions
-    setPreviewMode,
     setShowPresetBrowser,
     setShowPresetNameDialog,
     setShowAnimationLibrary,
@@ -850,137 +847,89 @@ const unifiedPane = (
         <h1 className="text-2xl font-bold text-gray-900">Animation Editor</h1>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        {!USE_UNIFIED_EDITOR && (
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-md p-1 shadow-sm">
-            <button
-              onClick={() => setActiveWorkPane('preview')}
-              className={cn(
-                'px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                activeWorkPane === 'preview'
-                  ? 'bg-primary-50 text-primary-700 border border-primary-200'
-                  : 'text-gray-600 hover:text-gray-900'
-              )}
-            >
-              3D Preview
-            </button>
-            <button
-              onClick={() => setActiveWorkPane('control')}
-              disabled={!supportsControlPoints}
-              className={cn(
-                'px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                activeWorkPane === 'control'
-                  ? 'bg-primary-50 text-primary-700 border border-primary-200'
-                  : supportsControlPoints
-                    ? 'text-gray-600 hover:text-gray-900'
-                    : 'text-gray-400 cursor-not-allowed'
-              )}
-            >
-              Control Points
-            </button>
-          </div>
-        )}
+      {/* Keyboard shortcuts hint */}
+      {USE_UNIFIED_EDITOR && (
+        <div className="flex items-center gap-2 bg-blue-900/70 text-blue-200 text-xs px-3 py-1.5 rounded backdrop-blur-sm mb-3">
+          <span>💡 Press <kbd className="px-1 bg-gray-700 rounded">Tab</kbd> to toggle Preview/Edit modes | <kbd className="px-1 bg-gray-700 rounded">Q/W/E/R</kbd> for views</span>
+        </div>
+      )}
 
-        {USE_UNIFIED_EDITOR && (
-          <div className="flex items-center gap-2 bg-blue-900/70 text-blue-200 text-xs px-3 py-1.5 rounded backdrop-blur-sm">
-            <span>💡 Press <kbd className="px-1 bg-gray-700 rounded">Tab</kbd> to toggle Preview/Edit modes | <kbd className="px-1 bg-gray-700 rounded">Q/W/E/R</kbd> for views</span>
-          </div>
-        )}
+      {/* Playback Control Bar - unified and clean */}
+      <PlaybackControlBar
+        isPlaying={isAnimationPlaying}
+        hasAnimation={!!(animationForm.name && animationForm.type)}
+        onPlay={handlePlayPreview}
+        onStop={handleStopAnimation}
+        currentAnimationId={currentAnimation?.id}
+        onLoadAnimation={() => setShowAnimationLibrary(true)}
+        onSaveAnimation={onSaveAnimation}
+        canSave={!!animationForm.name}
+        onLoadPreset={() => setShowPresetBrowser(true)}
+        onSaveAsPreset={handleSaveAsPreset}
+        isSettingsPanelOpen={isFormPanelOpen}
+        onToggleSettingsPanel={() => setIsFormPanelOpen(!isFormPanelOpen)}
+      />
 
-        <div className="flex-1 flex justify-center">
-          <div className="flex items-center gap-3">
-            <AnimationControlButtons
-              previewMode={previewMode}
-              isAnimationPlaying={isAnimationPlaying}
-              hasAnimation={!!(animationForm.name && animationForm.type)}
-              showKeyframeEditor={false}
-              onTogglePreview={() => setPreviewMode(!previewMode)}
-              onPlay={handlePlayPreview}
-              onStop={handleStopAnimation}
-              onToggleKeyframeEditor={() => {}}
-              onLoadPreset={() => setShowPresetBrowser(true)}
-              onSaveAsPreset={handleSaveAsPreset}
-              canSavePreset={!!animationForm.name && !!animationForm.type}
-              currentAnimationId={currentAnimation?.id}
-            />
-            
-            {/* Timing Indicator - shows loop count, direction, progress */}
-            {isAnimationPlaying && currentAnimation?.id && (
-              <AnimationTimingIndicator
-                animationId={currentAnimation.id}
-                className="ml-4"
-              />
-            )}
-
-            {/* Track Locking Option */}
-            {selectedTrackIds.length > 0 && (
-              <div className="mb-3 p-3 bg-gray-50 rounded-md border border-gray-200">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={lockTracks}
-                    onChange={(e) => setLockTracks(e.target.checked)}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">
-                    Lock tracks to this animation
-                  </span>
-                </label>
-                {lockTracks && (
-                  <div className="mt-2 text-xs text-blue-600 flex items-start gap-1">
-                    <span>🔒</span>
-                    <span>
-                      This animation will be locked to {selectedTrackIds.length} track(s). 
-                      Cues cannot reassign it to different tracks.
-                    </span>
-                  </div>
-                )}
-                {!lockTracks && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    Unchecked: This animation can be applied to any tracks in cue editor.
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowAnimationLibrary(true)}
-                className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors flex items-center"
-              >
-                Load Animation
-              </button>
-              <button
-                onClick={onSaveAnimation}
-                disabled={!animationForm.name}
-                className="px-3 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Save Animation
-              </button>
+      {/* Track Selection Info with Locking Option */}
+      {selectedTrackIds.length > 0 && (
+        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {selectedTrackIds.length} track{selectedTrackIds.length > 1 ? 's' : ''} selected
+              </span>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={lockTracks}
+                  onChange={(e) => setLockTracks(e.target.checked)}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Lock tracks to animation
+                </span>
+              </label>
             </div>
+            {lockTracks && (
+              <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                <span>🔒</span>
+                <span>Locked (cues cannot reassign)</span>
+              </span>
+            )}
           </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-2 ml-auto">
+      {/* Work Pane Selector (for non-unified editor) */}
+      {!USE_UNIFIED_EDITOR && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-white border-b border-gray-200">
           <button
-            onClick={() => setIsFormPanelOpen(!isFormPanelOpen)}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border border-gray-200 bg-white hover:bg-gray-100 transition-colors"
-          >
-            {isFormPanelOpen ? (
-              <>
-                <PanelRightClose className="w-4 h-4" />
-                Hide Settings
-              </>
-            ) : (
-              <>
-                <PanelRightOpen className="w-4 h-4" />
-                Show Settings
-              </>
+            onClick={() => setActiveWorkPane('preview')}
+            className={cn(
+              'px-3 py-2 text-sm font-medium rounded-md transition-colors',
+              activeWorkPane === 'preview'
+                ? 'bg-primary-50 text-primary-700 border border-primary-200'
+                : 'text-gray-600 hover:text-gray-900'
             )}
+          >
+            3D Preview
+          </button>
+          <button
+            onClick={() => setActiveWorkPane('control')}
+            disabled={!supportsControlPoints}
+            className={cn(
+              'px-3 py-2 text-sm font-medium rounded-md transition-colors',
+              activeWorkPane === 'control'
+                ? 'bg-primary-50 text-primary-700 border border-primary-200'
+                : supportsControlPoints
+                  ? 'text-gray-600 hover:text-gray-900'
+                  : 'text-gray-400 cursor-not-allowed'
+            )}
+          >
+            Control Points
           </button>
         </div>
-      </div>
+      )}
 
       <div className="flex flex-1 flex-col gap-6 overflow-hidden">
         {isFormPanelOpen ? (

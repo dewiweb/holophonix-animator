@@ -33,7 +33,6 @@ export interface AnimationEditorState {
   // --------------------------------------------
   // UI STATE
   // --------------------------------------------
-  previewMode: boolean
   showPresetBrowser: boolean
   showPresetNameDialog: boolean
   showAnimationLibrary: boolean
@@ -84,7 +83,6 @@ export interface AnimationEditorState {
   // --------------------------------------------
   // UI ACTIONS
   // --------------------------------------------
-  setPreviewMode: (mode: boolean) => void
   setShowPresetBrowser: (show: boolean) => void
   setShowPresetNameDialog: (show: boolean) => void
   setShowAnimationLibrary: (show: boolean) => void
@@ -129,7 +127,6 @@ const getInitialState = () => ({
   lockTracks: false,
   
   // UI State
-  previewMode: false,
   showPresetBrowser: false,
   showPresetNameDialog: false,
   showAnimationLibrary: false,
@@ -429,10 +426,6 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
   // ============================================
   // UI ACTIONS
   // ============================================
-  
-  setPreviewMode: (mode) => {
-    set({ previewMode: mode })
-  },
   
   setShowPresetBrowser: (show) => {
     set({ showPresetBrowser: show })
