@@ -125,7 +125,36 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
       </div>
 
       <div className="space-y-4">
-        {/* Track Selection */}
+        <CollapsibleSection title="Animation Setup" defaultExpanded={true}>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Animation Name</label>
+              <input
+                type="text"
+                value={animationForm.name || ''}
+                onChange={(e) => onUpdateForm({ name: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                placeholder="Enter animation name"
+              />
+            </div>
+
+            <ModelSelector
+              onModelSelect={onModelSelect}
+              currentType={animationForm.type || 'linear'}
+              selectedModel={selectedModel}
+            />
+
+            {!selectedModel && (
+              <AnimationTypeSelector
+                selectedType={animationForm.type || 'linear'}
+                onTypeChange={onTypeChange}
+                categories={animationCategories}
+                getAnimationInfo={getAnimationInfo}
+              />
+            )}
+          </div>
+        </CollapsibleSection>
+
         <CollapsibleSection 
           title="Track Selection" 
           defaultExpanded={true}
@@ -140,7 +169,6 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
           />
         </CollapsibleSection>
 
-        {/* Multi-Track Mode (when multiple tracks selected) */}
         {selectedTrackIds.length > 1 && (
           <CollapsibleSection 
             title="Multi-Track Mode" 
@@ -164,38 +192,6 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
             />
           </CollapsibleSection>
         )}
-
-        {/* Animation Setup */}
-        <CollapsibleSection title="Animation Setup" defaultExpanded={true}>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Animation Name</label>
-              <input
-                type="text"
-                value={animationForm.name || ''}
-                onChange={(e) => onUpdateForm({ name: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                placeholder="Enter animation name"
-              />
-            </div>
-
-            <ModelSelector
-              onModelSelect={onModelSelect}
-              currentType={animationForm.type || 'linear'}
-              selectedModel={selectedModel}
-            />
-
-            {/* Show legacy animation selector if no model selected */}
-            {!selectedModel && (
-              <AnimationTypeSelector
-                selectedType={animationForm.type || 'linear'}
-                onTypeChange={onTypeChange}
-                categories={animationCategories}
-                getAnimationInfo={getAnimationInfo}
-              />
-            )}
-          </div>
-        </CollapsibleSection>
 
         <CollapsibleSection 
           title="Timing & Transitions" 
@@ -277,7 +273,7 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Parameters" defaultExpanded={true}>
+        <CollapsibleSection title="Model Parameters" defaultExpanded={true}>
           <div className="space-y-4">
             <div className="flex items-center justify-end gap-2 mb-2">
               <button
