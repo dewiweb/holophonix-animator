@@ -430,10 +430,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
 
     set({ isEngineRunning: true })
 
-    // Initialize OSC batch manager callback
-    // OSC sending is handled directly in the animation loop via oscBatchManager
+    // Initialize OSC batch manager callback to actually send messages
     oscBatchManager.setSendCallback(async (batch) => {
-      // Batch sending handled by oscBatchManager internally
+      // Send batch through OSC store to electron/device
+      const oscStore = await import('./oscStore').then(m => m.useOSCStore.getState())
+      await oscStore.sendBatch(batch)
     })
 
     let lastTimestamp = Date.now()

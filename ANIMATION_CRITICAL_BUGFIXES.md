@@ -240,16 +240,52 @@ if (track.holophonixIndex !== undefined && track.holophonixIndex !== null) {
 
 ---
 
+---
+
+### Bug #7: OSC Batch Callback Never Sends Messages 🔴 CRITICAL
+**Location:** `animationStore.ts:435-437` (round 3)
+
+**Problem:**
+```typescript
+oscBatchManager.setSendCallback(async (batch) => {
+  // Batch sending handled by oscBatchManager internally  ❌ EMPTY!
+})
+```
+
+**Impact:**
+- OSC batch manager accumulated messages
+- Callback was called with batches
+- But callback did NOTHING - never sent to electron/Holophonix
+- **Result:** Zero OSC messages sent, animations invisible to Holophonix
+
+**Fix:**
+```typescript
+oscBatchManager.setSendCallback(async (batch) => {
+  // Send batch through OSC store to electron/device
+  const oscStore = await import('./oscStore').then(m => m.useOSCStore.getState())
+  await oscStore.sendBatch(batch)
+})
+```
+
+**Why this was broken:**
+- Comment said "handled by oscBatchManager internally"
+- Actually needs external callback to send via electron IPC
+- Batch manager only accumulates - relies on callback for actual transmission
+
+---
+
 ## Status
 
-🟢 **All Critical Bugs Fixed (Round 2)**
+🟢 **All Critical Bugs Fixed (Round 3 - THE BIG ONE)**
 
 - [x] Bug #1: Initial position reference
 - [x] Bug #2: trackOffset context passing  
 - [x] Bug #3: Double offset prevention
 - [x] Bug #4: OSC message flushing
-- [x] Bug #5: Single-track double offset ⭐ NEW
-- [x] Bug #6: OSC Track 1 (index 0) ⭐ NEW
+- [x] Bug #5: Single-track double offset
+- [x] Bug #6: OSC Track 1 (index 0)
+- [x] Bug #7: OSC batch callback empty ⭐⭐ CRITICAL - This was the main issue!
 
-**Build:** ✅ Passing (6.71s)  
+**Build:** ✅ Passing (6.41s)  
+**OSC Messages:** ✅ Should now be sent!  
 **Ready for testing!**
