@@ -1,17 +1,17 @@
 /**
  * Playback Control Bar
  * 
- * Unified, clean control bar for animation playback with:
+ * Clean, focused control bar for animation playback:
  * - Left: Playback controls (Play/Pause, Stop)
  * - Center: Timing indicator (when playing - shows loop, direction, progress)
- * - Right: Animation management (Load, Save, Presets), Settings toggle
+ * - Right: Animation menu + Settings toggle
  * 
- * Note: Preview/Edit mode toggle is handled by Tab key in unified editor
+ * Animation management (load/save) is in a dropdown menu to avoid clutter
  */
 
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { cn } from '@/utils'
-import { Play, Pause, Square, Download, Upload, Save, PanelRightOpen, PanelRightClose, FolderOpen, BookOpen } from 'lucide-react'
+import { Play, Pause, Square, PanelRightOpen, PanelRightClose, FolderOpen, BookOpen, Save, ChevronDown, Menu } from 'lucide-react'
 import { AnimationTimingIndicator } from './AnimationTimingIndicator'
 
 interface PlaybackControlBarProps {
@@ -54,6 +54,23 @@ export const PlaybackControlBar: React.FC<PlaybackControlBarProps> = ({
   onToggleSettingsPanel,
   onContextMenu
 }) => {
+  const [isAnimationMenuOpen, setIsAnimationMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsAnimationMenuOpen(false)
+      }
+    }
+
+    if (isAnimationMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isAnimationMenuOpen])
+
   return (
     <div className="flex items-center gap-4 px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
       {/* LEFT SECTION: Playback Controls */}
@@ -111,62 +128,107 @@ export const PlaybackControlBar: React.FC<PlaybackControlBarProps> = ({
         )}
       </div>
 
-      {/* RIGHT SECTION: Animation Management + Settings */}
+      {/* RIGHT SECTION: Animation Menu + Settings */}
       <div className="flex items-center gap-2">
-        {/* Load from Project */}
-        <button
-          onClick={onLoadAnimation}
-          onContextMenu={(e) => onContextMenu?.(e, 'LOAD')}
-          className="px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 bg-indigo-600 dark:bg-indigo-700 text-white hover:bg-indigo-700 dark:hover:bg-indigo-600"
-          title="Load animation from project"
-        >
-          <FolderOpen className="w-4 h-4" />
-          <span className="hidden lg:inline">Load from Project</span>
-        </button>
+        {/* Animation Menu Dropdown */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setIsAnimationMenuOpen(!isAnimationMenuOpen)}
+            className="px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
+            title="Animation management menu"
+          >
+            <Menu className="w-4 h-4" />
+            <span>Animation</span>
+            <ChevronDown className={cn("w-4 h-4 transition-transform", isAnimationMenuOpen && "rotate-180")} />
+          </button>
 
-        {/* Save to Project */}
-        <button
-          onClick={onSaveAnimation}
-          onContextMenu={(e) => onContextMenu?.(e, 'SAVE')}
-          disabled={!canSave}
-          className={cn(
-            "px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
-            "bg-primary-600 dark:bg-primary-700 text-white hover:bg-primary-700 dark:hover:bg-primary-600",
-            !canSave && "opacity-50 cursor-not-allowed"
+          {/* Dropdown Menu */}
+          {isAnimationMenuOpen && (
+            <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 border-gray-300 dark:border-gray-600 z-50 overflow-hidden backdrop-blur-sm">
+              {/* Project Section */}
+              <div className="p-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2 px-2 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span>Project Animations</span>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-2">
+                  Saved in project file • Used in timeline/cues
+                </div>
+              </div>
+              <div className="p-1">
+                <button
+                  onClick={() => {
+                    onLoadAnimation()
+                    setIsAnimationMenuOpen(false)
+                  }}
+                  className="w-full px-3 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-300"
+                >
+                  <FolderOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <div>
+                    <div className="font-medium">Load from Project</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Browse saved animations</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    onSaveAnimation()
+                    setIsAnimationMenuOpen(false)
+                  }}
+                  disabled={!canSave}
+                  className={cn(
+                    "w-full px-3 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3",
+                    canSave ? "text-gray-700 dark:text-gray-300" : "text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                  )}
+                >
+                  <Save className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                  <div>
+                    <div className="font-medium">Save to Project</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Save with track bindings</div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Library Section */}
+              <div className="p-2 bg-purple-50 dark:bg-purple-950 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2 px-2 py-1 text-xs font-semibold text-purple-700 dark:text-purple-400 uppercase tracking-wide">
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Template Library</span>
+                </div>
+                <div className="text-xs text-purple-600 dark:text-purple-400 px-2">
+                  Global presets • Reusable across projects
+                </div>
+              </div>
+              <div className="p-1">
+                <button
+                  onClick={() => {
+                    onLoadPreset()
+                    setIsAnimationMenuOpen(false)
+                  }}
+                  className="w-full px-3 py-2 text-sm text-left rounded hover:bg-purple-50 dark:hover:bg-purple-900/30 flex items-center gap-3 text-gray-700 dark:text-gray-300"
+                >
+                  <BookOpen className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <div>
+                    <div className="font-medium">Load from Library</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Browse preset templates</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    onSaveAsPreset()
+                    setIsAnimationMenuOpen(false)
+                  }}
+                  className="w-full px-3 py-2 text-sm text-left rounded hover:bg-purple-50 dark:hover:bg-purple-900/30 flex items-center gap-3 text-gray-700 dark:text-gray-300"
+                >
+                  <Save className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <div>
+                    <div className="font-medium">Save to Library</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Create reusable template</div>
+                  </div>
+                </button>
+              </div>
+            </div>
           )}
-          title="Save to project (for use in timeline/cues)"
-        >
-          <Save className="w-4 h-4" />
-          <span className="hidden lg:inline">Save to Project</span>
-        </button>
-        
-        {/* Separator */}
-        <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
-        
-        {/* Preset Actions - Library (global templates) */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={onLoadPreset}
-            onContextMenu={(e) => onContextMenu?.(e, 'LOAD_PRESET')}
-            className="px-3 py-2 rounded-l-md text-sm font-medium transition-colors flex items-center gap-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50 border border-purple-300 dark:border-purple-700"
-            title="Load from library (reusable templates)"
-          >
-            <BookOpen className="w-4 h-4" />
-            <span className="hidden xl:inline text-xs">Load Library</span>
-          </button>
-          <button
-            onClick={onSaveAsPreset}
-            onContextMenu={(e) => onContextMenu?.(e, 'SAVE_PRESET')}
-            className="px-3 py-2 rounded-r-md text-sm font-medium transition-colors flex items-center gap-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50 border border-purple-300 dark:border-purple-700 border-l-0"
-            title="Save to library (reusable template across projects)"
-          >
-            <Save className="w-4 h-4" />
-            <span className="hidden xl:inline text-xs">Save Library</span>
-          </button>
         </div>
-        
-        {/* Separator */}
-        <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
 
         {/* Settings Panel Toggle */}
         <button

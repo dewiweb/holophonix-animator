@@ -129,34 +129,41 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     }
     
     // NEW ANIMATION START: Automatically ease to start positions first
-    console.log('🎬 Starting new animation - easing to start positions')
+    console.log('🎬 Starting new animation - checking for start positions')
     
     const projectStore = useProjectStore.getState()
     
-    // Store initial positions and prepare easing targets
+    // Collect tracks that need easing (have different initial position)
     const tracksToEase: Array<{trackId: string, from: Position, to: Position}> = []
     trackIds.forEach(trackId => {
       const track = projectStore.tracks.find(t => t.id === trackId)
-      if (track) {
-        // Store initial position if not already set
-        if (!track.initialPosition) {
-          projectStore.updateTrack(trackId, {
-            initialPosition: { ...track.position }
+      if (track && track.initialPosition) {
+        // Only ease if there IS an initialPosition AND it's different from current
+        const posChanged = 
+          Math.abs(track.position.x - track.initialPosition.x) > 0.001 ||
+          Math.abs(track.position.y - track.initialPosition.y) > 0.001 ||
+          Math.abs(track.position.z - track.initialPosition.z) > 0.001
+        
+        if (posChanged) {
+          console.log(`  📍 Track ${track.name || trackId} needs easing: current=${JSON.stringify(track.position)} → initial=${JSON.stringify(track.initialPosition)}`)
+          tracksToEase.push({
+            trackId,
+            from: { ...track.position },
+            to: { ...track.initialPosition }
           })
         }
-        
-        // Prepare easing from current to initial position
-        const initialPos = track.initialPosition || track.position
-        tracksToEase.push({
-          trackId,
-          from: { ...track.position },
-          to: { ...initialPos }
+      } else if (track && !track.initialPosition) {
+        // Store current position as initial for future use
+        console.log(`  💾 Storing initial position for track ${track.name || trackId}`)
+        projectStore.updateTrack(trackId, {
+          initialPosition: { ...track.position }
         })
       }
     })
     
-    // Ease to start positions, then start animation
+    // Ease to start positions if needed, then start animation
     if (tracksToEase.length > 0) {
+      console.log(`  🎯 Easing ${tracksToEase.length} tracks to start positions`)
       get()._easeToPositions(tracksToEase, 500, () => {
         // After easing completes: Create and start animation
         console.log('✅ Easing complete - starting animation playback')
@@ -181,7 +188,8 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         }
       })
     } else {
-      // No tracks to ease - start immediately
+      // No easing needed - start immediately from current positions
+      console.log('  ▶️ No easing needed - starting immediately')
       playingAnimations.set(animationId, {
         animationId,
         trackIds,
