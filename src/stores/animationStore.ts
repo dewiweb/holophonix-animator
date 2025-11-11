@@ -138,41 +138,61 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     const hasFadeIn = baseAnimation?.fadeIn?.enabled && baseAnimation?.fadeIn?.autoTrigger
     
     if (hasFadeIn && baseAnimation) {
-      console.log(`  🎭 Fade-in subanimation detected: ${baseAnimation.fadeIn!.duration}s ${baseAnimation.fadeIn!.easing}`)
+      console.log(`  🎭 Fade-in detected: ${baseAnimation.fadeIn!.duration}s ${baseAnimation.fadeIn!.easing}`)
+      console.log(`  📐 Computing animation start positions at t=0...`)
       
-      // Collect tracks to ease to initial positions
+      // Collect tracks to ease from current position to animation start position
       const tracksToEase: Array<{trackId: string, from: Position, to: Position}> = []
       
       trackIds.forEach(trackId => {
         const track = projectStore.tracks.find(t => t.id === trackId)
-        if (track) {
-          // Store initial position if not set
-          if (!track.initialPosition) {
-            console.log(`  💾 Storing initial position for track ${track.name || trackId}`)
-            projectStore.updateTrack(trackId, {
-              initialPosition: { ...track.position }
-            })
-          }
-          
-          // Check if fade-in has custom target position
-          const targetPos = baseAnimation.fadeIn!.toPosition || track.initialPosition
-          
-          if (targetPos) {
-            // Check if position is different (needs easing)
-            const posChanged = 
-              Math.abs(track.position.x - targetPos.x) > 0.001 ||
-              Math.abs(track.position.y - targetPos.y) > 0.001 ||
-              Math.abs(track.position.z - targetPos.z) > 0.001
-            
-            if (posChanged) {
-              console.log(`  📍 ${track.name || trackId}: ${JSON.stringify(track.position)} → ${JSON.stringify(targetPos)}`)
-              tracksToEase.push({
-                trackId,
-                from: { ...track.position },
-                to: { ...targetPos }
-              })
-            }
-          }
+        if (!track) return
+        
+        // Store track's current position as initialPosition (for fade-out later)
+        if (!track.initialPosition) {
+          console.log(`  💾 Storing initial position for track ${track.name || trackId}`)
+          projectStore.updateTrack(trackId, {
+            initialPosition: { ...track.position }
+          })
+        }
+        
+        // Calculate the animation's starting position at t=0
+        // Use per-track animation if available (relative mode), otherwise base animation
+        const animation = track.animationState?.animation || baseAnimation
+        
+        // Build calculation context for t=0
+        const context: CalculationContext = {
+          trackId,
+          time: 0,
+          duration: animation.duration,
+          deltaTime: 0,
+          frameCount: 0,
+          state: new Map(),
+        }
+        
+        // Calculate base position at t=0
+        const basePositionAtStart = modelRuntime.calculatePosition(animation, 0, 0, context)
+        
+        // Apply transform to get final start position (handles multi-track offsets, etc.)
+        const animationStartPos = applyTransform(basePositionAtStart, trackId, animation, 0)
+        
+        // Check if current position differs from animation start
+        const posChanged = 
+          Math.abs(track.position.x - animationStartPos.x) > 0.001 ||
+          Math.abs(track.position.y - animationStartPos.y) > 0.001 ||
+          Math.abs(track.position.z - animationStartPos.z) > 0.001
+        
+        if (posChanged) {
+          console.log(`  📍 ${track.name || trackId}:`)
+          console.log(`     Current: ${JSON.stringify(track.position)}`)
+          console.log(`     → Animation start (t=0): ${JSON.stringify(animationStartPos)}`)
+          tracksToEase.push({
+            trackId,
+            from: { ...track.position },
+            to: { ...animationStartPos }
+          })
+        } else {
+          console.log(`  ✓ ${track.name || trackId}: Already at animation start position`)
         }
       })
       
@@ -295,26 +315,54 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     if (animationId) {
       // Stop specific animation
       const playingAnimations = new Map(state.playingAnimations)
-      const animation = playingAnimations.get(animationId)
-      if (animation) {
-        // Collect tracks to return
-        const tracksToReturn: Array<{trackId: string, from: Position, to: Position}> = []
-        animation.trackIds.forEach(trackId => {
-          const track = projectStore.tracks.find(t => t.id === trackId)
-          if (track && track.initialPosition) {
-            tracksToReturn.push({
-              trackId,
-              from: { ...track.position },
-              to: { ...track.initialPosition }
-            })
-          }
-        })
+      const playingAnimation = playingAnimations.get(animationId)
+      if (playingAnimation) {
+        // Get base animation to check for fade-out config
+        const baseAnimation = projectStore.animations.find(a => a.id === animationId)
+        const hasFadeOut = baseAnimation?.fadeOut?.enabled && baseAnimation?.fadeOut?.autoTrigger
         
-        // Start easing animation to return to initial
-        if (tracksToReturn.length > 0) {
-          get()._easeToPositions(tracksToReturn, 500) // 500ms ease duration
+        if (hasFadeOut && baseAnimation) {
+          console.log(`🎭 Fade-out detected: ${baseAnimation.fadeOut!.duration}s ${baseAnimation.fadeOut!.easing}`)
+          console.log(`📐 Returning tracks to initial positions...`)
+          
+          // Collect tracks to return to initial position
+          const tracksToReturn: Array<{trackId: string, from: Position, to: Position}> = []
+          
+          playingAnimation.trackIds.forEach(trackId => {
+            const track = projectStore.tracks.find(t => t.id === trackId)
+            if (track && track.initialPosition) {
+              // Check if position differs from initial
+              const posChanged = 
+                Math.abs(track.position.x - track.initialPosition.x) > 0.001 ||
+                Math.abs(track.position.y - track.initialPosition.y) > 0.001 ||
+                Math.abs(track.position.z - track.initialPosition.z) > 0.001
+              
+              if (posChanged) {
+                console.log(`  📍 ${track.name || trackId}:`)
+                console.log(`     Current: ${JSON.stringify(track.position)}`)
+                console.log(`     → Initial: ${JSON.stringify(track.initialPosition)}`)
+                tracksToReturn.push({
+                  trackId,
+                  from: { ...track.position },
+                  to: { ...track.initialPosition }
+                })
+              } else {
+                console.log(`  ✓ ${track.name || trackId}: Already at initial position`)
+              }
+            }
+          })
+          
+          // Execute fade-out if needed
+          if (tracksToReturn.length > 0) {
+            console.log(`  🎯 Fade-out: ${tracksToReturn.length} tracks, ${baseAnimation.fadeOut!.duration}s`)
+            const fadeOutDurationMs = baseAnimation.fadeOut!.duration * 1000
+            get()._easeToPositions(tracksToReturn, fadeOutDurationMs)
+          }
+        } else {
+          console.log(`  ℹ️ No fade-out configured - stopping immediately`)
         }
         
+        // Remove from playing animations
         playingAnimations.delete(animationId)
         
         const stillPlaying = playingAnimations.size > 0
@@ -336,23 +384,49 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       }
     } else {
       // Stop all animations
-      const trackIdsToReturn: string[] = []
-      state.playingAnimations.forEach((animation) => {
-        trackIdsToReturn.push(...animation.trackIds)
+      console.log('⏹️ Stopping all animations')
+      
+      // Check each animation's fade-out config and collect unique tracks
+      const tracksToReturn: Array<{trackId: string, from: Position, to: Position}> = []
+      const processedTracks = new Set<string>()
+      
+      state.playingAnimations.forEach((playingAnimation, animId) => {
+        const baseAnimation = projectStore.animations.find(a => a.id === animId)
+        const hasFadeOut = baseAnimation?.fadeOut?.enabled && baseAnimation?.fadeOut?.autoTrigger
+        
+        if (hasFadeOut) {
+          console.log(`  🎭 Animation "${baseAnimation?.name}" has fade-out configured`)
+        }
+        
+        playingAnimation.trackIds.forEach(trackId => {
+          // Skip if already processed (track could be in multiple animations)
+          if (processedTracks.has(trackId)) return
+          processedTracks.add(trackId)
+          
+          const track = projectStore.tracks.find(t => t.id === trackId)
+          if (track && track.initialPosition && hasFadeOut) {
+            const posChanged = 
+              Math.abs(track.position.x - track.initialPosition.x) > 0.001 ||
+              Math.abs(track.position.y - track.initialPosition.y) > 0.001 ||
+              Math.abs(track.position.z - track.initialPosition.z) > 0.001
+            
+            if (posChanged) {
+              tracksToReturn.push({
+                trackId,
+                from: { ...track.position },
+                to: { ...track.initialPosition }
+              })
+            }
+          }
+        })
       })
       
-      // Collect tracks to return
-      const tracksToReturn: Array<{trackId: string, from: Position, to: Position}> = []
-      trackIdsToReturn.forEach(trackId => {
-        const track = projectStore.tracks.find(t => t.id === trackId)
-        if (track && track.initialPosition) {
-          tracksToReturn.push({
-            trackId,
-            from: { ...track.position },
-            to: { ...track.initialPosition }
-          })
-        }
-      })
+      // Execute fade-out if any tracks need returning
+      if (tracksToReturn.length > 0) {
+        // Use default fade-out duration when multiple animations (can be improved later)
+        console.log(`  🎯 Fade-out: ${tracksToReturn.length} tracks, 0.5s (default)`)
+        get()._easeToPositions(tracksToReturn, 500)
+      }
       
       // Clear all playing animations
       set({ 
@@ -371,11 +445,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       // Clear OSC
       oscBatchManager.clearBatch()
       oscInputManager.clearAnimatingTracks()
-      
-      // Start easing animation to return to initial
-      if (tracksToReturn.length > 0) {
-        get()._easeToPositions(tracksToReturn, 500) // 500ms ease duration
-      }
     }
   },
   
