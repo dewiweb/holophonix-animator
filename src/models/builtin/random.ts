@@ -40,22 +40,6 @@ export function createRandomModel(): AnimationModel {
       let centerY = params.centerY ?? 0
       let centerZ = params.centerZ ?? 0
       
-      const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
-      
-      if (multiTrackMode === 'barycentric') {
-        // STEP 1 (Model): Use barycenter as center of random bounds
-        // STEP 2 (Store): Will add _trackOffset
-        const baryCenter = params._isobarycenter || params._customCenter
-        if (baryCenter) {
-          centerX = baryCenter.x
-          centerY = baryCenter.y
-          centerZ = baryCenter.z
-        }
-      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
-        centerX += context.trackOffset.x
-        centerY += context.trackOffset.y
-        centerZ += context.trackOffset.z
-      }
       
       const boundsX = params.boundsX ?? 5
       const boundsY = params.boundsY ?? 5

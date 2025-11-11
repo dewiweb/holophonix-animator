@@ -60,8 +60,8 @@ export interface ParameterDefinition {
 }
 
 /**
- * Calculation context provided to animation models (v3 - SIMPLIFIED)
- * Models are now pure functions that only calculate positions in absolute coordinates
+ * Calculation context provided to animation models (v3)
+ * Models are pure functions that calculate positions in absolute coordinates
  * All multi-track transformations are applied AFTER calculation in animationStore
  */
 export interface CalculationContext {
@@ -78,19 +78,6 @@ export interface CalculationContext {
   
   // Physics state (for stateful animations like pendulum, spring)
   state?: Map<string, any>
-  
-  // DEPRECATED (v2 compatibility - models should not use these)
-  trackIndex?: number
-  totalTracks?: number
-  trackPosition?: Position
-  initialPosition?: Position
-  multiTrackMode?: 'relative' | 'barycentric'
-  barycentricVariant?: 'shared' | 'isobarycentric' | 'centered' | 'custom'
-  isobarycenter?: Position
-  customCenter?: Position
-  trackOffset?: Position
-  preserveOffsets?: boolean
-  realTime?: number
 }
 
 /**

@@ -44,23 +44,6 @@ export function createEllipticalModel(): AnimationModel {
       let centerZ = params.center?.z ?? params.centerZ ?? 0
       
       // Support multi-track modes
-      const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
-      
-      if (multiTrackMode === 'barycentric') {
-        // STEP 1 (Model): Use barycenter as center of ellipse
-        // STEP 2 (Store): Will add _trackOffset after calculation
-        const baryCenter = params._isobarycenter || params._customCenter
-        if (baryCenter) {
-          centerX = baryCenter.x
-          centerY = baryCenter.y
-          centerZ = baryCenter.z
-        }
-      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
-        // Relative mode: offset center by track position
-        centerX += context.trackOffset.x
-        centerY += context.trackOffset.y
-        centerZ += context.trackOffset.z
-      }
       
       const startAngle = ((params.startAngle ?? 0) + (params.phase ?? 0)) * Math.PI / 180
       const endAngle = ((params.endAngle ?? 360) + (params.phase ?? 0)) * Math.PI / 180
@@ -90,11 +73,6 @@ export function createEllipticalModel(): AnimationModel {
       }
       
       // Apply track offset for position-relative mode
-      if (context?.trackOffset) {
-        x += context.trackOffset.x
-        y += context.trackOffset.y
-        z += context.trackOffset.z
-      }
       
       return { x, y, z }
     },

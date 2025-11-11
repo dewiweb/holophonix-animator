@@ -234,6 +234,21 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     // Use form parameters as base
     const parameters = animationForm.parameters || {}
     
+    // V3: Build transform for preview (if multi-track)
+    const selectedTracksForPreview = selectedTracks.length > 0 
+      ? tracks.filter(t => selectedTracks.includes(t.id))
+      : []
+    
+    const transform = selectedTracksForPreview.length > 1 
+      ? require('@/utils/transformBuilder').buildTransform(
+          multiTrackMode,
+          barycentricVariant,
+          selectedTracksForPreview,
+          customCenter,
+          phaseOffsetSeconds
+        )
+      : undefined
+    
     // Create base animation object
     const animation: Animation = {
       id: loadedAnimationId || previewIdRef.current,
@@ -244,10 +259,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       loop: animationForm.loop || false,
       pingPong: animationForm.pingPong || false,
       coordinateSystem: animationForm.coordinateSystem || { type: 'xyz' },
-      multiTrackMode,
-      barycentricVariant: multiTrackMode === 'barycentric' ? barycentricVariant : undefined,
-      customCenter,
-      preserveOffsets,
+      transform,  // V3
       keyframes: []
     }
     
@@ -709,16 +721,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   }
 
   const handleLoadAnimation = (animation: Animation) => {
-    // Use store's loadAnimation method
+    // V3: Store's loadAnimation extracts UI state from transform
     loadAnimation(animation)
-    
-    // Set multi-track settings if available
-    if (animation.multiTrackMode) {
-      setMultiTrackMode(animation.multiTrackMode)
-    }
-    if (animation.phaseOffsetSeconds !== undefined) {
-      setPhaseOffsetSeconds(animation.phaseOffsetSeconds)
-    }
     
     // Close the library
     setShowAnimationLibrary(false)
@@ -780,10 +784,10 @@ const unifiedPane = (
                 0,
                 {
                   trackId: 'barycenter',
-                  trackIndex: 0,
-                  totalTracks: 1,
-                  multiTrackMode,
-                  barycentricVariant,
+                  time: globalTime,
+                  duration: baseAnimation.duration,
+                  deltaTime: 0,
+                  frameCount: 0,
                 }
               )
               console.log('🎬 Animated barycenter at time', globalTime.toFixed(2), ':', animatedBarycentricPosition)

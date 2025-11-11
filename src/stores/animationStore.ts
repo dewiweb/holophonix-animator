@@ -3,65 +3,12 @@ import { Animation, AnimationState, Position, AnimationType } from '@/types'
 import { useProjectStore } from './projectStore'
 import { useSettingsStore } from './settingsStore'
 import { modelRuntime } from '@/models/runtime'
+import { type CalculationContext } from '@/models/types'
 import { oscBatchManager } from '@/utils/oscBatchManager'
 import { modelRegistry } from '@/models/registry'
 import { oscInputManager } from '@/utils/oscInputManager'
 import { oscMessageOptimizer, type TrackPositionUpdate } from '@/utils/oscMessageOptimizer'
 import { applyTransform, getTrackTime } from '@/utils/transformApplication'
-import { autoMigrate } from '@/utils/animationMigration'
-
-/**
- * Rotate offset for rotational animations to maintain formation shape
- * For circular/spiral/etc animations, offsets must rotate with the animation
- */
-function rotateOffsetForAnimation(
-  offset: Position,
-  animationType: AnimationType,
-  params: any,
-  time: number,
-  duration: number
-): Position {
-  // Use model's calculateRotationAngle if available
-  const model = modelRegistry.getModel(animationType)
-  
-  if (!model?.visualization?.calculateRotationAngle) {
-    // Non-rotational animations: offset stays fixed
-    return offset
-  }
-  
-  // Calculate rotation angle using model method
-  const rotationAngle = model.visualization.calculateRotationAngle(time, duration, params)
-  
-  // Get plane of rotation
-  const plane = params?.plane || 'xy'
-  
-  // Rotate offset in the appropriate plane
-  if (plane === 'xy') {
-    const cos = Math.cos(rotationAngle)
-    const sin = Math.sin(rotationAngle)
-    return {
-      x: offset.x * cos - offset.y * sin,
-      y: offset.x * sin + offset.y * cos,
-      z: offset.z
-    }
-  } else if (plane === 'xz') {
-    const cos = Math.cos(rotationAngle)
-    const sin = Math.sin(rotationAngle)
-    return {
-      x: offset.x * cos - offset.z * sin,
-      y: offset.y,
-      z: offset.x * sin + offset.z * cos
-    }
-  } else { // yz plane
-    const cos = Math.cos(rotationAngle)
-    const sin = Math.sin(rotationAngle)
-    return {
-      x: offset.x,
-      y: offset.y * cos - offset.z * sin,
-      z: offset.y * sin + offset.z * cos
-    }
-  }
-}
 
 // Track playing animation instances
 interface PlayingAnimation {
@@ -487,21 +434,14 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           // 1. Get adjusted time for this track (applies phase offset)
           const trackTime = getTrackTime(trackId, animationTime, animation)
           
-          // 2. Build simplified context (no mode-specific fields)
-          const context: any = {
+          // 2. Build v3 context (clean and simple)
+          const context: CalculationContext = {
             trackId,
             time: trackTime,
             duration: animation.duration,
             deltaTime: deltaTime / 1000,
             frameCount: state.frameCount,
             state: new Map(),  // For stateful models (pendulum, spring, etc.)
-            
-            // DEPRECATED v2 fields (for backward compatibility only)
-            trackIndex: playingAnimation.trackIds.indexOf(trackId),
-            totalTracks: playingAnimation.trackIds.length,
-            trackPosition: track.position,
-            initialPosition: track.initialPosition || track.position,
-            realTime: timestamp,
           }
           
           // 3. Calculate base position (model returns position in absolute coordinates)

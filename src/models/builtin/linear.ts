@@ -84,29 +84,11 @@ export function createLinearModel(): AnimationModel {
       duration: number, 
       context: CalculationContext
     ): Position {
-      let start = parameters.startPosition || { x: 0, y: 0, z: 0 }
-      let end = parameters.endPosition || { x: 10, y: 0, z: 0 }
+      // V3: Pure function - just use parameters, no mode checks
+      // Transforms are applied AFTER calculation in animationStore
+      const start = parameters.startPosition || { x: 0, y: 0, z: 0 }
+      const end = parameters.endPosition || { x: 10, y: 0, z: 0 }
       const easing = parameters.easing || 'linear'
-      
-      // Apply multi-track mode adjustments
-      const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
-      
-      if (multiTrackMode === 'barycentric') {
-        // STEP 1 (Model): Use barycenter as the reference point for the path
-        // The start/end define the path that the BARYCENTER follows
-        // STEP 2 (Store): Will add _trackOffset after this calculation
-        const baryCenter = parameters._isobarycenter || parameters._customCenter
-        if (baryCenter) {
-          // Use barycenter as both start and end (barycenter is stationary in linear animations)
-          // But control points define the path
-          start = parameters.startPosition || start
-          end = parameters.endPosition || end
-        }
-      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
-        // Relative mode: offset both points by track position
-        start = { x: start.x + context.trackOffset.x, y: start.y + context.trackOffset.y, z: start.z + context.trackOffset.z }
-        end = { x: end.x + context.trackOffset.x, y: end.y + context.trackOffset.y, z: end.z + context.trackOffset.z }
-      }
       
       // Calculate normalized time (0 to 1)
       let t = duration > 0 ? Math.min(1, Math.max(0, time / duration)) : 0

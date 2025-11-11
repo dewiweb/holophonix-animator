@@ -339,16 +339,8 @@ export interface Animation {
   keyframes?: Keyframe[];
   coordinateSystem: CoordinateSystem;
   
-  // NEW UNIFIED TRANSFORM (v3)
+  // V3 UNIFIED TRANSFORM
   transform?: AnimationTransform;  // Optional: if undefined, single-track absolute mode
-  
-  // DEPRECATED (v2 - kept for backward compatibility, will migrate on load)
-  multiTrackMode?: 'relative' | 'barycentric';  // Base mode
-  barycentricVariant?: 'shared' | 'isobarycentric' | 'centered' | 'custom';  // Barycentric sub-mode
-  customCenter?: Position;  // Custom center point for 'centered' or 'custom' variants
-  preserveOffsets?: boolean;  // For barycentric: maintain track-to-center distances
-  multiTrackParameters?: Record<string, AnimationParameters>; // Per-track parameters (relative mode)
-  phaseOffsetSeconds?: number; // Time delay between tracks
   
   // Track locking
   trackIds?: string[];   // If set, animation is locked to these specific tracks

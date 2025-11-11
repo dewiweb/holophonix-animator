@@ -35,23 +35,6 @@ export function createLissajousModel(): AnimationModel {
       let centerZ = params.center?.z ?? params.centerZ ?? 0
       
       // Handle multi-track modes
-      const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
-      
-      if (multiTrackMode === 'barycentric') {
-        // STEP 1 (Model): Use barycenter as center of Lissajous curve
-        // STEP 2 (Store): Will add _trackOffset
-        const baryCenter = params._isobarycenter || params._customCenter
-        if (baryCenter) {
-          centerX = baryCenter.x
-          centerY = baryCenter.y
-          centerZ = baryCenter.z
-        }
-      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
-        // Relative mode: offset center by track position
-        centerX += context.trackOffset.x
-        centerY += context.trackOffset.y
-        centerZ += context.trackOffset.z
-      }
       
       const freqA = params.frequencyRatioA ?? 3
       const freqB = params.frequencyRatioB ?? 2

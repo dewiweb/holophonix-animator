@@ -120,7 +120,7 @@ export function createSpringModel(): AnimationModel {
     
     initialize: function(parameters: Record<string, any>, context: CalculationContext) {
       // Initialize spring state
-      const stateKey = `${context.trackId}_${context.trackIndex}`
+      const stateKey = `${context.trackId}_${context.trackId}`
       const restPosition = parameters.restPosition || { x: 0, y: 0, z: 0 }
       const displacement = parameters.initialDisplacement || { x: 5, y: 5, z: 0 }
       springStates.set(stateKey, {
@@ -136,7 +136,7 @@ export function createSpringModel(): AnimationModel {
     
     cleanup: function(context: CalculationContext) {
       // Clean up state when animation stops
-      const stateKey = `${context.trackId}_${context.trackIndex}`
+      const stateKey = `${context.trackId}_${context.trackId}`
       springStates.delete(stateKey)
     },
     
@@ -152,26 +152,9 @@ export function createSpringModel(): AnimationModel {
       const mass = parameters.mass || 1
       
       // Apply multi-track mode adjustments
-      const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
-      
-      if (multiTrackMode === 'barycentric') {
-        // STEP 1 (Model): Use barycenter as rest position
-        // STEP 2 (Store): Will add _trackOffset
-        const baryCenter = parameters._isobarycenter || parameters._customCenter
-        if (baryCenter) {
-          restPosition = baryCenter
-        }
-      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
-        // Relative mode: offset rest position by track position
-        restPosition = {
-          x: restPosition.x + context.trackOffset.x,
-          y: restPosition.y + context.trackOffset.y,
-          z: restPosition.z + context.trackOffset.z
-        }
-      }
       
       // Get or create state
-      const stateKey = `${context.trackId}_${context.trackIndex}`
+      const stateKey = `${context.trackId}_${context.trackId}`
       let state = springStates.get(stateKey)
       
       if (!state || time < 0.01 || state.lastTime > time) {

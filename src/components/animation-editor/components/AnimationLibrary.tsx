@@ -211,9 +211,9 @@ export const AnimationLibrary: React.FC<AnimationLibraryProps> = ({
               </div>
               
               {/* Multi-track info */}
-              {animation.multiTrackMode && (
+              {animation.transform && (
                 <div className={`mt-2 text-xs ${themeColors.text.muted}`}>
-                  Multi-track: {animation.multiTrackMode}
+                  Multi-track: {animation.transform.mode}
                 </div>
               )}
             </div>

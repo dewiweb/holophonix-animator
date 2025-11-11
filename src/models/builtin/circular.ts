@@ -157,31 +157,14 @@ export function createCircularModel(): AnimationModel {
       duration: number, 
       context: CalculationContext
     ): Position {
-      let center = parameters.center || { x: 0, y: 0, z: 0 }
+      // V3: Pure function - just use parameters, no mode checks
+      // Transforms are applied AFTER calculation in animationStore
+      const center = parameters.center || { x: 0, y: 0, z: 0 }
       const radius = parameters.radius || 5
       const speed = parameters.speed || 1
       const startAngle = (parameters.startAngle || 0) * Math.PI / 180
       const plane = parameters.plane || 'xy'
       const direction = parameters.direction || 'clockwise'
-      
-      // Apply multi-track mode adjustments
-      const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
-      
-      if (multiTrackMode === 'barycentric') {
-        // Barycentric mode: use isobarycenter or custom center
-        const baryCenter = parameters._isobarycenter || parameters._customCenter || context?.isobarycenter || context?.customCenter
-        if (baryCenter) {
-          center = baryCenter
-        }
-        // Offset is applied by animationStore based on preserveOffsets
-      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
-        // Relative mode: offset center by track position
-        center = {
-          x: center.x + context.trackOffset.x,
-          y: center.y + context.trackOffset.y,
-          z: center.z + context.trackOffset.z
-        }
-      }
       
       // Calculate angle based on time
       const progress = duration > 0 ? (time / duration) : 0

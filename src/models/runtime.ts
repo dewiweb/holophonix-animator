@@ -97,14 +97,7 @@ export class ModelRuntime {
       }
     }
     
-    // Apply multi-track handlers if needed
-    if (context.multiTrackMode && model.multiTrackHandlers) {
-      const handler = model.multiTrackHandlers.find(h => h.mode === context.multiTrackMode)
-      if (handler) {
-        position = this.applyMultiTrackHandler(handler, position, context, animation.parameters)
-      }
-    }
-    
+    // V3: Multi-track transforms applied in animationStore, not here
     return position
   }
   

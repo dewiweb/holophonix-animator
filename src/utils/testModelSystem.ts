@@ -191,11 +191,10 @@ export function quickTestModel(type: AnimationType): AnimationTestResult {
     
     const position = modelRuntime.calculatePosition(testAnim, 5, 0, {
       trackId: 'test',
-      trackIndex: 0,
-      totalTracks: 1,
+      time: 5,
+      duration: 10,
       frameCount: 0,
       deltaTime: 0,
-      realTime: Date.now(),
     })
     
     // Validate position

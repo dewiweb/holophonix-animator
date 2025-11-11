@@ -144,7 +144,7 @@ export function createPendulumModel(): AnimationModel {
     
     initialize: function(parameters: Record<string, any>, context: CalculationContext) {
       // Initialize pendulum state
-      const stateKey = `${context.trackId}_${context.trackIndex}`
+      const stateKey = context.trackId
       const initialAngleDeg = parameters.initialAngle || 45
       pendulumStates.set(stateKey, {
         angle: (initialAngleDeg * Math.PI) / 180,
@@ -155,7 +155,7 @@ export function createPendulumModel(): AnimationModel {
     
     cleanup: function(context: CalculationContext) {
       // Clean up state when animation stops
-      const stateKey = `${context.trackId}_${context.trackIndex}`
+      const stateKey = context.trackId
       pendulumStates.delete(stateKey)
     },
     
@@ -165,33 +165,16 @@ export function createPendulumModel(): AnimationModel {
       duration: number, 
       context: CalculationContext
     ): Position {
-      let anchorPoint = parameters.anchorPoint || { x: 0, y: 5, z: 0 }
+      // V3: Pure function - just use parameters, no mode checks
+      // Transforms are applied AFTER calculation in animationStore
+      const anchorPoint = parameters.anchorPoint || { x: 0, y: 5, z: 0 }
       const length = parameters.length || 3
       const damping = parameters.damping || 0.02
       const gravity = parameters.gravity || 9.81
       const plane = parameters.plane || 'xz'
       
-      // Apply multi-track mode adjustments
-      const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
-      
-      if (multiTrackMode === 'barycentric') {
-        // STEP 1 (Model): Use barycenter as anchor point
-        // STEP 2 (Store): Will add _trackOffset
-        const baryCenter = parameters._isobarycenter || parameters._customCenter
-        if (baryCenter) {
-          anchorPoint = baryCenter
-        }
-      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
-        // Relative mode: offset anchor by track position
-        anchorPoint = {
-          x: anchorPoint.x + context.trackOffset.x,
-          y: anchorPoint.y + context.trackOffset.y,
-          z: anchorPoint.z + context.trackOffset.z
-        }
-      }
-      
       // Get or create state
-      const stateKey = `${context.trackId}_${context.trackIndex}`
+      const stateKey = context.trackId
       let state = pendulumStates.get(stateKey)
       
       if (!state || time < 0.01 || state.lastTime > time) {

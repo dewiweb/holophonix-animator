@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { Animation, AnimationType, Keyframe, Position, Track } from '@/types'
 import { AnimationModel } from '@/models/types'
 import { getDefaultAnimationParameters } from '@/components/animation-editor/utils/defaultParameters'
-import { migrateMultiTrackMode } from '@/animations/strategies/MultiTrackStrategy'
+import { extractUIState } from '@/utils/transformBuilder'
 
 // ============================================
 // STATE INTERFACE
@@ -308,20 +308,23 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
   },
   
   loadAnimation: (animation) => {
-    // MIGRATION: Convert old modes to new 2-mode architecture
-    const migrated = migrateMultiTrackMode(animation.multiTrackMode)
+    // V3: Extract UI state from transform
+    const uiState = extractUIState(animation.transform)
+    
+    // Extract phase offset from transform
+    const phaseOffset = animation.transform && Object.values(animation.transform.tracks)[0]?.timeShift || 0
     
     set({
       animationForm: animation,
       keyframes: animation.keyframes || [],
       originalAnimationParams: JSON.parse(JSON.stringify(animation.parameters || {})),
       loadedAnimationId: animation.id,
-      multiTrackMode: migrated.mode,
-      barycentricVariant: migrated.variant || 'isobarycentric',
-      customCenter: animation.customCenter,
-      preserveOffsets: animation.preserveOffsets,
-      multiTrackParameters: animation.multiTrackParameters || {},
-      phaseOffsetSeconds: animation.phaseOffsetSeconds || 0.5,
+      multiTrackMode: uiState.mode,
+      barycentricVariant: uiState.variant || 'isobarycentric',
+      customCenter: uiState.customCenter,
+      preserveOffsets: true,  // V3 always preserves offsets in formation mode
+      multiTrackParameters: {},  // V3 uses transform, not per-track params
+      phaseOffsetSeconds: phaseOffset,
       lockTracks: animation.trackSelectionLocked || false
     })
   },

@@ -54,20 +54,6 @@ export function createBezierModel(): AnimationModel {
       let end = { x: params.endX ?? 5, y: params.endY ?? 0, z: params.endZ ?? 0 }
       
       // Handle multi-track modes
-      const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
-      
-      if (multiTrackMode === 'barycentric') {
-        // STEP 1 (Model): Control points define the path that BARYCENTER follows
-        // Keep curve as-is - defines barycenter movement
-        // STEP 2 (Store): Will add _trackOffset after this calculation
-      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
-        // Relative mode: offset the entire curve by track position
-        const offset = context.trackOffset
-        start = { x: start.x + offset.x, y: start.y + offset.y, z: start.z + offset.z }
-        control1 = { x: control1.x + offset.x, y: control1.y + offset.y, z: control1.z + offset.z }
-        control2 = { x: control2.x + offset.x, y: control2.y + offset.y, z: control2.z + offset.z }
-        end = { x: end.x + offset.x, y: end.y + offset.y, z: end.z + offset.z }
-      }
       
       // Apply easing
       let t = progress

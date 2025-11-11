@@ -32,22 +32,6 @@ export function createBounceModel(): AnimationModel {
       let centerY = params.centerY ?? 0
       let centerZ = params.centerZ ?? 0
       
-      const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
-      
-      if (multiTrackMode === 'barycentric') {
-        // STEP 1 (Model): Use barycenter as bounce center
-        // STEP 2 (Store): Will add _trackOffset
-        const baryCenter = params._isobarycenter || params._customCenter
-        if (baryCenter) {
-          centerX = baryCenter.x
-          centerY = baryCenter.y
-          centerZ = baryCenter.z
-        }
-      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
-        centerX += context.trackOffset.x
-        centerY += context.trackOffset.y
-        centerZ += context.trackOffset.z
-      }
       
       const startHeight = params.startHeight ?? 5
       const groundLevel = params.groundLevel ?? 0

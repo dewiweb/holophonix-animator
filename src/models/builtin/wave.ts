@@ -138,25 +138,9 @@ export function createWaveModel(): AnimationModel {
       const phase = (parameters.phase || 0) * Math.PI / 180
       const waveType = parameters.waveType || 'sine'
       const combineMode = parameters.combineMode || 'additive'
+      // V3: Pure function - just use parameters, no mode checks
+      // Transforms are applied AFTER calculation in animationStore
       
-      // Apply multi-track mode adjustments
-      const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
-      
-      if (multiTrackMode === 'barycentric') {
-        // STEP 1 (Model): Use barycenter as wave center
-        // STEP 2 (Store): Will add _trackOffset
-        const baryCenter = parameters._isobarycenter || parameters._customCenter
-        if (baryCenter) {
-          center = baryCenter
-        }
-      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
-        // Relative mode: offset center by track position
-        center = {
-          x: center.x + context.trackOffset.x,
-          y: center.y + context.trackOffset.y,
-          z: center.z + context.trackOffset.z
-        }
-      }
       
       // Calculate base wave value
       const angle = time * frequency * Math.PI * 2 + phase
