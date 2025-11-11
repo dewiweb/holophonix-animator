@@ -695,7 +695,21 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           
           // CRITICAL: In relative mode, each track has its own animation with per-track parameters
           // Use track.animationState.animation if available (has per-track params), otherwise use base
-          const animation = track.animationState?.animation || baseAnimation
+          const trackAnimation = track.animationState?.animation
+          const animation = trackAnimation || baseAnimation
+          
+          // DEBUG: Log which animation is being used
+          if (state.frameCount % 60 === 0) { // Log every 60 frames to avoid spam
+            console.log(`🎬 Track ${track.name || trackId}:`, {
+              hasAnimationState: !!track.animationState,
+              trackAnimationId: trackAnimation?.id,
+              baseAnimationId: baseAnimation.id,
+              usingPerTrack: !!trackAnimation,
+              animationId: animation.id,
+              parameters: animation.parameters,
+              transform: animation.transform?.mode
+            })
+          }
 
           // Check mute/solo states
           const hasSoloTracks = projectStore.tracks.some(t => t.isSolo)
@@ -826,7 +840,8 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
               ...track.animationState,
               isPlaying: false,
               currentTime: 0,
-              animation: null
+              // DON'T clear animation field - preserve per-track animations!
+              // animation: null  // ❌ This was destroying per-track animations
             } : undefined
           })
         })

@@ -128,7 +128,13 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   const selectedTrack = tracks.find(t => selectedTrackIds.includes(t.id))
   // Get the animation from the project store instead of the track's state to avoid corruption
   const trackAnimationId = selectedTrack?.animationState?.animation?.id
-  const currentAnimation = trackAnimationId ? animations.find(a => a.id === trackAnimationId) ?? null : null
+  
+  // CRITICAL: Per-track animations have IDs like "base-id-track-trackid"
+  // Extract base animation ID to find it in animations array
+  const baseAnimationId = trackAnimationId?.includes('-track-') 
+    ? trackAnimationId.split('-track-')[0] 
+    : trackAnimationId
+  const currentAnimation = baseAnimationId ? animations.find(a => a.id === baseAnimationId) ?? null : null
   // Use global animation store state for accurate playing/paused status
   // Simply use globalIsPlaying - works correctly with pendingAnimations during easing phase
   const isAnimationPlaying = globalIsPlaying
@@ -748,6 +754,14 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     if (isAnimationPlaying) {
       pauseAnimation()
     } else {
+      console.log('🎬 handlePlayPreview:', {
+        hasCurrentAnimation: !!currentAnimation,
+        currentAnimationId: currentAnimation?.id,
+        trackAnimationId,
+        baseAnimationId,
+        animationFormName: animationForm.name
+      })
+      
       // If animation is not saved yet, save it first before playing
       if (!currentAnimation && animationForm.name && animationForm.type) {
         console.log('💾 Auto-saving animation before preview playback')
@@ -756,10 +770,12 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
         setTimeout(() => {
           const savedAnimation = animations.find(a => a.name === animationForm.name)
           if (savedAnimation) {
+            console.log('▶️ Playing saved animation:', savedAnimation.id)
             playAnimation(savedAnimation.id, selectedTrackIds)
           }
         }, 200)
       } else if (currentAnimation) {
+        console.log('▶️ Playing current animation:', currentAnimation.id)
         playAnimation(currentAnimation.id, selectedTrackIds)
       }
     }

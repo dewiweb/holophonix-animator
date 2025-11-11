@@ -132,6 +132,12 @@ export const handleSaveAnimation = ({
   
   // V3: Apply animation to tracks
   // CRITICAL: In relative mode, each track needs its OWN animation with per-track parameters
+  console.log('📦 Applying animation to tracks:', {
+    mode: multiTrackMode,
+    hasMultiTrackParams: !!multiTrackParameters,
+    trackCount: selectedTracksToApply.length
+  })
+  
   selectedTracksToApply.forEach((track) => {
     let trackAnimation = animation
     
@@ -143,15 +149,30 @@ export const handleSaveAnimation = ({
         parameters: perTrackParams,  // Use per-track parameters (different control points, etc.)
         id: `${animation.id}-track-${track.id}`,  // Unique ID per track
       }
-      console.log(`  📍 Track ${track.name || track.id}: Using per-track parameters`, perTrackParams)
+      console.log(`  📍 Track ${track.name || track.id}: Creating per-track animation`, {
+        trackId: track.id,
+        perTrackParams,
+        baseParams: animation.parameters
+      })
+    } else {
+      console.log(`  📍 Track ${track.name || track.id}: Using shared animation`)
     }
     
+    const animationStateUpdate = {
+      animation: trackAnimation,  // Per-track animation in relative mode, shared in barycentric
+      isPlaying: false,
+      startTime: 0,
+      currentTime: 0
+    }
+    
+    console.log(`  💾 Updating track ${track.id} with animationState:`, {
+      animationId: trackAnimation.id,
+      hasParameters: !!trackAnimation.parameters,
+      paramKeys: trackAnimation.parameters ? Object.keys(trackAnimation.parameters) : []
+    })
+    
     updateTrack(track.id, {
-      animationState: {
-        animation: trackAnimation,  // Per-track animation in relative mode, shared in barycentric
-        isPlaying: false,
-        startTime: 0
-      }
+      animationState: animationStateUpdate
     })
   })
 
