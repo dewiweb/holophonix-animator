@@ -465,25 +465,6 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     return () => mq.removeListener(listener)
   }, [])
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+S or Cmd+S to save
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault()
-        if (animationForm.name) {
-          onSaveAnimation()
-          console.log('💾 Animation saved via keyboard shortcut (Ctrl+S / Cmd+S)')
-        } else {
-          console.warn('⚠️ Cannot save: Animation name is required')
-        }
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [animationForm.name]) // Re-attach when name changes to capture latest state
-
   // Handlers
   const handleAnimationTypeChange = (type: AnimationType) => {
     console.log('🔄 handleAnimationTypeChange called:', {
@@ -713,6 +694,30 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       onAnimationSelect(loadedAnimationId)
     }
   }
+
+  // Keyboard shortcuts - use ref to always call latest onSaveAnimation with current state
+  const onSaveAnimationRef = useRef(onSaveAnimation)
+  useEffect(() => {
+    onSaveAnimationRef.current = onSaveAnimation
+  }, [onSaveAnimation])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+S or Cmd+S to save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        if (animationForm.name) {
+          onSaveAnimationRef.current() // Use ref to get latest version with current state
+          console.log('💾 Animation saved via keyboard shortcut (Ctrl+S / Cmd+S)')
+        } else {
+          console.warn('⚠️ Cannot save: Animation name is required')
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [animationForm.name]) // Only re-attach when name changes for validation
 
   const handlePlayPreview = () => {
     if (isAnimationPlaying) {
