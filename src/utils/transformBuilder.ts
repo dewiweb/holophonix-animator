@@ -136,23 +136,15 @@ export function buildTransform(
   let pattern: 'rigid' | 'spherical' = 'rigid'
   
   if (effectiveVariant === 'isobarycentric') {
+    // Isobarycentric: calculate geometric center of tracks
     anchor = calculateBarycenter(tracks)
   } else {
-    // For user-defined variants (shared, centered, custom):
-    // 1. Try to extract anchor from animation parameters (e.g., circular.center)
-    // 2. Fall back to customCenter from UI state
-    // 3. Fall back to origin
-    const parameterAnchor = animationType && animationParameters 
-      ? extractAnchorFromParameters(animationType, animationParameters)
-      : undefined
+    // User-defined variants (shared, centered, custom):
+    // Use customCenter UI state - this is INDEPENDENT of animation path parameters
+    // customCenter defines formation anchor, animation parameters define barycenter path
+    anchor = customCenter || { x: 0, y: 0, z: 0 }
     
-    anchor = parameterAnchor || customCenter || { x: 0, y: 0, z: 0 }
-    
-    console.log('🎯 Formation anchor for variant', effectiveVariant, ':', anchor, {
-      fromParameters: !!parameterAnchor,
-      fromCustomCenter: !parameterAnchor && !!customCenter,
-      fromDefault: !parameterAnchor && !customCenter
-    })
+    console.log('🎯 Formation anchor for variant', effectiveVariant, ':', anchor)
   }
   
   if (effectiveVariant === 'custom') {

@@ -40,7 +40,7 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
     <div className={`mb-4 ${themeColors.multiTrackMode.background} border ${themeColors.multiTrackMode.border} rounded-lg p-4`}>
       <h3 className={`text-sm font-semibold ${themeColors.text.primary} mb-3`}>Multi-Track Mode</h3>
       <p className={`text-xs ${themeColors.text.muted} mb-3`}>
-        <strong>Relative:</strong> per-track params (offset by position) | <strong>Barycentric:</strong> formation around center (variants: shared, isobarycentric, centered)
+        <strong>Relative:</strong> per-track params (offset by position) | <strong>Barycentric:</strong> formation around barycenter (animation path center ≠ formation barycenter)
       </p>
       
       <div className="space-y-3">
@@ -123,10 +123,10 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
               </button>
             </div>
             <p className="mt-2 text-xs text-gray-500">
-              {barycentricVariant === 'shared' && '🟢 User-defined center, radius=0 (all tracks at center, moving identically)'}
-              {barycentricVariant === 'isobarycentric' && '🟠 Auto-calculated center, preserves original track offsets (rigid formation)'}
-              {barycentricVariant === 'centered' && '🟢 User-defined center, preserves original track offsets (rigid formation)'}
-              {barycentricVariant === 'custom' && '🎯 User-defined center + orbital radius (arrange tracks in circle around center)'}
+              {barycentricVariant === 'shared' && '🟢 User-defined barycenter, radius=0 (all tracks at barycenter, moving identically)'}
+              {barycentricVariant === 'isobarycentric' && '🟠 Auto-calculated barycenter (geometric center), preserves original track offsets (rigid formation)'}
+              {barycentricVariant === 'centered' && '🟢 User-defined barycenter, preserves original track offsets (rigid formation)'}
+              {barycentricVariant === 'custom' && '🎯 User-defined barycenter + orbital radius (tracks distributed on 3D sphere)'}
             </p>
 
             {/* Orbital Radius Control - only for custom variant */}
@@ -158,22 +158,25 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
                   className="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer"
                 />
                 <p className="mt-2 text-xs text-gray-500">
-                  🌐 Tracks are distributed on a sphere at this distance from the center.
+                  🌐 Tracks are distributed on a sphere at this distance from the formation barycenter.
                   <br/>
-                  • Radius = 0 → All tracks at center (like shared)
+                  • Radius = 0 → All tracks at barycenter (like shared)
                   <br/>
                   • Radius &gt; 0 → Tracks distributed evenly on 3D sphere surface
                   <br/>
-                  • Uses spherical coordinates for uniform distribution
+                  • Uses golden spiral algorithm for uniform distribution
                 </p>
               </div>
             )}
             
-            {/* Barycentric Center Position Display & Editor */}
+            {/* Formation Barycenter Position Editor */}
             {(barycentricVariant === 'custom' || barycentricVariant === 'centered' || barycentricVariant === 'shared') && (
               <div className="mt-3 p-3 bg-purple-900/30 rounded border border-purple-700/30">
                 <div className="text-xs font-medium text-purple-300 mb-2">
-                  Center Position
+                  🎯 Formation Barycenter
+                </div>
+                <div className="text-xs text-purple-200/70 mb-2">
+                  Anchor point for track offsets (independent of animation path center)
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
@@ -228,14 +231,19 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
                     />
                   </div>
                 </div>
-                <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
-                  <span>💡</span>
-                  <span>Drag center in 3D view or edit coordinates here</span>
+                <div className="mt-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <span>💡</span>
+                    <span>Drag barycenter in 3D view or edit coordinates here</span>
+                  </div>
+                  <div className="mt-1 italic text-xs">
+                    Note: This is independent from animation parameters (e.g., circular.center defines where barycenter moves, not where it starts)
+                  </div>
                 </div>
               </div>
             )}
             
-            {/* Isobarycentric Auto-Calculated Center Display (Read-Only) */}
+            {/* Isobarycentric Auto-Calculated Barycenter Display (Read-Only) */}
             {barycentricVariant === 'isobarycentric' && tracks.length > 0 && (() => {
               const center = {
                 x: tracks.reduce((sum, t) => sum + (t.initialPosition?.x ?? t.position.x), 0) / tracks.length,
@@ -245,7 +253,10 @@ export const MultiTrackModeSelector: React.FC<MultiTrackModeSelectorProps> = ({
               return (
                 <div className="mt-3 p-3 bg-orange-900/20 rounded border border-orange-700/30">
                   <div className="text-xs font-medium text-orange-300 mb-2">
-                    Auto-Calculated Center (Read-Only)
+                    🟠 Auto-Calculated Formation Barycenter (Geometric Center)
+                  </div>
+                  <div className="text-xs text-orange-200/70 mb-2">
+                    Calculated from track positions, not editable
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="text-center">
