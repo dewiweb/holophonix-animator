@@ -44,7 +44,7 @@ interface AnimationEngineState {
   seekTo: (time: number) => void
   goToStart: (durationMs?: number, trackIds?: string[]) => void
   _startPlayback: (animationId: string, trackIds: string[]) => void
-  _easeToPositions: (tracks: Array<{trackId: string, from: Position, to: Position}>, durationMs: number) => void
+  _easeToPositions: (tracks: Array<{trackId: string, from: Position, to: Position}>, durationMs: number, onComplete?: () => void) => void
 
   // Real-time computation
   getTrackPosition: (trackId: string, time?: number) => Position | null
@@ -314,6 +314,8 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     
     // Determine which tracks to reset
     let targetTracks: string[] = []
+    let affectedAnimationIds: string[] = []
+    
     if (trackIds) {
       // Use provided track IDs
       targetTracks = trackIds
@@ -347,7 +349,8 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       }
     })
     
-    // Reset timing states for all playing animations that use these tracks
+    // IMPORTANT: Pause animations that use these tracks during easing
+    // This prevents the animation loop from overriding easing positions
     const updatedPlayingAnimations = new Map(state.playingAnimations)
     const currentTime = Date.now()
     
@@ -355,11 +358,17 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       // Check if this animation uses any of the target tracks
       const hasTargetTrack = playingAnimation.trackIds.some(id => targetTracks.includes(id))
       if (hasTargetTrack) {
-        console.log('  ↻ Resetting timing for animation:', animationId)
-        // Reset timing state to restart from beginning
+        console.log('  ⏸️ Pausing animation during goToStart:', animationId)
+        affectedAnimationIds.push(animationId)
+        
+        // Pause and reset timing state
         updatedPlayingAnimations.set(animationId, {
           ...playingAnimation,
-          timingState: resetTimingState(currentTime)
+          timingState: {
+            ...resetTimingState(currentTime),
+            isPaused: true,  // Pause during easing
+            pausedTime: 0    // Start from 0 when resumed
+          }
         })
       }
     })
@@ -371,12 +380,39 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     
     // Start easing animation to move tracks smoothly to start
     if (tracksToEase.length > 0 && durationMs > 0) {
-      get()._easeToPositions(tracksToEase, durationMs)
+      get()._easeToPositions(tracksToEase, durationMs, () => {
+        // Callback after easing completes: Resume paused animations
+        console.log('  ▶️ Resuming animations after goToStart easing')
+        const finalAnimations = new Map(get().playingAnimations)
+        affectedAnimationIds.forEach(animId => {
+          const anim = finalAnimations.get(animId)
+          if (anim && anim.timingState.isPaused) {
+            finalAnimations.set(animId, {
+              ...anim,
+              timingState: resumeTimingState(anim.timingState, Date.now())
+            })
+          }
+        })
+        set({ playingAnimations: finalAnimations })
+      })
     } else if (tracksToEase.length > 0) {
-      // Instant move (no easing)
+      // Instant move (no easing) - resume immediately
       tracksToEase.forEach(({ trackId, to }) => {
         projectStore.updateTrack(trackId, { position: to })
       })
+      
+      // Resume animations immediately
+      const finalAnimations = new Map(get().playingAnimations)
+      affectedAnimationIds.forEach(animId => {
+        const anim = finalAnimations.get(animId)
+        if (anim && anim.timingState.isPaused) {
+          finalAnimations.set(animId, {
+            ...anim,
+            timingState: resumeTimingState(anim.timingState, Date.now())
+          })
+        }
+      })
+      set({ playingAnimations: finalAnimations })
     }
   },
 
@@ -550,7 +586,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
   /**
    * PRIVATE: Ease tracks to target positions with smooth interpolation
    */
-  _easeToPositions: (tracks: Array<{trackId: string, from: Position, to: Position}>, durationMs: number) => {
+  _easeToPositions: (tracks: Array<{trackId: string, from: Position, to: Position}>, durationMs: number, onComplete?: () => void) => {
     const projectStore = useProjectStore.getState()
     const startTime = performance.now()
     
@@ -601,6 +637,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             } : undefined
           })
         })
+        
+        // Call completion callback if provided
+        if (onComplete) {
+          onComplete()
+        }
       }
     }
     

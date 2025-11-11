@@ -181,8 +181,18 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
       ? getDefaultAnimationParameters(type, track)
       : getDefaultAnimationParameters(type, { position: { x: 0, y: 0, z: 0 }, initialPosition: { x: 0, y: 0, z: 0 } } as Track)
     
-    // Generate default name based on type
-    const defaultName = generateDefaultAnimationName(type, [])
+    // Get existing animation names from project store (import it)
+    const existingNames: string[] = []
+    try {
+      const { useProjectStore } = require('@/stores/projectStore')
+      const animations = useProjectStore.getState().animations
+      existingNames.push(...animations.map((a: any) => a.name))
+    } catch (e) {
+      console.warn('Could not get existing animation names:', e)
+    }
+    
+    // Generate unique default name based on type
+    const defaultName = generateDefaultAnimationName(type, existingNames)
     
     set((state) => ({
       animationForm: {
@@ -225,8 +235,18 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
         multiTrackParamCount: Object.keys(multiTrackParams).length
       })
       
-      // Generate default name based on type
-      const defaultName = generateDefaultAnimationName(type, [])
+      // Get existing animation names from project store
+      const existingNames: string[] = []
+      try {
+        const { useProjectStore } = require('@/stores/projectStore')
+        const animations = useProjectStore.getState().animations
+        existingNames.push(...animations.map((a: any) => a.name))
+      } catch (e) {
+        console.warn('Could not get existing animation names:', e)
+      }
+      
+      // Generate unique default name based on type
+      const defaultName = generateDefaultAnimationName(type, existingNames)
       
       // ATOMIC UPDATE: name + type + parameters + multiTrackParameters
       return {
