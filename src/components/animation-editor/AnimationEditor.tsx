@@ -64,6 +64,13 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     multiTrackParameters,
     activeEditingTrackIds,
     lockTracks,
+    // Subanimation state
+    fadeInEnabled,
+    fadeInDuration,
+    fadeInEasing,
+    fadeOutEnabled,
+    fadeOutDuration,
+    fadeOutEasing,
     // UI state
     showPresetBrowser,
     showPresetNameDialog,
@@ -93,6 +100,13 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     updateMultiTrackParameter,
     setActiveEditingTrackIds,
     setLockTracks,
+    // Subanimation actions
+    setFadeInEnabled,
+    setFadeInDuration,
+    setFadeInEasing,
+    setFadeOutEnabled,
+    setFadeOutDuration,
+    setFadeOutEasing,
     // UI actions
     setShowPresetBrowser,
     setShowPresetNameDialog,
@@ -648,7 +662,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     // Get the project store state directly
     const projectStore = useProjectStore.getState()
     
-    // Use the proper handleSaveAnimation with full multi-track support
+    // Use the proper handleSaveAnimation with full multi-track support + subanimations
     handleSaveAnimation({
       animationForm,
       keyframes,
@@ -665,7 +679,14 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       updateAnimation: projectStore.updateAnimation,
       updateTrack: projectStore.updateTrack,
       multiTrackParameters,
-      lockTracks
+      lockTracks,
+      // Subanimation settings
+      fadeInEnabled,
+      fadeInDuration,
+      fadeInEasing,
+      fadeOutEnabled,
+      fadeOutDuration,
+      fadeOutEasing
     })
     
     // Update the current animation in the parent component if callback exists
@@ -978,6 +999,18 @@ const unifiedPane = (
               onParameterChange={onParameterChange}
               onUseTrackPosition={onUseTrackPosition}
               onResetToDefaults={resetToDefaults}
+              fadeInEnabled={fadeInEnabled}
+              fadeInDuration={fadeInDuration}
+              fadeInEasing={fadeInEasing}
+              fadeOutEnabled={fadeOutEnabled}
+              fadeOutDuration={fadeOutDuration}
+              fadeOutEasing={fadeOutEasing}
+              onFadeInEnabledChange={setFadeInEnabled}
+              onFadeInDurationChange={setFadeInDuration}
+              onFadeInEasingChange={setFadeInEasing}
+              onFadeOutEnabledChange={setFadeOutEnabled}
+              onFadeOutDurationChange={setFadeOutDuration}
+              onFadeOutEasingChange={setFadeOutEasing}
               onClose={() => setIsFormPanelOpen(false)}
             />
           </div>

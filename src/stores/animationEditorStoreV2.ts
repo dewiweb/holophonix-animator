@@ -92,6 +92,16 @@ export interface AnimationEditorState {
   setLockTracks: (lock: boolean) => void
   
   // --------------------------------------------
+  // SUBANIMATION ACTIONS
+  // --------------------------------------------
+  setFadeInEnabled: (enabled: boolean) => void
+  setFadeInDuration: (duration: number) => void
+  setFadeInEasing: (easing: 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear') => void
+  setFadeOutEnabled: (enabled: boolean) => void
+  setFadeOutDuration: (duration: number) => void
+  setFadeOutEasing: (easing: 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear') => void
+  
+  // --------------------------------------------
   // UI ACTIONS
   // --------------------------------------------
   setShowPresetBrowser: (show: boolean) => void
@@ -447,6 +457,34 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
   
   setLockTracks: (lock) => {
     set({ lockTracks: lock })
+  },
+  
+  // ============================================
+  // SUBANIMATION ACTIONS
+  // ============================================
+  
+  setFadeInEnabled: (enabled) => {
+    set({ fadeInEnabled: enabled })
+  },
+  
+  setFadeInDuration: (duration) => {
+    set({ fadeInDuration: Math.max(0.1, Math.min(duration, 10)) }) // Clamp 0.1-10s
+  },
+  
+  setFadeInEasing: (easing) => {
+    set({ fadeInEasing: easing })
+  },
+  
+  setFadeOutEnabled: (enabled) => {
+    set({ fadeOutEnabled: enabled })
+  },
+  
+  setFadeOutDuration: (duration) => {
+    set({ fadeOutDuration: Math.max(0.1, Math.min(duration, 10)) }) // Clamp 0.1-10s
+  },
+  
+  setFadeOutEasing: (easing) => {
+    set({ fadeOutEasing: easing })
   },
   
   // ============================================

@@ -9,6 +9,7 @@ import {
   ModelSelector
 } from '../controls'
 import { ModelParametersForm } from '../models-forms/ModelParametersForm'
+import { SubanimationSettings } from './SubanimationSettings'
 import { animationCategories, getAnimationInfo } from '../../constants/animationCategories'
 import { getCompatibleModes } from '../../utils/compatibility'
 
@@ -50,6 +51,20 @@ interface AnimationSettingsPanelProps {
   onUseTrackPosition: () => void
   onResetToDefaults: (track: Track | undefined) => void
   
+  // Subanimation settings
+  fadeInEnabled: boolean
+  fadeInDuration: number
+  fadeInEasing: 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear'
+  fadeOutEnabled: boolean
+  fadeOutDuration: number
+  fadeOutEasing: 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear'
+  onFadeInEnabledChange: (enabled: boolean) => void
+  onFadeInDurationChange: (duration: number) => void
+  onFadeInEasingChange: (easing: 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear') => void
+  onFadeOutEnabledChange: (enabled: boolean) => void
+  onFadeOutDurationChange: (duration: number) => void
+  onFadeOutEasingChange: (easing: 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear') => void
+  
   // UI control
   onClose?: () => void
 }
@@ -79,6 +94,18 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
   onParameterChange,
   onUseTrackPosition,
   onResetToDefaults,
+  fadeInEnabled,
+  fadeInDuration,
+  fadeInEasing,
+  fadeOutEnabled,
+  fadeOutDuration,
+  fadeOutEasing,
+  onFadeInEnabledChange,
+  onFadeInDurationChange,
+  onFadeInEasingChange,
+  onFadeOutEnabledChange,
+  onFadeOutDurationChange,
+  onFadeOutEasingChange,
   onClose
 }) => {
   return (
@@ -198,6 +225,22 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
             </label>
           </div>
         )}
+
+        {/* Subanimation Settings (Fade-in/Fade-out) */}
+        <SubanimationSettings
+          fadeInEnabled={fadeInEnabled}
+          fadeInDuration={fadeInDuration}
+          fadeInEasing={fadeInEasing}
+          onFadeInEnabledChange={onFadeInEnabledChange}
+          onFadeInDurationChange={onFadeInDurationChange}
+          onFadeInEasingChange={onFadeInEasingChange}
+          fadeOutEnabled={fadeOutEnabled}
+          fadeOutDuration={fadeOutDuration}
+          fadeOutEasing={fadeOutEasing}
+          onFadeOutEnabledChange={onFadeOutEnabledChange}
+          onFadeOutDurationChange={onFadeOutDurationChange}
+          onFadeOutEasingChange={onFadeOutEasingChange}
+        />
 
         <div>
           <div className="flex items-center justify-between mb-3">
