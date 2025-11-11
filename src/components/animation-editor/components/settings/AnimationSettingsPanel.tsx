@@ -125,35 +125,47 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
       </div>
 
       <div className="space-y-4">
-        {/* Track Selection - Always visible */}
-        <SelectedTracksIndicator 
-          selectedTracks={selectedTracks} 
-          onReorder={onReorderTracks}
-          activeEditingTrackIds={activeEditingTrackIds}
-          onSetActiveTracks={onSetActiveTracks}
-          multiTrackMode={multiTrackMode}
-        />
-
-        {/* Multi-Track Mode - Always visible when multiple tracks */}
-        {selectedTrackIds.length > 1 && (
-          <MultiTrackModeSelector
-            animationType={animationForm.type || 'linear'}
+        {/* Track Selection */}
+        <CollapsibleSection 
+          title="Track Selection" 
+          defaultExpanded={true}
+          badge={`${selectedTracks.length} track${selectedTracks.length !== 1 ? 's' : ''}`}
+        >
+          <SelectedTracksIndicator 
+            selectedTracks={selectedTracks} 
+            onReorder={onReorderTracks}
+            activeEditingTrackIds={activeEditingTrackIds}
+            onSetActiveTracks={onSetActiveTracks}
             multiTrackMode={multiTrackMode}
-            barycentricVariant={barycentricVariant}
-            customCenter={customCenter}
-            preserveOffsets={preserveOffsets}
-            phaseOffsetSeconds={phaseOffsetSeconds}
-            tracks={selectedTracks}
-            onModeChange={onModeChange}
-            onVariantChange={onVariantChange}
-            onCustomCenterChange={onCustomCenterChange}
-            onPreserveOffsetsChange={onPreserveOffsetsChange}
-            onPhaseOffsetChange={onPhaseOffsetChange}
-            getCompatibleModes={getCompatibleModes}
           />
+        </CollapsibleSection>
+
+        {/* Multi-Track Mode (when multiple tracks selected) */}
+        {selectedTrackIds.length > 1 && (
+          <CollapsibleSection 
+            title="Multi-Track Mode" 
+            defaultExpanded={false}
+            badge={`${multiTrackMode === 'relative' ? 'Relative' : 'Barycentric'}${phaseOffsetSeconds ? ` • ${phaseOffsetSeconds}s offset` : ''}`}
+          >
+            <MultiTrackModeSelector
+              animationType={animationForm.type || 'linear'}
+              multiTrackMode={multiTrackMode}
+              barycentricVariant={barycentricVariant}
+              customCenter={customCenter}
+              preserveOffsets={preserveOffsets}
+              phaseOffsetSeconds={phaseOffsetSeconds}
+              tracks={selectedTracks}
+              onModeChange={onModeChange}
+              onVariantChange={onVariantChange}
+              onCustomCenterChange={onCustomCenterChange}
+              onPreserveOffsetsChange={onPreserveOffsetsChange}
+              onPhaseOffsetChange={onPhaseOffsetChange}
+              getCompatibleModes={getCompatibleModes}
+            />
+          </CollapsibleSection>
         )}
 
-        {/* SECTION 1: Animation Setup */}
+        {/* Animation Setup */}
         <CollapsibleSection title="Animation Setup" defaultExpanded={true}>
           <div className="space-y-3">
             <div>
@@ -185,7 +197,6 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
           </div>
         </CollapsibleSection>
 
-        {/* SECTION 2: Timing (includes duration, loop, ping-pong, and transitions) */}
         <CollapsibleSection 
           title="Timing & Transitions" 
           defaultExpanded={false}
@@ -266,11 +277,9 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
           </div>
         </CollapsibleSection>
 
-        {/* SECTION 3: Parameters */}
         <CollapsibleSection title="Parameters" defaultExpanded={true}>
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-2">
-            <div className="flex gap-2">
+            <div className="flex items-center justify-end gap-2 mb-2">
               <button
                 onClick={onUseTrackPosition}
                 disabled={!selectedTrack}
@@ -286,7 +295,6 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
                 Reset to Defaults
               </button>
             </div>
-          </div>
             {selectedModel ? (
               <ModelParametersForm
                 model={selectedModel}
