@@ -109,7 +109,7 @@ export class ModelRuntime {
   }
   
   /**
-   * Build calculation context
+   * Build calculation context (v3 - simplified)
    */
   private buildContext(
     animation: Animation,
@@ -121,21 +121,18 @@ export class ModelRuntime {
     let context = this.contextCache.get(cacheKey)
     if (!context) {
       context = {
-        trackId: '',
-        trackIndex: 0,
-        totalTracks: 1,
+        trackId: partial?.trackId || '',
+        time: partial?.time || 0,
+        duration: partial?.duration || animation.duration,
+        deltaTime: partial?.deltaTime || 0,
         frameCount: 0,
-        deltaTime: 0,
-        realTime: Date.now(),
         state: this.getStateMap(animation.id),
+        // Spread any additional fields (for backward compat)
         ...partial
       }
       this.contextCache.set(cacheKey, context)
     } else {
       // Update time-dependent fields
-      const now = Date.now()
-      context.deltaTime = now - context.realTime
-      context.realTime = now
       context.frameCount++
       
       // Apply partial updates

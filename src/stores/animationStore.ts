@@ -7,6 +7,8 @@ import { oscBatchManager } from '@/utils/oscBatchManager'
 import { modelRegistry } from '@/models/registry'
 import { oscInputManager } from '@/utils/oscInputManager'
 import { oscMessageOptimizer, type TrackPositionUpdate } from '@/utils/oscMessageOptimizer'
+import { applyTransform, getTrackTime } from '@/utils/transformApplication'
+import { autoMigrate } from '@/utils/animationMigration'
 
 /**
  * Rotate offset for rotational animations to maintain formation shape
@@ -481,67 +483,32 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             return
           }
 
-          // Calculate position using model runtime
-          const params = animation.parameters as any
-          // Determine if this is a multi-track animation
-          const isMultiTrack = playingAnimation.trackIds.length > 1
+          // V3 UNIFIED TRANSFORM APPLICATION
+          // 1. Get adjusted time for this track (applies phase offset)
+          const trackTime = getTrackTime(trackId, animationTime, animation)
           
+          // 2. Build simplified context (no mode-specific fields)
           const context: any = {
             trackId,
+            time: trackTime,
+            duration: animation.duration,
+            deltaTime: deltaTime / 1000,
+            frameCount: state.frameCount,
+            state: new Map(),  // For stateful models (pendulum, spring, etc.)
+            
+            // DEPRECATED v2 fields (for backward compatibility only)
             trackIndex: playingAnimation.trackIds.indexOf(trackId),
             totalTracks: playingAnimation.trackIds.length,
-            trackPosition: track.position,    // Current track position
-            initialPosition: track.initialPosition || track.position,  // Starting position (FIXED)
-            // trackOffset handling:
-            // Multi-track: use strategy-provided offset (params._trackOffset)
-            // Single-track: undefined (parameters are already in absolute coordinates)
-            trackOffset: isMultiTrack ? params._trackOffset : undefined,
-            // multiTrackMode: only set for multi-track animations
-            multiTrackMode: isMultiTrack ? (animation.multiTrackMode || 'relative') : undefined,
-            barycentricVariant: animation.barycentricVariant,
-            frameCount: state.frameCount,
-            deltaTime: deltaTime / 1000,
+            trackPosition: track.position,
+            initialPosition: track.initialPosition || track.position,
             realTime: timestamp,
-            state: new Map()  // Must be a Map for stateful models
           }
-          // Calculate position using model
-          let position = modelRuntime.calculatePosition(animation, animationTime, 0, context)
-
-          // Apply track offset ONLY for barycentric mode
-          // In barycentric mode, model calculates barycenter path, then we add track offset
-          // In relative mode, model handles offset internally via context.trackOffset
-          if (params._trackOffset && animation.multiTrackMode === 'barycentric') {
-            const offset = params._trackOffset
-            
-            // Only rotate offset for barycentric variants that preserve offsets
-            const shouldRotate = (animation.barycentricVariant !== 'shared' && animation.barycentricVariant !== undefined) || params._isobarycenter
-            
-            if (shouldRotate) {
-              // Formation mode: rotate offset to maintain rigid body shape
-              const rotatedOffset = rotateOffsetForAnimation(
-                offset,
-                animation.type,
-                params,
-                animationTime,
-                animation.duration
-              )
-              position = {
-                x: position.x + rotatedOffset.x,
-                y: position.y + rotatedOffset.y,
-                z: position.z + rotatedOffset.z
-              }
-            } else {
-              // Shared variant: no offset (all tracks at barycenter)
-              // Offset already zero from strategy, but double-check
-              if (animation.barycentricVariant !== 'shared') {
-                position = {
-                  x: position.x + offset.x,
-                  y: position.y + offset.y,
-                  z: position.z + offset.z
-                }
-              }
-            }
-          }
+          
+          // 3. Calculate base position (model returns position in absolute coordinates)
+          const basePosition = modelRuntime.calculatePosition(animation, trackTime, 0, context)
+          
+          // 4. Apply transform (SINGLE unified application point)
+          const position = applyTransform(basePosition, trackId, animation, trackTime)
 
           // Update track position
           projectStore.updateTrack(trackId, { position })

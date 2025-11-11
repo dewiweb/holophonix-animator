@@ -283,6 +283,51 @@ export interface AnimationParameters {
   _multiTrackMode?: 'relative' | 'barycentric';  // Internal: base mode (relative or barycentric/formation)
 }
 
+// ========================================
+// UNIFIED TRANSFORM MODEL (v3 Architecture)
+// ========================================
+
+/**
+ * Track transformation: how to transform animation for a specific track
+ * Applied AFTER model calculation, never inside model
+ */
+export interface TrackTransform {
+  offset: Position;      // Position offset to apply after calculation
+  timeShift: number;     // Phase offset in seconds
+}
+
+/**
+ * Transform modes define how animation is distributed across tracks
+ */
+export type TransformMode = 
+  | 'absolute'    // Single track, no transformation (default)
+  | 'relative'    // Each track has own offset (independent movement)
+  | 'formation'   // Tracks move as formation around anchor
+
+/**
+ * Formation patterns for formation mode
+ */
+export type FormationPattern =
+  | 'rigid'      // Tracks maintain exact offsets (isobarycentric/centered)
+  | 'spherical'  // Tracks distributed on sphere surface (custom variant)
+
+/**
+ * Animation transform metadata
+ * Defines how animation is transformed for multi-track playback
+ */
+export interface AnimationTransform {
+  mode: TransformMode;
+  
+  // Per-track transformations (offset + time shift)
+  tracks: Record<string, TrackTransform>;
+  
+  // Formation-specific data (only for mode === 'formation')
+  formation?: {
+    anchor: Position;          // Center point of formation
+    pattern: FormationPattern; // How tracks are arranged
+  };
+}
+
 export interface Animation {
   id: string;
   name: string;
@@ -290,17 +335,22 @@ export interface Animation {
   duration: number;      // Duration in seconds
   loop: boolean;
   pingPong?: boolean;    // When true, animation plays forward then backward (requires loop)
-  parameters: AnimationParameters;
+  parameters: AnimationParameters;  // ALWAYS in absolute coordinates
   keyframes?: Keyframe[];
   coordinateSystem: CoordinateSystem;
-  // Multi-track support (2-mode architecture)
+  
+  // NEW UNIFIED TRANSFORM (v3)
+  transform?: AnimationTransform;  // Optional: if undefined, single-track absolute mode
+  
+  // DEPRECATED (v2 - kept for backward compatibility, will migrate on load)
   multiTrackMode?: 'relative' | 'barycentric';  // Base mode
   barycentricVariant?: 'shared' | 'isobarycentric' | 'centered' | 'custom';  // Barycentric sub-mode
   customCenter?: Position;  // Custom center point for 'centered' or 'custom' variants
-  preserveOffsets?: boolean;  // For barycentric: maintain track-to-center distances (default: true for iso/centered, false for shared)
+  preserveOffsets?: boolean;  // For barycentric: maintain track-to-center distances
   multiTrackParameters?: Record<string, AnimationParameters>; // Per-track parameters (relative mode)
-  phaseOffsetSeconds?: number; // Time delay between tracks (orthogonal parameter, works with any mode)
-  // Track locking (NEW)
+  phaseOffsetSeconds?: number; // Time delay between tracks
+  
+  // Track locking
   trackIds?: string[];   // If set, animation is locked to these specific tracks
   trackSelectionLocked?: boolean; // If true, tracks cannot be changed in cue editor
 }

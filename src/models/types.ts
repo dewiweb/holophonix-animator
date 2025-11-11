@@ -60,31 +60,37 @@ export interface ParameterDefinition {
 }
 
 /**
- * Calculation context provided to animation models
+ * Calculation context provided to animation models (v3 - SIMPLIFIED)
+ * Models are now pure functions that only calculate positions in absolute coordinates
+ * All multi-track transformations are applied AFTER calculation in animationStore
  */
 export interface CalculationContext {
-  // Track information
+  // Track identification
   trackId: string
-  trackIndex: number
-  totalTracks: number
-  trackPosition?: Position      // Current track position
-  initialPosition?: Position    // Starting position
   
-  // Multi-track mode (2-mode architecture)
-  multiTrackMode?: 'relative' | 'barycentric'
-  barycentricVariant?: 'shared' | 'isobarycentric' | 'centered' | 'custom'  // Sub-variant for barycentric mode
-  isobarycenter?: Position     // Auto-calculated barycenter (isobarycentric variant)
-  customCenter?: Position      // User-defined center (centered/custom variant)
-  trackOffset?: Position       // Offset from center/barycenter
-  preserveOffsets?: boolean    // Maintain track-to-center distances
+  // Timing information
+  time: number                // Animation time in seconds
+  duration: number            // Total animation duration
+  deltaTime: number           // Time since last frame (for physics)
   
-  // Timing
+  // Frame tracking
   frameCount: number
-  deltaTime: number           // Time since last frame
-  realTime: number           // Real time since start
   
-  // Physics state (for stateful animations)
+  // Physics state (for stateful animations like pendulum, spring)
   state?: Map<string, any>
+  
+  // DEPRECATED (v2 compatibility - models should not use these)
+  trackIndex?: number
+  totalTracks?: number
+  trackPosition?: Position
+  initialPosition?: Position
+  multiTrackMode?: 'relative' | 'barycentric'
+  barycentricVariant?: 'shared' | 'isobarycentric' | 'centered' | 'custom'
+  isobarycenter?: Position
+  customCenter?: Position
+  trackOffset?: Position
+  preserveOffsets?: boolean
+  realTime?: number
 }
 
 /**
