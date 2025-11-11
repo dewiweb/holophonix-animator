@@ -155,14 +155,14 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
 
         {/* SECTION 1: Animation Setup */}
         <CollapsibleSection title="Animation Setup" defaultExpanded={true}>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Animation Name</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Animation Name</label>
               <input
                 type="text"
                 value={animationForm.name || ''}
                 onChange={(e) => onUpdateForm({ name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="Enter animation name"
               />
             </div>
@@ -185,15 +185,16 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
           </div>
         </CollapsibleSection>
 
-        {/* SECTION 2: Timing */}
+        {/* SECTION 2: Timing (includes duration, loop, ping-pong, and transitions) */}
         <CollapsibleSection 
-          title="Timing" 
+          title="Timing & Transitions" 
           defaultExpanded={false}
-          badge={`${animationForm.duration || 10}s${animationForm.loop ? ' • Loop' : ''}${animationForm.pingPong ? ' • Ping-Pong' : ''}`}
+          badge={`${animationForm.duration || 10}s${animationForm.loop ? ' • Loop' : ''}${animationForm.pingPong ? ' • Ping-Pong' : ''}${fadeInEnabled || fadeOutEnabled ? ' • Transitions' : ''}`}
         >
           <div className="space-y-4">
+            {/* Animation Duration */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Duration (seconds)</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Animation Duration</label>
               <input
                 type="number"
                 min="0.1"
@@ -201,13 +202,15 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
                 step="0.1"
                 value={animationForm.duration || 10}
                 onChange={(e) => onUpdateForm({ duration: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Main animation playback duration in seconds</p>
             </div>
 
+            {/* Loop Toggle */}
             <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2">
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Loop</label>
+                <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Loop</label>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Repeat animation when it ends</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -221,11 +224,12 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
               </label>
             </div>
 
+            {/* Ping-Pong (only when loop enabled) */}
             {animationForm.loop && (
-              <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+              <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2">
                 <div>
-                  <label className="text-sm font-medium text-blue-900 dark:text-blue-300">Ping-Pong Mode</label>
-                  <p className="text-xs text-blue-700 dark:text-blue-400">Play forward then backward (bounce effect)</p>
+                  <label className="text-xs font-medium text-blue-900 dark:text-blue-300">Ping-Pong Mode</label>
+                  <p className="text-xs text-blue-700 dark:text-blue-400">Play forward then backward</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -238,36 +242,34 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
                 </label>
               </div>
             )}
+
+            {/* Divider */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-3">Entry & Exit Transitions</h4>
+              
+              {/* Subanimation Settings */}
+              <SubanimationSettings
+                fadeInEnabled={fadeInEnabled}
+                fadeInDuration={fadeInDuration}
+                fadeInEasing={fadeInEasing}
+                onFadeInEnabledChange={onFadeInEnabledChange}
+                onFadeInDurationChange={onFadeInDurationChange}
+                onFadeInEasingChange={onFadeInEasingChange}
+                fadeOutEnabled={fadeOutEnabled}
+                fadeOutDuration={fadeOutDuration}
+                fadeOutEasing={fadeOutEasing}
+                onFadeOutEnabledChange={onFadeOutEnabledChange}
+                onFadeOutDurationChange={onFadeOutDurationChange}
+                onFadeOutEasingChange={onFadeOutEasingChange}
+              />
+            </div>
           </div>
         </CollapsibleSection>
 
-        {/* SECTION 3: Subanimations */}
-        <CollapsibleSection 
-          title="Subanimations" 
-          defaultExpanded={false}
-          badge={fadeInEnabled || fadeOutEnabled ? `${fadeInEnabled ? 'Fade-In' : ''}${fadeInEnabled && fadeOutEnabled ? ' • ' : ''}${fadeOutEnabled ? 'Fade-Out' : ''}` : undefined}
-        >
-          <SubanimationSettings
-            fadeInEnabled={fadeInEnabled}
-            fadeInDuration={fadeInDuration}
-            fadeInEasing={fadeInEasing}
-            onFadeInEnabledChange={onFadeInEnabledChange}
-            onFadeInDurationChange={onFadeInDurationChange}
-            onFadeInEasingChange={onFadeInEasingChange}
-            fadeOutEnabled={fadeOutEnabled}
-            fadeOutDuration={fadeOutDuration}
-            fadeOutEasing={fadeOutEasing}
-            onFadeOutEnabledChange={onFadeOutEnabledChange}
-            onFadeOutDurationChange={onFadeOutDurationChange}
-            onFadeOutEasingChange={onFadeOutEasingChange}
-          />
-        </CollapsibleSection>
-
-        {/* SECTION 4: Parameters */}
+        {/* SECTION 3: Parameters */}
         <CollapsibleSection title="Parameters" defaultExpanded={true}>
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Animation Parameters</h3>
+            <div className="flex items-center justify-between mb-2">
             <div className="flex gap-2">
               <button
                 onClick={onUseTrackPosition}

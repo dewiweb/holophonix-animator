@@ -43,40 +43,40 @@ export const SubanimationSettings: React.FC<SubanimationSettingsProps> = ({
   const [fadeOutExpanded, setFadeOutExpanded] = React.useState(false)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
 
       {/* Fade-In Section */}
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
         {/* Header */}
         <button
           onClick={() => setFadeInExpanded(!fadeInExpanded)}
-          className="w-full px-3 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 flex items-center justify-between transition-colors"
+          className="w-full px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 flex items-center justify-between transition-colors"
         >
-          <div className="flex items-center gap-2">
-            {fadeInExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Fade-In</span>
+          <div className="flex items-center gap-1.5">
+            {fadeInExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Entry (Go to Start)</span>
             {fadeInEnabled && (
               <span className="text-xs text-blue-600 dark:text-blue-400 font-normal">
-                ({fadeInDuration}s)
+                {fadeInDuration}s
               </span>
             )}
           </div>
-          <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+          <label className="flex items-center gap-1.5 cursor-pointer" onClick={(e) => e.stopPropagation()}>
             <input
               type="checkbox"
               checked={fadeInEnabled}
               onChange={(e) => onFadeInEnabledChange(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
             />
-            <span className="text-xs text-gray-600 dark:text-gray-400">Enabled</span>
+            <span className="text-xs text-gray-600 dark:text-gray-400">On</span>
           </label>
         </button>
 
         {/* Content */}
         {fadeInExpanded && (
-          <div className="p-3 space-y-3 bg-white dark:bg-gray-800">
+          <div className="p-2.5 space-y-2.5 bg-white dark:bg-gray-800">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Smoothly ease tracks to start position before animation begins
+              Ease from current position to animation start position
             </p>
 
             {/* Duration */}
@@ -140,37 +140,37 @@ export const SubanimationSettings: React.FC<SubanimationSettingsProps> = ({
       </div>
 
       {/* Fade-Out Section */}
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <div className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
         {/* Header */}
         <button
           onClick={() => setFadeOutExpanded(!fadeOutExpanded)}
-          className="w-full px-3 py-2 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 flex items-center justify-between transition-colors"
+          className="w-full px-2.5 py-1.5 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 flex items-center justify-between transition-colors"
         >
-          <div className="flex items-center gap-2">
-            {fadeOutExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            <span className="text-sm font-medium text-purple-700 dark:text-purple-400">Fade-Out</span>
+          <div className="flex items-center gap-1.5">
+            {fadeOutExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            <span className="text-xs font-medium text-purple-700 dark:text-purple-400">Exit (Return Home)</span>
             {fadeOutEnabled && (
               <span className="text-xs text-purple-600 dark:text-purple-400 font-normal">
-                ({fadeOutDuration}s)
+                {fadeOutDuration}s
               </span>
             )}
           </div>
-          <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+          <label className="flex items-center gap-1.5 cursor-pointer" onClick={(e) => e.stopPropagation()}>
             <input
               type="checkbox"
               checked={fadeOutEnabled}
               onChange={(e) => onFadeOutEnabledChange(e.target.checked)}
-              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 w-3.5 h-3.5"
             />
-            <span className="text-xs text-gray-600 dark:text-gray-400">Enabled</span>
+            <span className="text-xs text-gray-600 dark:text-gray-400">On</span>
           </label>
         </button>
 
         {/* Content */}
         {fadeOutExpanded && (
-          <div className="p-3 space-y-3 bg-white dark:bg-gray-800">
+          <div className="p-2.5 space-y-2.5 bg-white dark:bg-gray-800">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Smoothly return tracks to initial position after animation stops
+              Ease from current position to initial position
             </p>
 
             {/* Duration */}
