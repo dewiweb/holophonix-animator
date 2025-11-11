@@ -309,10 +309,32 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
   },
 
   goToStart: (durationMs: number = 500, trackIds?: string[]) => {
+    const state = get()
     const projectStore = useProjectStore.getState()
-    const targetTracks = trackIds || get().currentTrackIds
     
-    // Collect tracks to ease to start
+    // Determine which tracks to reset
+    let targetTracks: string[] = []
+    if (trackIds) {
+      // Use provided track IDs
+      targetTracks = trackIds
+    } else {
+      // Get tracks from ALL active playing animations
+      state.playingAnimations.forEach((playingAnimation) => {
+        targetTracks.push(...playingAnimation.trackIds)
+      })
+    }
+    
+    // Remove duplicates
+    targetTracks = [...new Set(targetTracks)]
+    
+    if (targetTracks.length === 0) {
+      console.warn('goToStart: No tracks to reset')
+      return
+    }
+    
+    console.log('🔄 goToStart for tracks:', targetTracks)
+    
+    // Collect tracks to ease to start position
     const tracksToEase: Array<{trackId: string, from: Position, to: Position}> = []
     targetTracks.forEach(trackId => {
       const track = projectStore.tracks.find(t => t.id === trackId)
@@ -325,12 +347,37 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       }
     })
     
-    // Start easing animation
-    if (tracksToEase.length > 0) {
-      get()._easeToPositions(tracksToEase, durationMs)
-    }
+    // Reset timing states for all playing animations that use these tracks
+    const updatedPlayingAnimations = new Map(state.playingAnimations)
+    const currentTime = Date.now()
     
-    set({ globalTime: 0 })
+    updatedPlayingAnimations.forEach((playingAnimation, animationId) => {
+      // Check if this animation uses any of the target tracks
+      const hasTargetTrack = playingAnimation.trackIds.some(id => targetTracks.includes(id))
+      if (hasTargetTrack) {
+        console.log('  ↻ Resetting timing for animation:', animationId)
+        // Reset timing state to restart from beginning
+        updatedPlayingAnimations.set(animationId, {
+          ...playingAnimation,
+          timingState: resetTimingState(currentTime)
+        })
+      }
+    })
+    
+    set({ 
+      playingAnimations: updatedPlayingAnimations,
+      globalTime: 0  // Keep for backward compat
+    })
+    
+    // Start easing animation to move tracks smoothly to start
+    if (tracksToEase.length > 0 && durationMs > 0) {
+      get()._easeToPositions(tracksToEase, durationMs)
+    } else if (tracksToEase.length > 0) {
+      // Instant move (no easing)
+      tracksToEase.forEach(({ trackId, to }) => {
+        projectStore.updateTrack(trackId, { position: to })
+      })
+    }
   },
 
   seekTo: (time: number) => {
