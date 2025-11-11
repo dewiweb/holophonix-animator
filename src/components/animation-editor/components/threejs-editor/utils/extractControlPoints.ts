@@ -53,16 +53,22 @@ export function extractControlPointsFromAnimation(animation: Animation | null): 
       
       if (position) {
         const originalPosition = { ...position }
-        if (params._isobarycenter) {
+        
+        // Apply barycentric center offset (for any barycentric variant)
+        // In editor, check for _isobarycenter OR _customCenter
+        const barycenterOffset = params._isobarycenter || params._customCenter
+        
+        if (barycenterOffset) {
           position = {
-            x: position.x + params._isobarycenter.x,
-            y: position.y + params._isobarycenter.y,
-            z: position.z + params._isobarycenter.z
+            x: position.x + barycenterOffset.x,
+            y: position.y + barycenterOffset.y,
+            z: position.z + barycenterOffset.z
           }
           console.log('🎯 Applied barycenter offset:', {
             parameter: cpConfig.parameter,
             originalPosition,
-            barycenter: params._isobarycenter,
+            barycenter: barycenterOffset,
+            type: params._isobarycenter ? 'auto' : 'custom',
             finalPosition: position
           })
         } else if (params._trackOffset) {
@@ -89,6 +95,7 @@ export function extractControlPointsFromAnimation(animation: Animation | null): 
  * Convert control points back to animation parameters
  * Used when user edits control points via gizmo
  * Converts from Three.js coordinates back to app coordinates
+ * CRITICAL: Must subtract barycentric offset since visual positions include it
  */
 export const controlPointsToParameters = (
   animationType: string,
@@ -100,10 +107,25 @@ export const controlPointsToParameters = (
     return threeToAppPosition(vec)
   }
   
+  // Convert points to app coordinates
+  let appPoints = points.map(vector3ToPosition)
+  
+  // CRITICAL: If barycentric mode, subtract the center offset
+  // because extractControlPoints ADDS it, we must SUBTRACT it when saving
+  const barycenterOffset = originalParams._isobarycenter || originalParams._customCenter
+  
+  if (barycenterOffset) {
+    console.log('🔄 Subtracting barycentric offset from control points:', barycenterOffset)
+    appPoints = appPoints.map(point => ({
+      x: point.x - barycenterOffset.x,
+      y: point.y - barycenterOffset.y,
+      z: point.z - barycenterOffset.z
+    }))
+  }
+  
   // Use model's updateFromControlPoints method
   const model = modelRegistry.getModel(animationType)
   if (model?.visualization?.updateFromControlPoints) {
-    const appPoints = points.map(vector3ToPosition)
     return model.visualization.updateFromControlPoints(appPoints, originalParams)
   }
   

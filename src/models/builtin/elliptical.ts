@@ -43,25 +43,23 @@ export function createEllipticalModel(): AnimationModel {
       let centerY = params.center?.y ?? params.centerY ?? 0
       let centerZ = params.center?.z ?? params.centerZ ?? 0
       
-      // Support multi-track modes - check both parameters and context
+      // Support multi-track modes
       const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'shared' && params._centeredPoint) {
-        centerX = params._centeredPoint.x
-        centerY = params._centeredPoint.y
-        centerZ = params._centeredPoint.z
-      } else if (multiTrackMode === 'formation' && params._isobarycenter) {
-        // For formation mode, use barycenter as center
-        // Do NOT apply track offset here - it's applied after in animationStore.ts
-        centerX = params._isobarycenter.x
-        centerY = params._isobarycenter.y
-        centerZ = params._isobarycenter.z
-      } else if (multiTrackMode === 'relative') {
-        if (context?.trackOffset) {
-          centerX += context.trackOffset.x
-          centerY += context.trackOffset.y
-          centerZ += context.trackOffset.z
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Use barycenter as center of ellipse
+        // STEP 2 (Store): Will add _trackOffset after calculation
+        const baryCenter = params._isobarycenter || params._customCenter
+        if (baryCenter) {
+          centerX = baryCenter.x
+          centerY = baryCenter.y
+          centerZ = baryCenter.z
         }
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset center by track position
+        centerX += context.trackOffset.x
+        centerY += context.trackOffset.y
+        centerZ += context.trackOffset.z
       }
       
       const startAngle = ((params.startAngle ?? 0) + (params.phase ?? 0)) * Math.PI / 180
@@ -116,8 +114,9 @@ export function createEllipticalModel(): AnimationModel {
       }
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric', 'centered'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [

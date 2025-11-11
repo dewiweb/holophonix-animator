@@ -165,29 +165,6 @@ export const getDefaultAnimationParameters = (type: AnimationType, track: Track 
       defaultParams.plane = 'xy'
       break
 
-    case 'orbit':
-      defaultParams.center = { ...trackPosition }
-      defaultParams.orbitalRadius = 4
-      defaultParams.orbitalSpeed = 1
-      defaultParams.orbitalPhase = 0
-      defaultParams.inclination = 0
-      break
-
-    case 'formation':
-      defaultParams.center = { ...trackPosition }
-      defaultParams.formationShape = 'line'
-      defaultParams.formationSpacing = 2
-      defaultParams.followStiffness = 0.8
-      break
-
-    case 'attract-repel':
-      defaultParams.center = { ...trackPosition }
-      defaultParams.targetPosition = { x: 0, y: 0, z: 0 }
-      defaultParams.attractionStrength = 5
-      defaultParams.repulsionRadius = 1
-      defaultParams.maxSpeed = 10
-      break
-
     case 'doppler':
       defaultParams.pathStart = { x: -10, y: trackPosition.y, z: trackPosition.z }
       defaultParams.pathEnd = { x: 10, y: trackPosition.y, z: trackPosition.z }

@@ -49,8 +49,8 @@ export function createDopplerModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['position-relative'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [

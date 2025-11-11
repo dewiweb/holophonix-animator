@@ -27,11 +27,6 @@ import { createPerlinNoiseModel } from './perlinNoise'
 import { createRoseCurveModel } from './roseCurve'
 import { createEpicycloidModel } from './epicycloid'
 
-// Multi-object & interactive
-import { createOrbitModel } from './orbit'
-import { createFormationModel } from './formation'
-import { createAttractRepelModel } from './attractRepel'
-
 // Spatial audio
 import { createDopplerModel } from './doppler'
 import { createCircularScanModel } from './circularScan'
@@ -39,7 +34,7 @@ import { createZoomModel } from './zoom'
 
 /**
  * Create all built-in animation models
- * Total: 24 models across 6 categories
+ * Total: 21 models across 5 categories (removed confusing group/multi-object models)
  */
 export function createBuiltinModels(): AnimationModel[] {
   return [
@@ -69,11 +64,6 @@ export function createBuiltinModels(): AnimationModel[] {
     createPerlinNoiseModel(),
     createRoseCurveModel(),
     createEpicycloidModel(),
-    
-    // Multi-object & interactive (3)
-    createOrbitModel(),
-    createFormationModel(),
-    createAttractRepelModel(),
     
     // Spatial audio (3)
     createDopplerModel(),

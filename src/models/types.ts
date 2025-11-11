@@ -70,11 +70,13 @@ export interface CalculationContext {
   trackPosition?: Position      // Current track position
   initialPosition?: Position    // Starting position
   
-  // Multi-track mode
-  multiTrackMode?: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered'
-  isobarycenter?: Position     // Formation center
-  centerPoint?: Position       // User-defined center
-  trackOffset?: Position       // Offset from center
+  // Multi-track mode (2-mode architecture)
+  multiTrackMode?: 'relative' | 'barycentric'
+  barycentricVariant?: 'shared' | 'isobarycentric' | 'centered' | 'custom'  // Sub-variant for barycentric mode
+  isobarycenter?: Position     // Auto-calculated barycenter (isobarycentric variant)
+  customCenter?: Position      // User-defined center (centered/custom variant)
+  trackOffset?: Position       // Offset from center/barycenter
+  preserveOffsets?: boolean    // Maintain track-to-center distances
   
   // Timing
   frameCount: number
@@ -183,9 +185,11 @@ export interface AnimationModel {
   // Parameter definitions
   parameters: Record<string, ParameterDefinition>
   
-  // Multi-track support
-  supportedModes?: ('identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered')[]
-  defaultMultiTrackMode?: string
+  // Multi-track support (2-mode architecture)
+  supportedModes?: ('relative' | 'barycentric')[]
+  supportedBarycentricVariants?: ('shared' | 'isobarycentric' | 'centered' | 'custom')[]  // Which barycentric variants are supported
+  defaultMultiTrackMode?: 'relative' | 'barycentric'
+  defaultBarycentricVariant?: 'shared' | 'isobarycentric' | 'centered' | 'custom'
   multiTrackHandlers?: MultiTrackHandler[]
   
   // Visualization configuration for ThreeJS editor

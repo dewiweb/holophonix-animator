@@ -87,8 +87,9 @@ export function createCircularModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric', 'centered'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [
@@ -163,15 +164,18 @@ export function createCircularModel(): AnimationModel {
       const plane = parameters.plane || 'xy'
       const direction = parameters.direction || 'clockwise'
       
-      // Apply multi-track mode adjustments - simplified for new architecture
+      // Apply multi-track mode adjustments
       const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
       
-      // Formation mode: use barycenter as center (offset applied after in animationStore)
-      if (multiTrackMode === 'formation' && parameters._isobarycenter) {
-        center = parameters._isobarycenter
-      } 
-      // Relative mode: offset by track position
-      else if (multiTrackMode === 'relative' && context?.trackOffset) {
+      if (multiTrackMode === 'barycentric') {
+        // Barycentric mode: use isobarycenter or custom center
+        const baryCenter = parameters._isobarycenter || parameters._customCenter || context?.isobarycenter || context?.customCenter
+        if (baryCenter) {
+          center = baryCenter
+        }
+        // Offset is applied by animationStore based on preserveOffsets
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset center by track position
         center = {
           x: center.x + context.trackOffset.x,
           y: center.y + context.trackOffset.y,

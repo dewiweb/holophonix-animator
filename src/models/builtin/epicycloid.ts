@@ -82,8 +82,9 @@ export function createEpicycloidModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'position-relative', 'phase-offset'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [

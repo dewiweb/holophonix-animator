@@ -16,7 +16,7 @@ export const handleUseTrackPosition = (
   updateParameters: (params: any) => void,
   selectedTrackIds: string[],
   tracks: Track[],
-  multiTrackMode: 'shared' | 'relative' | 'formation'
+  multiTrackMode: 'relative' | 'barycentric'
 ) => {
   const selectedTracksToUse = selectedTrackIds.length > 0 
     ? selectedTrackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[]
@@ -27,8 +27,8 @@ export const handleUseTrackPosition = (
   const updatedParams = { ...currentParameters }
   
   // Behavior depends on multi-track mode
-  if (selectedTracksToUse.length === 1 || multiTrackMode === 'shared') {
-    // Single track OR Identical/Phase-Offset/Centered mode: use FIRST track's position
+  if (selectedTracksToUse.length === 1 || multiTrackMode === 'barycentric') {
+    // Single track OR Barycentric mode: use FIRST track's position as center
     const trackPosition = selectedTracksToUse[0].initialPosition || selectedTracksToUse[0].position
     
     console.log(`📍 Using ${selectedTracksToUse[0].name} position as center:`, trackPosition)
@@ -41,9 +41,9 @@ export const handleUseTrackPosition = (
     console.log(`✅ Updated center/start to ${selectedTracksToUse[0].name}'s position`)
     
   } else if (multiTrackMode === 'relative') {
-    // Position-Relative modes: Animation will be centered on EACH track's own position
+    // Relative mode: Animation will be centered on EACH track's own position
     // This is handled automatically in handleSaveAnimation, so just inform user
-    console.log(`📍 Position-Relative mode: Each track will use its own position as center (applied on save)`)
+    console.log(`📍 Relative mode: Each track will use its own position as center (applied on save)`)
     return
   }
 }

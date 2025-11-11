@@ -40,16 +40,18 @@ export function createRandomModel(): AnimationModel {
       let centerY = params.centerY ?? 0
       let centerZ = params.centerZ ?? 0
       
-      // Handle multi-track modes
-      if (params._multiTrackMode === 'shared' && params._centeredPoint) {
-        centerX = params._centeredPoint.x
-        centerY = params._centeredPoint.y
-        centerZ = params._centeredPoint.z
-      } else if (params._multiTrackMode === 'formation' && params._isobarycenter) {
-        centerX = params._isobarycenter.x
-        centerY = params._isobarycenter.y
-        centerZ = params._isobarycenter.z
-      } else if (params._multiTrackMode === 'relative' && context?.trackOffset) {
+      const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
+      
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Use barycenter as center of random bounds
+        // STEP 2 (Store): Will add _trackOffset
+        const baryCenter = params._isobarycenter || params._customCenter
+        if (baryCenter) {
+          centerX = baryCenter.x
+          centerY = baryCenter.y
+          centerZ = baryCenter.z
+        }
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
         centerX += context.trackOffset.x
         centerY += context.trackOffset.y
         centerZ += context.trackOffset.z
@@ -119,8 +121,9 @@ export function createRandomModel(): AnimationModel {
       randomStates.delete(stateKey)
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric', 'centered'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [

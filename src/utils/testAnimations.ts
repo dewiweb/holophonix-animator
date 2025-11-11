@@ -19,7 +19,6 @@ const animationTypes: AnimationType[] = [
   'wave', 'lissajous', 'helix',
   'bezier', 'catmull-rom', 'zigzag',
   'perlin-noise', 'rose-curve', 'epicycloid',
-  'orbit', 'formation', 'attract-repel',
   'doppler', 'circular-scan', 'zoom'
 ]
 
@@ -83,7 +82,7 @@ function testAnimation(type: AnimationType): TestResult {
       maxMovement = Math.max(maxMovement, movement)
     }
     
-    if (maxMovement < 0.001 && type !== 'formation') {
+    if (maxMovement < 0.001) {
       console.log(`⚠️ ${type} - maxMovement: ${maxMovement}, positions:`, positions)
       return {
         type,

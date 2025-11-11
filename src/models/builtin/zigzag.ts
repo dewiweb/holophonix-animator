@@ -70,8 +70,9 @@ export function createZigzagModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'position-relative', 'phase-offset'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [
@@ -127,16 +128,30 @@ export function createZigzagModel(): AnimationModel {
     ): Position {
       const progress = Math.min(time / duration, 1)
       
-      const start = parameters.zigzagStart || { x: -5, y: 0, z: 0 }
-      const end = parameters.zigzagEnd || { x: 5, y: 0, z: 0 }
+      let zigzagStart = parameters.zigzagStart || { x: 0, y: 0, z: 0 }
+      let zigzagEnd = parameters.zigzagEnd || { x: 10, y: 0, z: 0 }
+      
+      // Apply multi-track mode adjustments
+      const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
+      
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Start/end define BARYCENTER path
+        // Keep as-is
+        // STEP 2 (Store): Will add _trackOffset
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset both points by track position
+        const offset = context.trackOffset
+        zigzagStart = { x: zigzagStart.x + offset.x, y: zigzagStart.y + offset.y, z: zigzagStart.z + offset.z }
+        zigzagEnd = { x: zigzagEnd.x + offset.x, y: zigzagEnd.y + offset.y, z: zigzagEnd.z + offset.z }
+      }
       const zigzagCount = parameters.zigzagCount || 3
       const amplitude = parameters.amplitude || 2
       const plane = parameters.plane || 'xy'
       
       // Calculate base position along path
-      const baseX = start.x + (end.x - start.x) * progress
-      const baseY = start.y + (end.y - start.y) * progress
-      const baseZ = start.z + (end.z - start.z) * progress
+      const baseX = zigzagStart.x + (zigzagEnd.x - zigzagStart.x) * progress
+      const baseY = zigzagStart.y + (zigzagEnd.y - zigzagStart.y) * progress
+      const baseZ = zigzagStart.z + (zigzagEnd.z - zigzagStart.z) * progress
       
       // Calculate zigzag offset
       const zigzagProgress = progress * zigzagCount

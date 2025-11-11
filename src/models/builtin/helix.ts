@@ -69,8 +69,9 @@ export function createHelixModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [
@@ -125,8 +126,22 @@ export function createHelixModel(): AnimationModel {
     ): Position {
       const progress = Math.min(time / duration, 1)
       
-      const axisStart = parameters.axisStart || { x: 0, y: 0, z: -5 }
-      const axisEnd = parameters.axisEnd || { x: 0, y: 0, z: 5 }
+      let axisStart = parameters.axisStart || { x: 0, y: 0, z: -5 }
+      let axisEnd = parameters.axisEnd || { x: 0, y: 0, z: 5 }
+      
+      // Apply multi-track mode adjustments
+      const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
+      
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Axis defines BARYCENTER path
+        // Keep as-is
+        // STEP 2 (Store): Will add _trackOffset
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset axis by track position
+        const offset = context.trackOffset
+        axisStart = { x: axisStart.x + offset.x, y: axisStart.y + offset.y, z: axisStart.z + offset.z }
+        axisEnd = { x: axisEnd.x + offset.x, y: axisEnd.y + offset.y, z: axisEnd.z + offset.z }
+      }
       const radius = parameters.radius || 3
       const turns = parameters.turns || 3
       const clockwise = parameters.clockwise !== false

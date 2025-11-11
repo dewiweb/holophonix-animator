@@ -37,23 +37,20 @@ export function createLissajousModel(): AnimationModel {
       // Handle multi-track modes
       const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'shared' && params._centeredPoint) {
-        centerX = params._centeredPoint.x
-        centerY = params._centeredPoint.y
-        centerZ = params._centeredPoint.z
-      } else if (multiTrackMode === 'formation' && params._isobarycenter) {
-        // For formation mode, use barycenter as center
-        // Do NOT apply track offset here - it's applied after in animationStore.ts
-        centerX = params._isobarycenter.x
-        centerY = params._isobarycenter.y
-        centerZ = params._isobarycenter.z
-      } else if (multiTrackMode === 'relative') {
-        // Use track position as center
-        if (context?.trackOffset) {
-          centerX += context.trackOffset.x
-          centerY += context.trackOffset.y
-          centerZ += context.trackOffset.z
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Use barycenter as center of Lissajous curve
+        // STEP 2 (Store): Will add _trackOffset
+        const baryCenter = params._isobarycenter || params._customCenter
+        if (baryCenter) {
+          centerX = baryCenter.x
+          centerY = baryCenter.y
+          centerZ = baryCenter.z
         }
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset center by track position
+        centerX += context.trackOffset.x
+        centerY += context.trackOffset.y
+        centerZ += context.trackOffset.z
       }
       
       const freqA = params.frequencyRatioA ?? 3
@@ -87,8 +84,9 @@ export function createLissajousModel(): AnimationModel {
       }
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric', 'centered'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [

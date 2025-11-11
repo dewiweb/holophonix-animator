@@ -1,13 +1,17 @@
 import { Track, Animation, AnimationParameters, Position } from '@/types'
 
 /**
- * CLEAN ARCHITECTURE: Only 2 real modes + formation
- * - 'shared': All tracks use same parameters (absolute world coordinates)
+ * 2-MODE ARCHITECTURE: Relative + Barycentric (with variants)
  * - 'relative': Each track has own parameters (relative to track.position)
- * - 'formation': Barycenter-based rigid group movement
+ * - 'barycentric': Formation/group movement around a center
+ *   - variant 'shared': All tracks identical (zero offsets)
+ *   - variant 'isobarycentric': Auto-calculated center, preserves offsets
+ *   - variant 'centered': User-defined center, preserves offsets
+ *   - variant 'custom': Advanced user control
  */
 
-export type MultiTrackMode = 'shared' | 'relative' | 'formation'
+export type MultiTrackMode = 'relative' | 'barycentric'
+export type BarycentricVariant = 'shared' | 'isobarycentric' | 'centered' | 'custom'
 
 export interface MultiTrackStrategy {
   readonly name: MultiTrackMode
@@ -19,7 +23,8 @@ export interface MultiTrackStrategy {
     animation: Animation,
     track: Track,
     trackIndex: number,
-    allTracks: Track[]
+    allTracks: Track[],
+    variant?: BarycentricVariant
   ): AnimationParameters
   
   /**
@@ -38,100 +43,93 @@ export interface MultiTrackStrategy {
 }
 
 /**
- * SHARED MODE: All tracks use same parameters (absolute world coordinates)
- * Replaces: identical, centered (center is just a param), phase-offset
+ * BARYCENTRIC MODE: Formation/group movement around a center
+ * Supports variants: shared, isobarycentric, centered, custom
  */
-export class SharedStrategy implements MultiTrackStrategy {
-  readonly name = 'shared' as const
-  
-  getTrackParameters(animation: Animation): AnimationParameters {
-    // All tracks use the same base parameters
-    return animation.parameters
-  }
-  
-  getPhaseOffset(trackIndex: number, globalPhaseOffset?: number): number {
-    // If phaseOffset is set, apply it
-    return globalPhaseOffset ? trackIndex * globalPhaseOffset : 0
-  }
-  
-  requiresPerTrackParameters(): boolean {
-    return false
-  }
-}
-
-/**
- * RELATIVE MODE: Each track has own parameters relative to track.position
- * Replaces: position-relative, phase-offset-relative
- * Track position is passed to models via context.trackOffset
- */
-export class RelativeStrategy implements MultiTrackStrategy {
-  readonly name = 'relative' as const
-  
-  getTrackParameters(
-    animation: Animation,
-    track: Track,
-    trackIndex: number
-  ): AnimationParameters {
-    // Use per-track parameters if available
-    const trackParams = animation.multiTrackParameters?.[track.id]
-    if (trackParams) {
-      return {
-        ...trackParams,
-        _trackOffset: track.position  // Models use this to offset calculations
-      }
-    }
-    
-    // Fallback: use base params + track offset
-    return {
-      ...animation.parameters,
-      _trackOffset: track.position
-    }
-  }
-  
-  getPhaseOffset(trackIndex: number, globalPhaseOffset?: number): number {
-    // Phase offset can still be applied in relative mode
-    return globalPhaseOffset ? trackIndex * globalPhaseOffset : 0
-  }
-  
-  requiresPerTrackParameters(): boolean {
-    return true
-  }
-}
-
-/**
- * FORMATION MODE: Barycenter-based rigid group movement
- * Replaces: isobarycenter
- * Animation applies to group center, tracks maintain relative positions
- */
-export class FormationStrategy implements MultiTrackStrategy {
-  readonly name = 'formation' as const
+export class BarycentricStrategy implements MultiTrackStrategy {
+  readonly name = 'barycentric' as const
   
   getTrackParameters(
     animation: Animation,
     track: Track,
     trackIndex: number,
-    allTracks: Track[]
+    allTracks: Track[],
+    variant: BarycentricVariant = 'isobarycentric'
   ): AnimationParameters {
-    // Calculate barycenter
-    const barycenter = this.calculateBarycenter(allTracks)
+    // Calculate or get center point (the barycenter)
+    let center: Position
+    if (variant === 'isobarycentric') {
+      // Auto-calculate from track positions
+      center = this.calculateBarycenter(allTracks)
+    } else {
+      // shared, centered, custom: all use user-defined center
+      center = animation.customCenter || { x: 0, y: 0, z: 0 }
+    }
     
-    // Track maintains its offset from barycenter
-    const relativeOffset = {
-      x: track.position.x - barycenter.x,
-      y: track.position.y - barycenter.y,
-      z: track.position.z - barycenter.z
+    // Calculate track offset from barycenter based on variant
+    let trackOffset: Position
+    
+    if (variant === 'shared') {
+      // SHARED: All tracks at barycenter (zero offset)
+      trackOffset = { x: 0, y: 0, z: 0 }
+      
+    } else if (variant === 'custom') {
+      // CUSTOM: 3D Spherical arrangement at specified radius
+      const radius = animation.customCenter?.radius ?? 5.0
+      
+      if (radius === 0) {
+        // Radius 0 = same as shared (all at center)
+        trackOffset = { x: 0, y: 0, z: 0 }
+      } else {
+        // Distribute tracks evenly on sphere surface using spherical coordinates
+        // Using golden spiral algorithm for uniform distribution
+        const trackCount = allTracks.length
+        
+        // Golden angle in radians
+        const goldenAngle = Math.PI * (3 - Math.sqrt(5)) // ≈ 137.5°
+        
+        // Calculate spherical coordinates for this track
+        // theta: azimuthal angle (around vertical axis)
+        const theta = goldenAngle * trackIndex
+        
+        // phi: polar angle (from vertical axis)
+        // Map track index to range [0, 1] then to [0, π]
+        const y_normalized = 1 - (trackIndex / Math.max(1, trackCount - 1)) * 2 // Range: [1, -1]
+        const phi = Math.acos(y_normalized)
+        
+        // Convert spherical to Cartesian coordinates
+        const sinPhi = Math.sin(phi)
+        trackOffset = {
+          x: radius * sinPhi * Math.cos(theta),
+          y: radius * Math.cos(phi),
+          z: radius * sinPhi * Math.sin(theta)
+        }
+        
+        console.log(`🎯 Custom spherical: Track ${trackIndex}/${trackCount} - theta: ${(theta * 180 / Math.PI).toFixed(1)}°, phi: ${(phi * 180 / Math.PI).toFixed(1)}°, offset:`, trackOffset)
+      }
+      
+    } else {
+      // ISOBARYCENTRIC or CENTERED: Preserve original offsets
+      // Tracks maintain their relative positions from barycenter
+      trackOffset = {
+        x: track.position.x - center.x,
+        y: track.position.y - center.y,
+        z: track.position.z - center.z
+      }
     }
     
     return {
       ...animation.parameters,
-      _isobarycenter: barycenter,
-      _trackOffset: relativeOffset
+      _multiTrackMode: 'barycentric',
+      _isobarycenter: variant === 'isobarycentric' ? center : undefined,
+      _customCenter: (variant === 'centered' || variant === 'custom' || variant === 'shared') ? center : undefined,
+      _trackOffset: trackOffset
     }
   }
   
-  getPhaseOffset(trackIndex: number): number {
-    // Formation requires synchronized movement
-    return 0
+  getPhaseOffset(trackIndex: number, globalPhaseOffset?: number): number {
+    // Phase offset can be applied to barycentric mode
+    return globalPhaseOffset ? trackIndex * globalPhaseOffset : 0
   }
   
   requiresPerTrackParameters(): boolean {
@@ -159,42 +157,92 @@ export class FormationStrategy implements MultiTrackStrategy {
 }
 
 /**
+ * RELATIVE MODE: Each track has own parameters relative to track.position
+ * Replaces: position-relative, phase-offset-relative
+ * Track position is passed to models via context.trackOffset
+ */
+export class RelativeStrategy implements MultiTrackStrategy {
+  readonly name = 'relative' as const
+  
+  getTrackParameters(
+    animation: Animation,
+    track: Track,
+    trackIndex: number
+  ): AnimationParameters {
+    // Use per-track parameters if available
+    const trackParams = animation.multiTrackParameters?.[track.id]
+    if (trackParams) {
+      return {
+        ...trackParams,
+        _multiTrackMode: 'relative',
+        _trackOffset: track.position  // Models use this to offset calculations
+      }
+    }
+    
+    // Fallback: use base params + track offset
+    return {
+      ...animation.parameters,
+      _multiTrackMode: 'relative',
+      _trackOffset: track.position
+    }
+  }
+  
+  getPhaseOffset(trackIndex: number, globalPhaseOffset?: number): number {
+    // Phase offset can still be applied in relative mode
+    return globalPhaseOffset ? trackIndex * globalPhaseOffset : 0
+  }
+  
+  requiresPerTrackParameters(): boolean {
+    return true
+  }
+}
+
+
+/**
  * Factory to get strategy instance
  */
 export function getMultiTrackStrategy(mode: MultiTrackMode): MultiTrackStrategy {
   switch (mode) {
-    case 'shared':
-      return new SharedStrategy()
     case 'relative':
       return new RelativeStrategy()
-    case 'formation':
-      return new FormationStrategy()
+    case 'barycentric':
+      return new BarycentricStrategy()
     default:
-      console.warn(`Unknown mode: ${mode}, defaulting to shared`)
-      return new SharedStrategy()
+      console.warn(`Unknown mode: ${mode}, defaulting to relative`)
+      return new RelativeStrategy()
   }
 }
 
 /**
- * Migration helper: Convert old 6 modes to new 3 modes
+ * Migration helper: Convert old modes to new 2-mode system
  */
-export function migrateMultiTrackMode(oldMode: string | undefined): MultiTrackMode {
+export function migrateMultiTrackMode(oldMode: string | undefined): {
+  mode: MultiTrackMode
+  variant?: BarycentricVariant
+} {
   switch (oldMode) {
     case 'identical':
-    case 'centered':
     case 'phase-offset':
-      return 'shared'
+      return { mode: 'barycentric', variant: 'shared' }
+    
+    case 'centered':
+      return { mode: 'barycentric', variant: 'centered' }
+    
+    case 'isobarycenter':
+    case 'formation':
+      return { mode: 'barycentric', variant: 'isobarycentric' }
     
     case 'position-relative':
     case 'phase-offset-relative':
     case 'per-track':
-      return 'relative'
+    case 'relative':
+      return { mode: 'relative' }
     
-    case 'isobarycenter':
-    case 'formation':
-      return 'formation'
+    // Old 3-mode system compatibility
+    case 'shared':
+      return { mode: 'barycentric', variant: 'shared' }
     
     default:
-      return 'relative'  // Default to most flexible mode
+      return { mode: 'relative' }  // Default to most flexible mode
   }
 }

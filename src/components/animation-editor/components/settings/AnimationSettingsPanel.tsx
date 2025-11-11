@@ -12,7 +12,8 @@ import { ModelParametersForm } from '../models-forms/ModelParametersForm'
 import { animationCategories, getAnimationInfo } from '../../constants/animationCategories'
 import { getCompatibleModes } from '../../utils/compatibility'
 
-type MultiTrackMode = 'shared' | 'relative' | 'formation'
+type MultiTrackMode = 'relative' | 'barycentric'
+type BarycentricVariant = 'shared' | 'isobarycentric' | 'centered' | 'custom'
 
 interface AnimationSettingsPanelProps {
   // Track selection
@@ -24,8 +25,14 @@ interface AnimationSettingsPanelProps {
   
   // Multi-track mode
   multiTrackMode: MultiTrackMode
+  barycentricVariant?: BarycentricVariant
+  customCenter?: Position
+  preserveOffsets?: boolean
   phaseOffsetSeconds: number
   onModeChange: (mode: MultiTrackMode) => void
+  onVariantChange?: (variant: BarycentricVariant) => void
+  onCustomCenterChange?: (center: Position | undefined) => void
+  onPreserveOffsetsChange?: (preserve: boolean | undefined) => void
   onPhaseOffsetChange: (seconds: number) => void
   
   // Animation form
@@ -54,8 +61,14 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
   onReorderTracks,
   onSetActiveTracks,
   multiTrackMode,
+  barycentricVariant,
+  customCenter,
+  preserveOffsets,
   phaseOffsetSeconds,
   onModeChange,
+  onVariantChange,
+  onCustomCenterChange,
+  onPreserveOffsetsChange,
   onPhaseOffsetChange,
   animationForm,
   onUpdateForm,
@@ -96,8 +109,15 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
           <MultiTrackModeSelector
             animationType={animationForm.type || 'linear'}
             multiTrackMode={multiTrackMode}
+            barycentricVariant={barycentricVariant}
+            customCenter={customCenter}
+            preserveOffsets={preserveOffsets}
             phaseOffsetSeconds={phaseOffsetSeconds}
+            tracks={selectedTracks}
             onModeChange={onModeChange}
+            onVariantChange={onVariantChange}
+            onCustomCenterChange={onCustomCenterChange}
+            onPreserveOffsetsChange={onPreserveOffsetsChange}
             onPhaseOffsetChange={onPhaseOffsetChange}
             getCompatibleModes={getCompatibleModes}
           />

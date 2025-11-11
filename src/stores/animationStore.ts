@@ -490,7 +490,8 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             initialPosition: track.position,  // Starting position
             // Only pass trackOffset if NOT already in parameters (avoid double offset)
             trackOffset: params._trackOffset ? undefined : track.position,
-            multiTrackMode: animation.multiTrackMode || 'shared',
+            multiTrackMode: animation.multiTrackMode || 'relative',
+            barycentricVariant: animation.barycentricVariant,
             frameCount: state.frameCount,
             deltaTime: deltaTime / 1000,
             realTime: timestamp,
@@ -503,9 +504,9 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           if (params._trackOffset) {
             const offset = params._trackOffset
             
-            // Only rotate offset for formation mode (isobarycenter)
+            // Only rotate offset for barycentric mode with preserved offsets
             // In relative mode, offset is static (the track's initial position)
-            const shouldRotate = animation.multiTrackMode === 'formation' || params._isobarycenter
+            const shouldRotate = (animation.multiTrackMode === 'barycentric' && animation.barycentricVariant !== 'shared') || params._isobarycenter
             
             if (shouldRotate) {
               // Formation mode: rotate offset to maintain rigid body shape

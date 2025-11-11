@@ -1,13 +1,17 @@
-import { Animation, AnimationType, Track, AnimationParameters, Keyframe } from '@/types'
+import { Animation, AnimationType, Track, AnimationParameters, Keyframe, Position } from '@/types'
 import { checkUserModifiedParameters } from '../utils/parameterModification'
 import { calculateBarycenter, calculateOffsets } from '../utils/barycentricCalculations'
+import { getMultiTrackStrategy } from '@/animations/strategies/MultiTrackStrategy'
 
 interface SaveAnimationParams {
   animationForm: Partial<Animation>
   keyframes: Keyframe[]
   selectedTrackIds: string[]
   tracks: Track[]
-  multiTrackMode: 'shared' | 'relative' | 'formation'
+  multiTrackMode: 'relative' | 'barycentric'
+  barycentricVariant?: 'shared' | 'isobarycentric' | 'centered' | 'custom'
+  customCenter?: Position
+  preserveOffsets?: boolean
   phaseOffsetSeconds: number
   currentAnimation: Animation | null
   originalAnimationParams: AnimationParameters | null
@@ -24,6 +28,9 @@ export const handleSaveAnimation = ({
   selectedTrackIds,
   tracks,
   multiTrackMode,
+  barycentricVariant = 'isobarycentric',
+  customCenter,
+  preserveOffsets,
   phaseOffsetSeconds,
   currentAnimation,
   originalAnimationParams,
@@ -62,6 +69,10 @@ export const handleSaveAnimation = ({
     keyframes: keyframes.length > 0 ? keyframes : undefined,
     coordinateSystem: animationForm.coordinateSystem || { type: 'xyz' },
     multiTrackMode,
+    barycentricVariant: multiTrackMode === 'barycentric' ? barycentricVariant : undefined,
+    // Save customCenter for all user-defined variants (shared, centered, custom)
+    customCenter: multiTrackMode === 'barycentric' && barycentricVariant !== 'isobarycentric' ? customCenter : undefined,
+    preserveOffsets: multiTrackMode === 'barycentric' ? preserveOffsets : undefined,
     phaseOffsetSeconds: phaseOffsetSeconds > 0 ? phaseOffsetSeconds : undefined,
     ...(lockTracks && selectedTrackIds.length > 0 && {
       trackIds: selectedTrackIds,
@@ -80,66 +91,66 @@ export const handleSaveAnimation = ({
     console.log('✅ Added new animation')
   }
 
-  // For formation mode, calculate barycenter
-  let barycentricData: { barycenter: any; offsets: Record<string, any> } | undefined
-  if (multiTrackMode === 'formation' && selectedTracksToApply.length > 1) {
-    const barycenter = calculateBarycenter(selectedTracksToApply)
-    const offsets = calculateOffsets(selectedTracksToApply, barycenter)
-    barycentricData = { barycenter, offsets }
-    console.log(`🎯 Formation mode: barycenter at (${barycenter.x.toFixed(2)}, ${barycenter.y.toFixed(2)}, ${barycenter.z.toFixed(2)})`)
-  }
-
-  // Apply animation to tracks based on new 3-mode system
+  // Use MultiTrackStrategy to calculate parameters for each track
+  const strategy = getMultiTrackStrategy(multiTrackMode)
+  
+  // Apply animation to tracks using strategy pattern
   selectedTracksToApply.forEach((track, index) => {
     let trackAnimation = { ...animation }
     let initialTime = 0
 
     if (selectedTracksToApply.length > 1) {
-      // SHARED MODE: All tracks use same parameters
-      if (multiTrackMode === 'shared') {
-        // Apply phase offset if set
-        if (phaseOffsetSeconds > 0) {
-          initialTime = index * phaseOffsetSeconds
-          console.log(`🔄 Shared + Phase: Track ${track.name} starts at ${initialTime.toFixed(2)}s`)
-        } else {
-          console.log(`🔁 Shared: Track ${track.name} - identical animation`)
-        }
-      }
+      // Get track parameters using strategy
+      const trackParams = strategy.getTrackParameters(
+        animation,
+        track,
+        index,
+        selectedTracksToApply,
+        barycentricVariant
+      )
+      
+      // Get phase offset using strategy
+      initialTime = strategy.getPhaseOffset(index, phaseOffsetSeconds > 0 ? phaseOffsetSeconds : undefined)
       
       // RELATIVE MODE: Each track uses own parameters
-      else if (multiTrackMode === 'relative') {
-        const trackParams = multiTrackParameters?.[track.id]
-        if (trackParams) {
+      if (multiTrackMode === 'relative') {
+        const customParams = multiTrackParameters?.[track.id]
+        if (customParams) {
           trackAnimation = {
             ...trackAnimation,
             id: `${animation.id}-${track.id}`,
             parameters: {
-              ...trackParams,
-              _trackOffset: track.position
+              ...customParams,
+              ...trackParams
             }
           }
           console.log(`📍 Relative: Track ${track.name} uses custom params`)
+        } else {
+          trackAnimation = {
+            ...trackAnimation,
+            id: `${animation.id}-${track.id}`,
+            parameters: trackParams
+          }
         }
         
-        // Apply phase offset if set
         if (phaseOffsetSeconds > 0) {
-          initialTime = index * phaseOffsetSeconds
           console.log(`🔄📍 Relative + Phase: Track ${track.name} at ${initialTime.toFixed(2)}s`)
         }
       }
       
-      // FORMATION MODE: Rigid group movement
-      else if (multiTrackMode === 'formation' && barycentricData) {
+      // BARYCENTRIC MODE: Formation movement
+      else if (multiTrackMode === 'barycentric') {
         trackAnimation = {
           ...trackAnimation,
           id: `${animation.id}-${track.id}`,
-          parameters: {
-            ...trackAnimation.parameters,
-            _isobarycenter: barycentricData.barycenter,
-            _trackOffset: barycentricData.offsets[track.id]
-          }
+          parameters: trackParams
         }
-        console.log(`🎯 Formation: Track ${track.name} with offset (${barycentricData.offsets[track.id].x.toFixed(2)}, ${barycentricData.offsets[track.id].y.toFixed(2)}, ${barycentricData.offsets[track.id].z.toFixed(2)})`)
+        
+        if (phaseOffsetSeconds > 0) {
+          console.log(`🔄🎯 Barycentric (${barycentricVariant}) + Phase: Track ${track.name} at ${initialTime.toFixed(2)}s`)
+        } else {
+          console.log(`🎯 Barycentric (${barycentricVariant}): Track ${track.name}`)
+        }
       }
     }
 
@@ -147,13 +158,11 @@ export const handleSaveAnimation = ({
       animationState: {
         animation: trackAnimation,
         isPlaying: false,
-        currentTime: initialTime,
-        playbackSpeed: 1,
-        loop: animation.loop
+        startTime: initialTime
       }
     })
-    console.log(`✅ Animation applied to track: ${track.name}`)
   })
-  
+
+  console.log(`🎯 Applied animation to ${selectedTracksToApply.length} tracks`)
   console.log(`🎉 Animation "${animation.name}" applied to ${selectedTracksToApply.length} track(s)`)
 }

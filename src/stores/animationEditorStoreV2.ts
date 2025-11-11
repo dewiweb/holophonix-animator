@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { Animation, AnimationType, Keyframe, Position, Track } from '@/types'
 import { AnimationModel } from '@/models/types'
 import { getDefaultAnimationParameters } from '@/components/animation-editor/utils/defaultParameters'
+import { migrateMultiTrackMode } from '@/animations/strategies/MultiTrackStrategy'
 
 // ============================================
 // STATE INTERFACE
@@ -18,9 +19,12 @@ export interface AnimationEditorState {
   loadedAnimationId: string | null
   
   // --------------------------------------------
-  // MULTI-TRACK STATE (CLEAN: 2 modes + formation)
+  // MULTI-TRACK STATE (2-mode architecture: relative + barycentric)
   // --------------------------------------------
-  multiTrackMode: 'shared' | 'relative' | 'formation'
+  multiTrackMode: 'relative' | 'barycentric'
+  barycentricVariant: 'shared' | 'isobarycentric' | 'centered' | 'custom'
+  customCenter?: Position
+  preserveOffsets?: boolean
   phaseOffsetSeconds: number
   multiTrackParameters: Record<string, any>
   activeEditingTrackIds: string[]
@@ -67,7 +71,10 @@ export interface AnimationEditorState {
   // --------------------------------------------
   // MULTI-TRACK ACTIONS
   // --------------------------------------------
-  setMultiTrackMode: (mode: 'shared' | 'relative' | 'formation') => void
+  setMultiTrackMode: (mode: 'relative' | 'barycentric') => void
+  setBarycentricVariant: (variant: 'shared' | 'isobarycentric' | 'centered' | 'custom') => void
+  setCustomCenter: (center: Position | undefined) => void
+  setPreserveOffsets: (preserve: boolean | undefined) => void
   setPhaseOffsetSeconds: (seconds: number) => void
   setMultiTrackParameters: (params: Record<string, any>) => void
   updateMultiTrackParameter: (trackId: string, key: string, value: any) => void
@@ -113,7 +120,10 @@ const getInitialState = () => ({
   
   // Multi-Track State (relative by default - most flexible)
   multiTrackMode: 'relative' as const,
-  phaseOffsetSeconds: 0.5,
+  barycentricVariant: 'isobarycentric' as const,
+  customCenter: undefined,
+  preserveOffsets: undefined,
+  phaseOffsetSeconds: 0, // Default: no phase offset
   multiTrackParameters: {},
   activeEditingTrackIds: [],
   lockTracks: false,
@@ -298,31 +308,18 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
   },
   
   loadAnimation: (animation) => {
-    // MIGRATION: Convert old 6 modes to new 3 modes
-    const migrateMode = (oldMode?: string): 'shared' | 'relative' | 'formation' => {
-      switch (oldMode) {
-        case 'identical':
-        case 'centered':
-        case 'phase-offset':
-          return 'shared'
-        case 'position-relative':
-        case 'phase-offset-relative':
-        case 'per-track':
-          return 'relative'
-        case 'isobarycenter':
-        case 'formation':
-          return 'formation'
-        default:
-          return 'relative'
-      }
-    }
+    // MIGRATION: Convert old modes to new 2-mode architecture
+    const migrated = migrateMultiTrackMode(animation.multiTrackMode)
     
     set({
       animationForm: animation,
       keyframes: animation.keyframes || [],
       originalAnimationParams: JSON.parse(JSON.stringify(animation.parameters || {})),
       loadedAnimationId: animation.id,
-      multiTrackMode: migrateMode(animation.multiTrackMode),
+      multiTrackMode: migrated.mode,
+      barycentricVariant: migrated.variant || 'isobarycentric',
+      customCenter: animation.customCenter,
+      preserveOffsets: animation.preserveOffsets,
       multiTrackParameters: animation.multiTrackParameters || {},
       phaseOffsetSeconds: animation.phaseOffsetSeconds || 0.5,
       lockTracks: animation.trackSelectionLocked || false
@@ -375,11 +372,32 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
     set({ multiTrackMode: mode })
   },
   
+  setBarycentricVariant: (variant) => {
+    set((state) => {
+      // Initialize customCenter if switching to a variant that uses it and it doesn't exist
+      const needsCustomCenter = variant === 'shared' || variant === 'centered' || variant === 'custom'
+      const updates: Partial<AnimationEditorState> = { barycentricVariant: variant }
+      
+      if (needsCustomCenter && !state.customCenter) {
+        updates.customCenter = { x: 0, y: 0, z: 0 }
+        console.log('🎯 Initialized customCenter to origin for variant:', variant)
+      }
+      
+      return updates
+    })
+  },
+  
+  setCustomCenter: (center) => {
+    set({ customCenter: center })
+  },
+  
+  setPreserveOffsets: (preserve) => {
+    set({ preserveOffsets: preserve })
+  },
+  
   setPhaseOffsetSeconds: (seconds) => {
     set({ phaseOffsetSeconds: seconds })
   },
-  
-  // setCenterPoint removed - center is now a parameter, not a mode
   
   setMultiTrackParameters: (params) => {
     set({ multiTrackParameters: params })

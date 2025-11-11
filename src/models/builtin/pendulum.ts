@@ -92,8 +92,8 @@ export function createPendulumModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['position-relative', 'phase-offset-relative'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [
@@ -174,14 +174,19 @@ export function createPendulumModel(): AnimationModel {
       // Apply multi-track mode adjustments
       const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'relative' || multiTrackMode === 'relative') {
-        // Use track position as offset for anchor point
-        if (context?.trackOffset) {
-          anchorPoint = {
-            x: anchorPoint.x + context.trackOffset.x,
-            y: anchorPoint.y + context.trackOffset.y,
-            z: anchorPoint.z + context.trackOffset.z
-          }
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Use barycenter as anchor point
+        // STEP 2 (Store): Will add _trackOffset
+        const baryCenter = parameters._isobarycenter || parameters._customCenter
+        if (baryCenter) {
+          anchorPoint = baryCenter
+        }
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset anchor by track position
+        anchorPoint = {
+          x: anchorPoint.x + context.trackOffset.x,
+          y: anchorPoint.y + context.trackOffset.y,
+          z: anchorPoint.z + context.trackOffset.z
         }
       }
       

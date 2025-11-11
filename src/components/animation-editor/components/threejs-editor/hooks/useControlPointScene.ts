@@ -35,6 +35,7 @@ export const useControlPointScene = (
     })
     const points = extractControlPointsFromAnimation(animation)
     console.log('✅ Control points computed:', points.length)
+    
     return points
   }, [animation?.id, animation?.type, paramsKey, forceUpdateTrigger])
 
@@ -44,29 +45,29 @@ export const useControlPointScene = (
   useEffect(() => {
     console.log('🎬 Initializing Three.js scene')
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x1a1a1a)
+    scene.background = new THREE.Color(0x2a2a2a) // Dark grey instead of black
 
     // Add grid
-    const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222)
+    const gridHelper = new THREE.GridHelper(20, 20, 0x555555, 0x333333)
     scene.add(gridHelper)
 
     // Add axes (X=red, Y=green, Z=blue)
     const axesHelper = new THREE.AxesHelper(5)
     scene.add(axesHelper)
 
-    // Add lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8)
+    // Enhanced lighting for better UI visibility
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0)
     scene.add(ambientLight)
 
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.5)
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.6)
     dirLight1.position.set(5, 10, 5)
     scene.add(dirLight1)
 
-    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3)
+    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.4)
     dirLight2.position.set(-5, 5, -5)
     scene.add(dirLight2)
 
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4)
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x666666, 0.5)
     scene.add(hemiLight)
 
     sceneRef.current = scene
@@ -80,19 +81,95 @@ export const useControlPointScene = (
   }, [])
 
   // ========================================
-  // STEP 3: Update meshes and control points when positions change
+  // STEP 3: Update meshes and control points when positions change  
   // ========================================
   useEffect(() => {
     if (!sceneRef.current) return
 
-    console.log('🔄 Updating control point meshes:', controlPointPositions.length, '(cleaning up', meshesRef.current.length, 'old meshes)')
+    // Check if we can update in place (same number of points AND meshes exist)
+    const canUpdateInPlace = meshesRef.current.length > 0 && 
+                              meshesRef.current.length === controlPointPositions.length
 
-    // Remove old meshes (from ref, not state!)
+    if (canUpdateInPlace) {
+      console.log('✨ Updating control point positions in place:', controlPointPositions.length)
+      
+      // Update existing meshes in place (don't recreate!)
+      const updatedControlPoints: ControlPoint3D[] = controlPointPositions.map((position, index) => {
+        const mesh = meshesRef.current[index]
+        const isSelected = index === selectedIndex
+        
+        // Update mesh position
+        mesh.position.copy(position)
+        
+        // Update color
+        let color: number
+        if (isSelected) {
+          color = 0xffff00
+        } else if (index === 0) {
+          color = 0x00ff00
+        } else {
+          color = 0x4a9eff
+        }
+        (mesh.material as THREE.MeshBasicMaterial).color.setHex(color)
+        
+        return {
+          id: `cp-${index}`,
+          index,
+          position: position.clone(),
+          mesh,
+          isSelected,
+        }
+      })
+      
+      // Also regenerate curve/path when updating in place
+      const pathPoints = generateAnimationPath(animation, controlPointPositions)
+      
+      if (pathPoints.length >= 2) {
+        // Remove old curve
+        if (curveRef.current) {
+          sceneRef.current.remove(curveRef.current)
+          curveRef.current.geometry.dispose()
+          ;(curveRef.current.material as THREE.Material).dispose()
+        }
+        
+        const curveGeometry = new THREE.BufferGeometry().setFromPoints(pathPoints)
+        const colors = new Float32Array(pathPoints.length * 3)
+        for (let i = 0; i < pathPoints.length; i++) {
+          const t = i / (pathPoints.length - 1)
+          const color = new THREE.Color()
+          color.setHSL(0.3 - t * 0.3, 1.0, 0.5)
+          colors[i * 3] = color.r
+          colors[i * 3 + 1] = color.g
+          colors[i * 3 + 2] = color.b
+        }
+        curveGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+        
+        const curveMaterial = new THREE.LineBasicMaterial({
+          vertexColors: true,
+          linewidth: 2,
+          depthTest: false,
+          depthWrite: false,
+        })
+        
+        const curveLine = new THREE.Line(curveGeometry, curveMaterial)
+        curveLine.renderOrder = 998
+        sceneRef.current.add(curveLine)
+        curveRef.current = curveLine
+      }
+      
+      setControlPoints(updatedControlPoints)
+      console.log('✅ Control points updated in place:', updatedControlPoints.length)
+      return
+    }
+
+    // Full recreation (only when point count changes)
+    console.log('🔄 Recreating control point meshes:', controlPointPositions.length, '(cleaning up', meshesRef.current.length, 'old meshes)')
+
+    // Remove old meshes
     meshesRef.current.forEach(mesh => {
       sceneRef.current?.remove(mesh)
       mesh.geometry.dispose()
       ;(mesh.material as THREE.Material).dispose()
-      // Also dispose children (outlines)
       mesh.children.forEach(child => {
         if (child instanceof THREE.Mesh) {
           child.geometry.dispose()
@@ -198,16 +275,23 @@ export const useControlPointScene = (
   }, [controlPointPositions, selectedIndex])
 
   // ========================================
-  // Helper functions
+  // STEP 4: Provide updateControlPoint to modify points
   // ========================================
   const updateControlPoint = useCallback((index: number, position: THREE.Vector3) => {
-    setControlPoints(prev => {
-      const updated = [...prev]
-      if (updated[index]) {
-        updated[index].position.copy(position)
-        updated[index].mesh.position.copy(position)
+    setControlPoints(prevPoints => {
+      const newPoints = [...prevPoints]
+      if (newPoints[index]) {
+        // Update position
+        newPoints[index] = {
+          ...newPoints[index],
+          position: position.clone(),
+        }
+        // Also update mesh position immediately
+        if (newPoints[index].mesh) {
+          newPoints[index].mesh.position.copy(position)
+        }
       }
-      return updated
+      return newPoints
     })
   }, [])
 
@@ -233,6 +317,7 @@ export const useControlPointScene = (
     scene: sceneRef.current,
     controlPoints,
     curve: curveRef.current,
+    selectedIndex,
     updateControlPoint,
     addControlPoint,
     removeControlPoint,

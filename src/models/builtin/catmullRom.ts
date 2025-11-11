@@ -55,8 +55,9 @@ export function createCatmullRomModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'position-relative', 'phase-offset'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [{ parameter: 'controlPoints', type: 'control' }],
@@ -110,10 +111,26 @@ export function createCatmullRomModel(): AnimationModel {
         return controlPoints[Math.max(0, Math.min(controlPoints.length - 1, index))]
       }
       
-      const p0 = getPoint(segmentIndex)
-      const p1 = getPoint(segmentIndex + 1)
-      const p2 = getPoint(segmentIndex + 2)
-      const p3 = getPoint(segmentIndex + 3)
+      let p0 = getPoint(segmentIndex)
+      let p1 = getPoint(segmentIndex + 1)
+      let p2 = getPoint(segmentIndex + 2)
+      let p3 = getPoint(segmentIndex + 3)
+      
+      // Apply multi-track mode adjustments
+      const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
+      
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Control points define BARYCENTER path
+        // Keep points as-is
+        // STEP 2 (Store): Will add _trackOffset
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset all control points by track position
+        const offset = context.trackOffset
+        p0 = { x: p0.x + offset.x, y: p0.y + offset.y, z: p0.z + offset.z }
+        p1 = { x: p1.x + offset.x, y: p1.y + offset.y, z: p1.z + offset.z }
+        p2 = { x: p2.x + offset.x, y: p2.y + offset.y, z: p2.z + offset.z }
+        p3 = { x: p3.x + offset.x, y: p3.y + offset.y, z: p3.z + offset.z }
+      }
       
       // Catmull-Rom interpolation
       const t = segmentProgress

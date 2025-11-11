@@ -69,8 +69,8 @@ export function createZoomModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['position-relative'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [{ parameter: 'zoomCenter', type: 'center' }],

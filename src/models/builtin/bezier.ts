@@ -56,54 +56,13 @@ export function createBezierModel(): AnimationModel {
       // Handle multi-track modes
       const multiTrackMode = params._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'relative') {
-        // For position-relative, offset the entire curve
-        if (context?.trackOffset) {
-          const offset = context.trackOffset
-          start = { x: start.x + offset.x, y: start.y + offset.y, z: start.z + offset.z }
-          control1 = { x: control1.x + offset.x, y: control1.y + offset.y, z: control1.z + offset.z }
-          control2 = { x: control2.x + offset.x, y: control2.y + offset.y, z: control2.z + offset.z }
-          end = { x: end.x + offset.x, y: end.y + offset.y, z: end.z + offset.z }
-        }
-      } else if (multiTrackMode === 'formation' && params._isobarycenter) {
-        // For formation mode, move entire curve to barycenter
-        const center = params._isobarycenter
-        const curveCenter = {
-          x: (start.x + end.x) / 2,
-          y: (start.y + end.y) / 2,
-          z: (start.z + end.z) / 2
-        }
-        const offset = {
-          x: center.x - curveCenter.x,
-          y: center.y - curveCenter.y,
-          z: center.z - curveCenter.z
-        }
-        start = { x: start.x + offset.x, y: start.y + offset.y, z: start.z + offset.z }
-        control1 = { x: control1.x + offset.x, y: control1.y + offset.y, z: control1.z + offset.z }
-        control2 = { x: control2.x + offset.x, y: control2.y + offset.y, z: control2.z + offset.z }
-        end = { x: end.x + offset.x, y: end.y + offset.y, z: end.z + offset.z }
-        
-        // Apply track offset for formation
-        if (params._trackOffset) {
-          const trackOffset = params._trackOffset
-          start = { x: start.x + trackOffset.x, y: start.y + trackOffset.y, z: start.z + trackOffset.z }
-          control1 = { x: control1.x + trackOffset.x, y: control1.y + trackOffset.y, z: control1.z + trackOffset.z }
-          control2 = { x: control2.x + trackOffset.x, y: control2.y + trackOffset.y, z: control2.z + trackOffset.z }
-          end = { x: end.x + trackOffset.x, y: end.y + trackOffset.y, z: end.z + trackOffset.z }
-        }
-      } else if (multiTrackMode === 'shared' && params._centeredPoint) {
-        // For centered mode, move curve to center point
-        const center = params._centeredPoint
-        const curveCenter = {
-          x: (start.x + end.x) / 2,
-          y: (start.y + end.y) / 2,
-          z: (start.z + end.z) / 2
-        }
-        const offset = {
-          x: center.x - curveCenter.x,
-          y: center.y - curveCenter.y,
-          z: center.z - curveCenter.z
-        }
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Control points define the path that BARYCENTER follows
+        // Keep curve as-is - defines barycenter movement
+        // STEP 2 (Store): Will add _trackOffset after this calculation
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset the entire curve by track position
+        const offset = context.trackOffset
         start = { x: start.x + offset.x, y: start.y + offset.y, z: start.z + offset.z }
         control1 = { x: control1.x + offset.x, y: control1.y + offset.y, z: control1.z + offset.z }
         control2 = { x: control2.x + offset.x, y: control2.y + offset.y, z: control2.z + offset.z }
@@ -151,8 +110,9 @@ export function createBezierModel(): AnimationModel {
       }
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric', 'centered'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [

@@ -86,8 +86,9 @@ export function createPerlinNoiseModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [{ parameter: 'center', type: 'center' }],
@@ -157,6 +158,20 @@ export function createPerlinNoiseModel(): AnimationModel {
       x = (x / maxAmplitude - 0.5) * 2 * scale
       y = (y / maxAmplitude - 0.5) * 2 * scale
       z = (z / maxAmplitude - 0.5) * 2 * scale
+      
+      // Apply multi-track mode adjustments
+      const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
+      
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Noise defines BARYCENTER movement
+        // Output is barycenter position
+        // STEP 2 (Store): Will add _trackOffset
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset noise by track position
+        x += context.trackOffset.x
+        y += context.trackOffset.y
+        z += context.trackOffset.z
+      }
       
       return { x, y, z }
     },

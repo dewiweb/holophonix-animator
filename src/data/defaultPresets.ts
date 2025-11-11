@@ -229,32 +229,6 @@ export const defaultPresets: AnimationPreset[] = [
     }
   },
 
-  // Interactive presets
-  {
-    id: 'preset-orbit-satellite',
-    name: 'Satellite Orbit',
-    description: 'Tilted orbital motion like a satellite',
-    category: 'interactive',
-    tags: ['orbit', 'satellite', 'space'],
-    author: 'Holophonix',
-    createdAt: new Date().toISOString(),
-    modifiedAt: new Date().toISOString(),
-    animation: {
-      name: 'Satellite Orbit',
-      type: 'orbit',
-      duration: 15,
-      loop: true,
-      parameters: {
-        center: { x: 0, y: 0, z: 0 },
-        orbitalRadius: 5,
-        orbitalSpeed: 1,
-        orbitalPhase: 0,
-        inclination: 30
-      },
-      coordinateSystem: { type: 'xyz' }
-    }
-  },
-
   // Spatial audio presets
   {
     id: 'preset-doppler-flyby',

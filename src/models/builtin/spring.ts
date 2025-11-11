@@ -77,8 +77,9 @@ export function createSpringModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['position-relative', 'phase-offset'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [
@@ -153,17 +154,19 @@ export function createSpringModel(): AnimationModel {
       // Apply multi-track mode adjustments
       const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'shared' && parameters._centeredPoint) {
-        // Use user-defined center point
-        restPosition = parameters._centeredPoint
-      } else if (multiTrackMode === 'relative' || multiTrackMode === 'relative') {
-        // Use track position as offset for rest position
-        if (context?.trackOffset) {
-          restPosition = {
-            x: restPosition.x + context.trackOffset.x,
-            y: restPosition.y + context.trackOffset.y,
-            z: restPosition.z + context.trackOffset.z
-          }
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Use barycenter as rest position
+        // STEP 2 (Store): Will add _trackOffset
+        const baryCenter = parameters._isobarycenter || parameters._customCenter
+        if (baryCenter) {
+          restPosition = baryCenter
+        }
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset rest position by track position
+        restPosition = {
+          x: restPosition.x + context.trackOffset.x,
+          y: restPosition.y + context.trackOffset.y,
+          z: restPosition.z + context.trackOffset.z
         }
       }
       

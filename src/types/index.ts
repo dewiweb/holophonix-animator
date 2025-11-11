@@ -15,6 +15,7 @@ export interface Position {
   x: number;
   y: number;
   z: number;
+  radius?: number; // Optional: for custom barycentric variant orbital arrangement
 }
 
 export interface CoordinateSystem {
@@ -56,10 +57,6 @@ export type AnimationType =
   | 'perlin-noise'
   | 'rose-curve'
   | 'epicycloid'
-  // Multi-object & interactive
-  | 'orbit'
-  | 'formation'
-  | 'attract-repel'
   // Specialized spatial audio
   | 'doppler'
   | 'circular-scan'
@@ -277,15 +274,13 @@ export interface AnimationParameters {
   // INTERNAL PARAMETERS (for multi-track modes)
   // ========================================
 
-  // Isobarycenter mode
-  _isobarycenter?: Position;   // Internal: barycenter position for formation
+  // Barycentric mode internals
+  _isobarycenter?: Position;   // Internal: auto-calculated barycenter (isobarycentric variant)
+  _customCenter?: Position;    // Internal: user-defined center (centered variant)
   _trackOffset?: Position;     // Internal: offset from barycenter/center for this track
   
-  // Centered mode
-  _centeredPoint?: Position;   // Internal: user-defined center point for centered mode
-  
-  // Multi-track mode (for OSC optimization)
-  _multiTrackMode?: 'identical' | 'phase-offset' | 'position-relative' | 'phase-offset-relative' | 'isobarycenter' | 'centered';  // Internal: mode used for OSC message optimization
+  // Multi-track mode
+  _multiTrackMode?: 'relative' | 'barycentric';  // Internal: base mode (relative or barycentric/formation)
 }
 
 export interface Animation {
@@ -298,10 +293,13 @@ export interface Animation {
   parameters: AnimationParameters;
   keyframes?: Keyframe[];
   coordinateSystem: CoordinateSystem;
-  // Multi-track support (CLEAN: 2 modes + formation)
-  multiTrackMode?: 'shared' | 'relative' | 'formation';
+  // Multi-track support (2-mode architecture)
+  multiTrackMode?: 'relative' | 'barycentric';  // Base mode
+  barycentricVariant?: 'shared' | 'isobarycentric' | 'centered' | 'custom';  // Barycentric sub-mode
+  customCenter?: Position;  // Custom center point for 'centered' or 'custom' variants
+  preserveOffsets?: boolean;  // For barycentric: maintain track-to-center distances (default: true for iso/centered, false for shared)
   multiTrackParameters?: Record<string, AnimationParameters>; // Per-track parameters (relative mode)
-  phaseOffsetSeconds?: number; // Time delay between tracks (works with any mode)
+  phaseOffsetSeconds?: number; // Time delay between tracks (orthogonal parameter, works with any mode)
   // Track locking (NEW)
   trackIds?: string[];   // If set, animation is locked to these specific tracks
   trackSelectionLocked?: boolean; // If true, tracks cannot be changed in cue editor

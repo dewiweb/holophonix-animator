@@ -89,6 +89,7 @@ export interface ControlPointSceneState {
   scene: THREE.Scene | null
   controlPoints: ControlPoint3D[]
   curve: THREE.Line | null
+  selectedIndex: number | null
   updateControlPoint: (index: number, position: THREE.Vector3) => void
   addControlPoint: (position: THREE.Vector3, insertIndex?: number) => void
   removeControlPoint: (index: number) => void

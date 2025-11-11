@@ -14,16 +14,18 @@ import { useControlPointScene } from './hooks/useControlPointScene'
 import { useControlPointSelection } from './hooks/useControlPointSelection'
 import { useTransformControls } from './hooks/useTransformControls'
 import { useTrackVisualization } from './hooks/useTrackVisualization'
+import { useBarycentricControl } from './hooks/useBarycentricControl'
 import { controlPointsToParameters } from './utils/extractControlPoints'
 
 // Types
-import type { Track, Animation } from '@/types'
+import type { Track, Animation, Position } from '@/types'
 
 // Multi-track mode type (from Animation interface)
 export type MultiTrackMode = 
-  | 'shared' 
   | 'relative' 
-  | 'formation'
+  | 'barycentric'
+
+type BarycentricVariant = 'shared' | 'isobarycentric' | 'centered' | 'custom'
 
 export interface UnifiedEditorSettings {
   viewMode: ViewMode
@@ -40,8 +42,12 @@ export interface UnifiedThreeJsEditorProps {
   animation: Animation | null
   selectedTracks?: Track[]
   multiTrackMode?: MultiTrackMode
+  barycentricVariant?: BarycentricVariant
+  barycentricCenter?: Position
+  animatedBarycentricPosition?: Position  // Animated barycenter position at current preview time
   onAnimationChange?: (animation: Animation) => void
   onControlPointsChange?: (points: THREE.Vector3[]) => void
+  onBarycentricCenterChange?: (center: Position) => void
   onSelectionChange?: (indices: number[]) => void
   initialSettings?: Partial<UnifiedEditorSettings>
   readOnly?: boolean
@@ -56,9 +62,13 @@ export interface UnifiedThreeJsEditorProps {
 export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
   animation,
   selectedTracks = [],
-  multiTrackMode = 'shared',
+  multiTrackMode = 'relative',
+  barycentricVariant = 'isobarycentric',
+  barycentricCenter,
+  animatedBarycentricPosition,
   onAnimationChange,
   onControlPointsChange,
+  onBarycentricCenterChange,
   onSelectionChange,
   initialSettings,
   readOnly = false,
@@ -86,6 +96,9 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
   // Calculate aspect ratio
   const aspect = containerSize.width / (containerSize.height || 1)
 
+  // Track gizmo drag state (for camera controls)
+  const [isGizmoDragging, setIsGizmoDragging] = useState(false)
+
   // Initialize camera based on view mode
   const { camera, resetCamera } = useCamera({
     viewMode: settings.viewMode,
@@ -100,15 +113,16 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
     scene,
     controlPoints,
     curve,
+    selectedIndex,
     updateControlPoint,
     addControlPoint,
     removeControlPoint,
     selectControlPoint,
     getSelectedPoint,
   } = sceneState
-
-  // Track if gizmo is being dragged (must be before useSingleViewportControl)
-  const [isGizmoDragging, setIsGizmoDragging] = useState(false)
+  
+  // Get current selected index for use in callbacks
+  const currentSelectedIndex = selectedIndex
 
   // Initialize viewport controls (disabled when gizmo is active)
   const { controls } = useSingleViewportControl({
@@ -124,6 +138,21 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
     tracks: selectedTracks,
     showTracks: true, // Always show tracks
     multiTrackMode,
+  })
+
+  // Barycentric center control (draggable in edit mode for centered/custom variants)
+  const { centerMarker, isEditable: isCenterEditable } = useBarycentricControl({
+    scene,
+    camera,
+    canvasElement,
+    multiTrackMode,
+    barycentricVariant,
+    barycentricCenter,
+    animatedBarycentricPosition,  // Pass animated position for preview mode
+    tracks: selectedTracks,
+    isEditMode: settings.editMode === 'edit',
+    isDragging: isGizmoDragging,
+    onCenterChange: onBarycentricCenterChange,
   })
 
   // Throttle ref for real-time updates
@@ -142,6 +171,28 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
       lastUpdateTimeRef.current = 0 // Reset throttle
     },
     onTransform: (position) => {
+      // Handle barycentric center drag
+      if (currentSelectedIndex === -1 && centerMarker && isCenterEditable) {
+        // Update center marker position
+        centerMarker.position.copy(position)
+        
+        // Throttle form updates for performance
+        const now = Date.now()
+        if (now - lastUpdateTimeRef.current > updateThrottleMs) {
+          lastUpdateTimeRef.current = now
+          
+          // Convert to app coordinates and update
+          const appPos = {
+            x: position.x,
+            y: position.y,
+            z: position.z
+          }
+          onBarycentricCenterChange?.(appPos)
+        }
+        return
+      }
+      
+      // Handle control point drag
       const selectedPoint = getSelectedPoint()
       if (selectedPoint) {
         // Always update visual position immediately
@@ -172,6 +223,19 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
     onTransformEnd: () => {
       setIsGizmoDragging(false)
       
+      // Handle barycentric center drag end
+      if (currentSelectedIndex === -1 && centerMarker && isCenterEditable) {
+        const appPos = {
+          x: centerMarker.position.x,
+          y: centerMarker.position.y,
+          z: centerMarker.position.z
+        }
+        console.log('🔧 Barycentric center drag ended:', appPos)
+        onBarycentricCenterChange?.(appPos)
+        return
+      }
+      
+      // Handle control point drag end
       // Final sync when drag ends (always, no throttle)
       if (animation && onAnimationChange) {
         const updatedPoints = controlPoints.map(cp => cp.position)
@@ -198,20 +262,29 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
   })
   const { transformControls, attachToPoint: attachGizmo, detach: detachGizmo } = transformState
 
-  // Reattach gizmo when view mode changes (fixes gizmo disappearing on view switch)
+  // Attach/detach transform controls when selection changes
   useEffect(() => {
-    if (settings.editMode === 'edit' && !readOnly) {
-      const selectedPoint = getSelectedPoint()
-      if (selectedPoint) {
-        // Small delay to ensure camera is updated
-        setTimeout(() => {
-          attachGizmo(selectedPoint.mesh)
-        }, 10)
+    if (!transformControls || settings.editMode !== 'edit') return
+    
+    // Check if barycentric center is selected (currentSelectedIndex === -1 indicates center)
+    if (currentSelectedIndex === -1 && centerMarker && isCenterEditable) {
+      console.log('🔌 Attaching transform controls to barycentric center')
+      // Find the sphere mesh in the center marker group
+      const sphereMesh = centerMarker.children.find(child => child instanceof THREE.Mesh) as THREE.Mesh
+      if (sphereMesh) {
+        transformControls.attach(sphereMesh)
+      }
+    } else if (currentSelectedIndex !== null && currentSelectedIndex >= 0) {
+      const selectedPoint = controlPoints[currentSelectedIndex]
+      if (selectedPoint && selectedPoint.mesh) {
+        console.log('🔌 Attaching transform controls to mesh:', currentSelectedIndex)
+        transformControls.attach(selectedPoint.mesh)
       }
     } else {
-      detachGizmo()
+      console.log('🔌 Detaching transform controls (no selection)')
+      transformControls.detach()
     }
-  }, [settings.viewMode, settings.editMode, readOnly, getSelectedPoint, attachGizmo, detachGizmo])
+  }, [currentSelectedIndex, settings.editMode, transformControls, centerMarker, isCenterEditable, controlPoints])
 
   // Handle control point selection
   const { handleClick, handleMouseMove } = useControlPointSelection({
@@ -265,32 +338,48 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
         return
       }
 
-      // In edit mode, check if clicked on gizmo
-      if (settings.editMode === 'edit' && transformControls) {
-        const selectedPoint = getSelectedPoint()
-        if (selectedPoint) {
-          const rect = canvas.getBoundingClientRect()
-          const x = ((e.clientX - rect.left) / rect.width) * 2 - 1
-          const y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+      // Handle click selection of control points AND barycentric center (only in edit mode)
+      if (settings.editMode === 'edit') {
+        const rect = canvas.getBoundingClientRect()
+        const mouse = new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1
+        )
 
-          const raycaster = new THREE.Raycaster()
-          raycaster.setFromCamera(new THREE.Vector2(x, y), camera as THREE.Camera)
+        const raycaster = new THREE.Raycaster()
+        raycaster.setFromCamera(mouse, camera)
 
-          // Check intersection with gizmo (it has children)
-          const gizmoIntersects = raycaster.intersectObjects(
-            transformControls.children,
-            true
-          )
-          if (gizmoIntersects.length > 0) {
-            console.log('Clicked on gizmo, ignoring')
-            return // Clicked on gizmo, don't handle as selection
+        // Check intersection with barycentric center first (if editable)
+        if (centerMarker && isCenterEditable) {
+          const centerIntersects = raycaster.intersectObject(centerMarker, true)
+          if (centerIntersects.length > 0) {
+            selectControlPoint(-1) // Use -1 to indicate barycentric center
+            console.log('✅ Selected barycentric center')
+            return
           }
         }
-      }
 
-      // Handle selection/deselection (active in both modes)
-      console.log('Passing click to selection handler')
-      handleClick(e)
+        // Check intersection with control points
+        const meshes = controlPoints.map(cp => cp.mesh)
+        const intersects = raycaster.intersectObjects(meshes, false)
+
+        if (intersects.length > 0) {
+          const mesh = intersects[0].object as THREE.Mesh
+          const point = controlPoints.find(cp => cp.mesh === mesh)
+          if (point) {
+            selectControlPoint(point.index)
+            console.log('✅ Selected control point:', point.index)
+          }
+        } else {
+          // Click on empty space - deselect
+          selectControlPoint(null)
+          console.log('❌ Deselected control point')
+        }
+      } else {
+        // Handle selection/deselection (active in both modes)
+        console.log('Passing click to selection handler')
+        handleClick(e)
+      }
     }
 
     const mouseMoveHandler = (e: MouseEvent) => {

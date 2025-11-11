@@ -22,7 +22,7 @@ export function generateMultiTrackPaths(
 
   // Migrate old mode names to new ones
   const mode = migrateMultiTrackMode(multiTrackMode)
-  const strategy = getMultiTrackStrategy(mode)
+  const strategy = getMultiTrackStrategy(mode.mode)
   
   const paths: MultiTrackPath[] = []
   

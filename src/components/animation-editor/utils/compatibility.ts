@@ -6,9 +6,8 @@ export interface CompatibilityResult {
 }
 
 export interface MultiTrackModeCompatibility {
-  shared: CompatibilityResult
   relative: CompatibilityResult
-  formation: CompatibilityResult
+  barycentric: CompatibilityResult
 }
 
 /**
@@ -16,12 +15,11 @@ export interface MultiTrackModeCompatibility {
  * Models handle most compatibility internally - this only covers UI/UX constraints
  */
 export const getCompatibleModes = (animationType: AnimationType): MultiTrackModeCompatibility => {
-  // Default: all 3 modes compatible
+  // Default: all modes compatible with all animation types
   return {
-    shared: { compatible: true, reason: '' },
     relative: { compatible: true, reason: '' },
-    formation: { compatible: true, reason: '' }
+    barycentric: { compatible: true, reason: '' }
   }
-  // All modes work with all animation types now!
-  // Phase offset is a parameter, not a mode restriction
+  // All modes work with all animation types!
+  // Barycentric variants and phase offset are orthogonal parameters
 }

@@ -47,8 +47,9 @@ export function createLinearModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative', 'phase-offset-relative', 'isobarycenter', 'centered'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric', 'centered'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [
@@ -90,20 +91,21 @@ export function createLinearModel(): AnimationModel {
       // Apply multi-track mode adjustments
       const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
       
-      if (multiTrackMode === 'relative' || multiTrackMode === 'relative') {
-        // Use track position as offset for both start and end
-        if (context?.trackOffset) {
-          start = {
-            x: start.x + context.trackOffset.x,
-            y: start.y + context.trackOffset.y,
-            z: start.z + context.trackOffset.z
-          }
-          end = {
-            x: end.x + context.trackOffset.x,
-            y: end.y + context.trackOffset.y,
-            z: end.z + context.trackOffset.z
-          }
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Use barycenter as the reference point for the path
+        // The start/end define the path that the BARYCENTER follows
+        // STEP 2 (Store): Will add _trackOffset after this calculation
+        const baryCenter = parameters._isobarycenter || parameters._customCenter
+        if (baryCenter) {
+          // Use barycenter as both start and end (barycenter is stationary in linear animations)
+          // But control points define the path
+          start = parameters.startPosition || start
+          end = parameters.endPosition || end
         }
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset both points by track position
+        start = { x: start.x + context.trackOffset.x, y: start.y + context.trackOffset.y, z: start.z + context.trackOffset.z }
+        end = { x: end.x + context.trackOffset.x, y: end.y + context.trackOffset.y, z: end.z + context.trackOffset.z }
       }
       
       // Calculate normalized time (0 to 1)

@@ -38,11 +38,6 @@ export const legacyToModelType: Record<AnimationType, string> = {
   'rose-curve': 'rose-curve',
   'epicycloid': 'epicycloid',
   
-  // Multi-object & interactive
-  'orbit': 'orbit',
-  'formation': 'formation',
-  'attract-repel': 'attract-repel',
-  
   // Spatial audio
   'doppler': 'doppler',
   'circular-scan': 'circular-scan',

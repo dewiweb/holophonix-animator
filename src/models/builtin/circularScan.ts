@@ -74,8 +74,10 @@ export function createCircularScanModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'phase-offset'],
-    defaultMultiTrackMode: 'phase-offset',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared'],
+    defaultMultiTrackMode: 'barycentric',
+    defaultBarycentricVariant: 'shared',
     
     visualization: {
       controlPoints: [{ parameter: 'center', type: 'center' }],

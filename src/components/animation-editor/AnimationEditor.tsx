@@ -6,6 +6,7 @@ import { useAnimationEditorStoreV2 } from '@/stores/animationEditorStoreV2'
 import { cn } from '@/utils'
 import { Track, Position, Animation, AnimationType, AnimationState, Keyframe, CoordinateSystem } from '@/types'
 import { AnimationModel } from '@/models/types'
+import { modelRuntime } from '@/models/runtime'
 import { Save, Target, PanelRightOpen, PanelRightClose } from 'lucide-react'
 
 // Import modular components
@@ -14,6 +15,7 @@ import { PresetBrowser } from './components/modals/PresetBrowser'
 import { PresetNameDialog } from './components/modals/PresetNameDialog'
 import { ModelParametersForm } from './components/models-forms/ModelParametersForm'
 import { AnimationLibrary } from './components/AnimationLibrary'
+import { MultiTrackModeManager } from './components/MultiTrackModeManager'
 import { AnimationSettingsPanel } from './components/settings'
 import {
   MultiTrackModeSelector,
@@ -55,6 +57,9 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     loadedAnimationId,
     // Multi-track state
     multiTrackMode,
+    barycentricVariant,
+    customCenter,
+    preserveOffsets,
     phaseOffsetSeconds,
     multiTrackParameters,
     activeEditingTrackIds,
@@ -81,6 +86,9 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     deleteKeyframe,
     // Multi-track actions
     setMultiTrackMode,
+    setBarycentricVariant,
+    setCustomCenter,
+    setPreserveOffsets,
     setPhaseOffsetSeconds,
     setMultiTrackParameters,
     updateMultiTrackParameter,
@@ -206,126 +214,66 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   // Serialize multi-track parameters for deep comparison
   // Include animation type to force re-computation on type change
   const activeTrackParamsKey = useMemo(() => {
-    console.log('🔑 Computing activeTrackParamsKey', {
-      type: animationForm.type,
-      paramsKeys: animationForm.parameters ? Object.keys(animationForm.parameters) : [],
-      multiTrackMode,
-      isMultiTrack: (multiTrackMode === 'relative') 
-                    && activeEditingTrackIds.length > 0
-    })
-    
-    const typePrefix = `type:${animationForm.type}|`
-    if ((multiTrackMode === 'relative') 
-        && activeEditingTrackIds.length > 0 
-        && multiTrackParameters[activeEditingTrackIds[0]]) {
-      return typePrefix + JSON.stringify(multiTrackParameters[activeEditingTrackIds[0]])
+    const typePrefix = animationForm.type ? `${animationForm.type}:` : ''
+    if ((multiTrackMode === 'relative') && activeEditingTrackIds.length > 0) {
+      const params = multiTrackParameters[activeEditingTrackIds[0]]
+      return typePrefix + (params ? JSON.stringify(params) : 'null')
     }
     return typePrefix + JSON.stringify(animationForm.parameters || {})
   }, [animationForm.type, animationForm.parameters, multiTrackMode, activeEditingTrackIds, multiTrackParameters])
 
-  // Create animation object for unified editor
-  const unifiedEditorAnimation = useMemo<Animation | null>(() => {
+  // Multi-track mode manager will handle barycentric calculations and track positions
+
+  // Base animation object (without barycentric enhancements)
+  const baseAnimation = useMemo<Animation | null>(() => {
     if (!animationForm.type || !USE_UNIFIED_EDITOR) {
       console.log('❌ No animation object created:', { hasType: !!animationForm.type, useUnified: USE_UNIFIED_EDITOR })
       return null
     }
     
-    // Determine which parameters to use based on multi-track mode
-    let parameters = animationForm.parameters || {}
+    // Use form parameters as base
+    const parameters = animationForm.parameters || {}
     
-    // In position-relative mode, use the active track's parameters
-    if ((multiTrackMode === 'relative') 
-        && activeEditingTrackIds.length > 0) {
-      // Use first active track's parameters
-      const activeTrackParams = multiTrackParameters[activeEditingTrackIds[0]]
-      if (activeTrackParams) {
-        // Clean formation-mode parameters from relative mode
-        const { _isobarycenter, _trackOffset, ...cleanParams } = activeTrackParams
-        parameters = cleanParams
-        console.log('🎯 RELATIVE mode - using clean parameters from active track:', activeEditingTrackIds[0])
-      }
-    }
-    // In formation mode, reset position parameters to origin and add barycenter
-    else if (multiTrackMode === 'formation' && selectedTrackObjects.length > 1) {
-      // Calculate barycenter from INITIAL track positions, not current animated positions
-      // Use the initial position if tracks are animating
-      const barycenter = {
-        x: selectedTrackObjects.reduce((sum, t) => sum + (t.initialPosition?.x ?? t.position.x), 0) / selectedTrackObjects.length,
-        y: selectedTrackObjects.reduce((sum, t) => sum + (t.initialPosition?.y ?? t.position.y), 0) / selectedTrackObjects.length,
-        z: selectedTrackObjects.reduce((sum, t) => sum + (t.initialPosition?.z ?? t.position.z), 0) / selectedTrackObjects.length,
-      }
-      
-      // Reset position-based parameters to origin so they're relative to barycenter
-      const resetParams = { ...parameters }
-      if (resetParams.center) resetParams.center = { x: 0, y: 0, z: 0 }
-      if (resetParams.startPosition) resetParams.startPosition = { x: 0, y: 0, z: 0 }
-      if (resetParams.endPosition) resetParams.endPosition = { x: 10, y: 0, z: 0 }
-      if (resetParams.anchorPoint) resetParams.anchorPoint = { x: 0, y: 0, z: 0 }
-      
-      parameters = {
-        ...resetParams,
-        _isobarycenter: barycenter
-      }
-      console.log('🎯 Formation mode - using initial positions for barycenter:', barycenter)
-    }
-    
-    // Generate unique ID for position-relative mode to ensure visual updates when switching tracks
-    let animationId = loadedAnimationId || previewIdRef.current
-    if ((multiTrackMode === 'relative') 
-        && activeEditingTrackIds.length > 0) {
-      // Include active track ID to make animation unique per track
-      animationId = `${animationId}-track-${activeEditingTrackIds[0]}`
-    }
-    
-    const animation = {
-      id: animationId,
+    // Create base animation object
+    const animation: Animation = {
+      id: loadedAnimationId || previewIdRef.current,
       name: animationForm.name || 'Untitled Animation',
       type: animationForm.type,
-      parameters, // Use track-specific parameters
+      parameters,
       duration: animationForm.duration || 10,
       loop: animationForm.loop || false,
-      coordinateSystem: (animationForm.coordinateSystem as CoordinateSystem) || 'xyz',
-      multiTrackMode: multiTrackMode,
-      trackIds: selectedTrackIds,
-      trackSelectionLocked: lockTracks,
-      phaseOffsetSeconds: phaseOffsetSeconds > 0 ? phaseOffsetSeconds : undefined,
-    } as Animation
+      pingPong: animationForm.pingPong || false,
+      coordinateSystem: animationForm.coordinateSystem || { type: 'xyz' },
+      multiTrackMode,
+      barycentricVariant: multiTrackMode === 'barycentric' ? barycentricVariant : undefined,
+      customCenter,
+      preserveOffsets,
+      keyframes: []
+    }
     
-    console.log('🎬 Animation object created for unified editor:', {
+    console.log('🎬 Base animation created:', {
       id: animation.id,
       type: animation.type,
       multiTrackMode,
-      loop: animation.loop,
-      duration: animation.duration,
-      activeEditingTrack: activeEditingTrackIds[0],
-      trackCount: activeEditingTrackIds.length,
-      paramsKey: activeTrackParamsKey.substring(0, 100) + '...',
-      usingTrackParams: (multiTrackMode === 'relative') 
-                        && activeEditingTrackIds.length > 0,
-      paramKeys: Object.keys(animation.parameters),
-      hasIsobarycenter: !!animation.parameters._isobarycenter,
-      isobarycenter: animation.parameters._isobarycenter,
-      hasCenter: !!animation.parameters.center,
-      center: animation.parameters.center
+      barycentricVariant
     })
     
     return animation
   }, [
+    animationForm.id,
     animationForm.name,
-    animationForm.type,          // ✅ CRITICAL: Re-compute when animation TYPE changes
+    animationForm.type,
     animationForm.duration,
     animationForm.loop,
+    animationForm.pingPong,
+    animationForm.parameters,
     animationForm.coordinateSystem,
-    loadedAnimationId, 
-    multiTrackMode, 
-    selectedTrackIds, 
-    lockTracks, 
-    phaseOffsetSeconds, 
-    USE_UNIFIED_EDITOR,
-    activeEditingTrackIds,    // ✅ Re-compute when active track changes
-    activeTrackParamsKey,      // ✅ Deep comparison includes type + params
-    multiTrackParameters,     // ✅ CRITICAL: Re-compute when track parameters change in relative mode
-    selectedTrackObjects      // ✅ CRITICAL: Re-compute barycenter when track positions change
+    loadedAnimationId,
+    multiTrackMode,
+    barycentricVariant,
+    customCenter,
+    preserveOffsets,
+    USE_UNIFIED_EDITOR
   ])
 
   // Handle updates from unified editor
@@ -645,8 +593,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
         const newValue = { ...existingValue, ...value }
         updateParameter(key, newValue)
         
-        // Apply relative changes to other tracks if in multi-track mode
-        if (selectedTrackIds.length > 1 && (multiTrackMode === 'relative' || multiTrackMode === 'formation')) {
+        // Apply relative changes to other tracks if in relative mode
+        if (selectedTrackIds.length > 1 && multiTrackMode === 'relative') {
           // Call the relative change handler with store actions
           handleParameterChange(
             key,
@@ -695,6 +643,9 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       selectedTrackIds,
       tracks,
       multiTrackMode,
+      barycentricVariant,
+      customCenter,
+      preserveOffsets,
       phaseOffsetSeconds,
       currentAnimation: loadedAnimationId ? { id: loadedAnimationId } as Animation : currentAnimation,
       originalAnimationParams: originalAnimationParams,
@@ -799,25 +750,69 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   }
 
   // Render functions
-
-
+  
   // NEW: Unified editor pane (replaces both preview and control panes)
-  const unifiedPane = (
-    <div className="h-full flex flex-col min-h-0">
-      <div className="flex-1 min-h-0 bg-gray-900">
-        <UnifiedThreeJsEditor
-          animation={unifiedEditorAnimation}
-          selectedTracks={selectedTrackObjects}
-          multiTrackMode={multiTrackMode}
-          onAnimationChange={handleUnifiedEditorChange}
-          onSelectionChange={(selectedIndices) => {
-            // Optional: Track which control point is selected
-            console.log('Control point selection:', selectedIndices)
-          }}
-          readOnly={false}
-          className="w-full h-full"
-        />
-      </div>
+const unifiedPane = (
+<div className="h-full flex flex-col min-h-0">
+  <div className="flex-1 min-h-0 bg-gray-900">
+    {USE_UNIFIED_EDITOR && baseAnimation && (
+      <MultiTrackModeManager
+        animation={baseAnimation}
+        tracks={tracks}
+        selectedTrackIds={selectedTrackIds}
+        multiTrackMode={multiTrackMode}
+        barycentricVariant={barycentricVariant}
+        customCenter={customCenter}
+      >
+        {(enhancedAnimation: Animation | null) => {
+          // Calculate animated barycenter position during preview (when globalTime is active)
+          // NOTE: Don't use useMemo here as it prevents re-calculation on globalTime updates
+          // This needs to recalculate on every render when globalTime changes
+          let animatedBarycentricPosition: Position | undefined = undefined
+          
+          if (enhancedAnimation && multiTrackMode === 'barycentric' && globalIsPlaying && globalTime !== undefined) {
+            // Calculate barycenter's position along the animation path at current time
+            // The model calculates the path for the barycenter, not individual tracks
+            try {
+              animatedBarycentricPosition = modelRuntime.calculatePosition(
+                enhancedAnimation,
+                globalTime,
+                0,
+                {
+                  trackId: 'barycenter',
+                  trackIndex: 0,
+                  totalTracks: 1,
+                  multiTrackMode,
+                  barycentricVariant,
+                }
+              )
+              console.log('🎬 Animated barycenter at time', globalTime.toFixed(2), ':', animatedBarycentricPosition)
+            } catch (error) {
+              console.error('Error calculating animated barycenter position:', error)
+            }
+          }
+          
+          return enhancedAnimation && (
+            <UnifiedThreeJsEditor
+              animation={enhancedAnimation}
+              selectedTracks={selectedTrackObjects}
+              multiTrackMode={multiTrackMode}
+              barycentricVariant={barycentricVariant}
+              barycentricCenter={customCenter}
+              animatedBarycentricPosition={animatedBarycentricPosition}
+              onAnimationChange={handleUnifiedEditorChange}
+              onSelectionChange={(selectedIndices) => {
+                // Optional: Track which control point is selected
+                console.log('Control point selection:', selectedIndices)
+              }}
+              readOnly={false}
+              className="w-full h-full"
+            />
+          )
+        }}
+      </MultiTrackModeManager>
+    )}
+  </div>
       <div className="border-t border-gray-700 px-4 py-2 bg-gray-800/50 text-xs text-gray-300">
         <span>💡 <kbd className="px-1 bg-gray-700 rounded text-xs">Tab</kbd> Preview/Edit | <kbd className="px-1 bg-gray-700 rounded text-xs">Q/W/E/R</kbd> Views | <kbd className="px-1 bg-gray-700 rounded text-xs">ESC</kbd> Deselect</span>
       </div>
@@ -996,8 +991,14 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
               onReorderTracks={(reorderedIds) => selectTracks(reorderedIds)}
               onSetActiveTracks={setActiveEditingTrackIds}
               multiTrackMode={multiTrackMode}
+              barycentricVariant={barycentricVariant}
+              customCenter={customCenter}
+              preserveOffsets={preserveOffsets}
               phaseOffsetSeconds={phaseOffsetSeconds}
               onModeChange={setMultiTrackMode}
+              onVariantChange={setBarycentricVariant}
+              onCustomCenterChange={setCustomCenter}
+              onPreserveOffsetsChange={setPreserveOffsets}
               onPhaseOffsetChange={setPhaseOffsetSeconds}
               animationForm={animationForm}
               onUpdateForm={updateAnimationForm}

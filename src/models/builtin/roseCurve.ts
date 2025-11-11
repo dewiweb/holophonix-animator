@@ -73,8 +73,9 @@ export function createRoseCurveModel(): AnimationModel {
       },
     },
     
-    supportedModes: ['identical', 'phase-offset', 'position-relative'],
-    defaultMultiTrackMode: 'position-relative',
+    supportedModes: ['relative', 'barycentric'],
+    supportedBarycentricVariants: ['shared', 'isobarycentric'],
+    defaultMultiTrackMode: 'relative',
     
     visualization: {
       controlPoints: [
@@ -131,8 +132,27 @@ export function createRoseCurveModel(): AnimationModel {
     ): Position {
       const progress = Math.min(time / duration, 1)
       
-      const center = parameters.center || { x: 0, y: 0, z: 0 }
+      let center = parameters.center || { x: 0, y: 0, z: 0 }
       const radius = parameters.radius || 5
+      
+      // Apply multi-track mode adjustments
+      const multiTrackMode = parameters._multiTrackMode || context?.multiTrackMode
+      
+      if (multiTrackMode === 'barycentric') {
+        // STEP 1 (Model): Use barycenter as center of rose curve
+        // STEP 2 (Store): Will add _trackOffset
+        const baryCenter = parameters._isobarycenter || parameters._customCenter
+        if (baryCenter) {
+          center = baryCenter
+        }
+      } else if (multiTrackMode === 'relative' && context?.trackOffset) {
+        // Relative mode: offset center by track position
+        center = {
+          x: center.x + context.trackOffset.x,
+          y: center.y + context.trackOffset.y,
+          z: center.z + context.trackOffset.z
+        }
+      }
       const petalCount = parameters.petalCount || 5
       const rotation = (parameters.rotation || 0) * Math.PI / 180
       const plane = parameters.plane || 'xy'
