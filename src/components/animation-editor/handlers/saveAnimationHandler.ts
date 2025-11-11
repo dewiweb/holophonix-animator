@@ -130,11 +130,25 @@ export const handleSaveAnimation = ({
     console.log('✅ Added new animation')
   }
   
-  // V3: Apply animation to tracks (simple - transform handles everything)
+  // V3: Apply animation to tracks
+  // CRITICAL: In relative mode, each track needs its OWN animation with per-track parameters
   selectedTracksToApply.forEach((track) => {
+    let trackAnimation = animation
+    
+    // In relative mode with per-track parameters, create unique animation for each track
+    if (multiTrackMode === 'relative' && multiTrackParameters && multiTrackParameters[track.id]) {
+      const perTrackParams = multiTrackParameters[track.id]
+      trackAnimation = {
+        ...animation,
+        parameters: perTrackParams,  // Use per-track parameters (different control points, etc.)
+        id: `${animation.id}-track-${track.id}`,  // Unique ID per track
+      }
+      console.log(`  📍 Track ${track.name || track.id}: Using per-track parameters`, perTrackParams)
+    }
+    
     updateTrack(track.id, {
       animationState: {
-        animation,  // Same animation for all tracks, transform differentiates them
+        animation: trackAnimation,  // Per-track animation in relative mode, shared in barycentric
         isPlaying: false,
         startTime: 0
       }
