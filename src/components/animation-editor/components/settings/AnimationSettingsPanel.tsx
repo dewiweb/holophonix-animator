@@ -110,13 +110,18 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
   onClose
 }) => {
   return (
-    <div className="lg:w-4/12 bg-white rounded-lg shadow-sm border border-gray-200 p-6 max-h-full overflow-y-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Animation Settings</h2>
+    <div className="lg:w-4/12 bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 max-h-full overflow-y-auto">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Animation Settings</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Press <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded">Ctrl+S</kbd> to save
+          </p>
+        </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="lg:hidden inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+            className="lg:hidden inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
           >
             <PanelRightClose className="w-4 h-4" />
             Close
