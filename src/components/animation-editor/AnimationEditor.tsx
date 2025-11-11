@@ -22,6 +22,7 @@ import {
   SelectedTracksIndicator,
   AnimationTypeSelector,
   AnimationControlButtons,
+  AnimationTimingIndicator,
   ModelSelector
 } from './components/controls'
 
@@ -902,6 +903,14 @@ const unifiedPane = (
               canSavePreset={!!animationForm.name && !!animationForm.type}
               currentAnimationId={currentAnimation?.id}
             />
+            
+            {/* Timing Indicator - shows loop count, direction, progress */}
+            {isAnimationPlaying && currentAnimation?.id && (
+              <AnimationTimingIndicator
+                animationId={currentAnimation.id}
+                className="ml-4"
+              />
+            )}
 
             {/* Track Locking Option */}
             {selectedTrackIds.length > 0 && (
