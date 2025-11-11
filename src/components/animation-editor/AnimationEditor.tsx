@@ -244,6 +244,8 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
           multiTrackMode,
           barycentricVariant,
           selectedTracksForPreview,
+          animationForm.type,          // Pass animation type
+          parameters,                  // Pass animation parameters
           customCenter,
           phaseOffsetSeconds
         )

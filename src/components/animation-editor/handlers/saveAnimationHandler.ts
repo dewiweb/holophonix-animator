@@ -61,6 +61,8 @@ export const handleSaveAnimation = ({
     multiTrackMode,
     barycentricVariant,
     selectedTracksToApply,
+    animationForm.type,              // Pass animation type
+    animationForm.parameters,        // Pass animation parameters
     customCenter,
     phaseOffsetSeconds
   )

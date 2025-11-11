@@ -55,12 +55,41 @@ function calculateSphericalOffset(
 }
 
 /**
+ * Extract anchor position from animation parameters
+ * This determines where the formation is centered
+ */
+function extractAnchorFromParameters(
+  animationType: string,
+  parameters: Record<string, any>
+): Position | undefined {
+  // Different animation types use different parameter names for their center
+  if (parameters.center) {
+    return parameters.center
+  }
+  if (parameters.startPosition) {
+    return parameters.startPosition
+  }
+  if (parameters.anchorPoint) {
+    return parameters.anchorPoint
+  }
+  if (parameters.restPosition) {
+    return parameters.restPosition
+  }
+  if (parameters.zoomCenter) {
+    return parameters.zoomCenter
+  }
+  return undefined
+}
+
+/**
  * Build v3 AnimationTransform from UI state
  * 
  * @param mode - UI mode: 'relative' or 'barycentric'
  * @param variant - Barycentric variant: 'shared', 'isobarycentric', 'centered', 'custom'
  * @param tracks - Selected tracks
- * @param customCenter - User-defined center (for centered/custom/shared variants)
+ * @param animationType - Animation type (for extracting anchor from parameters)
+ * @param animationParameters - Animation parameters (for extracting anchor position)
+ * @param customCenter - User-defined center (fallback if parameters don't have position)
  * @param phaseOffsetSeconds - Time delay between tracks
  * @returns v3 AnimationTransform
  */
@@ -68,6 +97,8 @@ export function buildTransform(
   mode: 'relative' | 'barycentric',
   variant: 'shared' | 'isobarycentric' | 'centered' | 'custom' | undefined,
   tracks: Track[],
+  animationType?: string,
+  animationParameters?: Record<string, any>,
   customCenter?: Position,
   phaseOffsetSeconds?: number
 ): AnimationTransform | undefined {
@@ -107,7 +138,21 @@ export function buildTransform(
   if (effectiveVariant === 'isobarycentric') {
     anchor = calculateBarycenter(tracks)
   } else {
-    anchor = customCenter || { x: 0, y: 0, z: 0 }
+    // For user-defined variants (shared, centered, custom):
+    // 1. Try to extract anchor from animation parameters (e.g., circular.center)
+    // 2. Fall back to customCenter from UI state
+    // 3. Fall back to origin
+    const parameterAnchor = animationType && animationParameters 
+      ? extractAnchorFromParameters(animationType, animationParameters)
+      : undefined
+    
+    anchor = parameterAnchor || customCenter || { x: 0, y: 0, z: 0 }
+    
+    console.log('🎯 Formation anchor for variant', effectiveVariant, ':', anchor, {
+      fromParameters: !!parameterAnchor,
+      fromCustomCenter: !parameterAnchor && !!customCenter,
+      fromDefault: !parameterAnchor && !customCenter
+    })
   }
   
   if (effectiveVariant === 'custom') {
