@@ -9,18 +9,20 @@ import { modelRegistry } from '@/models/registry'
 import { oscInputManager } from '@/utils/oscInputManager'
 import { oscMessageOptimizer, type TrackPositionUpdate } from '@/utils/oscMessageOptimizer'
 import { applyTransform, getTrackTime } from '@/utils/transformApplication'
+import { 
+  calculateAnimationTime,
+  createTimingState,
+  pauseTimingState,
+  resumeTimingState,
+  resetTimingState,
+  type AnimationTimingState
+} from '@/utils/animationTiming'
 
 // Track playing animation instances
 interface PlayingAnimation {
   animationId: string
   trackIds: string[]
-  startTime: number
-  loopCount: number
-  isReversed: boolean
-  isPaused: boolean
-  pausedTime?: number  // Time elapsed (in ms) when paused, for proper resume
-  pauseTimestamp?: number  // Timestamp when pause was clicked
-  lastAnimationTime?: number  // Last calculated animation time (in seconds) - for accurate pause
+  timingState: AnimationTimingState  // v3: Use dedicated timing engine
 }
 
 interface AnimationEngineState {
@@ -96,41 +98,29 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     // Check if this animation is already playing
     const existingAnimation = playingAnimations.get(animationId)
     if (existingAnimation) {
-      // If paused, resume it
-      if (existingAnimation.isPaused) {
-        console.log('▶️ Resuming paused animation:', animationId, 'from pausedTime:', existingAnimation.pausedTime)
+      // If paused, resume it using timing engine
+      if (existingAnimation.timingState.isPaused) {
+        console.log('▶️ Resuming paused animation:', animationId)
         
-        // Safety check: if pausedTime is undefined, it means pause was broken - restart fresh
-        if (existingAnimation.pausedTime === undefined) {
-          console.warn('⚠️ Paused animation has no pausedTime - removing and restarting fresh')
-          playingAnimations.delete(animationId)
-          // Will fall through to create new animation below
-        } else {
-          // Restore timeline position - set startTime so that elapsed time equals pausedTime
-          const newStartTime = Date.now() - existingAnimation.pausedTime
-          console.log('🔄 Restoring startTime:', newStartTime, '(now -', existingAnimation.pausedTime, 'ms)')
-          
-          // Create a NEW object to ensure Zustand detects the change
-          const updatedAnimation = {
-            ...existingAnimation,
-            isPaused: false,
-            startTime: newStartTime,
-            pausedTime: undefined,
-            pauseTimestamp: undefined
-          }
-          playingAnimations.set(animationId, updatedAnimation)
-          set({ 
-            playingAnimations,
-            isPlaying: true,
-            currentAnimationId: animationId,
-            currentTrackIds: existingAnimation.trackIds
-          })
-          // Make sure engine is running
-          if (!get().isEngineRunning) {
-            get().startEngine()
-          }
-          return
+        const resumedState = resumeTimingState(existingAnimation.timingState, Date.now())
+        const updatedAnimation: PlayingAnimation = {
+          ...existingAnimation,
+          timingState: resumedState
         }
+        playingAnimations.set(animationId, updatedAnimation)
+        
+        set({ 
+          playingAnimations,
+          isPlaying: true,
+          currentAnimationId: animationId,
+          currentTrackIds: existingAnimation.trackIds
+        })
+        
+        // Make sure engine is running
+        if (!get().isEngineRunning) {
+          get().startEngine()
+        }
+        return
       } else {
         // Already playing and not paused
         console.log('Animation', animationId, 'is already playing')
@@ -138,17 +128,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       }
     }
     
-    // Add to playing animations
+    // Create new animation with timing state
     playingAnimations.set(animationId, {
       animationId,
       trackIds,
-      startTime: Date.now(),
-      loopCount: 0,
-      isReversed: false,
-      isPaused: false,
-      pausedTime: undefined,
-      pauseTimestamp: undefined,
-      lastAnimationTime: undefined
+      timingState: createTimingState(Date.now())
     })
     
     set({ 
@@ -178,29 +162,24 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
   },
 
   pauseAnimation: (animationId?: string) => {
+    const currentTime = Date.now()
+    
     if (animationId) {
-      // Pause specific animation
+      // Pause specific animation using timing engine
       const playingAnimations = new Map(get().playingAnimations)
       const animation = playingAnimations.get(animationId)
       if (animation) {
-        const pauseTimestamp = Date.now()
-        const elapsedTime = pauseTimestamp - animation.startTime
+        console.log('⏸️ Pausing animation:', animationId)
         
-        console.log('⏸️ Pausing animation:', animationId, 'at elapsed time:', elapsedTime, 'ms')
-        
-        // Create a NEW object to ensure Zustand detects the change
-        const updatedAnimation = {
+        const pausedState = pauseTimingState(animation.timingState, currentTime)
+        const updatedAnimation: PlayingAnimation = {
           ...animation,
-          isPaused: true,
-          pausedTime: elapsedTime,  // Store elapsed time for resume
-          pauseTimestamp: pauseTimestamp  // Store when paused
+          timingState: pausedState
         }
         playingAnimations.set(animationId, updatedAnimation)
         
-        console.log('✅ Stored pausedTime:', updatedAnimation.pausedTime, 'ms')
-        
         // Check if any animations are still playing (not paused)
-        const anyStillPlaying = Array.from(playingAnimations.values()).some(a => !a.isPaused)
+        const anyStillPlaying = Array.from(playingAnimations.values()).some(a => !a.timingState.isPaused)
         
         set({ 
           playingAnimations,
@@ -213,23 +192,17 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         })
       }
     } else {
-      // Pause all animations
+      // Pause all animations using timing engine
       const playingAnimations = new Map(get().playingAnimations)
       playingAnimations.forEach((animation, id) => {
-        const pauseTimestamp = Date.now()
-        const elapsedTime = pauseTimestamp - animation.startTime
+        console.log('⏸️ Pausing animation (all):', id)
         
-        // Create NEW object for immutability
-        const updatedAnimation = {
+        const pausedState = pauseTimingState(animation.timingState, currentTime)
+        const updatedAnimation: PlayingAnimation = {
           ...animation,
-          isPaused: true,
-          pausedTime: elapsedTime,
-          pauseTimestamp: pauseTimestamp
+          timingState: pausedState
         }
         playingAnimations.set(id, updatedAnimation)
-        
-        console.log('⏸️ Pausing animation (all):', id, 'at elapsed time:', elapsedTime, 'ms')
-        console.log('✅ Stored pausedTime:', updatedAnimation.pausedTime, 'ms')
       })
       set({ playingAnimations, isPlaying: false })
     }
@@ -407,13 +380,37 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
 
       // Process each playing animation
       state.playingAnimations.forEach((playingAnimation, animationId) => {
-        if (playingAnimation.isPaused) return
-        
-        const animationTime = (timestamp - playingAnimation.startTime) / 1000
-        
-        // Get base animation for fallback
+        // Get base animation
         const baseAnimation = projectStore.animations.find(a => a.id === playingAnimation.animationId)
         if (!baseAnimation) return
+        
+        // UNIFIED TIMING ENGINE - Calculate animation time with ping-pong support
+        const timingResult = calculateAnimationTime(
+          timestamp,
+          baseAnimation,
+          playingAnimation.timingState
+        )
+        
+        // Skip if paused or should stop
+        if (timingResult.newState.isPaused) return
+        if (timingResult.shouldStop) {
+          get().stopAnimation(playingAnimation.animationId)
+          return
+        }
+        
+        // Update timing state if it changed (loop increment, direction change)
+        if (timingResult.shouldLoop || timingResult.isReversed !== playingAnimation.timingState.isReversed) {
+          const updatedPlayingAnimations = new Map(state.playingAnimations)
+          updatedPlayingAnimations.set(playingAnimation.animationId, {
+            ...playingAnimation,
+            timingState: timingResult.newState
+          })
+          set({ playingAnimations: updatedPlayingAnimations })
+          
+          if (timingResult.shouldLoop) {
+            console.log(`🔁 Loop ${timingResult.loopCount}: ${timingResult.isReversed ? '⬅️ Backward' : '➡️ Forward'}`)
+          }
+        }
         
         // Process each track for this animation
         playingAnimation.trackIds.forEach(trackId => {
@@ -432,7 +429,8 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
 
           // V3 UNIFIED TRANSFORM APPLICATION
           // 1. Get adjusted time for this track (applies phase offset)
-          const trackTime = getTrackTime(trackId, animationTime, animation)
+          // Use timing engine's calculated time (handles ping-pong)
+          const trackTime = getTrackTime(trackId, timingResult.animationTime, animation)
           
           // 2. Build v3 context (clean and simple)
           const context: CalculationContext = {
@@ -460,25 +458,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
           }
         })
-        
-        // Handle animation end (loop or stop)
-        if (animationTime >= baseAnimation.duration) {
-          if (baseAnimation.loop) {
-            // Reset animation for next loop - need to update state properly
-            console.log('🔁 Looping animation:', playingAnimation.animationId)
-            const updatedPlayingAnimations = new Map(state.playingAnimations)
-            const updatedAnimation = {
-              ...playingAnimation,
-              startTime: timestamp,  // Reset to current time
-              loopCount: playingAnimation.loopCount + 1
-            }
-            updatedPlayingAnimations.set(playingAnimation.animationId, updatedAnimation)
-            set({ playingAnimations: updatedPlayingAnimations })
-          } else {
-            // Stop non-looping animation
-            get().stopAnimation(playingAnimation.animationId)
-          }
-        }
       })
 
       // Always flush OSC batch at end of frame
