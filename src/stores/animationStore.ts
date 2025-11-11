@@ -128,36 +128,76 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       }
     }
     
-    // Create new animation with timing state
-    playingAnimations.set(animationId, {
-      animationId,
-      trackIds,
-      timingState: createTimingState(Date.now())
-    })
+    // NEW ANIMATION START: Automatically ease to start positions first
+    console.log('🎬 Starting new animation - easing to start positions')
     
-    set({ 
-      playingAnimations,
-      isPlaying: true,
-      // Keep backward compatibility
-      currentAnimationId: animationId,
-      currentTrackIds: trackIds
-    })
-    
-    // Store initial positions for tracks
     const projectStore = useProjectStore.getState()
+    
+    // Store initial positions and prepare easing targets
+    const tracksToEase: Array<{trackId: string, from: Position, to: Position}> = []
     trackIds.forEach(trackId => {
       const track = projectStore.tracks.find(t => t.id === trackId)
-      if (track && !track.initialPosition) {
-        projectStore.updateTrack(trackId, {
-          initialPosition: { ...track.position }
+      if (track) {
+        // Store initial position if not already set
+        if (!track.initialPosition) {
+          projectStore.updateTrack(trackId, {
+            initialPosition: { ...track.position }
+          })
+        }
+        
+        // Prepare easing from current to initial position
+        const initialPos = track.initialPosition || track.position
+        tracksToEase.push({
+          trackId,
+          from: { ...track.position },
+          to: { ...initialPos }
         })
       }
     })
     
-    // Start the engine if not running
-    const state = get()
-    if (!state.isEngineRunning) {
-      get().startEngine()
+    // Ease to start positions, then start animation
+    if (tracksToEase.length > 0) {
+      get()._easeToPositions(tracksToEase, 500, () => {
+        // After easing completes: Create and start animation
+        console.log('✅ Easing complete - starting animation playback')
+        
+        const currentPlayingAnimations = new Map(get().playingAnimations)
+        currentPlayingAnimations.set(animationId, {
+          animationId,
+          trackIds,
+          timingState: createTimingState(Date.now())
+        })
+        
+        set({ 
+          playingAnimations: currentPlayingAnimations,
+          isPlaying: true,
+          currentAnimationId: animationId,
+          currentTrackIds: trackIds
+        })
+        
+        // Start the engine if not running
+        if (!get().isEngineRunning) {
+          get().startEngine()
+        }
+      })
+    } else {
+      // No tracks to ease - start immediately
+      playingAnimations.set(animationId, {
+        animationId,
+        trackIds,
+        timingState: createTimingState(Date.now())
+      })
+      
+      set({ 
+        playingAnimations,
+        isPlaying: true,
+        currentAnimationId: animationId,
+        currentTrackIds: trackIds
+      })
+      
+      if (!get().isEngineRunning) {
+        get().startEngine()
+      }
     }
   },
 

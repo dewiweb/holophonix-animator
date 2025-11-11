@@ -11,7 +11,7 @@
 
 import React from 'react'
 import { cn } from '@/utils'
-import { Play, Pause, Square, Download, Upload, Save, PanelRightOpen, PanelRightClose } from 'lucide-react'
+import { Play, Pause, Square, Download, Upload, Save, PanelRightOpen, PanelRightClose, FolderOpen, BookOpen } from 'lucide-react'
 import { AnimationTimingIndicator } from './AnimationTimingIndicator'
 
 interface PlaybackControlBarProps {
@@ -113,18 +113,18 @@ export const PlaybackControlBar: React.FC<PlaybackControlBarProps> = ({
 
       {/* RIGHT SECTION: Animation Management + Settings */}
       <div className="flex items-center gap-2">
-        {/* Load Animation */}
+        {/* Load from Project */}
         <button
           onClick={onLoadAnimation}
           onContextMenu={(e) => onContextMenu?.(e, 'LOAD')}
           className="px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 bg-indigo-600 dark:bg-indigo-700 text-white hover:bg-indigo-700 dark:hover:bg-indigo-600"
-          title="Load saved animation"
+          title="Load animation from project"
         >
-          <Download className="w-4 h-4" />
-          <span className="hidden lg:inline">Load</span>
+          <FolderOpen className="w-4 h-4" />
+          <span className="hidden lg:inline">Load from Project</span>
         </button>
 
-        {/* Save Animation */}
+        {/* Save to Project */}
         <button
           onClick={onSaveAnimation}
           onContextMenu={(e) => onContextMenu?.(e, 'SAVE')}
@@ -134,32 +134,34 @@ export const PlaybackControlBar: React.FC<PlaybackControlBarProps> = ({
             "bg-primary-600 dark:bg-primary-700 text-white hover:bg-primary-700 dark:hover:bg-primary-600",
             !canSave && "opacity-50 cursor-not-allowed"
           )}
-          title="Save current animation"
+          title="Save to project (for use in timeline/cues)"
         >
           <Save className="w-4 h-4" />
-          <span className="hidden lg:inline">Save</span>
+          <span className="hidden lg:inline">Save to Project</span>
         </button>
         
         {/* Separator */}
         <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
         
-        {/* Preset Actions - Compact dropdown */}
+        {/* Preset Actions - Library (global templates) */}
         <div className="flex items-center gap-1">
           <button
             onClick={onLoadPreset}
             onContextMenu={(e) => onContextMenu?.(e, 'LOAD_PRESET')}
-            className="px-2 py-2 rounded-l-md text-sm font-medium transition-colors flex items-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-            title="Load preset"
+            className="px-3 py-2 rounded-l-md text-sm font-medium transition-colors flex items-center gap-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50 border border-purple-300 dark:border-purple-700"
+            title="Load from library (reusable templates)"
           >
-            <Upload className="w-4 h-4" />
+            <BookOpen className="w-4 h-4" />
+            <span className="hidden xl:inline text-xs">Load Library</span>
           </button>
           <button
             onClick={onSaveAsPreset}
             onContextMenu={(e) => onContextMenu?.(e, 'SAVE_PRESET')}
-            className="px-2 py-2 rounded-r-md text-sm font-medium transition-colors flex items-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-            title="Save as preset"
+            className="px-3 py-2 rounded-r-md text-sm font-medium transition-colors flex items-center gap-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50 border border-purple-300 dark:border-purple-700 border-l-0"
+            title="Save to library (reusable template across projects)"
           >
-            <Download className="w-4 h-4" />
+            <Save className="w-4 h-4" />
+            <span className="hidden xl:inline text-xs">Save Library</span>
           </button>
         </div>
         

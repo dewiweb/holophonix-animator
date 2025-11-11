@@ -47,6 +47,53 @@ export const defaultPresets: AnimationPreset[] = [
       coordinateSystem: { type: 'xyz' }
     }
   },
+  {
+    id: 'preset-elliptical-orbit',
+    name: 'Elliptical Orbit',
+    description: 'Ellipse with smooth looping',
+    category: 'basic',
+    tags: ['elliptical', 'orbit', 'loop'],
+    author: 'Holophonix',
+    createdAt: new Date().toISOString(),
+    modifiedAt: new Date().toISOString(),
+    animation: {
+      name: 'Elliptical Orbit',
+      type: 'elliptical',
+      duration: 12,
+      loop: true,
+      parameters: {
+        center: { x: 0, y: 0, z: 0 },
+        radiusX: 5,
+        radiusY: 3,
+        startAngle: 0,
+        endAngle: 360,
+        plane: 'xy'
+      },
+      coordinateSystem: { type: 'xyz' }
+    }
+  },
+  {
+    id: 'preset-linear-pingpong',
+    name: 'Ping-Pong Path',
+    description: 'Linear motion with ping-pong (goes forward then backward)',
+    category: 'basic',
+    tags: ['linear', 'ping-pong', 'back-forth'],
+    author: 'Holophonix',
+    createdAt: new Date().toISOString(),
+    modifiedAt: new Date().toISOString(),
+    animation: {
+      name: 'Ping-Pong Path',
+      type: 'linear',
+      duration: 8,
+      loop: true,
+      pingPong: true,
+      parameters: {
+        startPosition: { x: -6, y: 0, z: 0 },
+        endPosition: { x: 6, y: 0, z: 0 }
+      },
+      coordinateSystem: { type: 'xyz' }
+    }
+  },
 
   // Physics-based presets
   {
