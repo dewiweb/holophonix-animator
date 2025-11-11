@@ -128,84 +128,116 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       }
     }
     
-    // NEW ANIMATION START: Automatically ease to start positions first
-    console.log('🎬 Starting new animation - checking for start positions')
+    // NEW ANIMATION START: Check for fade-in subanimation
+    console.log('🎬 Starting new animation - checking for fade-in subanimation')
     
     const projectStore = useProjectStore.getState()
+    const baseAnimation = projectStore.animations.find(a => a.id === animationId)
     
-    // Collect tracks that need easing (have different initial position)
-    const tracksToEase: Array<{trackId: string, from: Position, to: Position}> = []
-    trackIds.forEach(trackId => {
-      const track = projectStore.tracks.find(t => t.id === trackId)
-      if (track && track.initialPosition) {
-        // Only ease if there IS an initialPosition AND it's different from current
-        const posChanged = 
-          Math.abs(track.position.x - track.initialPosition.x) > 0.001 ||
-          Math.abs(track.position.y - track.initialPosition.y) > 0.001 ||
-          Math.abs(track.position.z - track.initialPosition.z) > 0.001
+    // Check if animation has fade-in subanimation configured
+    const hasFadeIn = baseAnimation?.fadeIn?.enabled && baseAnimation?.fadeIn?.autoTrigger
+    
+    if (hasFadeIn && baseAnimation) {
+      console.log(`  🎭 Fade-in subanimation detected: ${baseAnimation.fadeIn!.duration}s ${baseAnimation.fadeIn!.easing}`)
+      
+      // Collect tracks to ease to initial positions
+      const tracksToEase: Array<{trackId: string, from: Position, to: Position}> = []
+      
+      trackIds.forEach(trackId => {
+        const track = projectStore.tracks.find(t => t.id === trackId)
+        if (track) {
+          // Store initial position if not set
+          if (!track.initialPosition) {
+            console.log(`  💾 Storing initial position for track ${track.name || trackId}`)
+            projectStore.updateTrack(trackId, {
+              initialPosition: { ...track.position }
+            })
+          }
+          
+          // Check if fade-in has custom target position
+          const targetPos = baseAnimation.fadeIn!.toPosition || track.initialPosition
+          
+          if (targetPos) {
+            // Check if position is different (needs easing)
+            const posChanged = 
+              Math.abs(track.position.x - targetPos.x) > 0.001 ||
+              Math.abs(track.position.y - targetPos.y) > 0.001 ||
+              Math.abs(track.position.z - targetPos.z) > 0.001
+            
+            if (posChanged) {
+              console.log(`  📍 ${track.name || trackId}: ${JSON.stringify(track.position)} → ${JSON.stringify(targetPos)}`)
+              tracksToEase.push({
+                trackId,
+                from: { ...track.position },
+                to: { ...targetPos }
+              })
+            }
+          }
+        }
+      })
+      
+      // Execute fade-in subanimation if needed
+      if (tracksToEase.length > 0) {
+        console.log(`  🎯 Fade-in: ${tracksToEase.length} tracks, ${baseAnimation.fadeIn!.duration}s`)
+        const fadeInDurationMs = baseAnimation.fadeIn!.duration * 1000
         
-        if (posChanged) {
-          console.log(`  📍 Track ${track.name || trackId} needs easing: current=${JSON.stringify(track.position)} → initial=${JSON.stringify(track.initialPosition)}`)
-          tracksToEase.push({
-            trackId,
-            from: { ...track.position },
-            to: { ...track.initialPosition }
+        get()._easeToPositions(tracksToEase, fadeInDurationMs, () => {
+          // After fade-in completes: Start main animation
+          console.log('✅ Fade-in complete - starting main animation')
+          
+          const currentPlayingAnimations = new Map(get().playingAnimations)
+          currentPlayingAnimations.set(animationId, {
+            animationId,
+            trackIds,
+            timingState: createTimingState(Date.now())
+          })
+          
+          set({ 
+            playingAnimations: currentPlayingAnimations,
+            isPlaying: true,
+            currentAnimationId: animationId,
+            currentTrackIds: trackIds
+          })
+          
+          // Start the engine if not running
+          if (!get().isEngineRunning) {
+            get().startEngine()
+          }
+        })
+        return // Wait for fade-in to complete
+      } else {
+        console.log('  ✓ Already at start position - no fade-in needed')
+      }
+    } else {
+      console.log('  ℹ️ No fade-in subanimation configured')
+      
+      // Store initial positions for tracks that don't have them
+      trackIds.forEach(trackId => {
+        const track = projectStore.tracks.find(t => t.id === trackId)
+        if (track && !track.initialPosition) {
+          projectStore.updateTrack(trackId, {
+            initialPosition: { ...track.position }
           })
         }
-      } else if (track && !track.initialPosition) {
-        // Store current position as initial for future use
-        console.log(`  💾 Storing initial position for track ${track.name || trackId}`)
-        projectStore.updateTrack(trackId, {
-          initialPosition: { ...track.position }
-        })
-      }
+      })
+    }
+    
+    // Start immediately (no fade-in or already at position)
+    playingAnimations.set(animationId, {
+      animationId,
+      trackIds,
+      timingState: createTimingState(Date.now())
     })
     
-    // Ease to start positions if needed, then start animation
-    if (tracksToEase.length > 0) {
-      console.log(`  🎯 Easing ${tracksToEase.length} tracks to start positions`)
-      get()._easeToPositions(tracksToEase, 500, () => {
-        // After easing completes: Create and start animation
-        console.log('✅ Easing complete - starting animation playback')
-        
-        const currentPlayingAnimations = new Map(get().playingAnimations)
-        currentPlayingAnimations.set(animationId, {
-          animationId,
-          trackIds,
-          timingState: createTimingState(Date.now())
-        })
-        
-        set({ 
-          playingAnimations: currentPlayingAnimations,
-          isPlaying: true,
-          currentAnimationId: animationId,
-          currentTrackIds: trackIds
-        })
-        
-        // Start the engine if not running
-        if (!get().isEngineRunning) {
-          get().startEngine()
-        }
-      })
-    } else {
-      // No easing needed - start immediately from current positions
-      console.log('  ▶️ No easing needed - starting immediately')
-      playingAnimations.set(animationId, {
-        animationId,
-        trackIds,
-        timingState: createTimingState(Date.now())
-      })
-      
-      set({ 
-        playingAnimations,
-        isPlaying: true,
-        currentAnimationId: animationId,
-        currentTrackIds: trackIds
-      })
-      
-      if (!get().isEngineRunning) {
-        get().startEngine()
-      }
+    set({ 
+      playingAnimations,
+      isPlaying: true,
+      currentAnimationId: animationId,
+      currentTrackIds: trackIds
+    })
+    
+    if (!get().isEngineRunning) {
+      get().startEngine()
     }
   },
 

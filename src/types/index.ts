@@ -69,6 +69,31 @@ export type InterpolationType =
   | 'ease-in-out'
   | 'cubic-bezier';
 
+// ========================================
+// SUBANIMATION SYSTEM (Fade-in/Fade-out)
+// ========================================
+
+export type SubanimationType = 
+  | 'fade-in'      // Ease to animation start position
+  | 'fade-out'     // Ease to initial/home position
+  | 'crossfade'    // Blend between two animations (future)
+  | 'hold';        // Hold at position (future)
+
+export interface SubanimationConfig {
+  id: string;
+  type: SubanimationType;
+  duration: number;          // Duration in seconds
+  easing: InterpolationType; // Reuse existing easing types
+  
+  // Target positions (if undefined, use defaults)
+  fromPosition?: Position;   // If undefined, use current position
+  toPosition?: Position;     // If undefined, use animation start or initial position
+  
+  // Behavior
+  autoTrigger: boolean;      // Auto-play when animation starts/stops
+  enabled: boolean;          // Can be disabled without removing config
+}
+
 export interface Keyframe {
   id: string;
   time: number;        // Time in seconds
@@ -345,6 +370,10 @@ export interface Animation {
   // Track locking
   trackIds?: string[];   // If set, animation is locked to these specific tracks
   trackSelectionLocked?: boolean; // If true, tracks cannot be changed in cue editor
+  
+  // SUBANIMATIONS (Fade-in/Fade-out)
+  fadeIn?: SubanimationConfig;   // Ease to animation start position before playback
+  fadeOut?: SubanimationConfig;  // Ease to initial/home position after playback
 }
 
 export interface AnimationPreset {

@@ -1,4 +1,4 @@
-import { Animation, AnimationType, Track, AnimationParameters, Keyframe, Position } from '@/types'
+import { Animation, AnimationType, Track, AnimationParameters, Keyframe, Position, SubanimationConfig } from '@/types'
 import { buildTransform } from '@/utils/transformBuilder'
 
 interface SaveAnimationParams {
@@ -18,6 +18,13 @@ interface SaveAnimationParams {
   updateTrack: (trackId: string, updates: any) => void
   multiTrackParameters?: Record<string, AnimationParameters>
   lockTracks?: boolean
+  // Subanimation settings
+  fadeInEnabled?: boolean
+  fadeInDuration?: number
+  fadeInEasing?: 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear'
+  fadeOutEnabled?: boolean
+  fadeOutDuration?: number
+  fadeOutEasing?: 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear'
 }
 
 export const handleSaveAnimation = ({
@@ -36,7 +43,14 @@ export const handleSaveAnimation = ({
   updateAnimation,
   updateTrack,
   multiTrackParameters,
-  lockTracks = false
+  lockTracks = false,
+  // Subanimation settings
+  fadeInEnabled = true,
+  fadeInDuration = 0.5,
+  fadeInEasing = 'ease-out',
+  fadeOutEnabled = false,
+  fadeOutDuration = 0.5,
+  fadeOutEasing = 'ease-in'
 }: SaveAnimationParams) => {
   const selectedTracksToApply = selectedTrackIds.length > 0 
     ? selectedTrackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[]
@@ -67,6 +81,26 @@ export const handleSaveAnimation = ({
     phaseOffsetSeconds
   )
   
+  // Build fade-in subanimation config if enabled
+  const fadeIn: SubanimationConfig | undefined = fadeInEnabled ? {
+    id: `fade-in-${animationId}`,
+    type: 'fade-in',
+    duration: fadeInDuration,
+    easing: fadeInEasing,
+    autoTrigger: true,
+    enabled: true
+  } : undefined
+  
+  // Build fade-out subanimation config if enabled
+  const fadeOut: SubanimationConfig | undefined = fadeOutEnabled ? {
+    id: `fade-out-${animationId}`,
+    type: 'fade-out',
+    duration: fadeOutDuration,
+    easing: fadeOutEasing,
+    autoTrigger: true,
+    enabled: true
+  } : undefined
+  
   const animation: Animation = {
     id: animationId,
     name: animationForm.name || 'Unnamed Animation',
@@ -78,6 +112,8 @@ export const handleSaveAnimation = ({
     keyframes: keyframes.length > 0 ? keyframes : undefined,
     coordinateSystem: animationForm.coordinateSystem || { type: 'xyz' },
     transform,  // V3 unified transform
+    fadeIn,     // Fade-in subanimation
+    fadeOut,    // Fade-out subanimation
     ...(lockTracks && selectedTrackIds.length > 0 && {
       trackIds: selectedTrackIds,
       trackSelectionLocked: true,

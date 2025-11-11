@@ -32,6 +32,16 @@ export interface AnimationEditorState {
   lockTracks: boolean
   
   // --------------------------------------------
+  // SUBANIMATION SETTINGS (Fade-in/Fade-out)
+  // --------------------------------------------
+  fadeInEnabled: boolean
+  fadeInDuration: number
+  fadeInEasing: 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear'
+  fadeOutEnabled: boolean
+  fadeOutDuration: number
+  fadeOutEasing: 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear'
+  
+  // --------------------------------------------
   // UI STATE
   // --------------------------------------------
   showPresetBrowser: boolean
@@ -126,6 +136,14 @@ const getInitialState = () => ({
   multiTrackParameters: {},
   activeEditingTrackIds: [],
   lockTracks: false,
+  
+  // Subanimation Settings (Fade-in/Fade-out)
+  fadeInEnabled: true,
+  fadeInDuration: 0.5,
+  fadeInEasing: 'ease-out' as const,
+  fadeOutEnabled: false,
+  fadeOutDuration: 0.5,
+  fadeOutEasing: 'ease-in' as const,
   
   // UI State
   showPresetBrowser: false,
