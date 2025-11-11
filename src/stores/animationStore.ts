@@ -482,17 +482,21 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
 
           // Calculate position using model runtime
           const params = animation.parameters as any
+          // Determine if this is a multi-track animation
+          const isMultiTrack = playingAnimation.trackIds.length > 1
+          
           const context: any = {
             trackId,
             trackIndex: playingAnimation.trackIds.indexOf(trackId),
             totalTracks: playingAnimation.trackIds.length,
             trackPosition: track.position,    // Current track position
             initialPosition: track.initialPosition || track.position,  // Starting position (FIXED)
-            // Pass trackOffset to model context
-            // For multi-track: use strategy-provided offset (params._trackOffset)
-            // For single-track: use track's initial position so models can offset relative to track
-            trackOffset: params._trackOffset || (track.initialPosition || track.position),
-            multiTrackMode: animation.multiTrackMode || 'relative',
+            // trackOffset handling:
+            // Multi-track: use strategy-provided offset (params._trackOffset)
+            // Single-track: undefined (parameters are already in absolute coordinates)
+            trackOffset: isMultiTrack ? params._trackOffset : undefined,
+            // multiTrackMode: only set for multi-track animations
+            multiTrackMode: isMultiTrack ? (animation.multiTrackMode || 'relative') : undefined,
             barycentricVariant: animation.barycentricVariant,
             frameCount: state.frameCount,
             deltaTime: deltaTime / 1000,
@@ -542,7 +546,8 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           projectStore.updateTrack(trackId, { position })
 
           // Send OSC message immediately for each track
-          if (track.holophonixIndex) {
+          // Note: holophonixIndex can be 0 (Track 1), so check for undefined/null explicitly
+          if (track.holophonixIndex !== undefined && track.holophonixIndex !== null) {
             const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
             oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
           }

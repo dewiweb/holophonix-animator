@@ -186,13 +186,70 @@ Output: tracks maintain formation around moving barycenter
 
 ---
 
+---
+
+## Additional Fixes (After Testing)
+
+### Bug #5: Single-Track Double Offset 🔴 CRITICAL
+**Location:** `animationStore.ts:494-495` (second iteration)
+
+**Problem:**
+```typescript
+// For ALL animations (single and multi-track):
+trackOffset: params._trackOffset || (track.initialPosition || track.position),
+multiTrackMode: animation.multiTrackMode || 'relative',
+```
+
+**Impact:**
+- Single-track animations default to `multiTrackMode = 'relative'`
+- Got `trackOffset = track.initialPosition`
+- Models applied offset to parameters already in absolute coordinates
+- **Result:** Track doesn't follow path (double offset)
+
+**Fix:**
+```typescript
+const isMultiTrack = playingAnimation.trackIds.length > 1
+
+trackOffset: isMultiTrack ? params._trackOffset : undefined,
+multiTrackMode: isMultiTrack ? (animation.multiTrackMode || 'relative') : undefined,
+```
+
+**Explanation:**
+- Single-track: No offset, no mode (parameters are absolute)
+- Multi-track: Uses strategy-provided offset and mode
+
+---
+
+### Bug #6: OSC Not Sent for Track 1 (holophonixIndex = 0) 🔴 CRITICAL
+**Location:** `animationStore.ts:545`
+
+**Problem:**
+```typescript
+if (track.holophonixIndex) {  // ❌ Fails for index 0!
+```
+
+**Impact:**
+- Holophonix uses 0-based indexing (Track 1 = index 0)
+- `if (0)` evaluates to `false`
+- Track 1 never receives OSC messages!
+
+**Fix:**
+```typescript
+if (track.holophonixIndex !== undefined && track.holophonixIndex !== null) {
+```
+
+---
+
 ## Status
 
-🟢 **All Critical Bugs Fixed**
+🟢 **All Critical Bugs Fixed (Round 2)**
 
 - [x] Bug #1: Initial position reference
 - [x] Bug #2: trackOffset context passing  
 - [x] Bug #3: Double offset prevention
 - [x] Bug #4: OSC message flushing
+- [x] Bug #5: Single-track double offset ⭐ NEW
+- [x] Bug #6: OSC Track 1 (index 0) ⭐ NEW
 
+**Build:** ✅ Passing (6.71s)  
 **Ready for testing!**
