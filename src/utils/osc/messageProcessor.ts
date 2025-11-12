@@ -1,4 +1,5 @@
 import { OSCMessage } from '@/types'
+import { debugLog, errorLog, warnLog } from '@/config/debug'
 
 /**
  * OSC Message Processor
@@ -114,7 +115,7 @@ function handleErrorMessage(message: OSCMessage, actions: MessageProcessorAction
     const match = errorMsg.match(/Cannot get track,(\d+)/)
     if (match) {
       const trackIndex = parseInt(match[1])
-      console.log(`❌ Track ${trackIndex} does not exist on device`)
+      debugLog(`❌ Track ${trackIndex} does not exist on device`)
       
       // Mark this track as failed
       const state = actions.getState()
@@ -161,7 +162,7 @@ async function handleAnimationControl(
         break
     }
   } catch (e) {
-    console.warn('OSC /anim control error:', e)
+    warnLog('OSC /anim control error:', e)
   }
 }
 
@@ -174,7 +175,7 @@ async function handlePlayCommand(
   projectStore: any
 ): Promise<void> {
   const identifier = typeof args[0] === 'string' ? args[0] : null
-  console.log('OSC /anim/play received with args:', args, 'identifier:', identifier)
+  debugLog('OSC /anim/play received with args:', args, 'identifier:', identifier)
   
   let animationId: string | null = null
   let trackIds: string[] = args.slice(1).filter(a => typeof a === 'string') as string[]
@@ -187,7 +188,7 @@ async function handlePlayCommand(
         a.name.toLowerCase() === identifier.toLowerCase()
       )
     
-    console.log('Found animation:', animation, 'by identifier:', identifier)
+    debugLog('Found animation:', animation, 'by identifier:', identifier)
     if (animation) {
       animationId = animation.id
     }
@@ -219,10 +220,10 @@ async function handlePlayCommand(
       }
     }
     
-    console.log('Calling animationStore.playAnimation with ID:', animationId, 'tracks:', trackIds)
+    debugLog('Calling animationStore.playAnimation with ID:', animationId, 'tracks:', trackIds)
     animationStore.playAnimation(animationId, trackIds)
   } else {
-    console.warn('OSC /anim/play: No valid animation ID or name provided')
+    warnLog('OSC /anim/play: No valid animation ID or name provided')
   }
 }
 
@@ -247,7 +248,7 @@ async function handleStopCommand(
   const targetIdentifier = typeof args[0] === 'string' ? args[0] : null
   let shouldStop = false
   
-  console.log('OSC /anim/stop received with identifier:', targetIdentifier, 'currentAnimationId:', animationStore.currentAnimationId)
+  debugLog('OSC /anim/stop received with identifier:', targetIdentifier, 'currentAnimationId:', animationStore.currentAnimationId)
   
   if (targetIdentifier) {
     // Find animation by ID or name
@@ -257,26 +258,26 @@ async function handleStopCommand(
         a.name.toLowerCase() === targetIdentifier.toLowerCase()
       )
     
-    console.log('OSC /anim/stop found animation:', animation, 'by identifier:', targetIdentifier)
+    debugLog('OSC /anim/stop found animation:', animation, 'by identifier:', targetIdentifier)
     
     // Stop if this animation is currently playing
     if (animation && animationStore.currentAnimationId === animation.id) {
       shouldStop = true
-      console.log('OSC /anim/stop: Animation is currently playing, will stop')
+      debugLog('OSC /anim/stop: Animation is currently playing, will stop')
     } else {
-      console.log('OSC /anim/stop: Animation found but not currently playing')
+      debugLog('OSC /anim/stop: Animation found but not currently playing')
     }
   } else {
     // No specific animation: stop any currently playing animation
     shouldStop = true
-    console.log('OSC /anim/stop: No specific animation, will stop any playing animation')
+    debugLog('OSC /anim/stop: No specific animation, will stop any playing animation')
   }
   
   if (shouldStop) {
-    console.log('Calling animationStore.stopAnimation')
+    debugLog('Calling animationStore.stopAnimation')
     animationStore.stopAnimation()
   } else {
-    console.log('OSC /anim/stop: Will not stop animation')
+    debugLog('OSC /anim/stop: Will not stop animation')
   }
 }
 
@@ -319,7 +320,7 @@ async function handleTrackName(
 
   if (!trackName) return
 
-  console.log(`🎵 Received track ${trackIndex} name: ${trackName}`)
+  debugLog(`🎵 Received track ${trackIndex} name: ${trackName}`)
   
   // Cache last known name
   const state = actions.getState()
@@ -335,7 +336,7 @@ async function handleTrackName(
     actions.setState({
       discoveredTracks: [...state.discoveredTracks, { index: trackIndex, name: trackName }]
     })
-    console.log(`📋 Added track ${trackIndex} to discovery list`)
+    debugLog(`📋 Added track ${trackIndex} to discovery list`)
     
     // Create track immediately if it doesn't exist
     if (!existingTrack) {
@@ -343,7 +344,7 @@ async function handleTrackName(
       const trackColor = discoveredTrack?.color || { r: 0.5, g: 0.5, b: 0.5, a: 1 }
       const trackPosition = discoveredTrack?.position || { x: 0, y: 0, z: 0 }
       
-      console.log(`➕ Creating track ${trackIndex} immediately: ${trackName}`, { color: trackColor, position: trackPosition })
+      debugLog(`➕ Creating track ${trackIndex} immediately: ${trackName}`, { color: trackColor, position: trackPosition })
       projectStore.addTrack({
         name: trackName,
         type: 'sound-source',
@@ -357,16 +358,16 @@ async function handleTrackName(
         volume: 1.0,
       })
     } else {
-      console.log(`✏️ Updating existing track ${trackIndex} name to: ${trackName}`)
+      debugLog(`✏️ Updating existing track ${trackIndex} name to: ${trackName}`)
       projectStore.updateTrack(existingTrack.id, { name: trackName })
     }
   } else {
     // Not in discovery mode: only update existing tracks
     if (existingTrack) {
-      console.log(`✏️ Updating track ${trackIndex} name to: ${trackName}`)
+      debugLog(`✏️ Updating track ${trackIndex} name to: ${trackName}`)
       projectStore.updateTrack(existingTrack.id, { name: trackName })
     } else {
-      console.log(`ℹ️ Ignoring incoming name for unknown track ${trackIndex} (not in discovery mode)`)
+      debugLog(`ℹ️ Ignoring incoming name for unknown track ${trackIndex} (not in discovery mode)`)
     }
   }
 }
@@ -388,7 +389,7 @@ async function handleTrackPosition(
   if (args.length < 3) return
 
   const [x, y, z] = args as number[]
-  console.log(`📍 Track ${trackIndex} position (${coordType}):`, { x, y, z })
+  debugLog(`📍 Track ${trackIndex} position (${coordType}):`, { x, y, z })
   
   const state = actions.getState()
   
@@ -406,7 +407,7 @@ async function handleTrackPosition(
   const existingTrack = projectStore.tracks.find((t: any) => t.holophonixIndex === trackIndex)
   
   if (existingTrack) {
-    console.log(`✅ Updating track ${trackIndex} position`)
+    debugLog(`✅ Updating track ${trackIndex} position`)
     
     // Check if track is animating
     const animationStore = await deps.getAnimationStore()
@@ -421,21 +422,21 @@ async function handleTrackPosition(
       }
     })
     
-    console.log(`🔍 Track ${existingTrack.name} (${existingTrack.id}): playing=${animationStore.playingAnimations.size}, found=${isAnimating}, animId=${foundInAnimationId}`)
+    debugLog(`🔍 Track ${existingTrack.name} (${existingTrack.id}): playing=${animationStore.playingAnimations.size}, found=${isAnimating}, animId=${foundInAnimationId}`)
     
     if (isAnimating) {
       // Animation is controlling the track - don't update position
-      console.log(`🔒 Animation active (or paused) - ignoring OSC position update`)
+      debugLog(`🔒 Animation active (or paused) - ignoring OSC position update`)
     } else {
       // Update both position and initialPosition
       projectStore.updateTrack(existingTrack.id, { 
         position: { x, y, z },
         initialPosition: { x, y, z }
       })
-      console.log(`🔄 Also updated initialPosition (track not animating)`)
+      debugLog(`🔄 Also updated initialPosition (track not animating)`)
     }
   } else if (state.isDiscoveringTracks) {
-    console.log(`📍 Stored position for track ${trackIndex} (will apply when track is created)`)
+    debugLog(`📍 Stored position for track ${trackIndex} (will apply when track is created)`)
   }
 }
 
@@ -455,7 +456,7 @@ async function handleTrackColor(
   if (args.length < 4) return
 
   const [r, g, b, a] = args as number[]
-  console.log(`🎨 Track ${trackIndex} color (RGBA):`, { r, g, b, a })
+  debugLog(`🎨 Track ${trackIndex} color (RGBA):`, { r, g, b, a })
 
   const state = actions.getState()
   
@@ -480,11 +481,11 @@ async function handleTrackColor(
   const existingTrack = projectStore.tracks.find((t: any) => t.holophonixIndex === trackIndex)
 
   if (existingTrack) {
-    console.log(`🎨 Updating track ${trackIndex} color to RGBA(${r.toFixed(2)}, ${g.toFixed(2)}, ${b.toFixed(2)}, ${a.toFixed(2)})`)
+    debugLog(`🎨 Updating track ${trackIndex} color to RGBA(${r.toFixed(2)}, ${g.toFixed(2)}, ${b.toFixed(2)}, ${a.toFixed(2)})`)
     projectStore.updateTrack(existingTrack.id, {
       color: { r, g, b, a }
     })
   } else {
-    console.log(`🎨 Stored color for track ${trackIndex} (track will use it when created)`)
+    debugLog(`🎨 Stored color for track ${trackIndex} (track will use it when created)`)
   }
 }

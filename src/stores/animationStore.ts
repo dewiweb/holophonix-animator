@@ -43,6 +43,7 @@ interface AnimationEngineState {
   stopAllAnimations: () => void  // Stop all playing animations
   seekTo: (time: number) => void
   goToStart: (durationMs?: number, trackIds?: string[]) => void
+  returnAllToInitial: (durationMs?: number) => Promise<void>  // Return all tracks to initial positions (async for OSC setup)
   _startPlayback: (animationId: string, trackIds: string[]) => void
   _easeToPositions: (tracks: Array<{trackId: string, from: Position, to: Position}>, durationMs: number, onComplete?: () => void) => void
 
@@ -91,7 +92,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
   pendingPlay: null,
 
   playAnimation: (animationId: string, trackIds: string[] = []) => {
-    console.log('playAnimation called with ID:', animationId, 'tracks:', trackIds)
     
     const playingAnimations = new Map(get().playingAnimations)
     
@@ -100,7 +100,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     if (existingAnimation) {
       // If paused, resume it using timing engine
       if (existingAnimation.timingState.isPaused) {
-        console.log('▶️ Resuming paused animation:', animationId)
         
         const resumedState = resumeTimingState(existingAnimation.timingState, Date.now())
         const updatedAnimation: PlayingAnimation = {
@@ -123,13 +122,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         return
       } else {
         // Already playing and not paused
-        console.log('Animation', animationId, 'is already playing')
         return
       }
     }
     
     // NEW ANIMATION START: Check for fade-in subanimation
-    console.log('🎬 Starting new animation - checking for fade-in subanimation')
     
     const projectStore = useProjectStore.getState()
     const baseAnimation = projectStore.animations.find(a => a.id === animationId)
@@ -138,8 +135,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     const hasFadeIn = baseAnimation?.fadeIn?.enabled && baseAnimation?.fadeIn?.autoTrigger
     
     if (hasFadeIn && baseAnimation) {
-      console.log(`  🎭 Fade-in detected: ${baseAnimation.fadeIn!.duration}s ${baseAnimation.fadeIn!.easing}`)
-      console.log(`  📐 Computing animation start positions at t=0...`)
       
       // Collect tracks to ease from current position to animation start position
       const tracksToEase: Array<{trackId: string, from: Position, to: Position}> = []
@@ -150,7 +145,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         
         // Store track's current position as initialPosition (for fade-out later)
         if (!track.initialPosition) {
-          console.log(`  💾 Storing initial position for track ${track.name || trackId}`)
           projectStore.updateTrack(trackId, {
             initialPosition: { ...track.position }
           })
@@ -183,27 +177,20 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           Math.abs(track.position.z - animationStartPos.z) > 0.001
         
         if (posChanged) {
-          console.log(`  📍 ${track.name || trackId}:`)
-          console.log(`     Current: ${JSON.stringify(track.position)}`)
-          console.log(`     → Animation start (t=0): ${JSON.stringify(animationStartPos)}`)
           tracksToEase.push({
             trackId,
             from: { ...track.position },
             to: { ...animationStartPos }
           })
-        } else {
-          console.log(`  ✓ ${track.name || trackId}: Already at animation start position`)
         }
       })
       
       // Execute fade-in subanimation if needed
       if (tracksToEase.length > 0) {
-        console.log(`  🎯 Fade-in: ${tracksToEase.length} tracks, ${baseAnimation.fadeIn!.duration}s`)
         const fadeInDurationMs = baseAnimation.fadeIn!.duration * 1000
         
         get()._easeToPositions(tracksToEase, fadeInDurationMs, () => {
           // After fade-in completes: Start main animation
-          console.log('✅ Fade-in complete - starting main animation')
           
           const currentPlayingAnimations = new Map(get().playingAnimations)
           currentPlayingAnimations.set(animationId, {
@@ -225,11 +212,8 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           }
         })
         return // Wait for fade-in to complete
-      } else {
-        console.log('  ✓ Already at start position - no fade-in needed')
       }
     } else {
-      console.log('  ℹ️ No fade-in subanimation configured')
       
       // Store initial positions for tracks that don't have them
       trackIds.forEach(trackId => {
@@ -269,7 +253,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       const playingAnimations = new Map(get().playingAnimations)
       const animation = playingAnimations.get(animationId)
       if (animation) {
-        console.log('⏸️ Pausing animation:', animationId)
         
         const pausedState = pauseTimingState(animation.timingState, currentTime)
         const updatedAnimation: PlayingAnimation = {
@@ -295,7 +278,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       // Pause all animations using timing engine
       const playingAnimations = new Map(get().playingAnimations)
       playingAnimations.forEach((animation, id) => {
-        console.log('⏸️ Pausing animation (all):', id)
         
         const pausedState = pauseTimingState(animation.timingState, currentTime)
         const updatedAnimation: PlayingAnimation = {
@@ -322,8 +304,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         const hasFadeOut = baseAnimation?.fadeOut?.enabled && baseAnimation?.fadeOut?.autoTrigger
         
         if (hasFadeOut && baseAnimation) {
-          console.log(`🎭 Fade-out detected: ${baseAnimation.fadeOut!.duration}s ${baseAnimation.fadeOut!.easing}`)
-          console.log(`📐 Returning tracks to initial positions...`)
           
           // Collect tracks to return to initial position
           const tracksToReturn: Array<{trackId: string, from: Position, to: Position}> = []
@@ -338,23 +318,17 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
                 Math.abs(track.position.z - track.initialPosition.z) > 0.001
               
               if (posChanged) {
-                console.log(`  📍 ${track.name || trackId}:`)
-                console.log(`     Current: ${JSON.stringify(track.position)}`)
-                console.log(`     → Initial: ${JSON.stringify(track.initialPosition)}`)
                 tracksToReturn.push({
                   trackId,
                   from: { ...track.position },
                   to: { ...track.initialPosition }
                 })
-              } else {
-                console.log(`  ✓ ${track.name || trackId}: Already at initial position`)
               }
             }
           })
           
           // Execute fade-out if needed
           if (tracksToReturn.length > 0) {
-            console.log(`  🎯 Fade-out: ${tracksToReturn.length} tracks, ${baseAnimation.fadeOut!.duration}s`)
             const fadeOutDurationMs = baseAnimation.fadeOut!.duration * 1000
             
             // Remove from playing animations first
@@ -374,12 +348,12 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             
             // Execute fade-out with callback to stop engine AFTER fade-out completes
             get()._easeToPositions(tracksToReturn, fadeOutDurationMs, () => {
-              console.log('✅ Fade-out complete')
               // Stop engine only if no other animations are playing
               if (get().playingAnimations.size === 0) {
                 get().stopEngine()
               }
             })
+            return // Wait for fade-out to complete
           } else {
             // No fade-out needed - stop immediately
             playingAnimations.delete(animationId)
@@ -401,7 +375,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             }
           }
         } else {
-          console.log(`  ℹ️ No fade-out configured - stopping immediately`)
           
           // Remove from playing animations
           playingAnimations.delete(animationId)
@@ -425,7 +398,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       }
     } else {
       // Stop all animations
-      console.log('⏹️ Stopping all animations')
       
       // Check each animation's fade-out config and collect unique tracks
       const tracksToReturn: Array<{trackId: string, from: Position, to: Position}> = []
@@ -476,9 +448,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       // Execute fade-out if any tracks need returning
       if (tracksToReturn.length > 0) {
         // Use default fade-out duration when multiple animations (can be improved later)
-        console.log(`  🎯 Fade-out: ${tracksToReturn.length} tracks, 0.5s (default)`)
         get()._easeToPositions(tracksToReturn, 500, () => {
-          console.log('✅ Fade-out complete - stopping engine')
           get().stopEngine()
           oscBatchManager.clearBatch()
           oscInputManager.clearAnimatingTracks()
@@ -575,7 +545,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     if (tracksToEase.length > 0 && durationMs > 0) {
       get()._easeToPositions(tracksToEase, durationMs, () => {
         // Callback after easing completes: Resume paused animations
-        console.log('  ▶️ Resuming animations after goToStart easing')
         const finalAnimations = new Map(get().playingAnimations)
         affectedAnimationIds.forEach(animId => {
           const anim = finalAnimations.get(animId)
@@ -623,6 +592,74 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     return null
   },
 
+  /**
+   * Return all tracks to their initial positions
+   * Useful as a safety/reset function to avoid user errors
+   */
+  returnAllToInitial: async (durationMs: number = 500) => {
+    // Ensure durationMs is a valid number (prevent React event objects from breaking this)
+    const duration = typeof durationMs === 'number' && !isNaN(durationMs) ? durationMs : 500
+    
+    const projectStore = useProjectStore.getState()
+    
+    // Collect all tracks that have initialPosition and are not at it
+    const tracksToReturn: Array<{trackId: string, from: Position, to: Position}> = []
+    
+    projectStore.tracks.forEach(track => {
+      if (track.initialPosition) {
+        // Check if position differs from initial
+        const posChanged = 
+          Math.abs(track.position.x - track.initialPosition.x) > 0.001 ||
+          Math.abs(track.position.y - track.initialPosition.y) > 0.001 ||
+          Math.abs(track.position.z - track.initialPosition.z) > 0.001
+        
+        if (posChanged) {
+          tracksToReturn.push({
+            trackId: track.id,
+            from: { ...track.position },
+            to: { ...track.initialPosition }
+          })
+        }
+      }
+    })
+    
+    if (tracksToReturn.length > 0) {
+      console.log(`🏠 Home button: Returning ${tracksToReturn.length} tracks to initial positions`)
+      
+      // Stop any playing animations first
+      get().stopAnimation()
+      
+      // CRITICAL: Initialize OSC batch manager callback to ensure messages are sent
+      // Even when engine is not running, we need to send OSC during manual home transition
+      oscBatchManager.setSendCallback(async (batch) => {
+        console.log(`📤 Home transition: Callback triggered with ${batch.messages.length} messages`)
+        
+        const oscStore = await import('./oscStore').then(m => m.useOSCStore.getState())
+        const activeConn = oscStore.getActiveConnection()
+        
+        console.log(`   OSC Connection: ${activeConn ? `${activeConn.host}:${activeConn.port} (connected: ${activeConn.isConnected})` : 'NONE'}`)
+        
+        if (!activeConn?.isConnected) {
+          console.error('   ❌ Cannot send - no active OSC connection!')
+          return
+        }
+        
+        console.log(`   Sending batch...`)
+        await oscStore.sendBatch(batch)
+        console.log(`   ✅ Batch sent successfully`)
+      })
+      
+      // Log track info
+      tracksToReturn.forEach(({trackId}) => {
+        const track = projectStore.tracks.find(t => t.id === trackId)
+        console.log(`  Track: ${track?.name} (holophonixIndex: ${track?.holophonixIndex})`)
+      })
+      
+      // Smooth transition to initial positions (use validated duration)
+      get()._easeToPositions(tracksToReturn, duration)
+    }
+  },
+
   startEngine: () => {
     if (get().isEngineRunning) return
 
@@ -637,6 +674,83 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
 
     let lastTimestamp = Date.now()
     let animationFrameId: number | null = null
+    let oscIntervalId: number | null = null
+
+    // CRITICAL FIX: Separate OSC update loop from rendering
+    // This prevents 3D rendering from blocking OSC message sending
+    // Use setInterval for guaranteed consistent rate independent of rendering
+    const TARGET_OSC_FPS = 30 // 30 updates per second for smooth OSC
+    const OSC_INTERVAL = 1000 / TARGET_OSC_FPS
+    
+    const updateOSC = () => {
+      const state = get()
+      
+      // Check if engine should continue running
+      if (!state.isEngineRunning || state.playingAnimations.size === 0) {
+        return
+      }
+
+      const timestamp = Date.now()
+      const projectStore = useProjectStore.getState()
+
+      // Process each playing animation for OSC updates
+      state.playingAnimations.forEach((playingAnimation, animationId) => {
+        const baseAnimation = projectStore.animations.find(a => a.id === playingAnimation.animationId)
+        if (!baseAnimation) return
+        
+        // Calculate animation time
+        const timingResult = calculateAnimationTime(
+          timestamp,
+          baseAnimation,
+          playingAnimation.timingState
+        )
+        
+        // Skip if paused or should stop
+        if (timingResult.newState.isPaused) return
+        if (timingResult.shouldStop) return
+        
+        // Process each track for OSC messages
+        playingAnimation.trackIds.forEach(trackId => {
+          const track = projectStore.tracks.find(t => t.id === trackId)
+          if (!track) return
+          
+          // Check mute/solo states
+          const hasSoloTracks = projectStore.tracks.some(t => t.isSolo)
+          if (track.isMuted || (hasSoloTracks && !track.isSolo)) {
+            return
+          }
+
+          const trackAnimation = track.animationState?.animation
+          const animation = trackAnimation || baseAnimation
+          const trackTime = getTrackTime(trackId, timingResult.animationTime, animation)
+          
+          const context: CalculationContext = {
+            trackId,
+            time: trackTime,
+            duration: animation.duration,
+            deltaTime: OSC_INTERVAL / 1000,
+            frameCount: state.frameCount,
+            state: new Map(),
+          }
+          
+          // Calculate position for OSC
+          const basePosition = modelRuntime.calculatePosition(animation, trackTime, 0, context)
+          const position = applyTransform(basePosition, trackId, animation, trackTime)
+
+          // Send OSC message
+          if (track.holophonixIndex !== undefined && track.holophonixIndex !== null) {
+            const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
+            oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
+          }
+        })
+      })
+
+      // Flush OSC batch
+      oscBatchManager.flushBatch()
+    }
+
+    // Start OSC update loop with setInterval (not affected by rendering)
+    oscIntervalId = window.setInterval(updateOSC, OSC_INTERVAL)
 
     const animate = () => {
       const state = get()
@@ -651,10 +765,8 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       lastTimestamp = timestamp
 
       const projectStore = useProjectStore.getState()
-      const settingsStore = useSettingsStore.getState()
-      const useBatching = settingsStore.osc?.useBatching !== false
 
-      // Process each playing animation
+      // Process each playing animation for UI updates
       state.playingAnimations.forEach((playingAnimation, animationId) => {
         // Get base animation
         const baseAnimation = projectStore.animations.find(a => a.id === playingAnimation.animationId)
@@ -682,13 +794,9 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             timingState: timingResult.newState
           })
           set({ playingAnimations: updatedPlayingAnimations })
-          
-          if (timingResult.shouldLoop) {
-            console.log(`🔁 Loop ${timingResult.loopCount}: ${timingResult.isReversed ? '⬅️ Backward' : '➡️ Forward'}`)
-          }
         }
         
-        // Process each track for this animation
+        // Process each track for UI updates (positions visible in 3D)
         playingAnimation.trackIds.forEach(trackId => {
           const track = projectStore.tracks.find(t => t.id === trackId)
           if (!track) return
@@ -698,19 +806,6 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           const trackAnimation = track.animationState?.animation
           const animation = trackAnimation || baseAnimation
           
-          // DEBUG: Log which animation is being used
-          if (state.frameCount % 60 === 0) { // Log every 60 frames to avoid spam
-            console.log(`🎬 Track ${track.name || trackId}:`, {
-              hasAnimationState: !!track.animationState,
-              trackAnimationId: trackAnimation?.id,
-              baseAnimationId: baseAnimation.id,
-              usingPerTrack: !!trackAnimation,
-              animationId: animation.id,
-              parameters: animation.parameters,
-              transform: animation.transform?.mode
-            })
-          }
-
           // Check mute/solo states
           const hasSoloTracks = projectStore.tracks.some(t => t.isSolo)
           if (track.isMuted || (hasSoloTracks && !track.isSolo)) {
@@ -738,21 +833,12 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           // 4. Apply transform (SINGLE unified application point)
           const position = applyTransform(basePosition, trackId, animation, trackTime)
 
-          // Update track position
+          // Update track position for UI/3D rendering
           projectStore.updateTrack(trackId, { position })
-
-          // Send OSC message immediately for each track
-          // Note: holophonixIndex can be 0 (Track 1), so check for undefined/null explicitly
-          if (track.holophonixIndex !== undefined && track.holophonixIndex !== null) {
-            const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
-            oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
-          }
+          
+          // Note: OSC messages are now sent by separate updateOSC loop above
         })
       })
-
-      // Always flush OSC batch at end of frame
-      // (oscBatchManager.addMessage accumulates messages, flush sends them)
-      oscBatchManager.flushBatch()
 
       // Update frame statistics
       set({
@@ -769,8 +855,9 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     // Start animation loop
     animate()
 
-    // Store cleanup function
+    // Store cleanup functions
     ;(get() as any)._animationFrameId = animationFrameId
+    ;(get() as any)._oscIntervalId = oscIntervalId
   },
 
   stopEngine: () => {
@@ -785,6 +872,12 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       ;(state as any)._animationFrameId = null
     }
 
+    // Cancel OSC interval timer
+    if ((state as any)._oscIntervalId) {
+      window.clearInterval((state as any)._oscIntervalId)
+      ;(state as any)._oscIntervalId = null
+    }
+
     // Clear OSC
     oscBatchManager.clearBatch()
     oscInputManager.clearAnimatingTracks()
@@ -796,21 +889,29 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
   _easeToPositions: (tracks: Array<{trackId: string, from: Position, to: Position}>, durationMs: number, onComplete?: () => void) => {
     const projectStore = useProjectStore.getState()
     const startTime = performance.now()
+    let frameCount = 0
+    let animationFrameId: number | null = null
     
     // Easing function (ease-out cubic)
     const easeOutCubic = (t: number): number => {
       return 1 - Math.pow(1 - t, 3)
     }
     
-    const animate = () => {
+    const easeFrame = () => {
       const elapsed = performance.now() - startTime
       const progress = Math.min(elapsed / durationMs, 1)
       const easedProgress = easeOutCubic(progress)
+      frameCount++
+      
+      let messagesAdded = 0
       
       // Update each track position
       tracks.forEach(({ trackId, from, to }) => {
         const track = projectStore.tracks.find(t => t.id === trackId)
-        if (!track) return
+        if (!track) {
+          console.log(`⚠️ Track ${trackId} not found in projectStore`)
+          return
+        }
         
         const position: Position = {
           x: from.x + (to.x - from.x) * easedProgress,
@@ -821,15 +922,26 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         projectStore.updateTrack(trackId, { position })
         
         // Send OSC message
-        if (track.holophonixIndex) {
+        if (track.holophonixIndex !== undefined && track.holophonixIndex !== null) {
           const coordType = projectStore.currentProject?.coordinateSystem.type || 'xyz'
           oscBatchManager.addMessage(track.holophonixIndex, position, coordType)
+          messagesAdded++
+        } else {
+          console.log(`⚠️ Track ${track.name} has no holophonixIndex`)
         }
       })
       
+      // Debug log every 10 frames
+      if (frameCount % 10 === 0 || frameCount === 1) {
+        console.log(`🔄 Easing frame ${frameCount}: progress ${(progress * 100).toFixed(1)}%, ${messagesAdded} messages added`)
+      }
+      
+      // CRITICAL: Flush OSC batch to actually send messages during fade-in/fade-out
+      oscBatchManager.flushBatch()
+      
       // Continue animation or finish
       if (progress < 1) {
-        requestAnimationFrame(animate)
+        animationFrameId = requestAnimationFrame(easeFrame)
       } else {
         // Set final positions and update animation state
         tracks.forEach(({ trackId, to }) => {
@@ -854,6 +966,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     }
     
     // Start the easing animation
-    requestAnimationFrame(animate)
-  }
+    console.log(`🎬 Starting easing animation for ${tracks.length} tracks over ${durationMs}ms`)
+    animationFrameId = requestAnimationFrame(easeFrame)
+  },
 }))

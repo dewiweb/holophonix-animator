@@ -1,4 +1,5 @@
 import { OSCMessage } from '@/types'
+import { debugLog, errorLog } from '@/config/debug'
 
 /**
  * Track Discovery Utilities for OSC Store
@@ -111,7 +112,7 @@ export async function discoverTracks(
   const active = state.activeConnection
   
   if (!active?.isConnected) {
-    console.error('❌ No active OSC connection for track discovery')
+    errorLog('❌ No active OSC connection for track discovery')
     return
   }
 
@@ -128,7 +129,7 @@ export async function discoverTracks(
     
     // Check if we've already found this track doesn't exist
     if (currentState.failedTrackIndices.has(i)) {
-      console.log(`⏭️ Skipping track ${i} (known to not exist)`)
+      debugLog(`⏭️ Skipping track ${i} (known to not exist)`)
       break // Stop discovery completely
     }
 
@@ -140,7 +141,7 @@ export async function discoverTracks(
       // Check if track failed after name query
       const afterNameState = actions.getState()
       if (afterNameState.failedTrackIndices.has(i)) {
-        console.log(`🛑 Track ${i} doesn't exist, stopping discovery`)
+        debugLog(`🛑 Track ${i} doesn't exist, stopping discovery`)
         break
       }
 
@@ -154,14 +155,14 @@ export async function discoverTracks(
       await actions.sendMessage('/get', [`/track/${i}/color`])
       await new Promise(resolve => setTimeout(resolve, 50))
     } catch (error) {
-      console.error(`Error querying track ${i}:`, error)
+      errorLog(`Error querying track ${i}:`, error)
     }
   }
 
   // Wait for all responses to arrive
   await new Promise(resolve => setTimeout(resolve, 2000))
 
-  console.log('✅ Track discovery completed')
+  debugLog('✅ Track discovery completed')
   actions.setState({ isDiscoveringTracks: false })
 }
 
@@ -178,18 +179,18 @@ export async function refreshTrackPosition(
   const active = state.activeConnection
   
   if (!active?.isConnected) {
-    console.error('❌ No active OSC connection for position refresh')
+    errorLog('❌ No active OSC connection for position refresh')
     return
   }
 
   const track = getTrackById(trackId)
 
   if (!track || !track.holophonixIndex) {
-    console.error('❌ Track not found or missing holophonixIndex')
+    errorLog('❌ Track not found or missing holophonixIndex')
     return
   }
 
-  console.log(`🔄 Refreshing position for track ${track.holophonixIndex}: ${track.name}`)
+  debugLog(`🔄 Refreshing position for track ${track.holophonixIndex}: ${track.name}`)
 
   // Query current position from Holophonix
   const coordinateSystem = getCoordinateSystem()
