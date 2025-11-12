@@ -18,8 +18,8 @@ import {
   resetTimingState,
   validateAnimation,
   type AnimationTimingState
-} from './animationTiming'
-import type { Animation } from '../types'
+} from '../animationTiming'
+import type { Animation } from '@/types'
 
 // Helper to create a minimal animation for testing
 const createTestAnimation = (overrides: Partial<Animation> = {}): Animation => ({
