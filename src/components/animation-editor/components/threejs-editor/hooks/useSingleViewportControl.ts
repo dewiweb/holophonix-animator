@@ -106,30 +106,9 @@ export const useSingleViewportControl = ({
     }
   }, [isGizmoDragging, enabled])
 
-  // Update controls on every frame (for damping)
-  useEffect(() => {
-    if (!controlsRef.current) return
-
-    const controls = controlsRef.current
-
-    const animate = () => {
-      if (controls && enabled) {
-        controls.update()
-      }
-    }
-
-    // Use requestAnimationFrame for smooth updates
-    let animationId: number
-    const loop = () => {
-      animate()
-      animationId = requestAnimationFrame(loop)
-    }
-    animationId = requestAnimationFrame(loop)
-
-    return () => {
-      cancelAnimationFrame(animationId)
-    }
-  }, [enabled])
+  // Note: controls.update() is now called by the renderer's animation loop
+  // to avoid multiple competing requestAnimationFrame loops
+  // This prevents performance blocking when Animation Editor tab is visible
 
   return {
     controls: controlsRef.current,

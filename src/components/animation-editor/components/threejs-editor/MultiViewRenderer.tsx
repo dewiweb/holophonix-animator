@@ -68,14 +68,24 @@ export const MultiViewRenderer: React.FC<MultiViewRendererProps> = ({
     }
   }, [width, height, onCanvasReady])
 
-  // Render loop
+  // Render loop - throttled to 30 FPS to prevent blocking OSC messages
   useEffect(() => {
     if (!scene || !rendererRef.current || views.length === 0) return
 
     const renderer = rendererRef.current
+    const TARGET_FPS = 30 // Match OSC update rate
+    const FRAME_INTERVAL = 1000 / TARGET_FPS
+    let lastFrameTime = performance.now()
 
-    const animate = () => {
+    const animate = (currentTime: number) => {
       animationFrameRef.current = requestAnimationFrame(animate)
+
+      // Throttle to 30 FPS to prevent excessive CPU usage
+      const elapsed = currentTime - lastFrameTime
+      if (elapsed < FRAME_INTERVAL) {
+        return // Skip this frame
+      }
+      lastFrameTime = currentTime - (elapsed % FRAME_INTERVAL)
 
       // Clear the entire canvas
       renderer.clear()
@@ -106,7 +116,7 @@ export const MultiViewRenderer: React.FC<MultiViewRendererProps> = ({
       })
     }
 
-    animate()
+    animate(performance.now())
 
     return () => {
       if (animationFrameRef.current !== null) {

@@ -666,6 +666,7 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
             editMode={settings.editMode}
             onCanvasReady={handleCanvasReady}
             onResetCamera={resetCamera}
+            controls={controls}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-gray-500">

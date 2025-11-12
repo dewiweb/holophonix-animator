@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import type { Track } from '@/types'
 import { appToThreePosition } from '../utils/coordinateConversion'
@@ -22,8 +22,15 @@ export function useTrackVisualization({
   multiTrackMode = 'relative',
 }: UseTrackVisualizationProps) {
   const trackMeshesRef = useRef<Map<string, THREE.Mesh>>(new Map())
+  const tracksRef = useRef(tracks)
+  
+  // Keep tracks ref updated without triggering re-renders
+  tracksRef.current = tracks
 
-  // Update track visualizations
+  // Create a stable list of track IDs to detect additions/removals only
+  const trackIds = useMemo(() => tracks.map(t => t.id).join(','), [tracks.map(t => t.id).join(',')])
+
+  // Effect 1: Create/Remove meshes only when tracks are added/removed (rare)
   useEffect(() => {
     if (!scene || !showTracks) {
       // Remove all track meshes when not showing
@@ -36,15 +43,11 @@ export function useTrackVisualization({
       return
     }
 
-    // Create/update track meshes
-    const existingIds = new Set<string>()
+    const currentIds = new Set(tracks.map(t => t.id))
 
+    // Add new tracks
     tracks.forEach((track) => {
-      existingIds.add(track.id)
-      
-      let mesh = trackMeshesRef.current.get(track.id)
-      
-      if (!mesh) {
+      if (!trackMeshesRef.current.has(track.id)) {
         // Create new mesh for this track
         const geometry = new THREE.SphereGeometry(0.3, 32, 32)
         const color = track.color
@@ -59,33 +62,25 @@ export function useTrackVisualization({
           metalness: 0.1,
         })
 
-        mesh = new THREE.Mesh(geometry, material)
+        const mesh = new THREE.Mesh(geometry, material)
         
         // Add label
         const sprite = createTextSprite(track.name)
         sprite.position.set(0, 0.5, 0)
         mesh.add(sprite)
         
+        // Set initial position
+        const threePos = appToThreePosition(track.position)
+        mesh.position.copy(threePos)
+        
         scene.add(mesh)
         trackMeshesRef.current.set(track.id, mesh)
       }
-
-      // Update position (convert from app coordinates to Three.js coordinates)
-      const threePos = appToThreePosition(track.position)
-      mesh.position.copy(threePos)
-      
-      // Update color if changed
-      const material = mesh.material as THREE.MeshStandardMaterial
-      if (track.color) {
-        const newColor = new THREE.Color(track.color.r, track.color.g, track.color.b)
-        material.color.copy(newColor)
-        material.emissive.copy(newColor)
-      }
     })
 
-    // Remove meshes for tracks that no longer exist
+    // Remove tracks that no longer exist
     trackMeshesRef.current.forEach((mesh, id) => {
-      if (!existingIds.has(id)) {
+      if (!currentIds.has(id)) {
         scene.remove(mesh)
         mesh.geometry.dispose()
         const material = mesh.material as THREE.MeshStandardMaterial
@@ -124,7 +119,41 @@ export function useTrackVisualization({
       })
       trackMeshesRef.current.clear()
     }
-  }, [scene, tracks, showTracks])
+  }, [scene, trackIds, showTracks]) // Only re-run when track IDs change, not positions
+
+  // Effect 2: Update positions periodically (throttled to avoid excessive updates)
+  useEffect(() => {
+    if (!scene || !showTracks) return
+
+    // Update mesh positions at 10 FPS (sufficient for visual feedback)
+    // This is much less frequent than the 30 FPS OSC updates
+    const updateInterval = setInterval(() => {
+      const currentTracks = tracksRef.current
+      
+      currentTracks.forEach((track) => {
+        const mesh = trackMeshesRef.current.get(track.id)
+        if (mesh) {
+          // Update position
+          const threePos = appToThreePosition(track.position)
+          mesh.position.copy(threePos)
+          
+          // Update color if needed (infrequent)
+          const material = mesh.material as THREE.MeshStandardMaterial
+          if (track.color) {
+            const newColor = new THREE.Color(track.color.r, track.color.g, track.color.b)
+            if (!material.color.equals(newColor)) {
+              material.color.copy(newColor)
+              material.emissive.copy(newColor)
+            }
+          }
+        }
+      })
+    }, 100) // Update every 100ms (10 FPS) - much lighter than before
+
+    return () => {
+      clearInterval(updateInterval)
+    }
+  }, [scene, showTracks]) // Only depends on scene and showTracks, not tracks array
   
   // Note: Barycenter visualization is now handled by useBarycentricControl hook
   // No longer creating barycenter marker here to avoid duplicates

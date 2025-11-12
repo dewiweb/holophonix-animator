@@ -13,6 +13,7 @@ interface SingleViewRendererProps {
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
   onResetCamera?: () => void
   backgroundColor?: number
+  controls?: any // OrbitControls instance to update in render loop
 }
 
 /**
@@ -29,6 +30,7 @@ export const SingleViewRenderer: React.FC<SingleViewRendererProps> = ({
   onCanvasReady,
   onResetCamera,
   backgroundColor = 0x1a1a1a,
+  controls,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
@@ -67,27 +69,42 @@ export const SingleViewRenderer: React.FC<SingleViewRendererProps> = ({
     }
   }, [width, height, backgroundColor, onCanvasReady])
 
-  // Render loop
+  // Render loop - throttled to 30 FPS to prevent blocking OSC messages
   useEffect(() => {
     if (!scene || !camera || !rendererRef.current) return
 
     const renderer = rendererRef.current
+    const TARGET_FPS = 30 // Match OSC update rate
+    const FRAME_INTERVAL = 1000 / TARGET_FPS
+    let lastFrameTime = performance.now()
 
-    const animate = () => {
+    const animate = (currentTime: number) => {
       animationFrameRef.current = requestAnimationFrame(animate)
 
-      // Simple single-view render
+      // Throttle to 30 FPS to prevent excessive CPU usage
+      const elapsed = currentTime - lastFrameTime
+      if (elapsed < FRAME_INTERVAL) {
+        return // Skip this frame
+      }
+      lastFrameTime = currentTime - (elapsed % FRAME_INTERVAL)
+
+      // Update controls if provided (for damping)
+      if (controls) {
+        controls.update()
+      }
+
+      // Render the scene
       renderer.render(scene, camera)
     }
 
-    animate()
+    animate(performance.now())
 
     return () => {
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [scene, camera])
+  }, [scene, camera, controls])
 
   // Update renderer size
   useEffect(() => {
