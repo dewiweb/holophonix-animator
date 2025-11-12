@@ -23,43 +23,4 @@ export function generateMultiTrackPaths(
   // For now, return empty array (non-critical for core functionality)
   console.warn('generateMultiTrackPaths needs v3 implementation')
   return []
-
-  /* OLD V2 CODE - NEEDS V3 REFACTOR
-  if (tracks.length === 0 || !animation) return []
-
-  // Migrate old mode names to new ones
-  const mode = migrateMultiTrackMode(multiTrackMode)
-  const strategy = getMultiTrackStrategy(mode.mode)
-  
-  const paths: MultiTrackPath[] = []
-  
-  // Strategy handles all the logic
-  tracks.forEach((track, index) => {
-    // Get track-specific parameters from strategy
-    const trackParameters = strategy.getTrackParameters(animation, track, index, tracks)
-    const phaseOffset = strategy.getPhaseOffset(index, animation.phaseOffsetSeconds)
-    
-    // Build animation for this track
-    const trackAnimation = {
-      ...animation,
-      parameters: {
-        ...trackParameters,
-        ...(phaseOffset > 0 && { _phaseOffset: phaseOffset })
-      }
-    }
-    
-    // Generate path using model calculations
-    const path = generateAnimationPath(trackAnimation, resolution)
-    
-    paths.push({
-      trackId: track.id,
-      path,
-      color: track.color ? 
-        (track.color.r * 0xFF) << 16 | (track.color.g * 0xFF) << 8 | (track.color.b * 0xFF) : 
-        undefined
-    })
-  })
-
-  return paths
-  */
 }
