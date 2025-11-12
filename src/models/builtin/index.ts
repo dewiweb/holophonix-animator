@@ -13,14 +13,14 @@ import { createBounceModel } from './bounce'
 import { createSpringModel } from './spring'
 
 // Wave-based
-import { createWaveModel } from './wave'
+import { createStationaryOscillatorModel } from './oscillatorStationary'
+import { createPathOscillatorModel } from './oscillatorPath'
 import { createLissajousModel } from './lissajous'
 import { createHelixModel } from './helix'
 
 // Curve & path-based
 import { createBezierModel } from './bezier'
 import { createCatmullRomModel } from './catmullRom'
-import { createZigzagModel } from './zigzag'
 
 // Procedural
 import { createPerlinNoiseModel } from './perlinNoise'
@@ -34,7 +34,7 @@ import { createZoomModel } from './zoom'
 
 /**
  * Create all built-in animation models
- * Total: 21 models across 5 categories (removed confusing group/multi-object models)
+ * Total: 20 models across 5 categories
  */
 export function createBuiltinModels(): AnimationModel[] {
   return [
@@ -50,15 +50,15 @@ export function createBuiltinModels(): AnimationModel[] {
     createBounceModel(),
     createSpringModel(),
     
-    // Wave-based (3)
-    createWaveModel(),
+    // Wave-based (4)
+    createStationaryOscillatorModel(),
+    createPathOscillatorModel(),
     createLissajousModel(),
     createHelixModel(),
     
-    // Curve & path-based (3)
+    // Curve & path-based (2)
     createBezierModel(),
     createCatmullRomModel(),
-    createZigzagModel(),
     
     // Procedural (3)
     createPerlinNoiseModel(),

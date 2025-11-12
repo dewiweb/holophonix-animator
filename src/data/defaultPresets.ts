@@ -152,13 +152,13 @@ export const defaultPresets: AnimationPreset[] = [
     name: 'Gentle Wave',
     description: 'Smooth sine wave motion',
     category: 'wave',
-    tags: ['wave', 'sine', 'smooth'],
+    tags: ['oscillator', 'sine', 'smooth'],
     author: 'Holophonix',
     createdAt: new Date().toISOString(),
     modifiedAt: new Date().toISOString(),
     animation: {
       name: 'Gentle Wave',
-      type: 'wave',
+      type: 'oscillator-stationary',
       duration: 10,
       loop: true,
       parameters: {

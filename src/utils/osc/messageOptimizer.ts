@@ -117,7 +117,7 @@ export function getOptimalCoordinateSystem(animationType: AnimationType): Coordi
   const xyzAnimations: AnimationType[] = [
     'linear',
     'bounce',
-    'zigzag',
+    'oscillator-stationary',
     'bezier',
     'catmull-rom',
     'doppler',

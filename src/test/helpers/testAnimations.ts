@@ -16,8 +16,8 @@ interface TestResult {
 const animationTypes: AnimationType[] = [
   'linear', 'circular', 'elliptical', 'spiral', 'random',
   'pendulum', 'bounce', 'spring',
-  'wave', 'lissajous', 'helix',
-  'bezier', 'catmull-rom', 'zigzag',
+  'oscillator-stationary', 'lissajous', 'helix',
+  'bezier', 'catmull-rom', 'oscillator-stationary',
   'perlin-noise', 'rose-curve', 'epicycloid',
   'doppler', 'circular-scan', 'zoom'
 ]

@@ -24,14 +24,14 @@ export const legacyToModelType: Record<AnimationType, string> = {
   'spring': 'spring',
   
   // Wave-based
-  'wave': 'wave',
+  'oscillator-stationary': 'oscillator-stationary',
+  'oscillator-path': 'oscillator-path',
   'lissajous': 'lissajous',
   'helix': 'helix',
   
   // Curve & path-based
   'bezier': 'bezier',
   'catmull-rom': 'catmull-rom',
-  'zigzag': 'zigzag',
   
   // Procedural
   'perlin-noise': 'perlin-noise',

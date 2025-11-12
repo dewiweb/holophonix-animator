@@ -228,7 +228,7 @@ describe('Wave Animations', () => {
         waveType: 'sine'
       }
       
-      const result = testAnimation('wave', params, 0, 10)
+      const result = testAnimation('oscillator-stationary', params, 0, 10)
       expect(result).toBeDefined()
     })
 
@@ -241,7 +241,7 @@ describe('Wave Animations', () => {
 
       const types = ['sine', 'square', 'triangle', 'sawtooth']
       types.forEach(waveType => {
-        const result = testAnimation('wave', { ...params, waveType }, 1, 10)
+        const result = testAnimation('oscillator-stationary', { ...params, waveType }, 1, 10)
         expect(result).toBeDefined()
       })
     })
@@ -347,7 +347,7 @@ describe('Curve Animations', () => {
         zigzagPlane: 'xy'
       }
       
-      const result = testAnimation('zigzag', params, 5, 10)
+      const result = testAnimation('oscillator-stationary', params, 5, 10)
       expect(result).toBeDefined()
     })
   })

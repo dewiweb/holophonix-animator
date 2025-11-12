@@ -46,13 +46,13 @@ export type AnimationType =
   | 'bounce'
   | 'spring'
   // Wave-based animations
-  | 'wave'
+  | 'oscillator-stationary'
+  | 'oscillator-path'
   | 'lissajous'
   | 'helix'
   // Curve & path-based
   | 'bezier'
   | 'catmull-rom'
-  | 'zigzag'
   // Advanced procedural
   | 'perlin-noise'
   | 'rose-curve'

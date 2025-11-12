@@ -19,13 +19,13 @@ const typeDisplayNames: Record<AnimationType, string> = {
   bounce: 'Bounce',
   spring: 'Spring',
   // Wave-based
-  wave: 'Wave',
+  'oscillator-stationary': 'Oscillator (Stationary)',
+  'oscillator-path': 'Oscillator (Path)',
   lissajous: 'Lissajous',
   helix: 'Helix',
   // Curve & path-based
   bezier: 'Bezier',
   'catmull-rom': 'Catmull-Rom',
-  zigzag: 'Zigzag',
   // Advanced procedural
   'perlin-noise': 'Perlin Noise',
   'rose-curve': 'Rose Curve',
