@@ -44,7 +44,7 @@ interface AnimationEditorProps {
 
 export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSelect }) => {
   const { currentProject, tracks, selectedTracks, selectTracks, updateTrack, animations, addAnimation, updateAnimation } = useProjectStore()
-  const { isPlaying: globalIsPlaying, globalTime, playAnimation, pauseAnimation, stopAnimation, currentAnimationId: playingAnimationId } = useAnimationStore()
+  const { isPlaying: globalIsPlaying, globalTime, playAnimation, pauseAnimation, stopAnimation, returnAllToInitial, currentAnimationId: playingAnimationId } = useAnimationStore()
   const { addPreset } = usePresetStore()
   
   // NEW: Use primary store for all state
@@ -954,6 +954,7 @@ const unifiedPane = (
         onSaveAsPreset={handleSaveAsPreset}
         isSettingsPanelOpen={isFormPanelOpen}
         onToggleSettingsPanel={() => setIsFormPanelOpen(!isFormPanelOpen)}
+        onReturnToInitial={() => returnAllToInitial()}
       />
 
       {/* Track Selection Info with Locking Option */}

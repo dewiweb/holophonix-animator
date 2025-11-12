@@ -11,7 +11,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { cn } from '@/utils'
-import { Play, Pause, Square, PanelRightOpen, PanelRightClose, FolderOpen, BookOpen, Save, ChevronDown, Menu } from 'lucide-react'
+import { Play, Pause, Square, Home, PanelRightOpen, PanelRightClose, FolderOpen, BookOpen, Save, ChevronDown, Menu } from 'lucide-react'
 import { AnimationTimingIndicator } from './AnimationTimingIndicator'
 
 interface PlaybackControlBarProps {
@@ -35,6 +35,9 @@ interface PlaybackControlBarProps {
   isSettingsPanelOpen: boolean
   onToggleSettingsPanel: () => void
   
+  // Home/Reset
+  onReturnToInitial: () => void
+  
   // Additional actions
   onContextMenu?: (e: React.MouseEvent, action: string) => void
 }
@@ -52,6 +55,7 @@ export const PlaybackControlBar: React.FC<PlaybackControlBarProps> = ({
   onSaveAsPreset,
   isSettingsPanelOpen,
   onToggleSettingsPanel,
+  onReturnToInitial,
   onContextMenu
 }) => {
   const [isAnimationMenuOpen, setIsAnimationMenuOpen] = useState(false)
@@ -116,6 +120,19 @@ export const PlaybackControlBar: React.FC<PlaybackControlBarProps> = ({
         >
           <Square className="w-4 h-4" />
           <span className="hidden md:inline">Stop</span>
+        </button>
+
+        {/* Return to Initial (Home) */}
+        <button
+          onClick={onReturnToInitial}
+          className={cn(
+            "px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
+            "bg-blue-600 dark:bg-blue-700 text-white hover:bg-blue-700 dark:hover:bg-blue-600"
+          )}
+          title="Return all tracks to initial positions"
+        >
+          <Home className="w-4 h-4" />
+          <span className="hidden lg:inline">Home</span>
         </button>
       </div>
 
