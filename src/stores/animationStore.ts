@@ -4,10 +4,10 @@ import { useProjectStore } from './projectStore'
 import { useSettingsStore } from './settingsStore'
 import { modelRuntime } from '@/models/runtime'
 import { type CalculationContext } from '@/models/types'
-import { oscBatchManager } from '@/utils/oscBatchManager'
+import { oscBatchManager } from '@/utils/osc/batchManager'
 import { modelRegistry } from '@/models/registry'
-import { oscInputManager } from '@/utils/oscInputManager'
-import { oscMessageOptimizer, type TrackPositionUpdate } from '@/utils/oscMessageOptimizer'
+import { oscInputManager } from '@/utils/osc/inputManager'
+import { oscMessageOptimizer, type TrackPositionUpdate } from '@/utils/osc/messageOptimizer'
 import { applyTransform, getTrackTime } from '@/utils/transformApplication'
 import { 
   calculateAnimationTime,

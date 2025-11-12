@@ -1,10 +1,10 @@
 export * from './validation'
 export * from './logger'
 export * from './pathGeneration'
-export { oscBatchManager } from './oscBatchManager'
-export type { OSCBatch, OSCMessage as OSCBatchMessage, OSCBatchStats } from './oscBatchManager'
-export { oscInputManager } from './oscInputManager'
-export type { OSCInputStats } from './oscInputManager'
+export { oscBatchManager } from './osc/batchManager'
+export type { OSCBatch, OSCMessage as OSCBatchMessage, OSCBatchStats } from './osc/batchManager'
+export { oscInputManager } from './osc/inputManager'
+export type { OSCInputStats } from './osc/inputManager'
 export { cn } from './cn'
 
 // Math utilities for 3D coordinate transformations

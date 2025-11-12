@@ -3,9 +3,9 @@ import { OSCConnection, OSCMessage, OSCConfiguration } from '@/types'
 import { generateId } from '@/utils'
 import { useProjectStore } from './projectStore'
 import { useAnimationStore } from './animationStore'
-import { oscBatchManager, OSCBatch } from '@/utils/oscBatchManager'
-import { oscInputManager } from '@/utils/oscInputManager'
-import { oscMessageOptimizer, type TrackPositionUpdate } from '@/utils/oscMessageOptimizer'
+import { oscBatchManager, OSCBatch } from '@/utils/osc/batchManager'
+import { oscInputManager } from '@/utils/osc/inputManager'
+import { oscMessageOptimizer, type TrackPositionUpdate } from '@/utils/osc/messageOptimizer'
 import { applyTransform, getTrackTime } from '@/utils/transformApplication'
 import { 
   calculateAnimationTime,

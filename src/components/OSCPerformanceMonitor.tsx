@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Activity, Zap, Package, TrendingUp, Clock } from 'lucide-react'
-import { oscBatchManager } from '@/utils/oscBatchManager'
+import { oscBatchManager } from '@/utils/osc/batchManager'
 import { useAnimationStore } from '@/stores/animationStore'
 
 // Simple className utility

@@ -11,9 +11,9 @@ import { CueGrid } from '@/components/cue-grid/CueGrid'
 import { useProjectStore } from '@/stores/projectStore'
 import { useOSCStore } from '@/stores/oscStore'
 import { logger } from '@/utils/logger'
-import { testAllAnimations } from '@/utils/testAnimations'
+import { testAllAnimations } from '@/test/helpers/testAnimations'
 import { runStartupVerification, verifyModels } from '@/models/verifyModels'
-import { setupTestingUtilities } from '@/utils/testModelSystem'
+import { setupTestingUtilities } from '@/test/helpers/testModelSystem'
 
 function App() {
   const { currentProject, createProject, saveProject, openProject } = useProjectStore()
