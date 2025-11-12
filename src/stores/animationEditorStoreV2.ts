@@ -152,7 +152,7 @@ const getInitialState = () => ({
   fadeInEnabled: true,
   fadeInDuration: 0.5,
   fadeInEasing: 'ease-out' as const,
-  fadeOutEnabled: false,
+  fadeOutEnabled: true, // Enabled by default so tracks return to initial positions
   fadeOutDuration: 0.5,
   fadeOutEasing: 'ease-in' as const,
   
