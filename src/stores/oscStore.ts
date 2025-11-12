@@ -5,54 +5,28 @@ import { useProjectStore } from './projectStore'
 import { useAnimationStore } from './animationStore'
 import { oscBatchManager, OSCBatch } from '@/utils/oscBatchManager'
 import { oscInputManager } from '@/utils/oscInputManager'
-
-// Development OSC implementation using osc-js for browser testing
-class DevOSCServer {
-  private port: number
-  private isListening: boolean = false
-  private messageCallback?: (message: OSCMessage) => void
-
-  constructor(port: number = 8000) {
-    this.port = port
-  }
-
-  start(callback: (message: OSCMessage) => void) {
-    this.messageCallback = callback
-    this.isListening = true
-    console.log(`Dev OSC Server started on port ${this.port}`)
-  }
-
-  stop() {
-    this.isListening = false
-    this.messageCallback = undefined
-    console.log('Dev OSC Server stopped')
-  }
-
-  sendMessage(host: string, port: number, address: string, args: any[]) {
-    // Immediately log the outgoing message
-    const outgoingMessage: OSCMessage = {
-      address,
-      args,
-      timestamp: Date.now(),
-    }
-
-    // Simulate receiving the message back for testing (echo response)
-    if (this.messageCallback && this.isListening) {
-      // Simulate network delay for more realistic testing
-      setTimeout(() => {
-        const responseMessage: OSCMessage = {
-          address,
-          args,
-          timestamp: Date.now(),
-        }
-
-        this.messageCallback?.(responseMessage)
-      }, Math.random() * 50 + 10) // 10-60ms delay
-    }
-
-    return outgoingMessage
-  }
-}
+import { oscMessageOptimizer, type TrackPositionUpdate } from '@/utils/oscMessageOptimizer'
+import { applyTransform, getTrackTime } from '@/utils/transformApplication'
+import { 
+  calculateAnimationTime,
+  createTimingState,
+  pauseTimingState,
+  resumeTimingState,
+  resetTimingState,
+  type AnimationTimingState
+} from '@/utils/animationTiming'
+import { 
+  DevOSCServer,
+  getTrackIndexByName as getTrackIndexByNameUtil,
+  getNextAvailableTrackIndex as getNextAvailableTrackIndexUtil,
+  discoverTracks as discoverTracksUtil,
+  refreshTrackPosition as refreshTrackPositionUtil,
+  checkDeviceAvailability as checkDeviceAvailabilityUtil,
+  startAvailabilityPolling as startAvailabilityPollingUtil,
+  stopAvailabilityPolling as stopAvailabilityPollingUtil,
+  handleProbeResponse,
+  processMessage as processMessageUtil
+} from '@/utils/osc'
 
 let devOSCServer: DevOSCServer | null = null
 
@@ -100,7 +74,7 @@ interface OSCState {
   connect: (host: string, port: number) => Promise<void>
   disconnect: (connectionId: string) => void
   removeConnection: (connectionId: string) => void
-  sendMessage: (address: string, args: (number | string | boolean)[]) => void
+  sendMessage: (address: string, args: (number | string | boolean)[]) => Promise<void>
   sendMessageAsync: (address: string, args: (number | string | boolean)[]) => void
   sendBatch: (batch: OSCBatch) => Promise<void>
   sendBatchAsync: (batch: OSCBatch) => void
@@ -120,7 +94,7 @@ interface OSCState {
 
   // Message processing
   processIncomingMessage: (message: OSCMessage) => void
-  _processMessageInternal: (message: OSCMessage) => void
+  _processMessageInternal: (message: OSCMessage) => Promise<void>
 
   // Utility functions
   getConnectionById: (id: string) => OSCConnection | undefined
@@ -243,102 +217,54 @@ export const useOSCStore = create<OSCState>((set, get) => {
     }
   },
 
-  // Probe the device for an index that matches a given name; returns null if not found
+  // Probe the device for an index that matches a given name
   getTrackIndexByName: async (name: string, maxProbe: number = 128, attempts: number = 6) => {
-    const active = get().getActiveConnection()
-    if (!active?.isConnected) return null
-    for (let attempt = 0; attempt < attempts; attempt++) {
-      // First, check cache quickly
-      for (const [idx, n] of get().lastKnownTrackNames.entries()) {
-        if (n === name) return idx
-      }
-      // Probe all indices once this attempt
-      for (let i = 1; i <= maxProbe; i++) {
-        await get().sendMessage('/get', [`/track/${i}/name`])
-        await new Promise(r => setTimeout(r, 15))
-      }
-      // Wait a bit for responses to be processed
-      await new Promise(r => setTimeout(r, 150))
-      for (const [idx, n] of get().lastKnownTrackNames.entries()) {
-        if (n === name) return idx
-      }
-    }
-    return null
+    return getTrackIndexByNameUtil(name, {
+      sendMessage: get().sendMessage,
+      getState: () => ({ ...get(), activeConnection: get().getActiveConnection() }),
+      setState: (updates) => set(updates)
+    }, maxProbe, attempts)
   },
 
-  // Probe device for next available track index by querying names until first missing
+  // Probe device for next available track index
   getNextAvailableTrackIndex: async (maxProbe: number = 128) => {
-    const active = get().getActiveConnection()
-    if (!active?.isConnected) {
-      // Fallback to local inference: use max local holophonixIndex + 1
-      const projectStore = useProjectStore.getState()
-      const used = projectStore.tracks.map(t => t.holophonixIndex).filter((v): v is number => typeof v === 'number')
-      const next = used.length ? Math.max(...used) + 1 : 1
-      return next
-    }
-
-    // Reset failure tracking for this probe
-    set({ failedTrackIndices: new Set(), maxValidTrackIndex: null })
-    for (let i = 1; i <= maxProbe; i++) {
-      await get().sendMessage('/get', [`/track/${i}/name`])
-      await new Promise(r => setTimeout(r, 40))
-      if (get().failedTrackIndices.has(i)) {
-        return i // first missing index
-      }
-    }
-    // If none missing in range, append after max
-    return maxProbe + 1
+    return getNextAvailableTrackIndexUtil(
+      {
+        sendMessage: get().sendMessage,
+        getState: () => ({ ...get(), activeConnection: get().getActiveConnection() }),
+        setState: (updates) => set(updates)
+      },
+      maxProbe,
+      () => useProjectStore.getState().tracks
+    )
   },
 
-  // Availability: send a lightweight ping command supported by specs
+  // Check device availability
   checkDeviceAvailability: async () => {
-    try {
-      // Prepare strict probe
-      const expected = new Set<string>([
-        '/track/1/name'
-      ])
-      set({ _probePending: true, _probeExpected: expected, _probeDeadline: Date.now() + 900, _probeMatched: false })
-
-      // Send /get query to check device availability
-      await get().sendMessage('/get', ['/track/1/name'])
-
-      // Wait until deadline or match
-      const waitUntil = async (deadline: number) => {
-        while (Date.now() < deadline) {
-          if (get()._probeMatched) return true
-          await new Promise(r => setTimeout(r, 50))
-        }
-        return get()._probeMatched
-      }
-      const ok = await waitUntil((get()._probeDeadline as number) || (Date.now() + 900))
-      set({ deviceAvailable: !!ok, lastAvailabilityCheck: Date.now(), lastAvailabilityError: ok ? null : 'No response to availability probe', _probePending: false, _probeExpected: null, _probeDeadline: null })
-    } catch (e) {
-      set({ deviceAvailable: false, lastAvailabilityCheck: Date.now(), lastAvailabilityError: (e as Error).message })
-    }
+    return checkDeviceAvailabilityUtil({
+      sendMessage: get().sendMessage,
+      getState: () => ({ ...get(), activeConnection: get().getActiveConnection() }),
+      setState: (updates) => set(updates)
+    })
   },
 
   startAvailabilityPolling: (intervalMs: number = 5000) => {
-    const state = get()
-    if (state._availabilityIntervalId) return
-    // Immediately check
-    get().checkDeviceAvailability()
-    const id = window.setInterval(() => {
-      const active = get().getActiveConnection()
-      if (!active?.isConnected) {
-        get().stopAvailabilityPolling()
-        return
-      }
-      get().checkDeviceAvailability()
-    }, intervalMs)
-    set({ _availabilityIntervalId: id as unknown as number })
+    startAvailabilityPollingUtil(
+      {
+        sendMessage: get().sendMessage,
+        getState: () => ({ ...get(), activeConnection: get().getActiveConnection() }),
+        setState: (updates) => set(updates)
+      },
+      intervalMs
+    )
   },
 
   stopAvailabilityPolling: () => {
-    const id = get()._availabilityIntervalId
-    if (id) {
-      window.clearInterval(id as unknown as number)
-      set({ _availabilityIntervalId: null })
-    }
+    stopAvailabilityPollingUtil({
+      sendMessage: get().sendMessage,
+      getState: () => ({ ...get(), activeConnection: get().getActiveConnection() }),
+      setState: (updates) => set(updates)
+    })
   },
 
   disconnect: (connectionId: string) => {
@@ -609,76 +535,29 @@ export const useOSCStore = create<OSCState>((set, get) => {
   },
 
   discoverTracks: async (maxTracks: number = 64, includePositions: boolean = true) => {
-    const activeConnection = get().getActiveConnection()
-    if (!activeConnection?.isConnected) {
-      console.error('❌ No active OSC connection for track discovery')
-      return
-    }
-
-    set({ isDiscoveringTracks: true, discoveredTracks: [], failedTrackIndices: new Set(), maxValidTrackIndex: null })
-
-    // Query each track index for name, position, and color
-    for (let i = 1; i <= maxTracks; i++) {
-      // Check if we've already found this track doesn't exist
-      if (get().failedTrackIndices.has(i)) {
-        console.log(`⏭️ Skipping track ${i} (known to not exist)`)
-        break // Stop discovery completely
-      }
-
-      try {
-        // Query track name
-        await get().sendMessage('/get', [`/track/${i}/name`])
-        await new Promise(resolve => setTimeout(resolve, 50))
-
-        // Check if track failed after name query
-        if (get().failedTrackIndices.has(i)) {
-          console.log(`🛑 Track ${i} doesn't exist, stopping discovery`)
-          break
-        }
-
-        // Query track position (xyz format)
-        if (includePositions) {
-          await get().sendMessage('/get', [`/track/${i}/xyz`])
-          await new Promise(resolve => setTimeout(resolve, 50))
-        }
-
-        // Query track color (RGBA format)
-        await get().sendMessage('/get', [`/track/${i}/color`])
-        await new Promise(resolve => setTimeout(resolve, 50))
-      } catch (error) {
-        console.error(`Error querying track ${i}:`, error)
-      }
-    }
-
-    // Wait for all responses to arrive
-    await new Promise(resolve => setTimeout(resolve, 2000))
-
-    console.log('✅ Track discovery completed')
-    set({ isDiscoveringTracks: false })
+    return discoverTracksUtil(
+      {
+        sendMessage: get().sendMessage,
+        getState: () => ({ ...get(), activeConnection: get().getActiveConnection() }),
+        setState: (updates) => set(updates)
+      },
+      maxTracks,
+      includePositions
+    )
   },
 
   refreshTrackPosition: async (trackId: string) => {
-    const activeConnection = get().getActiveConnection()
-    if (!activeConnection?.isConnected) {
-      console.error('❌ No active OSC connection for position refresh')
-      return
-    }
-
-    const projectStore = useProjectStore.getState()
-    const track = projectStore.tracks.find(t => t.id === trackId)
-
-    if (!track || !track.holophonixIndex) {
-      console.error('❌ Track not found or missing holophonixIndex')
-      return
-    }
-
-    console.log(`🔄 Refreshing position for track ${track.holophonixIndex}: ${track.name}`)
-
-    // Query current position from Holophonix - send OSC address directly
     const settingsStore = await import('./settingsStore').then(m => m.useSettingsStore.getState())
-    const coordinateSystem = settingsStore.application.defaultCoordinateSystem
-
-    await get().sendMessage('/get', [`/track/${track.holophonixIndex}/${coordinateSystem}`])
+    return refreshTrackPositionUtil(
+      trackId,
+      {
+        sendMessage: get().sendMessage,
+        getState: () => ({ ...get(), activeConnection: get().getActiveConnection() }),
+        setState: (updates) => set(updates)
+      },
+      (id) => useProjectStore.getState().tracks.find(t => t.id === id),
+      () => settingsStore.application.defaultCoordinateSystem
+    )
   },
 
   processIncomingMessage: (message: OSCMessage) => {
@@ -687,361 +566,33 @@ export const useOSCStore = create<OSCState>((set, get) => {
   },
   
   // Internal: Actually process the message (called by inputManager after throttling)
-  _processMessageInternal: (message: OSCMessage) => {
-    set(state => ({
-      incomingMessages: [...state.incomingMessages.slice(-99), message], // Keep last 100 only
-      messageHistory: [...state.messageHistory.slice(-99), message],
-      lastIncomingAt: Date.now(),
-    }))
-
-    // Check if this message should trigger a cue
-    if (message.address.startsWith('/cue/')) {
-      ;(async () => {
-        const cueStore = await import('../cues/store').then(m => m.useCueStore.getState())
-        cueStore.handleOscTrigger(message.address, message.args as any[])
-      })()
-    }
-
-    // Do not set availability here; rely on strict probe matching only
-
-    // Strict availability probe matching: if an expected response arrives, mark matched
-    const st = get()
-    if (st._probePending && st._probeExpected && st._probeExpected.has(message.address)) {
-      set({ _probeMatched: true, deviceAvailable: true, lastAvailabilityCheck: Date.now(), lastAvailabilityError: null })
-    }
-
-    // Handle error messages from Holophonix
-    if (message.address === '/error') {
-      const errorMsg = Array.isArray(message.args) ? message.args[0] as string : message.args as string
-      
-      // Check for "Cannot get track" errors
-      if (errorMsg && errorMsg.includes('Cannot get track')) {
-        // Extract track number from error message like "from Core: Cannot get track,36,name"
-        const match = errorMsg.match(/Cannot get track,(\d+)/)
-        if (match) {
-          const trackIndex = parseInt(match[1])
-          console.log(`❌ Track ${trackIndex} does not exist on device`)
-          
-          // Mark this track as failed
-          set(state => {
-            const newFailedIndices = new Set(state.failedTrackIndices)
-            newFailedIndices.add(trackIndex)
-            return {
-              failedTrackIndices: newFailedIndices,
-              maxValidTrackIndex: trackIndex > 1 ? trackIndex - 1 : null
-            }
-          })
-        }
-      }
-      return // Don't process error messages further
-    }
-
-    // Playback control listener: /anim/play, /anim/pause, /anim/stop, /anim/seek, /anim/gotoStart
-    if (message.address.startsWith('/anim/')) {
-      const args = Array.isArray(message.args) ? message.args : [message.args]
-      const action = message.address.split('/')[2]
-      ;(async () => {
-        const animationStore = await import('./animationStore').then(m => m.useAnimationStore.getState())
-        const projectStore = await import('./projectStore').then(m => m.useProjectStore.getState())
-        try {
-          if (action === 'play') {
-            // Args: [animationIdOrName? (string), ...trackIds?]
-            const identifier = typeof args[0] === 'string' ? args[0] : null
-            console.log('OSC /anim/play received with args:', args, 'identifier:', identifier)
-            let animationId: string | null = null
-            let trackIds: string[] = args.slice(1).filter(a => typeof a === 'string') as string[]
-            
-            if (identifier) {
-              // First try to find by ID
-              const animationById = projectStore.animations.find(a => a.id === identifier)
-              
-              // If not found by ID, try to find by name (case-insensitive)
-              const animation = animationById || 
-                projectStore.animations.find(
-                  a => a.name.toLowerCase() === identifier.toLowerCase()
-                )
-              
-              console.log('Found animation:', animation, 'by identifier:', identifier)
-              if (animation) {
-                animationId = animation.id
-              }
-            }
-
-            if (!animationId) {
-              // Fallback: use the first selected track's animation id if available
-              const firstSelected = projectStore.selectedTracks[0]
-              const track = projectStore.tracks.find(t => t.id === firstSelected)
-              const anim = track?.animationState?.animation
-              if (anim) animationId = anim.id
-              // Use all selected tracks if no specific tracks provided
-              if (trackIds.length === 0) {
-                trackIds = [...projectStore.selectedTracks]
-              }
-            }
-
-            if (animationId) {
-              // If no specific tracks provided, find all tracks that have this animation
-              if (trackIds.length === 0) {
-                trackIds = projectStore.tracks
-                  .filter(t => t.animationState?.animation?.id === animationId)
-                  .map(t => t.id)
-                
-                // If no tracks have this animation, use selected tracks as fallback
-                if (trackIds.length === 0 && projectStore.selectedTracks.length > 0) {
-                  trackIds = [...projectStore.selectedTracks]
-                }
-              }
-              
-              console.log('Calling animationStore.playAnimation with ID:', animationId, 'tracks:', trackIds)
-              animationStore.playAnimation(animationId, trackIds)
-            } else {
-              console.warn('OSC /anim/play: No valid animation ID or name provided and no selected track with animation')
-            }
-          } else if (action === 'pause') {
-            // Optional: [animationId]
-            const targetAnim = typeof args[0] === 'string' ? (args[0] as string) : null
-            if (!targetAnim || targetAnim === animationStore.currentAnimationId) {
-              animationStore.pauseAnimation()
-            }
-          } else if (action === 'stop') {
-            // Args: [animationIdOrName? (string)]
-            const targetIdentifier = typeof args[0] === 'string' ? args[0] : null
-            let shouldStop = false
-            
-            console.log('OSC /anim/stop received with identifier:', targetIdentifier, 'currentAnimationId:', animationStore.currentAnimationId)
-            
-            if (targetIdentifier) {
-              // First try to find by ID
-              const animationById = projectStore.animations.find(a => a.id === targetIdentifier)
-              
-              // If not found by ID, try to find by name (case-insensitive)
-              const animation = animationById || 
-                projectStore.animations.find(
-                  a => a.name.toLowerCase() === targetIdentifier.toLowerCase()
-                )
-              
-              console.log('OSC /anim/stop found animation:', animation, 'by identifier:', targetIdentifier)
-              
-              // Stop if this animation is currently playing
-              if (animation && animationStore.currentAnimationId === animation.id) {
-                shouldStop = true
-                console.log('OSC /anim/stop: Animation is currently playing, will stop')
-              } else {
-                console.log('OSC /anim/stop: Animation found but not currently playing')
-              }
-            } else {
-              // No specific animation: stop any currently playing animation
-              shouldStop = true
-              console.log('OSC /anim/stop: No specific animation, will stop any playing animation')
-            }
-            
-            if (shouldStop) {
-              console.log('Calling animationStore.stopAnimation')
-              animationStore.stopAnimation()
-            } else {
-              console.log('OSC /anim/stop: Will not stop animation')
-            }
-          } else if (action === 'seek') {
-            // Args: [timeSeconds, animationId?]
-            const t = typeof args[0] === 'number' ? (args[0] as number) : Number(args[0])
-            const targetAnim = typeof args[1] === 'string' ? (args[1] as string) : null
-            if (!isNaN(t) && (!targetAnim || targetAnim === animationStore.currentAnimationId)) {
-              animationStore.seekTo(t)
-            }
-          } else if (action === 'gotoStart') {
-            // Args: [durationMs?, animationId?]
-            const durationMs = typeof args[0] === 'number' ? (args[0] as number) : Number(args[0])
-            const hasDuration = !isNaN(durationMs)
-            const targetAnim = typeof args[hasDuration ? 1 : 0] === 'string' ? (args[hasDuration ? 1 : 0] as string) : null
-            if (!targetAnim || targetAnim === animationStore.currentAnimationId) {
-              animationStore.goToStart(hasDuration ? durationMs : undefined)
-            }
-          }
-        } catch (e) {
-          console.warn('OSC /anim control error:', e)
-        }
-      })()
-      return
-    }
-
-    // Process track name messages - ALWAYS, not just during discovery
-    if (message.address.match(/^\/track\/\d+\/name$/)) {
-      const parts = message.address.split('/')
-      const trackIndex = parseInt(parts[2])
-      
-      // Handle both array and string args (OSC library inconsistency)
-      const trackName = Array.isArray(message.args) ? message.args[0] as string : message.args as string
-
-      if (trackName) {
-        console.log(`🎵 Received track ${trackIndex} name: ${trackName}`)
-        // Cache last known name
-        set(state => {
-          const map = new Map(state.lastKnownTrackNames)
-          map.set(trackIndex, trackName)
-          return { lastKnownTrackNames: map }
+  _processMessageInternal: async (message: OSCMessage) => {
+    await processMessageUtil(
+      message,
+      {
+        getState: () => get(),
+        setState: (updates) => set(updates),
+        handleProbeResponse: (address) => handleProbeResponse(address, {
+          sendMessage: get().sendMessage,
+          getState: () => ({ ...get(), activeConnection: get().getActiveConnection() }),
+          setState: (updates) => set(updates)
         })
-        
-        // Always check if track already exists
-        const projectStore = useProjectStore.getState()
-        const existingTrack = projectStore.tracks.find(t => t.holophonixIndex === trackIndex)
-        
-        if (get().isDiscoveringTracks) {
-          // Add to discovered tracks list
-          set(state => ({
-            discoveredTracks: [...state.discoveredTracks, { index: trackIndex, name: trackName }]
-          }))
-          console.log(`📋 Added track ${trackIndex} to discovery list`)
-          
-          // Create track immediately if it doesn't exist (so it appears right away)
-          if (!existingTrack) {
-            // Check if we already have color/position data for this track
-            const discoveredTrack = get().discoveredTracks.find(t => t.index === trackIndex)
-            const trackColor = discoveredTrack?.color || { r: 0.5, g: 0.5, b: 0.5, a: 1 } // Default gray
-            const trackPosition = discoveredTrack?.position || { x: 0, y: 0, z: 0 }
-            
-            console.log(`➕ Creating track ${trackIndex} immediately: ${trackName}`, { color: trackColor, position: trackPosition })
-            projectStore.addTrack({
-              name: trackName,
-              type: 'sound-source',
-              holophonixIndex: trackIndex,
-              position: trackPosition,
-              color: trackColor,
-              animationState: null,
-              isMuted: false,
-              isSolo: false,
-              isSelected: false,
-              volume: 1.0,
-            })
-          } else {
-            // Track exists, just update name
-            console.log(`✏️ Updating existing track ${trackIndex} name to: ${trackName}`)
-            projectStore.updateTrack(existingTrack.id, { name: trackName })
-          }
-        } else {
-          // NOT in discovery mode: only update existing tracks, do not auto-create to avoid duplicates during creation flow
-          const projectStore = useProjectStore.getState()
-          const existingTrack = projectStore.tracks.find(t => t.holophonixIndex === trackIndex)
-          if (existingTrack) {
-            console.log(`✏️ Updating track ${trackIndex} name to: ${trackName}`)
-            projectStore.updateTrack(existingTrack.id, { name: trackName })
-          } else {
-            console.log(`ℹ️ Ignoring incoming name for unknown track ${trackIndex} (not in discovery mode)`) 
-          }
+      },
+      {
+        getCueStore: async () => {
+          const cueStore = await import('../cues/store').then(m => m.useCueStore.getState())
+          return cueStore
+        },
+        getAnimationStore: async () => {
+          const animationStore = await import('./animationStore').then(m => m.useAnimationStore.getState())
+          return animationStore
+        },
+        getProjectStore: async () => {
+          const projectStore = await import('./projectStore').then(m => m.useProjectStore.getState())
+          return projectStore
         }
       }
-    }
-
-    // Process track position updates (xyz or aed)
-    if (message.address.match(/^\/track\/\d+\/(xyz|aed)$/)) {
-      const parts = message.address.split('/')
-      const trackIndex = parseInt(parts[2])
-      const coordType = parts[3] // 'xyz' or 'aed'
-
-      // Handle both array and string args
-      const args = Array.isArray(message.args) ? message.args : [message.args]
-      
-      if (args.length >= 3) {
-        const [x, y, z] = args as number[]
-        console.log(`📍 Track ${trackIndex} position (${coordType}):`, { x, y, z })
-        
-        // Update discovered track position if in discovery mode
-        if (get().isDiscoveringTracks) {
-          set(state => ({
-            discoveredTracks: state.discoveredTracks.map(track =>
-              track.index === trackIndex ? { ...track, position: { x, y, z } } : track
-            )
-          }))
-        }
-        
-        // Always update track position in project store
-        const projectStore = useProjectStore.getState()
-        const existingTrack = projectStore.tracks.find(t => t.holophonixIndex === trackIndex)
-        
-        if (existingTrack) {
-          console.log(`✅ Updating track ${trackIndex} position`)
-          
-          // CRITICAL: Check if track is in ANY animation (playing, paused, OR easing)
-          // Use global animation store to check, not track-level state
-          const animationStore = useAnimationStore.getState()
-          let isAnimating = false
-          let foundInAnimationId = null
-          
-          // Check all playing animations (including paused ones)
-          animationStore.playingAnimations.forEach((animation, animId) => {
-            if (animation.trackIds.includes(existingTrack.id)) {
-              isAnimating = true
-              foundInAnimationId = animId
-            }
-          })
-          
-          // DEBUG logging
-          console.log(`🔍 Track ${existingTrack.name} (${existingTrack.id}): playing=${animationStore.playingAnimations.size}, found=${isAnimating}, animId=${foundInAnimationId}`)
-          
-          if (isAnimating) {
-            // Animation is controlling the track (even if paused) - DON'T update position!
-            // Ignore OSC position updates completely while animating
-            console.log(`🔒 Animation active (or paused) - ignoring OSC position update`)
-          } else {
-            // Update both position and initialPosition (base position changed in Holophonix)
-            projectStore.updateTrack(existingTrack.id, { 
-              position: { x, y, z },
-              initialPosition: { x, y, z }
-            })
-            console.log(`🔄 Also updated initialPosition (track not animating)`)
-          }
-        } else if (get().isDiscoveringTracks) {
-          // During discovery, track might not exist yet - position will be used when track is created
-          console.log(`📍 Stored position for track ${trackIndex} (will apply when track is created)`)
-        }
-      }
-    }
-
-    // Process track color updates (RGBA format)
-    if (message.address.match(/^\/track\/\d+\/color$/)) {
-      const parts = message.address.split('/')
-      const trackIndex = parseInt(parts[2])
-
-      // Handle both array and individual args
-      const args = Array.isArray(message.args) ? message.args : [message.args]
-
-      if (args.length >= 4) {
-        const [r, g, b, a] = args as number[]
-        console.log(`🎨 Track ${trackIndex} color (RGBA):`, { r, g, b, a })
-
-        // If in discovery mode, store color in discoveredTracks
-        if (get().isDiscoveringTracks) {
-          set(state => {
-            const existingDiscovered = state.discoveredTracks.find(t => t.index === trackIndex)
-            if (existingDiscovered) {
-              // Update existing discovered track
-              return {
-                discoveredTracks: state.discoveredTracks.map(track =>
-                  track.index === trackIndex ? { ...track, color: { r, g, b, a } } : track
-                )
-              }
-            } else {
-              // Add new discovered track with just color (name might come later)
-              return {
-                discoveredTracks: [...state.discoveredTracks, { index: trackIndex, name: '', color: { r, g, b, a } }]
-              }
-            }
-          })
-        }
-
-        // Always try to update track color in project store if track exists
-        const projectStore = useProjectStore.getState()
-        const existingTrack = projectStore.tracks.find(t => t.holophonixIndex === trackIndex)
-
-        if (existingTrack) {
-          console.log(`🎨 Updating track ${trackIndex} color to RGBA(${r.toFixed(2)}, ${g.toFixed(2)}, ${b.toFixed(2)}, ${a.toFixed(2)})`)
-          projectStore.updateTrack(existingTrack.id, {
-            color: { r, g, b, a }
-          })
-        } else {
-          console.log(`🎨 Stored color for track ${trackIndex} (track will use it when created)`)
-        }
-      }
-    }
+    )
   },
 
   getConnectionById: (id: string) => {
