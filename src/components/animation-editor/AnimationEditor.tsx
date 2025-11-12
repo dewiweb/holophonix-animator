@@ -143,7 +143,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     selectedTrackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[]
   ), [selectedTrackIds, tracks])
 
-  // Load active track's parameters when switching tracks in position-relative or phase-offset-relative mode
+  // Load active track's parameters when switching tracks in relative mode
   // Only reload when the TRACK changes, not when its parameters update (to avoid breaking drag)
   // If multiple tracks are selected for editing, use the first one's parameters as the base
   // NOTE: multiTrackParameters is intentionally NOT a dependency to avoid re-syncing on every parameter change
@@ -318,7 +318,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       loadedAnimationId
     })
     
-    // In position-relative mode, update the active track's parameters
+    // In relative mode, update the active track's parameters
     if ((multiTrackMode === 'relative') 
         && activeEditingTrackIds.length > 0) {
       const activeTrackId = activeEditingTrackIds[0]
@@ -480,7 +480,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       willUseAtomicUpdate: (multiTrackMode === 'relative') && selectedTrackIds.length > 0
     })
     
-    // In position-relative or phase-offset-relative mode, use atomic update to prevent race condition
+    // In relative mode, use atomic update to prevent race condition
     if ((multiTrackMode === 'relative') && selectedTrackIds.length > 0) {
       const newMultiTrackParams: Record<string, any> = {}
       const selectedTracks: Track[] = []
@@ -535,14 +535,14 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     if (selectedTrackIds.length > 1) {
       const compatibleModes = getCompatibleModes(type)
       if (!compatibleModes[multiTrackMode].compatible) {
-        console.log(`⚠️ Current mode "${multiTrackMode}" incompatible with ${type}, switching to "position-relative"`)
+        console.log(`⚠️ Current mode "${multiTrackMode}" incompatible with ${type}, switching to relative mode`)
         setMultiTrackMode('relative')
       }
     }
   }
 
   const onParameterChange = (key: string, value: any) => {
-    // In position-relative or phase-offset-relative mode, update ALL active editing tracks' parameters
+    // In relative mode, update ALL active editing tracks' parameters
     if ((multiTrackMode === 'relative') && activeEditingTrackIds.length > 0) {
       // For Position objects, merge with existing values to preserve all coordinates
       const isPositionKey = ['startPosition', 'endPosition', 'center', 'bounds', 'anchorPoint', 'restPosition', 'targetPosition', 'bezierStart', 'bezierControl1', 'bezierControl2', 'bezierEnd', 'zigzagStart', 'zigzagEnd', 'axisStart', 'axisEnd', 'zoomCenter'].includes(key)
