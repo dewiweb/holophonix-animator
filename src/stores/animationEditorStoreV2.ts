@@ -5,6 +5,7 @@ import { getDefaultAnimationParameters } from '@/components/animation-editor/uti
 import { extractUIState } from '@/utils/transformBuilder'
 import { generateDefaultAnimationName } from '@/utils/animationNameGenerator'
 import { useProjectStore } from './projectStore'
+import { modelRegistry } from '@/models/registry'
 
 // ============================================
 // STATE INTERFACE
@@ -380,11 +381,20 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
       projectStore.selectTracks(trackIdsToRestore)
     }
     
+    // Load the model from registry so dropdown and form update correctly
+    const model = modelRegistry.getModel(animation.type)
+    if (model) {
+      console.log('📦 Loading model from registry:', model.metadata.name)
+    } else {
+      console.warn('⚠️ Model not found in registry:', animation.type)
+    }
+    
     set({
       animationForm: animation,
       keyframes: animation.keyframes || [],
       originalAnimationParams: JSON.parse(JSON.stringify(animation.parameters || {})),
       loadedAnimationId: animation.id,
+      selectedModel: model || null,  // Set the model so dropdown and form update
       multiTrackMode: uiState.mode,
       barycentricVariant: uiState.variant || 'isobarycentric',
       customCenter: uiState.customCenter,
@@ -397,6 +407,7 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
     console.log('✅ Animation loaded into form:', {
       name: animation.name,
       type: animation.type,
+      model: model?.metadata.name || 'none',
       parameters: animation.parameters,
       mode: uiState.mode,
       restoredTracks: trackIdsToRestore?.length || 0,

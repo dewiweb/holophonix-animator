@@ -38,6 +38,19 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     }
   }, [])
 
+  // Sync dropdown with selectedModel prop when it changes externally (e.g., loading animation)
+  useEffect(() => {
+    if (selectedModel && selectedModel.metadata.type !== selectedModelType) {
+      console.log('🔄 ModelSelector: Syncing dropdown to loaded model:', selectedModel.metadata.type)
+      setSelectedModelType(selectedModel.metadata.type)
+    } else if (!selectedModel && selectedModelType) {
+      // Model was cleared
+      console.log('🔄 ModelSelector: Clearing dropdown selection')
+      setSelectedModelType('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedModel]) // selectedModelType intentionally not in deps to avoid circular updates
+
   const handleModelTypeChange = (type: string) => {
     setSelectedModelType(type)
     const model = modelRegistry.getModel(type)
