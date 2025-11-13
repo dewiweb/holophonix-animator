@@ -37,6 +37,8 @@ import { useKeyframeManagement } from './hooks/useKeyframeManagement'
 import { handleParameterChange } from './handlers/parameterHandlers'
 import { handleUseTrackPosition } from './handlers/trackPositionHandler'
 import { handleSaveAnimation } from './handlers/saveAnimationHandler'
+import { modelRegistry } from '@/models/registry'
+import { buildTransform } from '@/utils/transformBuilder'
 
 interface AnimationEditorProps {
   onAnimationSelect?: (animationId: string) => void;
@@ -258,7 +260,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       : []
     
     const transform = selectedTracksForPreview.length > 1 
-      ? require('@/utils/transformBuilder').buildTransform(
+      ? buildTransform(
           multiTrackMode,
           barycentricVariant,
           selectedTracksForPreview,
@@ -814,6 +816,30 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
     setShowAnimationLibrary(false)
   }
 
+  const handleNewAnimation = () => {
+    // Clear the form and loaded animation ID to start fresh
+    const tracksArray = tracks.filter(t => selectedTrackIds.includes(t.id))
+    const trackPosition = tracksArray[0]?.position || tracksArray[0]?.initialPosition || { x: 0, y: 0, z: 0 }
+    
+    let defaultParams = {}
+    if (animationForm.type) {
+      const model = modelRegistry.getModel(animationForm.type)
+      if (model && typeof model.getDefaultParameters === 'function') {
+        defaultParams = model.getDefaultParameters(trackPosition)
+      }
+    }
+    
+    updateAnimationForm({
+      name: '',  // Clear name so user enters new one
+      parameters: defaultParams
+    })
+    
+    // Clear loaded animation ID so next save creates new animation
+    useAnimationEditorStoreV2.setState({ loadedAnimationId: null })
+    
+    console.log('✨ New animation started - form cleared, ready to create new animation')
+  }
+
   const handleConfirmPresetSave = (presetName: string, description: string) => {
     const preset = {
       id: `preset-${Date.now()}`,
@@ -947,6 +973,7 @@ const unifiedPane = (
         onPlay={handlePlayPreview}
         onStop={handleStopAnimation}
         currentAnimationId={currentAnimation?.id}
+        onNewAnimation={handleNewAnimation}
         onLoadAnimation={() => setShowAnimationLibrary(true)}
         onSaveAnimation={onSaveAnimation}
         canSave={!!animationForm.name}
@@ -1053,6 +1080,7 @@ const unifiedPane = (
               onPhaseOffsetChange={setPhaseOffsetSeconds}
               animationForm={animationForm}
               onUpdateForm={updateAnimationForm}
+              loadedAnimationId={loadedAnimationId}
               selectedModel={selectedModel}
               selectedTrack={selectedTrack}
               onModelSelect={(model) => {
