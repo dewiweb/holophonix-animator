@@ -210,15 +210,9 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
       ? getDefaultAnimationParameters(type, track)
       : getDefaultAnimationParameters(type, { position: { x: 0, y: 0, z: 0 }, initialPosition: { x: 0, y: 0, z: 0 } } as Track)
     
-    // Get existing animation names from project store (import it)
-    const existingNames: string[] = []
-    try {
-      const { useProjectStore } = require('@/stores/projectStore')
-      const animations = useProjectStore.getState().animations
-      existingNames.push(...animations.map((a: any) => a.name))
-    } catch (e) {
-      console.warn('Could not get existing animation names:', e)
-    }
+    // Get existing animation names from project store
+    const animations = useProjectStore.getState().animations
+    const existingNames = animations.map((a: Animation) => a.name)
     
     // Generate unique default name based on type
     const defaultName = generateDefaultAnimationName(type, existingNames)
@@ -265,14 +259,8 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
       })
       
       // Get existing animation names from project store
-      const existingNames: string[] = []
-      try {
-        const { useProjectStore } = require('@/stores/projectStore')
-        const animations = useProjectStore.getState().animations
-        existingNames.push(...animations.map((a: any) => a.name))
-      } catch (e) {
-        console.warn('Could not get existing animation names:', e)
-      }
+      const animations = useProjectStore.getState().animations
+      const existingNames = animations.map((a: Animation) => a.name)
       
       // Generate unique default name based on type
       const defaultName = generateDefaultAnimationName(type, existingNames)
@@ -342,6 +330,12 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
   },
   
   loadAnimation: (animation) => {
+    console.log('📥 Loading animation:', animation.name, {
+      type: animation.type,
+      hasParameters: !!animation.parameters,
+      parameterKeys: animation.parameters ? Object.keys(animation.parameters) : []
+    })
+    
     // V3: Extract UI state from transform
     const uiState = extractUIState(animation.transform)
     
@@ -367,6 +361,23 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
           }
         }
       })
+    } else {
+      // In barycentric mode, animation.parameters contains the shared parameters
+      console.log('📥 Loading barycentric mode animation - using shared parameters from animation')
+    }
+    
+    // Restore track selection from trackIds or extract from transform (for old animations)
+    let trackIdsToRestore = animation.trackIds
+    if (!trackIdsToRestore && animation.transform?.tracks) {
+      // Fallback: extract track IDs from transform for old animations
+      trackIdsToRestore = Object.keys(animation.transform.tracks)
+      console.log('📦 Extracted track IDs from transform (old animation):', trackIdsToRestore)
+    }
+    
+    if (trackIdsToRestore && trackIdsToRestore.length > 0) {
+      const projectStore = useProjectStore.getState()
+      console.log('🔄 Restoring track selection:', trackIdsToRestore)
+      projectStore.selectTracks(trackIdsToRestore)
     }
     
     set({
@@ -381,6 +392,15 @@ export const useAnimationEditorStoreV2 = create<AnimationEditorState>((set, get)
       multiTrackParameters: multiTrackParams,  // Load per-track params in relative mode
       phaseOffsetSeconds: phaseOffset,
       lockTracks: animation.trackSelectionLocked || false
+    })
+    
+    console.log('✅ Animation loaded into form:', {
+      name: animation.name,
+      type: animation.type,
+      parameters: animation.parameters,
+      mode: uiState.mode,
+      restoredTracks: trackIdsToRestore?.length || 0,
+      trackIdsSource: animation.trackIds ? 'saved' : (animation.transform?.tracks ? 'transform' : 'none')
     })
   },
   
