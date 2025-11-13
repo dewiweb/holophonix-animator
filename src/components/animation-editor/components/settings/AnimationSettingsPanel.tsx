@@ -40,6 +40,7 @@ interface AnimationSettingsPanelProps {
   // Animation form
   animationForm: Partial<Animation>
   onUpdateForm: (updates: Partial<Animation>) => void
+  loadedAnimationId: string | null  // Add this to track which animation is loaded
   
   // Model selection
   selectedModel: AnimationModel | null
@@ -88,6 +89,7 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
   onPhaseOffsetChange,
   animationForm,
   onUpdateForm,
+  loadedAnimationId,
   selectedModel,
   selectedTrack,
   onModelSelect,
@@ -298,6 +300,7 @@ export const AnimationSettingsPanel: React.FC<AnimationSettingsPanelProps> = ({
             </div>
             {selectedModel ? (
               <ModelParametersForm
+                key={loadedAnimationId || 'new'}
                 model={selectedModel}
                 parameters={animationForm.parameters || {}}
                 onChange={onParameterChange}
