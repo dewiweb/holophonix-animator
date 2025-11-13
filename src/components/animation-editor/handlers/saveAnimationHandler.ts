@@ -114,20 +114,41 @@ export const handleSaveAnimation = ({
     transform,  // V3 unified transform
     fadeIn,     // Fade-in subanimation
     fadeOut,    // Fade-out subanimation
-    ...(lockTracks && selectedTrackIds.length > 0 && {
-      trackIds: selectedTrackIds,
-      trackSelectionLocked: true,
-    })
+    // Always save trackIds so we can restore selection when loading
+    trackIds: selectedTrackIds.length > 0 ? selectedTrackIds : undefined,
+    // Lock prevents cues from reassigning tracks
+    trackSelectionLocked: lockTracks || false,
   }
 
-  console.log('💾 Saving animation (v3):', animation)
+  console.log('💾 Saving animation (v3):', {
+    name: animation.name,
+    type: animation.type,
+    parameters: animation.parameters,
+    parameterKeys: Object.keys(animation.parameters || {}),
+    hasKeyframes: !!animation.keyframes,
+    trackIds: animation.trackIds,
+    trackCount: animation.trackIds?.length || 0,
+    locked: animation.trackSelectionLocked
+  })
 
-  if (currentAnimation) {
+  // Check if we should update existing or create new
+  // If name changed, always create new animation (user's intent to save as new)
+  const shouldCreateNew = !currentAnimation || 
+    (currentAnimation.id && currentAnimation.name && animation.name !== currentAnimation.name)
+  
+  if (shouldCreateNew && currentAnimation?.id && currentAnimation.name && animation.name !== currentAnimation.name) {
+    // Name changed - create new animation with new ID
+    const newAnimation = { ...animation, id: `anim-${Date.now()}-${Math.random().toString(36).substring(2, 9)}` }
+    addAnimation(newAnimation)
+    console.log('✅ Added new animation (name changed from "' + currentAnimation.name + '" to "' + animation.name + '")')
+  } else if (currentAnimation && currentAnimation.id) {
+    // Same name or updating existing - update it
     updateAnimation(animation.id, animation)
-    console.log('✅ Updated existing animation')
+    console.log('✅ Updated existing animation:', animation.name)
   } else {
+    // No current animation - create new
     addAnimation(animation)
-    console.log('✅ Added new animation')
+    console.log('✅ Added new animation:', animation.name)
   }
   
   // V3: Apply animation to tracks

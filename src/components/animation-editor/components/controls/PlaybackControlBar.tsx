@@ -11,7 +11,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { cn } from '@/utils'
-import { Play, Pause, Square, Home, PanelRightOpen, PanelRightClose, FolderOpen, BookOpen, Save, ChevronDown, Menu } from 'lucide-react'
+import { Play, Pause, Square, Home, PanelRightOpen, PanelRightClose, FolderOpen, BookOpen, Save, ChevronDown, Menu, Plus } from 'lucide-react'
 import { AnimationTimingIndicator } from './AnimationTimingIndicator'
 
 interface PlaybackControlBarProps {
@@ -23,6 +23,7 @@ interface PlaybackControlBarProps {
   currentAnimationId?: string | null
   
   // Animation management
+  onNewAnimation: () => void
   onLoadAnimation: () => void
   onSaveAnimation: () => void
   canSave: boolean
@@ -48,6 +49,7 @@ export const PlaybackControlBar: React.FC<PlaybackControlBarProps> = ({
   onPlay,
   onStop,
   currentAnimationId,
+  onNewAnimation,
   onLoadAnimation,
   onSaveAnimation,
   canSave,
@@ -173,6 +175,19 @@ export const PlaybackControlBar: React.FC<PlaybackControlBarProps> = ({
                 </div>
               </div>
               <div className="p-1">
+                <button
+                  onClick={() => {
+                    onNewAnimation()
+                    setIsAnimationMenuOpen(false)
+                  }}
+                  className="w-full px-3 py-2 text-sm text-left rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 text-gray-700 dark:text-gray-300"
+                >
+                  <Plus className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  <div>
+                    <div className="font-medium">New Animation</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Start fresh (clear form)</div>
+                  </div>
+                </button>
                 <button
                   onClick={() => {
                     onLoadAnimation()
