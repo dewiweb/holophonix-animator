@@ -18,6 +18,27 @@ import {
   type AnimationTimingState
 } from '@/utils/animationTiming'
 
+// CRITICAL: Persistent state storage for stateful models (pendulum, spring, etc.)
+// Each animation gets its own state Map that persists across frames
+const animationStateStorage = new Map<string, Map<string, any>>()
+
+/**
+ * Get or create persistent state Map for an animation
+ */
+function getAnimationState(animationId: string): Map<string, any> {
+  if (!animationStateStorage.has(animationId)) {
+    animationStateStorage.set(animationId, new Map())
+  }
+  return animationStateStorage.get(animationId)!
+}
+
+/**
+ * Clear state for stopped animation
+ */
+function clearAnimationState(animationId: string): void {
+  animationStateStorage.delete(animationId)
+}
+
 // Track playing animation instances
 interface PlayingAnimation {
   animationId: string
@@ -161,7 +182,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           duration: animation.duration,
           deltaTime: 0,
           frameCount: 0,
-          state: new Map(),
+          state: getAnimationState(animation.id),
         }
         
         // Calculate base position at t=0
@@ -346,6 +367,9 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
               } : {})
             })
             
+            // Clear persistent state after removing from map
+            clearAnimationState(animationId)
+            
             // Execute fade-out with callback to stop engine AFTER fade-out completes
             get()._easeToPositions(tracksToReturn, fadeOutDurationMs, () => {
               // Stop engine only if no other animations are playing
@@ -357,6 +381,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           } else {
             // No fade-out needed - stop immediately
             playingAnimations.delete(animationId)
+            clearAnimationState(animationId)  // Clear persistent state
             const stillPlaying = playingAnimations.size > 0
             
             set({ 
@@ -378,6 +403,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           
           // Remove from playing animations
           playingAnimations.delete(animationId)
+          clearAnimationState(animationId)  // Clear persistent state
           const stillPlaying = playingAnimations.size > 0
           
           set({ 
@@ -435,6 +461,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       })
       
       // Clear all playing animations first
+      // Clear persistent state for all stopped animations
+      state.playingAnimations.forEach((playingAnimation, animId) => {
+        clearAnimationState(animId)
+      })
+      
       set({ 
         playingAnimations: new Map(),
         isPlaying: false,
@@ -730,7 +761,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             duration: animation.duration,
             deltaTime: OSC_INTERVAL / 1000,
             frameCount: state.frameCount,
-            state: new Map(),
+            state: getAnimationState(animation.id),
           }
           
           // Calculate position for OSC
@@ -824,7 +855,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             duration: animation.duration,
             deltaTime: deltaTime / 1000,
             frameCount: state.frameCount,
-            state: new Map(),  // For stateful models (pendulum, spring, etc.)
+            state: getAnimationState(animation.id),  // Persistent state for stateful models (pendulum, spring, etc.)
           }
           
           // 3. Calculate base position (model returns position in absolute coordinates)

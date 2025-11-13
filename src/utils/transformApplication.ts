@@ -96,6 +96,19 @@ export function applyTransform(
   if (mode === 'relative') {
     // Relative mode: simple static offset
     // Each track moves independently, offset doesn't rotate
+    if (Math.random() < 0.01) { // Log 1% of frames
+      console.log('🔄 applyTransform relative:', {
+        baseX: basePosition.x,
+        baseY: basePosition.y,
+        baseZ: basePosition.z,
+        offsetX: offset.x,
+        offsetY: offset.y,
+        offsetZ: offset.z,
+        finalX: basePosition.x + offset.x,
+        finalY: basePosition.y + offset.y,
+        finalZ: basePosition.z + offset.z
+      })
+    }
     return {
       x: basePosition.x + offset.x,
       y: basePosition.y + offset.y,

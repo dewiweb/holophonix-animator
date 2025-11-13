@@ -145,6 +145,50 @@ export const ModelParametersForm: React.FC<ModelParametersFormProps> = ({
           </div>
         )
         
+      case 'rotation':
+        return (
+          <div key={key} className="space-y-1">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {def.label}
+                {def.required && <span className="text-red-500 ml-1">*</span>}
+              </label>
+              {def.description && (
+                <div className="group relative">
+                  <Info className="w-3 h-3 text-gray-400 cursor-help" />
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10">
+                    <div className="bg-gray-900 text-white text-xs rounded p-2 w-48">
+                      {def.description}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {['x', 'y', 'z'].map(axis => (
+                <div key={axis}>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                    {axis === 'x' ? 'Pitch' : axis === 'y' ? 'Yaw' : 'Roll'} ({axis}°)
+                  </label>
+                  <input
+                    type="number"
+                    value={value?.[axis] ?? def.default?.[axis] ?? 0}
+                    onChange={(e) => onChange(key, { ...value, [axis]: parseFloat(e.target.value) })}
+                    min={-180}
+                    max={180}
+                    step={15}
+                    className={`w-full px-2 py-1 border rounded focus:outline-none focus:ring-2 ${
+                      hasError 
+                        ? 'border-red-500 focus:ring-red-500' 
+                        : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                    } bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+        
       case 'boolean':
         return (
           <div key={key} className="flex items-center justify-between py-2">
