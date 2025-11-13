@@ -15,9 +15,13 @@ export function createEllipticalModel(): AnimationModel {
     },
     
     parameters: {
-      centerX: { type: 'number', default: 0, min: -100, max: 100, label: 'Center X' },
-      centerY: { type: 'number', default: 0, min: -100, max: 100, label: 'Center Y' },
-      centerZ: { type: 'number', default: 0, min: -100, max: 100, label: 'Center Z' },
+      center: {
+        type: 'position',
+        default: { x: 0, y: 0, z: 0 },
+        label: 'Center',
+        description: 'Center point of the ellipse',
+        group: 'Position',
+      },
       radiusX: { type: 'number', default: 5, min: 0, max: 50, label: 'Radius X' },
       radiusY: { type: 'number', default: 3, min: 0, max: 50, label: 'Radius Y' },
       startAngle: { type: 'number', default: 0, min: 0, max: 360, label: 'Start Angle (deg)' },
@@ -41,13 +45,7 @@ export function createEllipticalModel(): AnimationModel {
     ): Position {
       const progress = duration > 0 ? time / duration : 0
       
-      // Get center coordinates - support both individual coords and center object
-      let centerX = params.center?.x ?? params.centerX ?? 0
-      let centerY = params.center?.y ?? params.centerY ?? 0
-      let centerZ = params.center?.z ?? params.centerZ ?? 0
-      
-      // Support multi-track modes
-      
+      const center = params.center || { x: 0, y: 0, z: 0 }
       const startAngle = ((params.startAngle ?? 0) + (params.phase ?? 0)) * Math.PI / 180
       const endAngle = ((params.endAngle ?? 360) + (params.phase ?? 0)) * Math.PI / 180
       const angle = startAngle + (endAngle - startAngle) * progress
@@ -58,14 +56,13 @@ export function createEllipticalModel(): AnimationModel {
       
       // Calculate position in XY plane
       const basePos: Position = {
-        x: centerX + radiusX * Math.cos(angle),
-        y: centerY + radiusY * Math.sin(angle),
-        z: centerZ
+        x: center.x + radiusX * Math.cos(angle),
+        y: center.y + radiusY * Math.sin(angle),
+        z: center.z
       }
       
       // Apply rotation if specified
       if (rotation.x !== 0 || rotation.y !== 0 || rotation.z !== 0) {
-        const center = { x: centerX, y: centerY, z: centerZ }
         const rotated = applyRotationToPath([basePos], center, rotation)
         return rotated[0]
       }
@@ -76,9 +73,6 @@ export function createEllipticalModel(): AnimationModel {
     getDefaultParameters: function(trackPosition?: Position): Record<string, any> {
       return {
         center: { x: trackPosition?.x ?? 0, y: trackPosition?.y ?? 0, z: trackPosition?.z ?? 0 },
-        centerX: trackPosition?.x ?? 0,
-        centerY: trackPosition?.y ?? 0,
-        centerZ: trackPosition?.z ?? 0,
         radiusX: 5,
         radiusY: 3,
         startAngle: 0,
