@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import type { Animation } from '@/types'
 import { modelRegistry } from '@/models/registry'
 import { appToThreePosition } from './coordinateConversion'
+import { applyRotationToPath } from '@/utils/pathTransforms'
+import type { Rotation } from '@/models/types'
 
 /**
  * Generate path visualization for different animation types
@@ -27,9 +29,19 @@ export const generateAnimationPath = (
       }))
       
       const segments = model.visualization.pathStyle?.segments ?? 64
-      const generatedPoints = model.visualization.generatePath(appControlPoints, params, segments)
+      // Pass animation duration as part of params so path preview matches playback
+      const paramsWithDuration = { ...params, _animationDuration: animation.duration }
+      let generatedPoints = model.visualization.generatePath(appControlPoints, paramsWithDuration, segments)
       
       if (generatedPoints && generatedPoints.length > 0) {
+        // Apply rotation if rotation parameter exists (generic transform)
+        const rotation = params.rotation as Rotation | undefined
+        if (rotation && appControlPoints.length > 0) {
+          // Use first control point as rotation center
+          const rotationCenter = appControlPoints[0]
+          generatedPoints = applyRotationToPath(generatedPoints, rotationCenter, rotation)
+        }
+        
         const threePoints = generatedPoints.map(p => appToThreePosition(p))
         return threePoints
       }

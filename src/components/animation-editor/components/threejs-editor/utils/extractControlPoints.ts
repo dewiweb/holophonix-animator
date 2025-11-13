@@ -35,23 +35,33 @@ export function extractControlPointsFromAnimation(animation: Animation | null): 
   if (model?.visualization?.controlPoints) {
     for (const cpConfig of model.visualization.controlPoints) {
       const paramValue = params[cpConfig.parameter]
-      let position: Position | null = null
+      let positions: Position[] = []
       
       if (paramValue) {
-        if (typeof paramValue === 'object' && 'x' in paramValue && 'y' in paramValue && 'z' in paramValue) {
-          position = paramValue as Position
+        // Check if it's an array of positions (e.g., Catmull-Rom controlPoints)
+        if (Array.isArray(paramValue)) {
+          // Extract all positions from the array
+          positions = paramValue.filter(p => 
+            typeof p === 'object' && 'x' in p && 'y' in p && 'z' in p
+          )
+        }
+        // Single position object
+        else if (typeof paramValue === 'object' && 'x' in paramValue && 'y' in paramValue && 'z' in paramValue) {
+          positions = [paramValue as Position]
         }
       } else {
+        // Try split X/Y/Z parameters (legacy support)
         const baseParam = cpConfig.parameter.replace(/(X|Y|Z)$/, '')
         const x = params[`${baseParam}X`]
         const y = params[`${baseParam}Y`]
         const z = params[`${baseParam}Z`]
         if (x !== undefined && y !== undefined && z !== undefined) {
-          position = { x, y, z }
+          positions = [{ x, y, z }]
         }
       }
       
-      if (position) {
+      // Process each position (could be multiple for array parameters)
+      for (let position of positions) {
         const originalPosition = { ...position }
         
         // Apply barycentric center offset (for any barycentric variant)

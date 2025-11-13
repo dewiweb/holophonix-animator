@@ -1,6 +1,7 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react'
-import { Move3D, Grid3X3, Maximize2, Plus } from 'lucide-react'
+import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react'
+import { Move3D, Grid3X3, Maximize2, Move, RotateCw } from 'lucide-react'
 import * as THREE from 'three'
+import { modelRegistry } from '@/models/registry'
 
 // Components
 import { SingleViewRenderer } from './SingleViewRenderer'
@@ -16,6 +17,7 @@ import { useTransformControls } from './hooks/useTransformControls'
 import { useTrackVisualization } from './hooks/useTrackVisualization'
 import { useBarycentricControl } from './hooks/useBarycentricControl'
 import { controlPointsToParameters } from './utils/extractControlPoints'
+import { threeToAppRotation } from './utils/coordinateConversion'
 
 // Types
 import type { Track, Animation, Position } from '@/types'
@@ -98,6 +100,9 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
 
   // Track gizmo drag state (for camera controls)
   const [isGizmoDragging, setIsGizmoDragging] = useState(false)
+  
+  // Transform mode for gizmo (translate or rotate)
+  const [transformMode, setTransformMode] = useState<'translate' | 'rotate'>('translate')
 
   // Initialize camera based on view mode
   const { camera, resetCamera } = useCamera({
@@ -159,18 +164,41 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
   const lastUpdateTimeRef = useRef<number>(0)
   const updateThrottleMs = 100 // Update form every 100ms during drag
 
+  // Check if selected control point supports rotation
+  const selectedPointSupportsRotation = useMemo(() => {
+    if (!animation || settings.editMode !== 'edit') return false
+    const selectedPoint = getSelectedPoint()
+    if (!selectedPoint) return false
+    
+    const model = modelRegistry.getModel(animation.type)
+    if (!model?.visualization?.controlPoints) return false
+    
+    // Get control point config for the selected point
+    const cpConfig = model.visualization.controlPoints[selectedPoint.index]
+    if (!cpConfig?.enabledModes) return false
+    
+    return cpConfig.enabledModes.includes('rotate')
+  }, [animation, settings.editMode, currentSelectedIndex])
+  
+  // Reset to translate mode when rotation is no longer supported
+  useEffect(() => {
+    if (!selectedPointSupportsRotation && transformMode === 'rotate') {
+      setTransformMode('translate')
+    }
+  }, [selectedPointSupportsRotation, transformMode])
+  
   // Initialize Transform Controls (only for edit mode)
   const transformState = useTransformControls({
     scene,
     camera,
     domElement: canvasElement,
-    mode: 'translate', // Always translate (no rotation)
+    mode: transformMode,
     snapSize: settings.snapSize,
     onTransformStart: () => {
       setIsGizmoDragging(true)
       lastUpdateTimeRef.current = 0 // Reset throttle
     },
-    onTransform: (position) => {
+    onTransform: (position, rotation) => {
       // Handle barycentric center drag
       if (currentSelectedIndex === -1 && centerMarker && isCenterEditable) {
         // Update center marker position
@@ -192,7 +220,7 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
         return
       }
       
-      // Handle control point drag
+      // Handle control point drag/rotate
       const selectedPoint = getSelectedPoint()
       if (selectedPoint) {
         // Always update visual position immediately
@@ -206,11 +234,21 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
           // Update form in real-time during drag
           if (animation && onAnimationChange) {
             const updatedPoints = controlPoints.map(cp => cp.position)
-            const updatedParams = controlPointsToParameters(
+            let updatedParams = controlPointsToParameters(
               animation.type,
               updatedPoints,
               animation.parameters
             )
+            
+            // If in rotate mode and rotation changed, update rotation parameter
+            if (transformMode === 'rotate' && rotation && animation.parameters.rotation) {
+              // Convert Three.js rotation (Y-up) to app rotation (Z-up)
+              const appRotation = threeToAppRotation(rotation)
+              updatedParams = {
+                ...updatedParams,
+                rotation: appRotation
+              }
+            }
             
             onAnimationChange({
               ...animation,
@@ -220,7 +258,7 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
         }
       }
     },
-    onTransformEnd: () => {
+    onTransformEnd: (position, rotation) => {
       setIsGizmoDragging(false)
       
       // Handle barycentric center drag end
@@ -235,19 +273,30 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
         return
       }
       
-      // Handle control point drag end
+      // Handle control point drag/rotate end
       // Final sync when drag ends (always, no throttle)
       if (animation && onAnimationChange) {
         const updatedPoints = controlPoints.map(cp => cp.position)
-        const updatedParams = controlPointsToParameters(
+        let updatedParams = controlPointsToParameters(
           animation.type,
           updatedPoints,
           animation.parameters
         )
         
+        // If in rotate mode and rotation changed, update rotation parameter
+        if (transformMode === 'rotate' && rotation && animation.parameters.rotation) {
+          // Convert Three.js rotation (Y-up) to app rotation (Z-up)
+          const appRotation = threeToAppRotation(rotation)
+          updatedParams = {
+            ...updatedParams,
+            rotation: appRotation
+          }
+        }
+        
         console.log('🔧 Gizmo drag ended:', {
           animationId: animation.id,
           animationType: animation.type,
+          transformMode,
           oldParams: animation.parameters,
           newParams: updatedParams
         })
@@ -517,14 +566,6 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
           const newPos = selectedPoint.position.clone().add(offset)
           addControlPoint(newPos, selectedPoint.index + 1)
         }
-      } else if (e.shiftKey && e.key === 'A' && !e.repeat) {
-        e.preventDefault()
-        const selectedPoint = getSelectedPoint()
-        const insertIndex = selectedPoint ? selectedPoint.index + 1 : controlPoints.length
-        const newPos = selectedPoint
-          ? selectedPoint.position.clone().add(new THREE.Vector3(1, 0, 0))
-          : new THREE.Vector3(0, 0, 0)
-        addControlPoint(newPos, insertIndex)
       }
     }
 
@@ -582,26 +623,34 @@ export const UnifiedThreeJsEditor: React.FC<UnifiedThreeJsEditorProps> = ({
               </button>
             </div>
 
-            {/* Point Operations (DEMO ONLY - will be replaced by backend-generated control points) */}
-            <div className="flex gap-1 border-r border-gray-700 pr-2">
-              <button
-                className="p-2 rounded bg-green-700 text-white hover:bg-green-600"
-                onClick={() => {
-                  const selectedPoint = getSelectedPoint()
-                  const insertIndex = selectedPoint
-                    ? selectedPoint.index + 1
-                    : controlPoints.length
-                  const newPos = selectedPoint
-                    ? selectedPoint.position.clone().add(new THREE.Vector3(1, 0, 0))
-                    : new THREE.Vector3(0, 0, 0)
-                  addControlPoint(newPos, insertIndex)
-                }}
-                title="Add Point (Shift+A) - DEMO ONLY"
-                disabled={readOnly}
-              >
-                <Plus size={18} />
-              </button>
-            </div>
+            {/* Transform Mode Toggle (only when rotation supported) */}
+            {selectedPointSupportsRotation && (
+              <div className="flex items-center gap-1 border-l border-gray-700 pl-2">
+                <span className="text-xs text-gray-400 mr-1">Gizmo:</span>
+                <button
+                  onClick={() => setTransformMode('translate')}
+                  className={`p-1.5 rounded transition-colors ${
+                    transformMode === 'translate'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                  title="Translate mode (G)"
+                >
+                  <Move size={16} />
+                </button>
+                <button
+                  onClick={() => setTransformMode('rotate')}
+                  className={`p-1.5 rounded transition-colors ${
+                    transformMode === 'rotate'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                  title="Rotate mode"
+                >
+                  <RotateCw size={16} />
+                </button>
+              </div>
+            )}
 
             {/* Settings */}
             <div className="flex items-center gap-2">

@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import type { ControlPoint3D, ControlPointSceneState } from '../types'
 import { extractControlPointsFromAnimation } from '../utils/extractControlPoints'
 import { generateAnimationPath } from '../utils/generateAnimationPath'
+import { appToThreeRotation } from '../utils/coordinateConversion'
 
 /**
  * Hook to manage the Three.js scene with control points and curve
@@ -75,6 +76,29 @@ export const useControlPointScene = (
 
     return () => {
       console.log('🧹 Cleaning up scene')
+      
+      // Clean up all meshes
+      meshesRef.current.forEach(mesh => {
+        scene.remove(mesh)
+        mesh.geometry.dispose()
+        ;(mesh.material as THREE.Material).dispose()
+        mesh.children.forEach(child => {
+          if (child instanceof THREE.Mesh) {
+            child.geometry.dispose()
+            ;(child.material as THREE.Material).dispose()
+          }
+        })
+      })
+      meshesRef.current = []
+      
+      // Clean up curve
+      if (curveRef.current) {
+        scene.remove(curveRef.current)
+        curveRef.current.geometry.dispose()
+        ;(curveRef.current.material as THREE.Material).dispose()
+        curveRef.current = null
+      }
+      
       scene.clear()
       sceneRef.current = null
     }
@@ -84,7 +108,31 @@ export const useControlPointScene = (
   // STEP 3: Update meshes and control points when positions change  
   // ========================================
   useEffect(() => {
-    if (!sceneRef.current) return
+    if (!sceneRef.current) {
+      console.log('⚠️ Scene not ready, skipping control point update')
+      return
+    }
+    
+    // Guard: If no control point positions, clear everything
+    if (controlPointPositions.length === 0) {
+      console.log('⚠️ No control points, clearing scene')
+      meshesRef.current.forEach(mesh => {
+        sceneRef.current?.remove(mesh)
+        mesh.geometry.dispose()
+        ;(mesh.material as THREE.Material).dispose()
+      })
+      meshesRef.current = []
+      
+      if (curveRef.current) {
+        sceneRef.current.remove(curveRef.current)
+        curveRef.current.geometry.dispose()
+        ;(curveRef.current.material as THREE.Material).dispose()
+        curveRef.current = null
+      }
+      
+      setControlPoints([])
+      return
+    }
 
     // Check if we can update in place (same number of points AND meshes exist)
     const canUpdateInPlace = meshesRef.current.length > 0 && 
@@ -100,6 +148,12 @@ export const useControlPointScene = (
         
         // Update mesh position
         mesh.position.copy(position)
+        
+        // Update mesh rotation from animation parameters if it exists
+        if (animation?.parameters?.rotation) {
+          const threeRotation = appToThreeRotation(animation.parameters.rotation)
+          mesh.rotation.copy(threeRotation)
+        }
         
         // Update color
         let color: number
@@ -147,7 +201,7 @@ export const useControlPointScene = (
         const curveMaterial = new THREE.LineBasicMaterial({
           vertexColors: true,
           linewidth: 2,
-          depthTest: false,
+          depthTest: true,
           depthWrite: false,
         })
         
@@ -204,13 +258,19 @@ export const useControlPointScene = (
       const geometry = new THREE.SphereGeometry(0.2, 16, 16)
       const material = new THREE.MeshBasicMaterial({
         color,
-        depthTest: false,
+        depthTest: false,  // Always render on top of tracks
         depthWrite: false,
       })
       const mesh = new THREE.Mesh(geometry, material)
       mesh.position.copy(position)
       mesh.userData.index = index
-      mesh.renderOrder = 999
+      mesh.renderOrder = 999  // High render order ensures control points are always visible
+      
+      // Set rotation from animation parameters if it exists (for rotation gizmo)
+      if (animation?.parameters?.rotation) {
+        const threeRotation = appToThreeRotation(animation.parameters.rotation)
+        mesh.rotation.copy(threeRotation)
+      }
 
       // Add outline if selected
       if (isSelected) {
@@ -259,9 +319,12 @@ export const useControlPointScene = (
       const curveMaterial = new THREE.LineBasicMaterial({
         vertexColors: true,
         linewidth: 2,
+        depthTest: true,
+        depthWrite: false,
       })
 
       const curve = new THREE.Line(curveGeometry, curveMaterial)
+      curve.renderOrder = 998
       sceneRef.current.add(curve)
       curveRef.current = curve
       
