@@ -5,9 +5,18 @@ import { Position } from '@/types'
 // ========================================
 
 /**
+ * Rotation in 3D space (Euler angles in degrees)
+ */
+export interface Rotation {
+  x: number  // Pitch (rotation around X axis)
+  y: number  // Yaw (rotation around Y axis)
+  z: number  // Roll (rotation around Z axis)
+}
+
+/**
  * Parameter type definitions for animation models
  */
-export type ParameterType = 'number' | 'position' | 'boolean' | 'string' | 'enum' | 'array'
+export type ParameterType = 'number' | 'position' | 'rotation' | 'boolean' | 'string' | 'enum' | 'array'
 
 /**
  * Validation rules for parameters
@@ -47,7 +56,7 @@ export interface ParameterDefinition {
   arrayMax?: number          // Maximum array length
   
   // UI hints
-  uiComponent?: 'slider' | 'input' | 'position3d' | 'select' | 'checkbox' | 'color'
+  uiComponent?: 'slider' | 'input' | 'position3d' | 'rotation3d' | 'select' | 'checkbox' | 'color'
   hidden?: boolean          // Hide from UI (internal parameter)
   advanced?: boolean        // Show in advanced section
   
@@ -100,6 +109,7 @@ export interface VisualizationConfig {
   controlPoints?: {
     parameter: string           // Parameter name
     type: 'start' | 'end' | 'center' | 'control' | 'anchor'
+    enabledModes?: ('translate' | 'rotate' | 'scale')[]  // Which gizmo modes are supported (default: ['translate'])
   }[]
   
   // Path generation function

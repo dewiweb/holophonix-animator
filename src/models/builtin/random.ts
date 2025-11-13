@@ -12,7 +12,7 @@ export function createRandomModel(): AnimationModel {
   return {
     metadata: {
       name: 'Random Motion',
-      version: '1.0.0',
+      version: '2.0.0',
       author: 'System',
       description: 'Random movement within defined bounds',
       category: 'basic',
@@ -21,9 +21,15 @@ export function createRandomModel(): AnimationModel {
     },
     
     parameters: {
-      centerX: { type: 'number', default: 0, min: -100, max: 100, label: 'Center X' },
-      centerY: { type: 'number', default: 0, min: -100, max: 100, label: 'Center Y' },
-      centerZ: { type: 'number', default: 0, min: -100, max: 100, label: 'Center Z' },
+      center: {
+        type: 'position',
+        default: { x: 0, y: 0, z: 0 },
+        label: 'Center',
+        description: 'Center point of the random movement bounds',
+        group: 'Position',
+        order: 1,
+        uiComponent: 'position3d',
+      },
       boundsX: { type: 'number', default: 5, min: 0, max: 50, label: 'Bounds ±X' },
       boundsY: { type: 'number', default: 5, min: 0, max: 50, label: 'Bounds ±Y' },
       boundsZ: { type: 'number', default: 2, min: 0, max: 50, label: 'Bounds ±Z' },
@@ -35,10 +41,11 @@ export function createRandomModel(): AnimationModel {
     calculate(parameters, time, duration, context) {
       const params = parameters as any
       
-      // Determine center based on multi-track mode
-      let centerX = params.centerX ?? 0
-      let centerY = params.centerY ?? 0
-      let centerZ = params.centerZ ?? 0
+      // Get center coordinates
+      const center = params.center || { x: 0, y: 0, z: 0 }
+      const centerX = center.x
+      const centerY = center.y
+      const centerZ = center.z
       
       
       const boundsX = params.boundsX ?? 5
@@ -88,9 +95,7 @@ export function createRandomModel(): AnimationModel {
     
     getDefaultParameters(position?: Position) {
       return {
-        centerX: position?.x ?? 0,
-        centerY: position?.y ?? 0,
-        centerZ: position?.z ?? 0,
+        center: { x: position?.x ?? 0, y: position?.y ?? 0, z: position?.z ?? 0 },
         boundsX: 5,
         boundsY: 5,
         boundsZ: 2,
@@ -111,7 +116,11 @@ export function createRandomModel(): AnimationModel {
     
     visualization: {
       controlPoints: [
-        { parameter: 'center', type: 'center' }
+        { 
+          parameter: 'center', 
+          type: 'center',
+          enabledModes: ['translate']
+        }
       ],
       generatePath: (controlPoints, params) => {
         if (controlPoints.length < 1) return []

@@ -1,11 +1,12 @@
-import { AnimationModel, CalculationContext } from '../types'
+import { AnimationModel, CalculationContext, Rotation } from '../types'
 import { Position } from '@/types'
+import { applyRotationToPath } from '@/utils/pathTransforms'
 
 export function createEllipticalModel(): AnimationModel {
   return {
     metadata: {
       name: 'Elliptical Motion',
-      version: '1.0.0',
+      version: '2.0.0',
       author: 'System',
       description: 'Smooth elliptical path animation',
       category: 'basic',
@@ -21,11 +22,13 @@ export function createEllipticalModel(): AnimationModel {
       radiusY: { type: 'number', default: 3, min: 0, max: 50, label: 'Radius Y' },
       startAngle: { type: 'number', default: 0, min: 0, max: 360, label: 'Start Angle (deg)' },
       endAngle: { type: 'number', default: 360, min: 0, max: 720, label: 'End Angle (deg)' },
-      plane: {
-        type: 'enum',
-        default: 'xy',
-        options: ['xy', 'xz', 'yz'],
-        label: 'Rotation Plane',
+      rotation: {
+        type: 'rotation',
+        default: { x: 0, y: 0, z: 0 },
+        label: 'Rotation',
+        description: 'Rotate the elliptical path in 3D space',
+        group: 'Orientation',
+        uiComponent: 'rotation3d',
       },
       phase: { type: 'number', default: 0, min: -360, max: 360, label: 'Phase Offset (deg)' },
     },
@@ -51,30 +54,23 @@ export function createEllipticalModel(): AnimationModel {
       
       const radiusX = params.radiusX ?? 5
       const radiusY = params.radiusY ?? 3
-      const plane = params.plane || 'xy'
+      const rotation = params.rotation || { x: 0, y: 0, z: 0 }
       
-      let x = centerX
-      let y = centerY
-      let z = centerZ
-      
-      switch (plane) {
-        case 'xy':
-          x = centerX + radiusX * Math.cos(angle)
-          y = centerY + radiusY * Math.sin(angle)
-          break
-        case 'xz':
-          x = centerX + radiusX * Math.cos(angle)
-          z = centerZ + radiusY * Math.sin(angle)
-          break
-        case 'yz':
-          y = centerY + radiusX * Math.cos(angle)
-          z = centerZ + radiusY * Math.sin(angle)
-          break
+      // Calculate position in XY plane
+      const basePos: Position = {
+        x: centerX + radiusX * Math.cos(angle),
+        y: centerY + radiusY * Math.sin(angle),
+        z: centerZ
       }
       
-      // Apply track offset for position-relative mode
+      // Apply rotation if specified
+      if (rotation.x !== 0 || rotation.y !== 0 || rotation.z !== 0) {
+        const center = { x: centerX, y: centerY, z: centerZ }
+        const rotated = applyRotationToPath([basePos], center, rotation)
+        return rotated[0]
+      }
       
-      return { x, y, z }
+      return basePos
     },
     
     getDefaultParameters: function(trackPosition?: Position): Record<string, any> {
@@ -87,7 +83,7 @@ export function createEllipticalModel(): AnimationModel {
         radiusY: 3,
         startAngle: 0,
         endAngle: 360,
-        plane: 'xy',
+        rotation: { x: 0, y: 0, z: 0 },
         phase: 0,
       }
     },
@@ -98,31 +94,30 @@ export function createEllipticalModel(): AnimationModel {
     
     visualization: {
       controlPoints: [
-        { parameter: 'center', type: 'center' }
+        { 
+          parameter: 'center', 
+          type: 'center',
+          enabledModes: ['translate', 'rotate']
+        }
       ],
       generatePath: (controlPoints, params, segments = 64) => {
         if (controlPoints.length < 1) return []
         const center = controlPoints[0]
         const radiusX = params.radiusX || 5
         const radiusY = params.radiusY || 3
-        const plane = params.plane || 'xy'
+        const startAngle = ((params.startAngle || 0) + (params.phase || 0)) * Math.PI / 180
+        const endAngle = ((params.endAngle || 360) + (params.phase || 0)) * Math.PI / 180
         const points = []
         
+        // Always generate ellipse in XY plane - rotation is applied generically after
         for (let i = 0; i <= segments; i++) {
-          const angle = (i / segments) * Math.PI * 2
-          const point = { x: center.x, y: center.y, z: center.z }
-          
-          if (plane === 'xy') {
-            point.x += Math.cos(angle) * radiusX
-            point.y += Math.sin(angle) * radiusY
-          } else if (plane === 'xz') {
-            point.x += Math.cos(angle) * radiusX
-            point.z += Math.sin(angle) * radiusY
-          } else if (plane === 'yz') {
-            point.y += Math.cos(angle) * radiusX
-            point.z += Math.sin(angle) * radiusY
-          }
-          points.push(point)
+          const t = i / segments
+          const angle = startAngle + (endAngle - startAngle) * t
+          points.push({
+            x: center.x + Math.cos(angle) * radiusX,
+            y: center.y + Math.sin(angle) * radiusY,
+            z: center.z
+          })
         }
         return points
       },

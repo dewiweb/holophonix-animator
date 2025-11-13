@@ -1,5 +1,6 @@
-import { AnimationModel, CalculationContext } from '../types'
+import { AnimationModel, CalculationContext, Rotation } from '../types'
 import { Position } from '@/types'
+import { applyRotationToPath } from '@/utils/pathTransforms'
 
 // Store physics state per instance
 const pendulumStates = new Map<string, { angle: number; angularVelocity: number; lastTime: number }>()
@@ -12,7 +13,7 @@ export function createPendulumModel(): AnimationModel {
     metadata: {
       type: 'pendulum',
       name: 'Pendulum Motion',
-      version: '2.0.0',
+      version: '3.0.0',
       category: 'builtin',
       description: 'Physics-based pendulum simulation with gravity and damping',
       tags: ['physics', 'swing', 'pendulum', 'gravity'],
@@ -80,15 +81,14 @@ export function createPendulumModel(): AnimationModel {
         unit: 'm/s²',
         uiComponent: 'slider',
       },
-      plane: {
-        type: 'enum',
-        default: 'xz',
-        label: 'Swing Plane',
-        description: 'Plane of pendulum swing',
-        group: 'Physics',
-        order: 5,
-        options: ['xy', 'xz', 'yz'],
-        uiComponent: 'select',
+      rotation: {
+        type: 'rotation',
+        default: { x: 90, y: 0, z: 0 },
+        label: 'Rotation',
+        description: 'Rotate the pendulum swing plane in 3D space',
+        group: 'Orientation',
+        order: 4,
+        uiComponent: 'rotation3d',
       },
     },
     
@@ -97,12 +97,16 @@ export function createPendulumModel(): AnimationModel {
     
     visualization: {
       controlPoints: [
-        { parameter: 'anchorPoint', type: 'anchor' }
+        { 
+          parameter: 'anchorPoint', 
+          type: 'anchor',
+          enabledModes: ['translate', 'rotate']
+        }
       ],
       generatePath: (controlPoints, params, segments = 30) => {
         if (controlPoints.length < 1) return []
         const anchor = controlPoints[0]
-        const length = params.pendulumLength || 3
+        const length = params.length || 3
         const maxAngle = ((params.maxAngle || params.initialAngle || 45) * Math.PI) / 180
         const plane = params.plane || 'xz'
         const points = []

@@ -5,7 +5,7 @@ export function createBounceModel(): AnimationModel {
   return {
     metadata: {
       name: 'Bounce Motion',
-      version: '1.0.0',
+      version: '2.0.0',
       author: 'System',
       description: 'Realistic bouncing physics with gravity',
       category: 'physics',
@@ -14,9 +14,15 @@ export function createBounceModel(): AnimationModel {
     },
     
     parameters: {
-      centerX: { type: 'number', default: 0, min: -100, max: 100, label: 'Center X' },
-      centerY: { type: 'number', default: 0, min: -100, max: 100, label: 'Center Y' },
-      centerZ: { type: 'number', default: 0, min: -100, max: 100, label: 'Center Z' },
+      center: {
+        type: 'position',
+        default: { x: 0, y: 0, z: 0 },
+        label: 'Center',
+        description: 'Horizontal center point of the bounce',
+        group: 'Position',
+        order: 1,
+        uiComponent: 'position3d',
+      },
       startHeight: { type: 'number', default: 5, min: 0, max: 20, label: 'Start Height' },
       groundLevel: { type: 'number', default: 0, min: -10, max: 10, label: 'Ground Level' },
       bounciness: { type: 'number', default: 0.7, min: 0, max: 1, label: 'Bounciness' },
@@ -27,10 +33,11 @@ export function createBounceModel(): AnimationModel {
     calculate(parameters, time, duration, context) {
       const params = parameters as any
       
-      // Determine center based on multi-track mode
-      let centerX = params.centerX ?? 0
-      let centerY = params.centerY ?? 0
-      let centerZ = params.centerZ ?? 0
+      // Get center coordinates
+      const center = params.center || { x: 0, y: 0, z: 0 }
+      const centerX = center.x
+      const centerY = center.y
+      const centerZ = center.z
       
       
       const startHeight = params.startHeight ?? 5
@@ -88,9 +95,7 @@ export function createBounceModel(): AnimationModel {
     
     getDefaultParameters(position?: Position) {
       return {
-        centerX: position?.x ?? 0,
-        centerY: position?.y ?? 0,
-        centerZ: position?.z ?? 0,
+        center: { x: position?.x ?? 0, y: position?.y ?? 0, z: position?.z ?? 0 },
         startHeight: 5,
         groundLevel: 0,
         bounciness: 0.7,
@@ -105,7 +110,11 @@ export function createBounceModel(): AnimationModel {
     
     visualization: {
       controlPoints: [
-        { parameter: 'center', type: 'center' }
+        { 
+          parameter: 'center', 
+          type: 'center',
+          enabledModes: ['translate']
+        }
       ],
       generatePath: (controlPoints, params, segments = 50) => {
         if (controlPoints.length < 1) return []

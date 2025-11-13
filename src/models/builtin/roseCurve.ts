@@ -1,5 +1,6 @@
-import { AnimationModel, CalculationContext } from '../types'
+import { AnimationModel, CalculationContext, Rotation } from '../types'
 import { Position } from '@/types'
+import { applyRotationToPath } from '@/utils/pathTransforms'
 
 /**
  * Create the rose curve animation model
@@ -9,7 +10,7 @@ export function createRoseCurveModel(): AnimationModel {
     metadata: {
       type: 'rose-curve',
       name: 'Rose Curve',
-      version: '1.0.0',
+      version: '2.0.0',
       category: 'builtin',
       description: 'Mathematical flower pattern in polar coordinates',
       tags: ['mathematical', 'flower', 'polar', 'pattern'],
@@ -49,27 +50,25 @@ export function createRoseCurveModel(): AnimationModel {
         step: 1,
         uiComponent: 'slider',
       },
-      rotation: {
+      angularOffset: {
         type: 'number',
         default: 0,
-        label: 'Rotation',
-        description: 'Rotation offset in degrees',
-        group: 'Orientation',
-        order: 1,
+        label: 'Angular Offset',
+        description: 'Starting angle offset in degrees',
+        group: 'Shape',
+        order: 3,
         min: 0,
         max: 360,
-        unit: 'deg',
         uiComponent: 'slider',
       },
-      plane: {
-        type: 'enum',
-        default: 'xy',
-        label: 'Plane',
-        description: 'Plane for the rose curve',
+      rotation: {
+        type: 'rotation',
+        default: { x: 0, y: 0, z: 0 },
+        label: 'Rotation',
+        description: 'Rotate the rose curve in 3D space',
         group: 'Orientation',
-        order: 2,
-        options: ['xy', 'xz', 'yz'],
-        uiComponent: 'select',
+        order: 4,
+        uiComponent: 'rotation3d',
       },
     },
     
@@ -79,32 +78,28 @@ export function createRoseCurveModel(): AnimationModel {
     
     visualization: {
       controlPoints: [
-        { parameter: 'center', type: 'center' }
+        { 
+          parameter: 'center', 
+          type: 'center',
+          enabledModes: ['translate', 'rotate']
+        }
       ],
       generatePath: (controlPoints, params, segments = 200) => {
         if (controlPoints.length < 1) return []
         const center = controlPoints[0]
         const radius = params.radius || 5
         const petals = params.petalCount || 5
-        const plane = params.plane || 'xy'
         const points = []
         
+        // Always generate rose curve in XY plane - rotation is applied generically after
         for (let i = 0; i <= segments; i++) {
           const angle = (i / segments) * Math.PI * 2
           const r = radius * Math.cos(petals * angle)
-          const point = { x: center.x, y: center.y, z: center.z }
-          
-          if (plane === 'xy') {
-            point.x += Math.cos(angle) * r
-            point.y += Math.sin(angle) * r
-          } else if (plane === 'xz') {
-            point.x += Math.cos(angle) * r
-            point.z += Math.sin(angle) * r
-          } else if (plane === 'yz') {
-            point.y += Math.cos(angle) * r
-            point.z += Math.sin(angle) * r
-          }
-          points.push(point)
+          points.push({
+            x: center.x + Math.cos(angle) * r,
+            y: center.y + Math.sin(angle) * r,
+            z: center.z
+          })
         }
         return points
       },
@@ -137,28 +132,29 @@ export function createRoseCurveModel(): AnimationModel {
       
       // Apply multi-track mode adjustments
       const petalCount = parameters.petalCount || 5
-      const rotation = (parameters.rotation || 0) * Math.PI / 180
-      const plane = parameters.plane || 'xy'
+      const angularOffset = (parameters.angularOffset || 0) * Math.PI / 180
+      const rotation3d = parameters.rotation && typeof parameters.rotation === 'object' 
+        ? parameters.rotation 
+        : { x: 0, y: 0, z: 0 }
       
       // Rose curve: r = radius * cos(k * θ)
-      const theta = progress * 2 * Math.PI + rotation
+      const theta = progress * 2 * Math.PI + angularOffset
       const r = radius * Math.cos(petalCount * theta)
       
-      // Convert to Cartesian
-      const x = r * Math.cos(theta)
-      const y = r * Math.sin(theta)
-      
-      // Apply to correct plane
-      let position: Position
-      if (plane === 'xy') {
-        position = { x: center.x + x, y: center.y + y, z: center.z }
-      } else if (plane === 'xz') {
-        position = { x: center.x + x, y: center.y, z: center.z + y }
-      } else { // yz
-        position = { x: center.x, y: center.y + x, z: center.z + y }
+      // Convert to Cartesian in XY plane
+      const basePos: Position = {
+        x: center.x + r * Math.cos(theta),
+        y: center.y + r * Math.sin(theta),
+        z: center.z
       }
       
-      return position
+      // Apply 3D rotation if specified
+      if (rotation3d.x !== 0 || rotation3d.y !== 0 || rotation3d.z !== 0) {
+        const rotated = applyRotationToPath([basePos], center, rotation3d)
+        return rotated[0]
+      }
+      
+      return basePos
     },
     
     getDefaultParameters: function(trackPosition: Position): Record<string, any> {
@@ -166,8 +162,8 @@ export function createRoseCurveModel(): AnimationModel {
         center: { ...trackPosition },
         radius: 5,
         petalCount: 5,
-        rotation: 0,
-        plane: 'xy',
+        angularOffset: 0,
+        rotation: { x: 0, y: 0, z: 0 },
       }
     },
   }

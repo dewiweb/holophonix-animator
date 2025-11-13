@@ -1,5 +1,6 @@
-import { AnimationModel, CalculationContext } from '../types'
+import { AnimationModel, CalculationContext, Rotation } from '../types'
 import { Position } from '@/types'
+import { applyRotationToPath } from '@/utils/pathTransforms'
 
 /**
  * Create the circular animation model
@@ -9,9 +10,10 @@ export function createCircularModel(): AnimationModel {
     metadata: {
       type: 'circular',
       name: 'Circular Motion',
-      version: '2.0.0',
+      version: '3.0.0',
       category: 'builtin',
-      description: 'Smooth circular motion in 3D space with configurable radius, speed, and plane',
+      description: 'Smooth circular motion in 3D space with configurable radius, speed, and orientation',
+     
       tags: ['basic', 'rotation', 'orbit', 'circle'],
       icon: 'Circle',
     },
@@ -65,15 +67,14 @@ export function createCircularModel(): AnimationModel {
         unit: 'deg',
         uiComponent: 'slider',
       },
-      plane: {
-        type: 'enum',
-        default: 'xy',
-        label: 'Plane',
-        description: 'Plane of rotation',
-        group: 'Motion',
+      rotation: {
+        type: 'rotation',
+        default: { x: 0, y: 0, z: 0 },
+        label: 'Rotation',
+        description: 'Rotate the circular path in 3D space',
+        group: 'Orientation',
         order: 4,
-        options: ['xy', 'xz', 'yz'],
-        uiComponent: 'select',
+        uiComponent: 'rotation3d',
       },
       direction: {
         type: 'enum',
@@ -93,32 +94,30 @@ export function createCircularModel(): AnimationModel {
     
     visualization: {
       controlPoints: [
-        { parameter: 'center', type: 'center' }
+        { 
+          parameter: 'center', 
+          type: 'center',
+          enabledModes: ['translate', 'rotate']
+        }
       ],
       generatePath: (controlPoints, params, segments = 64) => {
         if (controlPoints.length < 1) return []
         const center = controlPoints[0]
         const radius = params.radius ?? 5
-        const plane = params.plane ?? 'xy'
+        const startAngle = ((params.startAngle || 0) * Math.PI) / 180
+        const direction = params.direction || 'clockwise'
+        const angleDirection = direction === 'clockwise' ? -1 : 1
         const points = []
         
+        // Always generate circle in XY plane - rotation is applied generically after
         for (let i = 0; i <= segments; i++) {
-          const angle = (i / segments) * Math.PI * 2
-          const point = { x: center.x, y: center.y, z: center.z }
-          
-          // Generate in app coordinates, conversion happens in editor
-          if (plane === 'xy') {
-            point.x += Math.cos(angle) * radius
-            point.y += Math.sin(angle) * radius
-          } else if (plane === 'xz') {
-            point.x += Math.cos(angle) * radius
-            point.z += Math.sin(angle) * radius
-          } else if (plane === 'yz') {
-            point.y += Math.cos(angle) * radius
-            point.z += Math.sin(angle) * radius
-          }
-          
-          points.push(point)
+          const t = (i / segments) * Math.PI * 2
+          const angle = startAngle + t * angleDirection
+          points.push({
+            x: center.x + Math.cos(angle) * radius,
+            y: center.y + Math.sin(angle) * radius,
+            z: center.z
+          })
         }
         return points
       },
@@ -148,7 +147,7 @@ export function createCircularModel(): AnimationModel {
       complexity: 'constant',
       stateful: false,
       gpuAccelerated: false,
-      cacheKey: ['radius', 'speed', 'plane', 'direction'],
+      cacheKey: ['radius', 'speed', 'rotation', 'direction'],
     },
     
     calculate: function(
@@ -163,7 +162,7 @@ export function createCircularModel(): AnimationModel {
       const radius = parameters.radius || 5
       const speed = parameters.speed || 1
       const startAngle = (parameters.startAngle || 0) * Math.PI / 180
-      const plane = parameters.plane || 'xy'
+      const rotation = parameters.rotation || { x: 0, y: 0, z: 0 }
       const direction = parameters.direction || 'clockwise'
       
       // Calculate angle based on time
@@ -172,25 +171,20 @@ export function createCircularModel(): AnimationModel {
       const angleDirection = direction === 'clockwise' ? -1 : 1
       const angle = startAngle + (rotations * Math.PI * 2 * angleDirection)
       
-      // Calculate position based on plane
-      const pos: Position = { x: center.x, y: center.y, z: center.z }
-      
-      switch (plane) {
-        case 'xy':
-          pos.x = center.x + Math.cos(angle) * radius
-          pos.y = center.y + Math.sin(angle) * radius
-          break
-        case 'xz':
-          pos.x = center.x + Math.cos(angle) * radius
-          pos.z = center.z + Math.sin(angle) * radius
-          break
-        case 'yz':
-          pos.y = center.y + Math.cos(angle) * radius
-          pos.z = center.z + Math.sin(angle) * radius
-          break
+      // Calculate position in XY plane
+      const basePos: Position = {
+        x: center.x + Math.cos(angle) * radius,
+        y: center.y + Math.sin(angle) * radius,
+        z: center.z
       }
       
-      return pos
+      // Apply rotation if specified
+      if (rotation.x !== 0 || rotation.y !== 0 || rotation.z !== 0) {
+        const rotated = applyRotationToPath([basePos], center, rotation)
+        return rotated[0]
+      }
+      
+      return basePos
     },
     
     getDefaultParameters: function(trackPosition: Position): Record<string, any> {
@@ -199,7 +193,7 @@ export function createCircularModel(): AnimationModel {
         radius: 5,
         speed: 1,
         startAngle: 0,
-        plane: 'xy',
+        rotation: { x: 0, y: 0, z: 0 },
         direction: 'clockwise',
       }
     },

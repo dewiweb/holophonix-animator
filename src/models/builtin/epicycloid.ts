@@ -1,5 +1,6 @@
-import { AnimationModel, CalculationContext } from '../types'
+import { AnimationModel, CalculationContext, Rotation } from '../types'
 import { Position } from '@/types'
+import { applyRotationToPath } from '@/utils/pathTransforms'
 
 /**
  * Create the epicycloid animation model
@@ -9,7 +10,7 @@ export function createEpicycloidModel(): AnimationModel {
     metadata: {
       type: 'epicycloid',
       name: 'Epicycloid',
-      version: '1.0.0',
+      version: '2.0.0',
       category: 'builtin',
       description: 'Path traced by a point on a circle rolling around another circle',
       tags: ['mathematical', 'rolling', 'circle', 'curve'],
@@ -70,15 +71,14 @@ export function createEpicycloidModel(): AnimationModel {
         options: ['epicycloid', 'hypocycloid'],
         uiComponent: 'select',
       },
-      plane: {
-        type: 'enum',
-        default: 'xy',
-        label: 'Plane',
-        description: 'Plane for the curve',
+      rotation: {
+        type: 'rotation',
+        default: { x: 0, y: 0, z: 0 },
+        label: 'Rotation',
+        description: 'Rotate the epicycloid curve in 3D space',
         group: 'Orientation',
         order: 1,
-        options: ['xy', 'xz', 'yz'],
-        uiComponent: 'select',
+        uiComponent: 'rotation3d',
       },
     },
     
@@ -88,34 +88,30 @@ export function createEpicycloidModel(): AnimationModel {
     
     visualization: {
       controlPoints: [
-        { parameter: 'center', type: 'center' }
+        { 
+          parameter: 'center', 
+          type: 'center',
+          enabledModes: ['translate', 'rotate']
+        }
       ],
       generatePath: (controlPoints, params, segments = 200) => {
         if (controlPoints.length < 1) return []
         const center = controlPoints[0]
         const R = params.fixedRadius || 3
         const r = params.rollingRadius || 1
-        const plane = params.plane || 'xy'
         const points = []
         
+        // Always generate epicycloid in XY plane - rotation is applied generically after
         for (let i = 0; i <= segments; i++) {
           const angle = (i / segments) * Math.PI * 2
           const ratio = (R + r) / r
           const x = (R + r) * Math.cos(angle) - r * Math.cos(ratio * angle)
           const y = (R + r) * Math.sin(angle) - r * Math.sin(ratio * angle)
-          const point = { x: center.x, y: center.y, z: center.z }
-          
-          if (plane === 'xy') {
-            point.x += x
-            point.y += y
-          } else if (plane === 'xz') {
-            point.x += x
-            point.z += y
-          } else if (plane === 'yz') {
-            point.y += x
-            point.z += y
-          }
-          points.push(point)
+          points.push({
+            x: center.x + x,
+            y: center.y + y,
+            z: center.z
+          })
         }
         return points
       },
@@ -148,7 +144,7 @@ export function createEpicycloidModel(): AnimationModel {
       const r = parameters.rollingRadius || 1
       const speed = parameters.speed || 1
       const type = parameters.type || 'epicycloid'
-      const plane = parameters.plane || 'xy'
+      const rotation = parameters.rotation || { x: 0, y: 0, z: 0 }
       
       const theta = progress * 2 * Math.PI * speed
       
@@ -164,17 +160,20 @@ export function createEpicycloidModel(): AnimationModel {
         y = (R - r) * Math.sin(theta) - r * Math.sin(((R - r) / r) * theta)
       }
       
-      // Apply to correct plane
-      let position: Position
-      if (plane === 'xy') {
-        position = { x: center.x + x, y: center.y + y, z: center.z }
-      } else if (plane === 'xz') {
-        position = { x: center.x + x, y: center.y, z: center.z + y }
-      } else { // yz
-        position = { x: center.x, y: center.y + x, z: center.z + y }
+      // Calculate position in XY plane
+      const basePos: Position = {
+        x: center.x + x,
+        y: center.y + y,
+        z: center.z
       }
       
-      return position
+      // Apply 3D rotation if specified
+      if (rotation.x !== 0 || rotation.y !== 0 || rotation.z !== 0) {
+        const rotated = applyRotationToPath([basePos], center, rotation)
+        return rotated[0]
+      }
+      
+      return basePos
     },
     
     getDefaultParameters: function(trackPosition: Position): Record<string, any> {
@@ -184,7 +183,7 @@ export function createEpicycloidModel(): AnimationModel {
         rollingRadius: 1,
         speed: 1,
         type: 'epicycloid',
-        plane: 'xy',
+        rotation: { x: 0, y: 0, z: 0 },
       }
     },
   }

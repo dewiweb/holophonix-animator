@@ -61,11 +61,70 @@ export function createCatmullRomModel(): AnimationModel {
     
     visualization: {
       controlPoints: [{ parameter: 'controlPoints', type: 'control' }],
-      generatePath: (controlPoints) => {
-        // Catmull-Rom already has the points, just return them for curve generation
-        return controlPoints
+      generatePath: (controlPoints, params, segments = 100) => {
+        const points = params.controlPoints || controlPoints
+        if (!points || points.length < 4) return points || []
+        
+        const tension = params.tension ?? 0.5
+        const closed = params.closed === true
+        const numSegments = closed ? points.length : points.length - 3
+        
+        const interpolatedPoints: Position[] = []
+        
+        const getPoint = (index: number): Position => {
+          if (closed) {
+            return points[index % points.length]
+          }
+          return points[Math.max(0, Math.min(points.length - 1, index))]
+        }
+        
+        // Generate interpolated points along the spline
+        const stepsPerSegment = Math.ceil(segments / numSegments)
+        
+        for (let seg = 0; seg < numSegments; seg++) {
+          const p0 = getPoint(seg)
+          const p1 = getPoint(seg + 1)
+          const p2 = getPoint(seg + 2)
+          const p3 = getPoint(seg + 3)
+          
+          for (let i = 0; i < stepsPerSegment; i++) {
+            const t = i / stepsPerSegment
+            const t2 = t * t
+            const t3 = t2 * t
+            
+            // X coordinate
+            const v0x = (p2.x - p0.x) * tension
+            const v1x = (p3.x - p1.x) * tension
+            const x = (2 * p1.x - 2 * p2.x + v0x + v1x) * t3 +
+                      (-3 * p1.x + 3 * p2.x - 2 * v0x - v1x) * t2 +
+                      v0x * t + p1.x
+            
+            // Y coordinate
+            const v0y = (p2.y - p0.y) * tension
+            const v1y = (p3.y - p1.y) * tension
+            const y = (2 * p1.y - 2 * p2.y + v0y + v1y) * t3 +
+                      (-3 * p1.y + 3 * p2.y - 2 * v0y - v1y) * t2 +
+                      v0y * t + p1.y
+            
+            // Z coordinate
+            const v0z = (p2.z - p0.z) * tension
+            const v1z = (p3.z - p1.z) * tension
+            const z = (2 * p1.z - 2 * p2.z + v0z + v1z) * t3 +
+                      (-3 * p1.z + 3 * p2.z - 2 * v0z - v1z) * t2 +
+                      v0z * t + p1.z
+            
+            interpolatedPoints.push({ x, y, z })
+          }
+        }
+        
+        // Add final point if not closed
+        if (!closed) {
+          interpolatedPoints.push(points[points.length - 1])
+        }
+        
+        return interpolatedPoints
       },
-      pathStyle: { type: 'curve', segments: 50 },
+      pathStyle: { type: 'curve', segments: 100 },
       positionParameter: 'controlPoints',
       updateFromControlPoints: (controlPoints, params) => {
         return { ...params, controlPoints }

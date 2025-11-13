@@ -456,6 +456,15 @@ function validateParameterType(value: any, definition: ParameterDefinition): str
       }
       break
       
+    case 'rotation':
+      if (typeof value !== 'object' || 
+          typeof value.x !== 'number' || 
+          typeof value.y !== 'number' || 
+          typeof value.z !== 'number') {
+        return 'Must be a rotation object with x, y, z angles'
+      }
+      break
+      
     case 'enum':
       if (definition.options && !definition.options.includes(value)) {
         return `Must be one of: ${definition.options.join(', ')}`

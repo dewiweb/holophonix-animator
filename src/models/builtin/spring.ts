@@ -88,16 +88,36 @@ export function createSpringModel(): AnimationModel {
       generatePath: (controlPoints, params, segments = 50) => {
         if (controlPoints.length < 1) return []
         const rest = controlPoints[0]
-        const amplitude = params.initialDisplacement || 3
+        const displacement = params.initialDisplacement || { x: 5, y: 5, z: 0 }
+        
+        // Calculate magnitude of displacement vector for amplitude
+        const amplitude = Math.sqrt(
+          displacement.x * displacement.x + 
+          displacement.y * displacement.y + 
+          displacement.z * displacement.z
+        )
+        
+        // Handle zero displacement case
+        if (amplitude < 0.001) {
+          return [rest] // No path if no displacement
+        }
+        
+        // Normalize displacement direction
+        const dirX = displacement.x / amplitude
+        const dirY = displacement.y / amplitude
+        const dirZ = displacement.z / amplitude
+        
         const points = []
         
         for (let i = 0; i <= segments; i++) {
           const t = i / segments
-          const displacement = amplitude * Math.cos(t * Math.PI * 4) * Math.exp(-t * 2)
+          // Damped oscillation: amplitude * cos(freq * t) * exp(-damping * t)
+          const oscillation = amplitude * Math.cos(t * Math.PI * 4) * Math.exp(-t * 2)
+          
           points.push({
-            x: rest.x,
-            y: rest.y + displacement,
-            z: rest.z
+            x: rest.x + oscillation * dirX,
+            y: rest.y + oscillation * dirY,
+            z: rest.z + oscillation * dirZ
           })
         }
         return points

@@ -25,6 +25,15 @@ export function createPerlinNoiseModel(): AnimationModel {
     },
     
     parameters: {
+      center: {
+        type: 'position',
+        default: { x: 0, y: 0, z: 0 },
+        label: 'Center',
+        description: 'Center point of noise movement',
+        group: 'Position',
+        order: 1,
+        uiComponent: 'position3d',
+      },
       scale: {
         type: 'number',
         default: 5,
@@ -84,6 +93,18 @@ export function createPerlinNoiseModel(): AnimationModel {
         step: 1,
         uiComponent: 'input',
       },
+      pathSegments: {
+        type: 'number',
+        default: 50,
+        label: 'Path Segments',
+        description: 'Number of points in the path visualization',
+        group: 'Visualization',
+        order: 1,
+        min: 10,
+        max: 200,
+        step: 10,
+        uiComponent: 'slider',
+      },
     },
     
     supportedModes: ['relative', 'barycentric'],
@@ -93,23 +114,64 @@ export function createPerlinNoiseModel(): AnimationModel {
     visualization: {
       controlPoints: [{ parameter: 'center', type: 'center' }],
       generatePath: (controlPoints, params) => {
-        const origin = controlPoints[0] || { x: 0, y: 0, z: 0 }
+        const center = params.center || { x: 0, y: 0, z: 0 }
         const scale = params.scale || 5
-        // Draw cube showing noise space
-        return [
-          { x: origin.x - scale, y: origin.y - scale, z: origin.z - scale },
-          { x: origin.x + scale, y: origin.y - scale, z: origin.z - scale },
-          { x: origin.x + scale, y: origin.y - scale, z: origin.z + scale },
-          { x: origin.x - scale, y: origin.y - scale, z: origin.z + scale },
-          { x: origin.x - scale, y: origin.y - scale, z: origin.z - scale },
-          { x: origin.x - scale, y: origin.y + scale, z: origin.z - scale },
-          { x: origin.x + scale, y: origin.y + scale, z: origin.z - scale },
-          { x: origin.x + scale, y: origin.y + scale, z: origin.z + scale },
-          { x: origin.x - scale, y: origin.y + scale, z: origin.z + scale },
-          { x: origin.x - scale, y: origin.y + scale, z: origin.z - scale }
-        ]
+        const frequency = params.frequency || 1
+        const octaves = params.octaves || 3
+        const persistence = params.persistence || 0.5
+        const seed = params.seed || 0
+        const segments = params.pathSegments || 50
+        const duration = params._animationDuration || 10 // Use actual animation duration
+        
+        console.log('🎨 Perlin generatePath:', {
+          centerX: center.x,
+          centerY: center.y, 
+          centerZ: center.z,
+          duration,
+          frequency,
+          scale,
+          seed,
+          segments
+        })
+        
+        const points: Position[] = []
+        
+        // Sample the noise function over animation duration to match playback
+        for (let i = 0; i <= segments; i++) {
+          const time_sample = (i / segments) * duration
+          const t = time_sample * frequency
+          
+          // Multi-octave noise (same as calculate function)
+          let x = 0, y = 0, z = 0
+          let amplitude = 1
+          let maxAmplitude = 0
+          
+          for (let j = 0; j < octaves; j++) {
+            const freq = Math.pow(2, j)
+            x += noise(t * freq + seed, j, 0) * amplitude
+            y += noise(t * freq + seed, j + 10, 1) * amplitude
+            z += noise(t * freq + seed, j + 20, 2) * amplitude
+            
+            maxAmplitude += amplitude
+            amplitude *= persistence
+          }
+          
+          // Normalize and scale
+          x = (x / maxAmplitude - 0.5) * 2 * scale
+          y = (y / maxAmplitude - 0.5) * 2 * scale
+          z = (z / maxAmplitude - 0.5) * 2 * scale
+          
+          // Add center offset
+          points.push({
+            x: center.x + x,
+            y: center.y + y,
+            z: center.z + z
+          })
+        }
+        
+        return points
       },
-      pathStyle: { type: 'box' },
+      pathStyle: { type: 'curve' },
       positionParameter: 'center',
       updateFromControlPoints: (controlPoints, params) => {
         if (controlPoints.length > 0) {
@@ -131,11 +193,25 @@ export function createPerlinNoiseModel(): AnimationModel {
       duration: number,
       context: CalculationContext
     ): Position {
+      const center = parameters.center || { x: 0, y: 0, z: 0 }
       const scale = parameters.scale || 5
       const frequency = parameters.frequency || 1
       const octaves = parameters.octaves || 3
       const persistence = parameters.persistence || 0.5
       const seed = parameters.seed || 0
+      
+      if (Math.random() < 0.01) { // Log 1% of frames to avoid spam
+        console.log('🎮 Perlin calculate:', {
+          centerX: center.x,
+          centerY: center.y,
+          centerZ: center.z,
+          time,
+          duration,
+          frequency,
+          scale,
+          seed
+        })
+      }
       
       const t = time * frequency
       
@@ -159,18 +235,23 @@ export function createPerlinNoiseModel(): AnimationModel {
       y = (y / maxAmplitude - 0.5) * 2 * scale
       z = (z / maxAmplitude - 0.5) * 2 * scale
       
-      // Apply multi-track mode adjustments
-      
-      return { x, y, z }
+      // Add center offset
+      return { 
+        x: center.x + x, 
+        y: center.y + y, 
+        z: center.z + z 
+      }
     },
     
     getDefaultParameters: function(trackPosition: Position): Record<string, any> {
       return {
+        center: { ...trackPosition },
         scale: 5,
         frequency: 1,
         octaves: 3,
         persistence: 0.5,
         seed: Math.floor(Math.random() * 1000),
+        pathSegments: 50,
       }
     },
   }

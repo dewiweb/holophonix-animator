@@ -1,11 +1,12 @@
-import { AnimationModel, CalculationContext } from '../types'
+import { AnimationModel, CalculationContext, Rotation } from '../types'
 import { Position } from '@/types'
+import { applyRotationToPath } from '@/utils/pathTransforms'
 
 export function createSpiralModel(): AnimationModel {
   return {
     metadata: {
       name: 'Spiral Motion',
-      version: '1.0.0',
+      version: '2.0.0',
       author: 'System',
       description: 'Expanding or contracting spiral animation',
       category: 'basic',
@@ -26,11 +27,13 @@ export function createSpiralModel(): AnimationModel {
         options: ['outward', 'inward'],
         label: 'Direction' 
       },
-      plane: {
-        type: 'enum',
-        default: 'xy',
-        options: ['xy', 'xz', 'yz'],
-        label: 'Rotation Plane',
+      rotation: {
+        type: 'rotation',
+        default: { x: 0, y: 0, z: 0 },
+        label: 'Rotation',
+        description: 'Rotate the spiral path in 3D space',
+        group: 'Orientation',
+        uiComponent: 'rotation3d',
       },
     },
     
@@ -53,7 +56,7 @@ export function createSpiralModel(): AnimationModel {
       const endRadius = params.endRadius ?? 10
       const rotations = params.rotations ?? 3
       const direction = params.direction ?? 'outward'
-      const plane = params.plane ?? 'xy'
+      const rotation = params.rotation || { x: 0, y: 0, z: 0 }
       
       // Calculate current radius based on direction
       let radius: number
@@ -66,26 +69,21 @@ export function createSpiralModel(): AnimationModel {
       // Calculate angle based on rotations
       const angle = progress * rotations * Math.PI * 2
       
-      let x = centerX
-      let y = centerY
-      let z = centerZ
-      
-      switch (plane) {
-        case 'xy':
-          x = centerX + radius * Math.cos(angle)
-          y = centerY + radius * Math.sin(angle)
-          break
-        case 'xz':
-          x = centerX + radius * Math.cos(angle)
-          z = centerZ + radius * Math.sin(angle)
-          break
-        case 'yz':
-          y = centerY + radius * Math.cos(angle)
-          z = centerZ + radius * Math.sin(angle)
-          break
+      // Calculate position in XY plane
+      const basePos: Position = {
+        x: centerX + radius * Math.cos(angle),
+        y: centerY + radius * Math.sin(angle),
+        z: centerZ
       }
       
-      return { x, y, z }
+      // Apply rotation if specified
+      if (rotation.x !== 0 || rotation.y !== 0 || rotation.z !== 0) {
+        const center = { x: centerX, y: centerY, z: centerZ }
+        const rotated = applyRotationToPath([basePos], center, rotation)
+        return rotated[0]
+      }
+      
+      return basePos
     },
     
     getDefaultParameters: function(trackPosition?: Position): Record<string, any> {
@@ -98,7 +96,7 @@ export function createSpiralModel(): AnimationModel {
         endRadius: 10,
         rotations: 3,
         direction: 'outward',
-        plane: 'xy',
+        rotation: { x: 0, y: 0, z: 0 },
       }
     },
     
@@ -108,34 +106,34 @@ export function createSpiralModel(): AnimationModel {
     
     visualization: {
       controlPoints: [
-        { parameter: 'center', type: 'center' }
+        { 
+          parameter: 'center', 
+          type: 'center',
+          enabledModes: ['translate', 'rotate']
+        }
       ],
       generatePath: (controlPoints, params, segments = 100) => {
         if (controlPoints.length < 1) return []
         const center = controlPoints[0]
         const startRadius = params.startRadius || 1
         const endRadius = params.endRadius || 5
-        const turns = params.turns || 3
-        const plane = params.plane || 'xy'
+        const turns = params.rotations || params.turns || 3
+        const direction = params.direction || 'outward'
         const points = []
         
+        // Always generate spiral in XY plane - rotation is applied generically after
         for (let i = 0; i <= segments; i++) {
           const t = i / segments
           const angle = t * turns * Math.PI * 2
-          const r = startRadius + (endRadius - startRadius) * t
-          const point = { x: center.x, y: center.y, z: center.z }
-          
-          if (plane === 'xy') {
-            point.x += Math.cos(angle) * r
-            point.y += Math.sin(angle) * r
-          } else if (plane === 'xz') {
-            point.x += Math.cos(angle) * r
-            point.z += Math.sin(angle) * r
-          } else if (plane === 'yz') {
-            point.y += Math.cos(angle) * r
-            point.z += Math.sin(angle) * r
-          }
-          points.push(point)
+          // Apply direction: outward goes from start to end, inward goes from end to start
+          const r = direction === 'outward'
+            ? startRadius + (endRadius - startRadius) * t
+            : endRadius - (endRadius - startRadius) * t
+          points.push({
+            x: center.x + Math.cos(angle) * r,
+            y: center.y + Math.sin(angle) * r,
+            z: center.z
+          })
         }
         return points
       },
