@@ -4,11 +4,12 @@ import * as THREE from 'three'
 
 /**
  * Apply 3D rotation to a path around a center point
+ * Handles coordinate system conversion between app (Z-up) and Three.js (Y-up)
  * 
- * @param points - Array of points forming the path
- * @param center - Center point for rotation origin
- * @param rotation - Euler angles in degrees {x, y, z}
- * @returns Rotated path points
+ * @param points - Array of points forming the path (app coordinates, Z-up)
+ * @param center - Center point for rotation origin (app coordinates, Z-up)
+ * @param rotation - Euler angles in degrees {x, y, z} (app coordinates, Z-up)
+ * @returns Rotated path points (app coordinates, Z-up)
  */
 export function applyRotationToPath(
   points: Position[],
@@ -20,39 +21,41 @@ export function applyRotationToPath(
     return points
   }
 
-  // Convert degrees to radians
+  // Convert app rotation (Z-up) to Three.js rotation (Y-up)
+  // App: X=pitch, Y=yaw(forward), Z=roll(vertical)
+  // Three.js: X=pitch, Y=yaw(vertical), Z=roll(forward)
   const euler = new THREE.Euler(
-    THREE.MathUtils.degToRad(rotation.x),
-    THREE.MathUtils.degToRad(rotation.y),
-    THREE.MathUtils.degToRad(rotation.z),
+    THREE.MathUtils.degToRad(rotation.x),   // Pitch: same axis
+    THREE.MathUtils.degToRad(rotation.z),   // Three.js Y: App Z (vertical)
+    THREE.MathUtils.degToRad(-rotation.y),  // Three.js Z: App -Y (inverted)
     'XYZ'
   )
 
   // Create rotation matrix
   const rotationMatrix = new THREE.Matrix4().makeRotationFromEuler(euler)
 
-  // Create center vector
-  const centerVec = new THREE.Vector3(center.x, center.y, center.z)
+  // Convert center from app (Z-up) to Three.js (Y-up): (x, y, z) → (x, z, -y)
+  const centerThree = new THREE.Vector3(center.x, center.z, -center.y)
 
   // Transform each point
   return points.map(point => {
+    // Convert point from app (Z-up) to Three.js (Y-up): (x, y, z) → (x, z, -y)
+    const pointThree = new THREE.Vector3(point.x, point.z, -point.y)
+    
     // Translate to origin (relative to center)
-    const vec = new THREE.Vector3(
-      point.x - center.x,
-      point.y - center.y,
-      point.z - center.z
-    )
+    pointThree.sub(centerThree)
 
     // Apply rotation
-    vec.applyMatrix4(rotationMatrix)
+    pointThree.applyMatrix4(rotationMatrix)
 
     // Translate back
-    vec.add(centerVec)
+    pointThree.add(centerThree)
 
+    // Convert back from Three.js (Y-up) to app (Z-up): (x, y, z) → (x, -z, y)
     return {
-      x: vec.x,
-      y: vec.y,
-      z: vec.z
+      x: pointThree.x,
+      y: -pointThree.z,
+      z: pointThree.y
     }
   })
 }
