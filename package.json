@@ -1,6 +1,6 @@
 {
   "name": "holophonix-animator-v2",
-  "version": "2.2.0-beta",
+  "version": "2.2.1-beta",
   "description": "Modern 3D sound animation system for Holophonix processors",
   "type": "module",
   "main": "main.cjs",
