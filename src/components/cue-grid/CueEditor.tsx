@@ -34,11 +34,9 @@ export const CueEditor: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
   const [selectedPresetId, setSelectedPresetId] = useState<string>('')
   const [selectedAnimationId, setSelectedAnimationId] = useState<string>('')
   const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([])
-  const [triggerType, setTriggerType] = useState<'manual' | 'hotkey' | 'osc' | 'midi'>('manual')
+  const [triggerType, setTriggerType] = useState<'manual' | 'hotkey' | 'osc'>('manual')
   const [hotkey, setHotkey] = useState<string>('')
   const [oscAddress, setOscAddress] = useState<string>('')
-  const [midiNote, setMidiNote] = useState<number>(60)
-  const [midiChannel, setMidiChannel] = useState<number>(1)
 
   useEffect(() => {
     if (cueId) {
@@ -65,8 +63,6 @@ export const CueEditor: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
           setTriggerType(trigger.type as any)
           setHotkey(trigger.hotkey || '')
           setOscAddress(trigger.oscAddress || '')
-          setMidiNote(trigger.midiNote || 60)
-          setMidiChannel(trigger.midiChannel || 1)
         }
       }
     }
@@ -81,8 +77,7 @@ export const CueEditor: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
       type: triggerType,
       enabled: true,
       ...(triggerType === 'hotkey' && { hotkey }),
-      ...(triggerType === 'osc' && { oscAddress }),
-      ...(triggerType === 'midi' && { midiNote, midiChannel })
+      ...(triggerType === 'osc' && { oscAddress })
     }
     
     // Build parameters based on source type
@@ -434,17 +429,6 @@ export const CueEditor: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                     <Radio className="w-4 h-4" />
                     OSC
                   </button>
-                  <button
-                    onClick={() => setTriggerType('midi')}
-                    className={`px-3 py-2 rounded-md flex items-center justify-center gap-2 transition-colors ${
-                      triggerType === 'midi'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    <Music className="w-4 h-4" />
-                    MIDI
-                  </button>
                 </div>
               </div>
               
@@ -476,37 +460,6 @@ export const CueEditor: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                     placeholder="/cue/trigger/1"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
-                </div>
-              )}
-              
-              {triggerType === 'midi' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      MIDI Note
-                    </label>
-                    <input
-                      type="number"
-                      value={midiNote}
-                      onChange={(e) => setMidiNote(parseInt(e.target.value))}
-                      min="0"
-                      max="127"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      MIDI Channel
-                    </label>
-                    <input
-                      type="number"
-                      value={midiChannel}
-                      onChange={(e) => setMidiChannel(parseInt(e.target.value))}
-                      min="1"
-                      max="16"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
                 </div>
               )}
             </div>

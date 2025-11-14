@@ -97,7 +97,6 @@ const defaultSettings: CueSystemSettings = {
   showStatus: true,
   compactMode: false,
   enableOSC: true,
-  enableMIDI: true,
   enableDMX: false,
   enableTimecode: false,
   preloadCues: true,
@@ -667,24 +666,8 @@ export const useCueStore = create<CueStore>()(
         },
         
         handleMidiTrigger: (note: number, velocity: number, channel: number) => {
-          const show = get().currentShow
-          if (!show) return
-          
-          // Find all cues with MIDI triggers matching this note/channel
-          for (const list of show.cueLists) {
-            for (const cue of list.cues) {
-              const midiTrigger = cue.triggers.find(t => 
-                t.type === 'midi' && 
-                t.enabled && 
-                t.midiNote === note &&
-                t.midiChannel === channel
-              )
-              
-              if (midiTrigger) {
-                get().triggerCue(cue.id, velocity / 127) // Normalize MIDI velocity
-              }
-            }
-          }
+          // MIDI support removed - method kept for backward compatibility
+          console.warn('MIDI triggers are no longer supported')
         },
         
         // Utilities
