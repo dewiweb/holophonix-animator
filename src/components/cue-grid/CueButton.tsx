@@ -87,17 +87,27 @@ export const CueButton: React.FC<CueButtonProps> = ({
         const durationMs = (animation.duration || 5) * 1000
         const startTime = Date.now()
         
-        console.log('⏱️ Starting local progress simulation, duration (seconds):', animation.duration, 'ms:', durationMs)
+        // Check if animation should loop (cue override or animation setting)
+        const shouldLoop = cueData?.loop !== undefined ? cueData.loop : animation.loop
+        
+        console.log('⏱️ Starting local progress simulation, duration (seconds):', animation.duration, 'ms:', durationMs, 'loop:', shouldLoop)
         
         const interval = setInterval(() => {
           const elapsed = Date.now() - startTime
-          const progress = Math.min((elapsed / durationMs) * 100, 100)
-          setLocalProgress(progress)
           
-          if (progress >= 100) {
-            clearInterval(interval)
-            // Animation finished - we should notify parent but can't from here
-            console.log('✅ Animation progress complete (100%)')
+          if (shouldLoop) {
+            // For looped animations, use modulo to keep cycling 0-100%
+            const progress = ((elapsed % durationMs) / durationMs) * 100
+            setLocalProgress(progress)
+          } else {
+            // For non-looped, stop at 100%
+            const progress = Math.min((elapsed / durationMs) * 100, 100)
+            setLocalProgress(progress)
+            
+            if (progress >= 100) {
+              clearInterval(interval)
+              console.log('✅ Animation progress complete (100%)')
+            }
           }
         }, 100)
         
