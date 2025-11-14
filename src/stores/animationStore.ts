@@ -705,11 +705,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
 
     let lastTimestamp = Date.now()
     let animationFrameId: number | null = null
-    let oscIntervalId: number | null = null
+    let oscWorker: Worker | null = null
 
-    // CRITICAL FIX: Separate OSC update loop from rendering
-    // This prevents 3D rendering from blocking OSC message sending
-    // Use setInterval for guaranteed consistent rate independent of rendering
+    // CRITICAL: Use Web Worker for OSC timing
+    // Web Workers are NOT throttled by browser when window is minimized
+    // This ensures consistent OSC message rate regardless of visibility
     const TARGET_OSC_FPS = 30 // 30 updates per second for smooth OSC
     const OSC_INTERVAL = 1000 / TARGET_OSC_FPS
     
@@ -780,8 +780,35 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       oscBatchManager.flushBatch()
     }
 
-    // Start OSC update loop with setInterval (not affected by rendering)
-    oscIntervalId = window.setInterval(updateOSC, OSC_INTERVAL)
+    // Start OSC update loop with Web Worker
+    // Workers run in separate thread and are NOT throttled when window minimized
+    try {
+      oscWorker = new Worker(new URL('../workers/oscTimer.worker.ts', import.meta.url), {
+        type: 'module'
+      })
+      
+      oscWorker.onmessage = (e: MessageEvent) => {
+        if (e.data.type === 'tick') {
+          updateOSC()
+        }
+      }
+      
+      oscWorker.onerror = (error) => {
+        console.error('❌ [OSC Worker] Error:', error)
+        // Fallback to setInterval if worker fails
+        console.log('⚠️ [OSC Worker] Falling back to setInterval')
+        ;(get() as any)._oscIntervalId = window.setInterval(updateOSC, OSC_INTERVAL)
+      }
+      
+      // Start the worker timer
+      oscWorker.postMessage({ type: 'start', interval: OSC_INTERVAL })
+      console.log('✅ [OSC Worker] Started with', TARGET_OSC_FPS, 'fps')
+    } catch (error) {
+      console.error('❌ [OSC Worker] Failed to create worker:', error)
+      // Fallback to setInterval
+      console.log('⚠️ Falling back to setInterval for OSC timing')
+      ;(get() as any)._oscIntervalId = window.setInterval(updateOSC, OSC_INTERVAL)
+    }
 
     const animate = () => {
       const state = get()
@@ -887,9 +914,9 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     // Start animation loop
     animate()
 
-    // Store cleanup functions
+    // Store cleanup references
     ;(get() as any)._animationFrameId = animationFrameId
-    ;(get() as any)._oscIntervalId = oscIntervalId
+    ;(get() as any)._oscWorker = oscWorker
   },
 
   stopEngine: () => {
@@ -904,7 +931,15 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       ;(state as any)._animationFrameId = null
     }
 
-    // Cancel OSC interval timer
+    // Stop and terminate OSC worker
+    if ((state as any)._oscWorker) {
+      const worker = (state as any)._oscWorker as Worker
+      worker.postMessage({ type: 'stop' })
+      worker.terminate()
+      ;(state as any)._oscWorker = null
+    }
+    
+    // Cancel OSC interval timer (fallback)
     if ((state as any)._oscIntervalId) {
       window.clearInterval((state as any)._oscIntervalId)
       ;(state as any)._oscIntervalId = null
