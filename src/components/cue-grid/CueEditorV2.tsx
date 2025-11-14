@@ -150,6 +150,15 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
     : null
   const isAnimationLocked = selectedAnimation?.trackSelectionLocked || false
   
+  // Filter available tracks based on animation
+  // For unlocked animations, only show tracks that the animation supports/was created with
+  const availableTracks = selectedAnimation && !isAnimationLocked && selectedAnimation.trackIds
+    ? tracks.filter(track => selectedAnimation.trackIds?.includes(track.id))
+    : tracks  // Show all tracks if no animation selected or if animation has no specific tracks
+  
+  // Show info about track filtering
+  const isTrackListFiltered = availableTracks.length < tracks.length
+  
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -292,24 +301,39 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                         <Unlock className="w-4 h-4 inline mr-1" />
                         Target Tracks (optional)
                       </label>
-                      <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded">
-                        {tracks.map(track => (
-                          <label key={track.id} className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedTrackIds.includes(track.id)}
-                              onChange={() => handleTrackToggle(track.id)}
-                              className="rounded"
-                            />
-                            <span className="text-sm text-gray-700 dark:text-gray-300">
-                              {track.name}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Leave empty to use currently selected tracks when triggered
-                      </p>
+                      
+                      {isTrackListFiltered && (
+                        <div className="mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-700 dark:text-amber-300">
+                          ℹ️ Showing only tracks compatible with this animation ({availableTracks.length} of {tracks.length} tracks)
+                        </div>
+                      )}
+                      
+                      {availableTracks.length > 0 ? (
+                        <>
+                          <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded">
+                            {availableTracks.map(track => (
+                              <label key={track.id} className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedTrackIds.includes(track.id)}
+                                  onChange={() => handleTrackToggle(track.id)}
+                                  className="rounded"
+                                />
+                                <span className="text-sm text-gray-700 dark:text-gray-300">
+                                  {track.name}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Leave empty to use currently selected tracks when triggered
+                          </p>
+                        </>
+                      ) : (
+                        <div className="p-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-600 dark:text-gray-400">
+                          No compatible tracks available. This animation may need to be created with specific tracks first.
+                        </div>
+                      )}
                     </div>
                   )
                 )}
