@@ -56,12 +56,6 @@ export const handleSaveAnimation = ({
     ? selectedTrackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[]
     : []
   
-  console.log('💾 Save Animation clicked', { 
-    hasName: !!animationForm.name, 
-    selectedCount: selectedTracksToApply.length,
-    multiTrackMode 
-  })
-  
   if (!animationForm.name || selectedTracksToApply.length === 0) {
     console.warn('⚠️ Cannot save: missing name or no tracks selected')
     alert('Please enter an animation name and select at least one track')
@@ -120,17 +114,6 @@ export const handleSaveAnimation = ({
     trackSelectionLocked: lockTracks || false,
   }
 
-  console.log('💾 Saving animation (v3):', {
-    name: animation.name,
-    type: animation.type,
-    parameters: animation.parameters,
-    parameterKeys: Object.keys(animation.parameters || {}),
-    hasKeyframes: !!animation.keyframes,
-    trackIds: animation.trackIds,
-    trackCount: animation.trackIds?.length || 0,
-    locked: animation.trackSelectionLocked
-  })
-
   // Check if we should update existing or create new
   // If name changed, always create new animation (user's intent to save as new)
   const shouldCreateNew = !currentAnimation || 
@@ -140,24 +123,13 @@ export const handleSaveAnimation = ({
     // Name changed - create new animation with new ID
     const newAnimation = { ...animation, id: `anim-${Date.now()}-${Math.random().toString(36).substring(2, 9)}` }
     addAnimation(newAnimation)
-    console.log('✅ Added new animation (name changed from "' + currentAnimation.name + '" to "' + animation.name + '")')
   } else if (currentAnimation && currentAnimation.id) {
     // Same name or updating existing - update it
     updateAnimation(animation.id, animation)
-    console.log('✅ Updated existing animation:', animation.name)
   } else {
     // No current animation - create new
     addAnimation(animation)
-    console.log('✅ Added new animation:', animation.name)
   }
-  
-  // V3: Apply animation to tracks
-  // CRITICAL: In relative mode, each track needs its OWN animation with per-track parameters
-  console.log('📦 Applying animation to tracks:', {
-    mode: multiTrackMode,
-    hasMultiTrackParams: !!multiTrackParameters,
-    trackCount: selectedTracksToApply.length
-  })
   
   selectedTracksToApply.forEach((track) => {
     let trackAnimation = animation
@@ -170,13 +142,6 @@ export const handleSaveAnimation = ({
         parameters: perTrackParams,  // Use per-track parameters (different control points, etc.)
         id: `${animation.id}-track-${track.id}`,  // Unique ID per track
       }
-      console.log(`  📍 Track ${track.name || track.id}: Creating per-track animation`, {
-        trackId: track.id,
-        perTrackParams,
-        baseParams: animation.parameters
-      })
-    } else {
-      console.log(`  📍 Track ${track.name || track.id}: Using shared animation`)
     }
     
     const animationStateUpdate = {
@@ -186,16 +151,8 @@ export const handleSaveAnimation = ({
       currentTime: 0
     }
     
-    console.log(`  💾 Updating track ${track.id} with animationState:`, {
-      animationId: trackAnimation.id,
-      hasParameters: !!trackAnimation.parameters,
-      paramKeys: trackAnimation.parameters ? Object.keys(trackAnimation.parameters) : []
-    })
-    
     updateTrack(track.id, {
       animationState: animationStateUpdate
     })
   })
-
-  console.log(`✅ Applied animation to ${selectedTracksToApply.length} tracks (v3 transform)`)
 }

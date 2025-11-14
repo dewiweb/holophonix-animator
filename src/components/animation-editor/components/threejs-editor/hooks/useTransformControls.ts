@@ -72,11 +72,20 @@ export const useTransformControls = ({
 
     // Event listeners using refs
     controls.addEventListener('dragging-changed', (event: any) => {
+      const obj = (controls as any).object
+      
       if (event.value) {
+        // Dragging started - set flag to prevent external position updates
+        if (obj && obj.userData) {
+          obj.userData.isBeingTransformed = true
+        }
         onTransformStartRef.current?.()
       } else {
-        const obj = (controls as any).object
+        // Dragging ended - clear flag
         if (obj) {
+          if (obj.userData) {
+            obj.userData.isBeingTransformed = false
+          }
           onTransformEndRef.current?.(
             obj.position.clone(),
             obj.rotation.clone()

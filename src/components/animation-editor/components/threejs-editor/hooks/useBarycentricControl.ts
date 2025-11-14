@@ -138,22 +138,20 @@ export const useBarycentricControl = ({
 
       scene.add(group)
       centerMarkerRef.current = group
-    }
-
-    // Update position (but NOT during drag to prevent reset)
-    if (!isDragging) {
-      // Use animated position if available (during preview/playback), otherwise use static center
+      
+      // Set initial position immediately after creation
       const positionToUse = animatedBarycentricPosition || center
       const threePos = appToThreePosition(positionToUse)
       centerMarkerRef.current.position.copy(threePos)
-      
-      if (animatedBarycentricPosition) {
-        console.log('🎯 Updated barycentric center to ANIMATED position:', animatedBarycentricPosition)
-      } else {
-        console.log('🎯 Updated barycentric center to STATIC position:', center)
-      }
-    } else {
-      console.log('⏸️ Skipping barycentric center position update (dragging in progress)')
+    }
+
+    // Update position - ALWAYS update to ensure marker stays in correct position
+    // Only skip if marker itself is being dragged by TransformControls
+    const positionToUse = animatedBarycentricPosition || center
+    const threePos = appToThreePosition(positionToUse)
+    
+    if (centerMarkerRef.current && !centerMarkerRef.current.userData.isBeingTransformed) {
+      centerMarkerRef.current.position.copy(threePos)
     }
 
     // Update color based on editability
@@ -175,12 +173,9 @@ export const useBarycentricControl = ({
     }
   }, [scene, getCenterPosition, isEditable, barycentricVariant, isDragging, animatedBarycentricPosition])
 
-  // NOTE: Mouse event handlers removed - barycentric center now uses TransformControls
-  // like control points for consistent interaction
-
   return {
     centerPosition: getCenterPosition(),
     isEditable,
-    centerMarker: centerMarkerRef.current, // Expose marker for TransformControls attachment
+    centerMarker: centerMarkerRef.current,
   }
 }

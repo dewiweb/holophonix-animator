@@ -126,15 +126,18 @@ export function applyTransform(
   }
   
   if (mode === 'formation') {
-    // Formation mode: apply offset (with rotation if rigid pattern)
+    // Formation mode: apply formation anchor + base position + offset
+    // CRITICAL: basePosition is the animation path (centered at 0,0,0)
+    // We must ADD the formation anchor to get world position
     const pattern = formation?.pattern || 'rigid'
+    const anchor = formation?.anchor || { x: 0, y: 0, z: 0 }
     
     if (pattern === 'spherical') {
       // Spherical: offset doesn't rotate (tracks maintain sphere)
       return {
-        x: basePosition.x + offset.x,
-        y: basePosition.y + offset.y,
-        z: basePosition.z + offset.z,
+        x: anchor.x + basePosition.x + offset.x,
+        y: anchor.y + basePosition.y + offset.y,
+        z: anchor.z + basePosition.z + offset.z,
       }
     }
     
@@ -149,9 +152,9 @@ export function applyTransform(
       )
       
       return {
-        x: basePosition.x + rotatedOffset.x,
-        y: basePosition.y + rotatedOffset.y,
-        z: basePosition.z + rotatedOffset.z,
+        x: anchor.x + basePosition.x + rotatedOffset.x,
+        y: anchor.y + basePosition.y + rotatedOffset.y,
+        z: anchor.z + basePosition.z + rotatedOffset.z,
       }
     }
   }

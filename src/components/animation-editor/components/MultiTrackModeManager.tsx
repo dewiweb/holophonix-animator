@@ -66,13 +66,9 @@ export const MultiTrackModeManager: React.FC<MultiTrackModeManagerProps> = ({
           z: trackInitialPositions.reduce((sum, t) => sum + t.z, 0) / trackInitialPositions.length,
         }
         enhancedParams._isobarycenter = center
-        
-        console.log('📍 Auto-calculated barycenter:', center)
       } else if (customCenter) {
         // User-defined center (shared, centered, custom variants)
         enhancedParams._customCenter = customCenter
-        
-        console.log('📍 Using custom center:', customCenter)
       }
     }
     

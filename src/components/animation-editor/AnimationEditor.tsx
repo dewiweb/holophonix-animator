@@ -527,6 +527,19 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
           formStartPosition: animationForm.parameters?.startPosition
         })
       }
+    } else if (multiTrackMode === 'barycentric' && selectedTrackIds.length > 0) {
+      // Barycentric mode: parameters should be relative to origin (0,0,0)
+      // The barycenter offset will be added in the visualization layer
+      const originPosition = { x: 0, y: 0, z: 0 }
+      const virtualTrack = { position: originPosition, initialPosition: originPosition } as Track
+      const defaultParams = getDefaultAnimationParameters(type, virtualTrack)
+      
+      console.log('🎯 Barycentric mode: using origin-centered parameters', defaultParams)
+      
+      // In barycentric mode, all tracks share the same animation parameters
+      // Parameters will be offset by barycenter in visualization layer
+      setAnimationType(type, selectedTrack)
+      updateParameters(defaultParams)
     } else {
       console.log('🔄 Using single-track update')
       // Single track mode - use simple update
@@ -888,9 +901,9 @@ const unifiedPane = (
           
           if (enhancedAnimation && multiTrackMode === 'barycentric' && globalIsPlaying && globalTime !== undefined) {
             // Calculate barycenter's position along the animation path at current time
-            // The model calculates the path for the barycenter, not individual tracks
+            // CRITICAL: The path position is relative to origin (0,0,0), so we must ADD the static barycenter offset
             try {
-              animatedBarycentricPosition = modelRuntime.calculatePosition(
+              const pathPosition = modelRuntime.calculatePosition(
                 enhancedAnimation,
                 globalTime,
                 0,
@@ -902,7 +915,18 @@ const unifiedPane = (
                   frameCount: 0,
                 }
               )
-              console.log('🎬 Animated barycenter at time', globalTime.toFixed(2), ':', animatedBarycentricPosition)
+              
+              // Get the static barycenter offset from enhanced parameters
+              const staticBarycenter = enhancedAnimation.parameters._isobarycenter || 
+                                      enhancedAnimation.parameters._customCenter ||
+                                      { x: 0, y: 0, z: 0 }
+              
+              // Add static offset to animated position
+              animatedBarycentricPosition = {
+                x: pathPosition.x + staticBarycenter.x,
+                y: pathPosition.y + staticBarycenter.y,
+                z: pathPosition.z + staticBarycenter.z
+              }
             } catch (error) {
               console.error('Error calculating animated barycenter position:', error)
             }

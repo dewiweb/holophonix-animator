@@ -427,15 +427,22 @@ export const useProjectStore = create<ProjectState>()(
         ? { ...animationData } as Animation
         : { ...animationData, id: generateId() }
 
-      console.log('Store addAnimation - Received:', animationData)
-      console.log('Store addAnimation - Adding with ID:', newAnimation.id)
-
       set(state => {
-        const newState = {
+        // Check if animation with this ID already exists
+        const existingIndex = state.animations.findIndex(a => a.id === newAnimation.id)
+        
+        if (existingIndex !== -1) {
+          // ID exists - update instead of adding duplicate
+          console.warn('⚠️ Animation with ID already exists, updating instead:', newAnimation.id)
+          const updatedAnimations = [...state.animations]
+          updatedAnimations[existingIndex] = newAnimation
+          return { animations: updatedAnimations }
+        }
+        
+        // ID doesn't exist - add new animation
+        return {
           animations: [...state.animations, newAnimation],
         }
-        console.log('Store addAnimation - New state has', newState.animations.length, 'animations')
-        return newState
       })
     },
 

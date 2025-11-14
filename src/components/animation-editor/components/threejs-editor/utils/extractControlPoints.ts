@@ -23,14 +23,6 @@ export function extractControlPointsFromAnimation(animation: Animation | null): 
   const points: THREE.Vector3[] = []
   const params = animation.parameters as any
   
-  console.log('🔍 extractControlPoints - params:', {
-    type: animation.type,
-    hasIsobarycenter: !!params._isobarycenter,
-    isobarycenter: params._isobarycenter,
-    hasTrackOffset: !!params._trackOffset,
-    trackOffset: params._trackOffset
-  })
-  
   const model = modelRegistry.getModel(animation.type)
   if (model?.visualization?.controlPoints) {
     for (const cpConfig of model.visualization.controlPoints) {
@@ -74,19 +66,7 @@ export function extractControlPointsFromAnimation(animation: Animation | null): 
             y: position.y + barycenterOffset.y,
             z: position.z + barycenterOffset.z
           }
-          console.log('🎯 Applied barycenter offset:', {
-            parameter: cpConfig.parameter,
-            originalPosition,
-            barycenter: barycenterOffset,
-            type: params._isobarycenter ? 'auto' : 'custom',
-            finalPosition: position
-          })
         } else if (params._trackOffset) {
-          console.warn('⚠️ _trackOffset should not be present in editor! This is for playback only:', {
-            parameter: cpConfig.parameter,
-            trackOffset: params._trackOffset,
-            originalPosition
-          })
           position = {
             x: position.x + params._trackOffset.x,
             y: position.y + params._trackOffset.y,
@@ -125,7 +105,6 @@ export const controlPointsToParameters = (
   const barycenterOffset = originalParams._isobarycenter || originalParams._customCenter
   
   if (barycenterOffset) {
-    console.log('🔄 Subtracting barycentric offset from control points:', barycenterOffset)
     appPoints = appPoints.map(point => ({
       x: point.x - barycenterOffset.x,
       y: point.y - barycenterOffset.y,
@@ -139,7 +118,5 @@ export const controlPointsToParameters = (
     return model.visualization.updateFromControlPoints(appPoints, originalParams)
   }
   
-  // No updateFromControlPoints method
-  console.warn(`No updateFromControlPoints for ${animationType}`)
   return originalParams
 }
