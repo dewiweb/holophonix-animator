@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useCueStoreV2 } from '@/cues/storeV2'
 import { Cue, CueBank, CueSlot } from '@/cues/types'
-import { CueEditor } from './CueEditor'
+import { CueEditorV2 as CueEditor } from './CueEditorV2'
 import { 
   Play, 
   Square, 
