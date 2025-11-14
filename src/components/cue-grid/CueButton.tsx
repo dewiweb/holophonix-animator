@@ -183,13 +183,6 @@ export const CueButton: React.FC<CueButtonProps> = ({
               </div>
             )}
             
-            {/* Cue Number Badge */}
-            {cue.number && (
-              <div className="px-1.5 py-0.5 bg-black/30 text-white text-xs font-bold rounded flex-shrink-0">
-                Q{cue.number}
-              </div>
-            )}
-            
             {/* Cue Name (grows to fill space) */}
             <span className="text-xs text-white font-semibold text-left line-clamp-1 flex-1 min-w-0">
               {cue.name}
@@ -253,6 +246,13 @@ export const CueButton: React.FC<CueButtonProps> = ({
               </div>
             )}
           </div>
+          
+          {/* Cue Number - Bottom Right Corner */}
+          {cue.number && (
+            <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/60 text-white rounded" style={{ fontSize: '8px' }}>
+              Q{cue.number}
+            </div>
+          )}
           
           {/* Disabled Indicator */}
           {cue.isEnabled === false && (
