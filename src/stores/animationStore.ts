@@ -189,7 +189,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
         const basePositionAtStart = modelRuntime.calculatePosition(animation, 0, 0, context)
         
         // Apply transform to get final start position (handles multi-track offsets, etc.)
-        const animationStartPos = applyTransform(basePositionAtStart, trackId, animation, 0)
+        const animationStartPos = applyTransform(basePositionAtStart, trackId, animation, 0, trackIds)
         
         // Check if current position differs from animation start
         const posChanged = 
@@ -766,7 +766,7 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           
           // Calculate position for OSC
           const basePosition = modelRuntime.calculatePosition(animation, trackTime, 0, context)
-          const position = applyTransform(basePosition, trackId, animation, trackTime)
+          const position = applyTransform(basePosition, trackId, animation, trackTime, playingAnimation.trackIds)
 
           // Send OSC message
           if (track.holophonixIndex !== undefined && track.holophonixIndex !== null) {
@@ -862,7 +862,8 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           const basePosition = modelRuntime.calculatePosition(animation, trackTime, 0, context)
           
           // 4. Apply transform (SINGLE unified application point)
-          const position = applyTransform(basePosition, trackId, animation, trackTime)
+          // Pass activeTrackIds for runtime filtering (LTP track subset support)
+          const position = applyTransform(basePosition, trackId, animation, trackTime, playingAnimation.trackIds)
 
           // Update track position for UI/3D rendering
           projectStore.updateTrack(trackId, { position })

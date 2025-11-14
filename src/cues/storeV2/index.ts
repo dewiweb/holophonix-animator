@@ -369,28 +369,100 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             return
           }
           
+          // FORMATION/CENTERED MODE VALIDATION
+          // Check if this is a formation/centered animation being played on a track subset
+          if (animation.transform?.mode === 'formation') {
+            const savedTracks = Object.keys(animation.transform.tracks)
+            const validTracks = trackIds.filter(id => savedTracks.includes(id))
+            const missingTracks = savedTracks.filter(id => !trackIds.includes(id))
+            
+            if (validTracks.length !== savedTracks.length) {
+              console.warn('⚠️ Formation animation track mismatch:', {
+                animationName: animation.name,
+                savedTracks,
+                requestedTracks: trackIds,
+                validTracks,
+                missingTracks
+              })
+              
+              // Formation animations are "all-or-nothing"
+              // Playing on subset would break formation geometry
+              if (validTracks.length === 0) {
+                console.error('❌ Cannot play formation animation: no valid tracks')
+                return
+              }
+              
+              // Warn but allow playback on valid subset
+              // Note: Formation anchor will be recalculated at runtime
+              console.log(`📐 Formation will be recalculated for ${validTracks.length}/${savedTracks.length} tracks`)
+              trackIds = validTracks
+            }
+          }
+          
           // Handle priority mode (LTP by default)
           const priorityMode = context.priorityMode || 'ltp'
           
           if (priorityMode === 'ltp') {
-            // Last Takes Precedence: Stop conflicting cues on same tracks
-            const conflictingCues = Array.from(context.activeCues.entries())
-              .filter(([activeCueId, execution]) => {
-                if (activeCueId === cueId) return false
-                
-                // Check if this cue owns any of our target tracks
-                const hasConflict = trackIds.some(trackId => 
-                  context.trackOwnership.get(trackId) === activeCueId
-                )
-                
-                return hasConflict
-              })
+            // Last Takes Precedence: Release only conflicting tracks
+            // Per-track LTP: Only stop tracks that overlap, not entire cues
             
-            if (conflictingCues.length > 0) {
-              console.log('⚡ LTP: Stopping conflicting cues:', conflictingCues.map(([id]) => id))
+            const conflictingTracks = trackIds.filter(trackId => {
+              const owner = context.trackOwnership.get(trackId)
+              return owner && owner !== cueId
+            })
+            
+            if (conflictingTracks.length > 0) {
+              console.log('⚡ LTP: Releasing conflicting tracks:', conflictingTracks)
               
-              for (const [conflictingCueId] of conflictingCues) {
-                await get().stopCue(conflictingCueId)
+              // Group conflicting tracks by owning cue
+              const cueToTracks = new Map<string, string[]>()
+              conflictingTracks.forEach(trackId => {
+                const ownerCueId = context.trackOwnership.get(trackId)
+                if (ownerCueId) {
+                  if (!cueToTracks.has(ownerCueId)) {
+                    cueToTracks.set(ownerCueId, [])
+                  }
+                  cueToTracks.get(ownerCueId)!.push(trackId)
+                }
+              })
+              
+              // For each conflicting cue, remove only the conflicting tracks
+              for (const [conflictingCueId, conflictingTrackIds] of cueToTracks.entries()) {
+                const execution = context.activeCues.get(conflictingCueId)
+                
+                if (execution && execution.activeTargets) {
+                  // Remove conflicting tracks from this cue's active targets
+                  const remainingTracks = execution.activeTargets.filter(
+                    (t: string) => !conflictingTrackIds.includes(t)
+                  )
+                  
+                  console.log(`  → Cue ${conflictingCueId}: Releasing tracks [${conflictingTrackIds.join(', ')}], keeping [${remainingTracks.join(', ')}]`)
+                  
+                  if (remainingTracks.length === 0) {
+                    // No tracks left, stop the entire cue
+                    console.log(`  → Cue ${conflictingCueId}: No tracks remaining, stopping completely`)
+                    await get().stopCue(conflictingCueId)
+                  } else {
+                    // Update execution to only include remaining tracks
+                    execution.activeTargets = remainingTracks
+                    
+                    // Stop animation only on conflicting tracks
+                    const animationId = context.cuePlaybacks.get(conflictingCueId)
+                    if (animationId) {
+                      const { useAnimationStore } = await import('@/stores/animationStore')
+                      const animationStore = useAnimationStore.getState()
+                      
+                      // Stop animation on conflicting tracks only
+                      conflictingTrackIds.forEach(trackId => {
+                        // Release track ownership
+                        context.trackOwnership.delete(trackId)
+                      })
+                      
+                      // Note: animationStore doesn't support per-track stop currently,
+                      // but ownership is released so new cue can take over
+                    }
+                  }
+                }
               }
             }
           }

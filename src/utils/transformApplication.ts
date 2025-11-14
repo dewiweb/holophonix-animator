@@ -64,16 +64,25 @@ function rotateOffset(
  * @param trackId - ID of the track being transformed
  * @param animation - Animation with optional transform metadata
  * @param time - Current animation time
+ * @param activeTrackIds - Optional: tracks currently active in this playback (for LTP subset filtering)
  * @returns Transformed position for this track
  */
 export function applyTransform(
   basePosition: Position,
   trackId: string,
   animation: Animation,
-  time: number
+  time: number,
+  activeTrackIds?: string[]
 ): Position {
   // No transform = absolute mode (single track, no transformation)
   if (!animation.transform) {
+    return basePosition
+  }
+  
+  // Runtime filtering: If activeTrackIds provided, check if this track is active
+  if (activeTrackIds && !activeTrackIds.includes(trackId)) {
+    // Track not in active set for this playback = no transformation
+    console.warn(`⚠️ Track ${trackId} not in active set, skipping transform`)
     return basePosition
   }
   

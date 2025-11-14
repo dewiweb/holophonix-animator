@@ -394,6 +394,29 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                       
                       {availableTracks.length > 0 ? (
                         <>
+                          {/* Formation animation warning */}
+                          {selectedAnimation?.transform?.mode === 'formation' && (
+                            <div className="mb-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md">
+                              <div className="flex items-start gap-2">
+                                <svg className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <div>
+                                  <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                                    Formation Animation
+                                  </p>
+                                  <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">
+                                    This animation was saved with {Object.keys(selectedAnimation.transform.tracks).length} tracks in a formation. 
+                                    Playing on a different number of tracks may break the formation geometry.
+                                  </p>
+                                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 font-medium">
+                                    💡 For best results with LTP priority mode, select all {Object.keys(selectedAnimation.transform.tracks).length} tracks or lock this animation.
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded">
                             {availableTracks.map(track => (
                               <label key={track.id} className="flex items-center gap-2 cursor-pointer">
