@@ -41,15 +41,24 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
   const [cueDescription, setCueDescription] = useState('')
   const [cueNumber, setCueNumber] = useState<number | undefined>(undefined)
   const [cueColor, setCueColor] = useState('#4F46E5')
+  const [cueType, setCueType] = useState<'animation' | 'osc' | 'reset'>('animation')
   
   // Animation cue specific
   const [selectedAnimationId, setSelectedAnimationId] = useState('')
   const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([])
   
+  // OSC cue specific
+  const [oscMessages, setOscMessages] = useState<Array<{address: string, args: any[]}>>([{address: '/cue/trigger', args: []}])
+  
+  // Reset cue specific
+  const [resetTrackIds, setResetTrackIds] = useState<string[]>([])
+  const [resetType, setResetType] = useState<'initial' | 'home' | 'custom'>('initial')
+  const [resetDuration, setResetDuration] = useState(1.0)
+  
   // Triggers
   const [triggerType, setTriggerType] = useState<'manual' | 'hotkey' | 'osc'>('manual')
   const [hotkey, setHotkey] = useState('')
-  const [oscAddress, setOscAddress] = useState('')
+  const [oscTriggerAddress, setOscTriggerAddress] = useState('')
 
   useEffect(() => {
     if (cueId) {
@@ -73,8 +82,11 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
         if (trigger) {
           setTriggerType(trigger.type as any)
           setHotkey(trigger.hotkey || '')
-          setOscAddress(trigger.oscAddress || '')
+          setOscTriggerAddress(trigger.oscAddress || '')
         }
+        
+        // Load cue type
+        setCueType((foundCue as any).type || (foundCue as any).category || 'animation')
       }
     }
   }, [cueId, getCueById])
@@ -88,7 +100,7 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
       type: triggerType,
       enabled: true,
       ...(triggerType === 'hotkey' && { hotkey }),
-      ...(triggerType === 'osc' && { oscAddress })
+      ...(triggerType === 'osc' && { oscAddress: oscTriggerAddress })
     }
     
     // Build updated cue (animation cue only for now)
@@ -404,12 +416,12 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
               {triggerType === 'osc' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    OSC Address
+                    OSC Trigger Address
                   </label>
                   <input
                     type="text"
-                    value={oscAddress}
-                    onChange={(e) => setOscAddress(e.target.value)}
+                    value={oscTriggerAddress}
+                    onChange={(e) => setOscTriggerAddress(e.target.value)}
                     placeholder="/cue/trigger/1"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
