@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useCueStore } from '@/cues/store'
+import { useCueStoreV2 } from '@/cues/storeV2'
 import { Cue, CueBank, CueSlot } from '@/cues/types'
 import { CueEditor } from './CueEditor'
 import { 
@@ -18,23 +18,22 @@ import {
 export const CueGrid: React.FC = () => {
   const {
     currentShow,
-    activeCues,
-    armedCues,
+    executionContext,
     selectedBankId,
     createShow,
     createCue,
     triggerCue,
     stopCue,
     toggleCue,
-    armCue,
-    disarmCue,
     panic,
     switchBank,
     assignCueToSlot,
     clearSlot,
     getCueById,
     getCueBankById
-  } = useCueStore()
+  } = useCueStoreV2()
+
+  const activeCues = executionContext.activeCues
 
   const [hoveredSlot, setHoveredSlot] = useState<{ row: number; col: number } | null>(null)
   const [editingCue, setEditingCue] = useState<string | null>(null)
@@ -68,48 +67,49 @@ export const CueGrid: React.FC = () => {
 
   const handleSlotRightClick = (e: React.MouseEvent, slot: CueSlot) => {
     e.preventDefault()
-    if (slot.cueId) {
-      armCue(slot.cueId)
-    }
+    // Right-click could be used for context menu in future
+    // Arming system removed
   }
 
   const handleCreateCue = (row: number, col: number) => {
     if (!currentBank) return
     
+    // Create cue with skipAutoAssign to prevent duplicate bug
     const cueId = createCue({
       name: `Cue ${row + 1}-${col + 1}`,
-      category: 'animation',
+      type: 'animation',
       color: '#4F46E5',
       status: 'idle',
       isEnabled: true,
-      action: 'play',
-      targetType: 'animation',
-      targets: [],
-      parameters: {},
       triggers: [{
         id: `trigger-${Date.now()}`,
         type: 'manual',
         enabled: true
       }],
+      data: {
+        animationId: '',
+        playbackSpeed: 1.0
+      },
+      created: new Date(),
+      modified: new Date(),
       triggerCount: 0
-    })
+    } as any, { skipAutoAssign: true })  // Prevent auto-assignment
     
+    // Manually assign to specific slot
     if (cueId && currentBank) {
       assignCueToSlot(cueId, currentBank.id, row, col)
     }
   }
 
-  const getSlotStatus = (slot: CueSlot): 'empty' | 'idle' | 'armed' | 'active' => {
+  const getSlotStatus = (slot: CueSlot): 'empty' | 'idle' | 'active' => {
     if (!slot.cueId) return 'empty'
     if (activeCues.has(slot.cueId)) return 'active'
-    if (armedCues.has(slot.cueId)) return 'armed'
     return 'idle'
   }
 
   const getSlotColor = (status: string): string => {
     switch (status) {
       case 'active': return 'bg-green-500 hover:bg-green-600'
-      case 'armed': return 'bg-yellow-500 hover:bg-yellow-600'
       case 'idle': return 'bg-gray-600 hover:bg-gray-700'
       default: return 'bg-gray-800 hover:bg-gray-700 border-2 border-dashed border-gray-600'
     }
@@ -289,12 +289,6 @@ export const CueGrid: React.FC = () => {
             <div className="w-3 h-3 bg-green-500 rounded-full" />
             <span className="text-gray-600 dark:text-gray-400">
               Active: {activeCues.size}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-yellow-500 rounded-full" />
-            <span className="text-gray-600 dark:text-gray-400">
-              Armed: {armedCues.size}
             </span>
           </div>
         </div>
