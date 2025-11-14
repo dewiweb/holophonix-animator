@@ -295,7 +295,7 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             return
           }
           
-          console.log('▶️ Cue triggered:', cueId, cue.name, cue.type)
+          console.log('▶️ Cue triggered:', cueId, cue.name, (cue as any).type || (cue as any).category)
           
           const context = get().executionContext
           
@@ -428,10 +428,16 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
           
           console.log('✅ Animation cue executing:', cueId)
           
-          // Auto-stop after animation duration (if not looping)
-          if (animation.duration && !cueData.loop) {
+          // Determine if animation should loop
+          // Priority: cue-specific loop setting > animation's loop setting
+          const shouldLoop = cueData.loop !== undefined ? cueData.loop : animation.loop
+          
+          console.log(`🔁 Loop setting - Cue: ${cueData.loop}, Animation: ${animation.loop}, Final: ${shouldLoop}`)
+          
+          // Auto-stop after animation duration (ONLY if not looping)
+          if (animation.duration && !shouldLoop) {
             const durationMs = animation.duration * 1000
-            console.log(`⏰ Will auto-stop cue after ${animation.duration}s`)
+            console.log(`⏰ Will auto-stop cue after ${animation.duration}s (not looping)`)
             
             setTimeout(() => {
               // Check if cue is still active
@@ -441,6 +447,8 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
                 get().stopCue(cueId)
               }
             }, durationMs)
+          } else if (shouldLoop) {
+            console.log('🔁 Animation will loop indefinitely (no auto-stop)')
           }
         },
         
