@@ -335,11 +335,12 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                   <select
                     value={selectedAnimationId}
                     onChange={(e) => setSelectedAnimationId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 [&>option]:bg-white [&>option]:dark:bg-gray-700 [&>option]:text-gray-900 [&>option]:dark:text-gray-100"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    style={{ colorScheme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }}
                   >
-                    <option value="">-- Choose Animation --</option>
+                    <option value="" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">-- Choose Animation --</option>
                     {animations.map(anim => (
-                      <option key={anim.id} value={anim.id}>
+                      <option key={anim.id} value={anim.id} className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                         {anim.name} ({anim.type}) {anim.trackSelectionLocked ? '🔒' : ''}
                       </option>
                     ))}
@@ -509,11 +510,12 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                                       else if (type === 'boolean') newMsgs[idx].args[argIdx] = false
                                       setOscMessages(newMsgs)
                                     }}
-                                    className="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 [&>option]:bg-white [&>option]:dark:bg-gray-700 [&>option]:text-gray-900 [&>option]:dark:text-gray-100"
+                                    className="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                                    style={{ colorScheme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }}
                                   >
-                                    <option value="number">Number</option>
-                                    <option value="string">String</option>
-                                    <option value="boolean">Bool</option>
+                                    <option value="number" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">Number</option>
+                                    <option value="string" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">String</option>
+                                    <option value="boolean" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">Bool</option>
                                   </select>
                                   
                                   {typeof arg === 'boolean' ? (
@@ -524,10 +526,11 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                                         newMsgs[idx].args[argIdx] = e.target.value === 'true'
                                         setOscMessages(newMsgs)
                                       }}
-                                      className="flex-1 text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 [&>option]:bg-white [&>option]:dark:bg-gray-700 [&>option]:text-gray-900 [&>option]:dark:text-gray-100"
+                                      className="flex-1 text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                                      style={{ colorScheme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }}
                                     >
-                                      <option value="true">true</option>
-                                      <option value="false">false</option>
+                                      <option value="true" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">true</option>
+                                      <option value="false" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">false</option>
                                     </select>
                                   ) : typeof arg === 'string' ? (
                                     <input
@@ -621,10 +624,11 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                   <select
                     value={resetType}
                     onChange={(e) => setResetType(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 [&>option]:bg-white [&>option]:dark:bg-gray-700 [&>option]:text-gray-900 [&>option]:dark:text-gray-100"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    style={{ colorScheme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }}
                   >
-                    <option value="initial">To Initial Position</option>
-                    <option value="home">To Home (0,0,0)</option>
+                    <option value="initial" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">To Initial Position</option>
+                    <option value="home" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">To Home (0,0,0)</option>
                   </select>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {resetType === 'initial' ? 'Returns tracks to their saved initial positions' : 'Moves tracks to origin (0,0,0)'}
