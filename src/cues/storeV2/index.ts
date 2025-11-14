@@ -99,6 +99,11 @@ interface CueStoreV2State {
   updateSettings: (settings: Partial<CueSystemSettings>) => void
   setPriorityMode: (mode: 'ltp' | 'htp' | 'first' | 'blend') => void
   setDefaultTransition: (mode: 'direct' | 'fade-through-initial' | 'crossfade' | 'hard-cut', duration?: number) => void
+  
+  // === PRIVATE EXECUTION METHODS ===
+  _executeAnimationCue: (cueId: string, cue: Cue, context: ExecutionContext, options?: any) => Promise<void>
+  _executeOSCCue: (cueId: string, cue: Cue, context: ExecutionContext) => Promise<void>
+  _executeResetCue: (cueId: string, cue: Cue, context: ExecutionContext) => Promise<void>
 }
 
 // Default settings
@@ -280,34 +285,196 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
         },
         
         // ========================================
-        // CUE EXECUTION (Simplified for now)
+        // CUE EXECUTION
         // ========================================
         
-        triggerCue: (cueId, options = {}) => {
+        triggerCue: async (cueId, options = {}) => {
           const cue = get().getCueById(cueId)
-          if (!cue) return
+          if (!cue || !cue.isEnabled) {
+            console.warn('Cue not found or disabled:', cueId)
+            return
+          }
           
-          console.log('▶️ Cue triggered:', cueId, cue.name)
+          console.log('▶️ Cue triggered:', cueId, cue.name, cue.type)
           
-          // TODO: Implement full execution logic from EXECUTION_DESIGN.md
-          // For now, just track as active
           const context = get().executionContext
+          
+          // Handle different cue types
+          if ((cue as any).type === 'animation' || (cue as any).category === 'animation') {
+            await get()._executeAnimationCue(cueId, cue, context, options)
+          } else if ((cue as any).type === 'osc') {
+            await get()._executeOSCCue(cueId, cue, context)
+          } else if ((cue as any).type === 'reset') {
+            await get()._executeResetCue(cueId, cue, context)
+          } else {
+            console.warn('Unknown cue type:', (cue as any).type)
+          }
+          
+          // Mark as triggered
+          get().updateCue(cueId, {
+            lastTriggered: new Date(),
+            triggerCount: cue.triggerCount + 1
+          })
+        },
+        
+        /**
+         * Execute animation cue
+         * Implements LTP (Last Takes Precedence) by default
+         */
+        _executeAnimationCue: async (cueId: string, cue: Cue, context: ExecutionContext, options: any = {}) => {
+          const cueData = (cue as any).data || (cue as any).parameters || {}
+          const animationId = cueData.animationId
+          
+          if (!animationId) {
+            console.error('Animation cue has no animation ID:', cueId)
+            return
+          }
+          
+          // Get animation from project store
+          const { useProjectStore } = await import('@/stores/projectStore')
+          const { animations } = useProjectStore.getState()
+          const animation = animations.find(a => a.id === animationId)
+          
+          if (!animation) {
+            console.error('Animation not found:', animationId)
+            return
+          }
+          
+          // Determine track IDs
+          let trackIds: string[] = []
+          
+          if (animation.trackSelectionLocked && animation.trackIds) {
+            // Locked animation - use embedded tracks
+            trackIds = animation.trackIds
+            console.log('🔒 Using locked tracks:', trackIds)
+          } else {
+            // Unlocked - use cue's track selection or selected tracks
+            trackIds = cueData.trackIds || useProjectStore.getState().selectedTracks
+            console.log('🔓 Using cue/selected tracks:', trackIds)
+          }
+          
+          if (trackIds.length === 0) {
+            console.warn('No tracks selected for animation cue:', cueId)
+            return
+          }
+          
+          // Handle priority mode (LTP by default)
+          const priorityMode = context.priorityMode || 'ltp'
+          
+          if (priorityMode === 'ltp') {
+            // Last Takes Precedence: Stop conflicting cues on same tracks
+            const conflictingCues = Array.from(context.activeCues.entries())
+              .filter(([activeCueId, execution]) => {
+                if (activeCueId === cueId) return false
+                
+                // Check if this cue owns any of our target tracks
+                const hasConflict = trackIds.some(trackId => 
+                  context.trackOwnership.get(trackId) === activeCueId
+                )
+                
+                return hasConflict
+              })
+            
+            if (conflictingCues.length > 0) {
+              console.log('⚡ LTP: Stopping conflicting cues:', conflictingCues.map(([id]) => id))
+              
+              for (const [conflictingCueId] of conflictingCues) {
+                await get().stopCue(conflictingCueId)
+              }
+            }
+          }
+          
+          // Start animation via animation store
+          const { useAnimationStore } = await import('@/stores/animationStore')
+          const animationStore = useAnimationStore.getState()
+          
+          console.log('🎬 Starting animation:', animationId, 'on tracks:', trackIds)
+          animationStore.playAnimation(animationId, trackIds)
+          
+          // Track execution
+          const executionId = generateId()
           context.activeCues.set(cueId, {
-            id: generateId(),
+            id: executionId,
             cueId,
             startTime: new Date(),
             state: 'running',
             progress: 0,
+            activeTargets: trackIds
+          })
+          
+          // Claim track ownership
+          trackIds.forEach(trackId => {
+            context.trackOwnership.set(trackId, cueId)
+          })
+          
+          // Store playback reference
+          context.cuePlaybacks.set(cueId, animationId)
+          
+          // Update cue status
+          get().updateCue(cueId, { status: 'active' })
+          
+          set({ executionContext: { ...context } })
+          
+          console.log('✅ Animation cue executing:', cueId)
+        },
+        
+        /**
+         * Execute OSC cue
+         */
+        _executeOSCCue: async (cueId: string, cue: Cue, context: ExecutionContext) => {
+          console.log('📡 OSC cue execution not yet implemented:', cueId)
+          // TODO: Implement OSC message sending
+          
+          // Mark as executed (instant)
+          context.activeCues.set(cueId, {
+            id: generateId(),
+            cueId,
+            startTime: new Date(),
+            state: 'completed',
+            progress: 1,
             activeTargets: []
           })
           
           set({ executionContext: { ...context } })
         },
         
-        stopCue: (cueId) => {
+        /**
+         * Execute reset cue
+         */
+        _executeResetCue: async (cueId: string, cue: Cue, context: ExecutionContext) => {
+          console.log('🔄 Reset cue execution not yet implemented:', cueId)
+          // TODO: Implement track reset
+          
+          // Mark as executed
+          context.activeCues.set(cueId, {
+            id: generateId(),
+            cueId,
+            startTime: new Date(),
+            state: 'completed',
+            progress: 1,
+            activeTargets: []
+          })
+          
+          set({ executionContext: { ...context } })
+        },
+        
+        stopCue: async (cueId) => {
           console.log('⏹️ Cue stopped:', cueId)
           
           const context = get().executionContext
+          const execution = context.activeCues.get(cueId)
+          const animationId = context.cuePlaybacks.get(cueId)
+          
+          // Stop animation in animation store
+          if (animationId) {
+            const { useAnimationStore } = await import('@/stores/animationStore')
+            const animationStore = useAnimationStore.getState()
+            
+            console.log('⏹️ Stopping animation:', animationId)
+            animationStore.stopAnimation(animationId)
+          }
+          
+          // Clear execution state
           context.activeCues.delete(cueId)
           context.cuePlaybacks.delete(cueId)
           
@@ -322,6 +489,9 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             context.trackOwnership.delete(trackId)
           })
           
+          // Update cue status
+          get().updateCue(cueId, { status: 'idle' })
+          
           set({ executionContext: { ...context } })
         },
         
@@ -334,15 +504,21 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
           }
         },
         
-        panic: () => {
+        panic: async () => {
           console.log('🚨 PANIC: Stopping all cues')
           
           const context = get().executionContext
           const activeCueIds = Array.from(context.activeCues.keys())
           
-          activeCueIds.forEach(cueId => {
-            get().stopCue(cueId)
-          })
+          // Stop all animations first
+          const { useAnimationStore } = await import('@/stores/animationStore')
+          const animationStore = useAnimationStore.getState()
+          animationStore.stopAllAnimations()
+          
+          // Stop all cues
+          for (const cueId of activeCueIds) {
+            await get().stopCue(cueId)
+          }
           
           set({
             executionContext: {
