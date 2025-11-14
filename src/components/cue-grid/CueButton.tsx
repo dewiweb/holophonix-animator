@@ -76,29 +76,40 @@ export const CueButton: React.FC<CueButtonProps> = ({
   // Update progress from execution state or animate locally
   useEffect(() => {
     if (status === 'active' && animation) {
+      console.log('🎬 CueButton active:', cue?.name, 'animation:', animation.name, 'duration:', animation.duration)
+      
       if (executionState?.progress !== undefined) {
+        console.log('📊 Using execution state progress:', executionState.progress)
         setLocalProgress(executionState.progress)
       } else {
         // Simulate progress based on animation duration
-        const duration = animation.duration || 5000
+        // Animation duration is in SECONDS, convert to milliseconds
+        const durationMs = (animation.duration || 5) * 1000
         const startTime = Date.now()
+        
+        console.log('⏱️ Starting local progress simulation, duration (seconds):', animation.duration, 'ms:', durationMs)
         
         const interval = setInterval(() => {
           const elapsed = Date.now() - startTime
-          const progress = Math.min((elapsed / duration) * 100, 100)
+          const progress = Math.min((elapsed / durationMs) * 100, 100)
           setLocalProgress(progress)
           
           if (progress >= 100) {
             clearInterval(interval)
+            // Animation finished - we should notify parent but can't from here
+            console.log('✅ Animation progress complete (100%)')
           }
         }, 100)
         
-        return () => clearInterval(interval)
+        return () => {
+          console.log('🛑 Clearing progress interval')
+          clearInterval(interval)
+        }
       }
     } else {
       setLocalProgress(0)
     }
-  }, [status, animation, executionState?.progress])
+  }, [status, animation, executionState?.progress, cue?.name])
   
   // Get status colors
   const getColors = () => {
@@ -195,14 +206,15 @@ export const CueButton: React.FC<CueButtonProps> = ({
                 <Zap className="w-3 h-3 text-white" />
               )}
             </div>
+            
           </div>
           
-          {/* Progress Bar */}
-          {status === 'active' && localProgress > 0 && (
-            <div className="absolute top-[28px] left-0 right-0 h-0.5 bg-black/30 overflow-hidden">
+          {/* Progress Bar - directly below header */}
+          {status === 'active' && (
+            <div className="w-full h-0.5 bg-black/60">
               <div 
-                className="h-full bg-white transition-all duration-200"
-                style={{ width: `${localProgress}%` }}
+                className="h-full bg-gradient-to-r from-yellow-400 to-green-400 transition-all duration-200"
+                style={{ width: `${Math.max(localProgress, 1)}%` }}
               />
             </div>
           )}
@@ -238,15 +250,6 @@ export const CueButton: React.FC<CueButtonProps> = ({
                     +{trackNames.length - 4}
                   </span>
                 )}
-              </div>
-            )}
-            
-            {/* Progress Percentage (when active) */}
-            {status === 'active' && localProgress > 0 && (
-              <div className="mt-auto pt-1">
-                <span className="text-xs text-gray-400">
-                  {Math.round(localProgress)}%
-                </span>
               </div>
             )}
           </div>

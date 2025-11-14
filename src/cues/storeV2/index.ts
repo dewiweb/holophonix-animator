@@ -409,7 +409,7 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             cueId,
             startTime: new Date(),
             state: 'running',
-            progress: 0,
+            // Don't set progress here - let CueButton calculate it locally
             activeTargets: trackIds
           })
           
@@ -427,6 +427,21 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
           set({ executionContext: { ...context } })
           
           console.log('✅ Animation cue executing:', cueId)
+          
+          // Auto-stop after animation duration (if not looping)
+          if (animation.duration && !cueData.loop) {
+            const durationMs = animation.duration * 1000
+            console.log(`⏰ Will auto-stop cue after ${animation.duration}s`)
+            
+            setTimeout(() => {
+              // Check if cue is still active
+              const currentContext = get().executionContext
+              if (currentContext.activeCues.has(cueId)) {
+                console.log('⏱️ Auto-stopping cue after duration:', cueId)
+                get().stopCue(cueId)
+              }
+            }, durationMs)
+          }
         },
         
         /**
