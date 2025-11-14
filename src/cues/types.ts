@@ -137,7 +137,6 @@ export interface CueParameters {
   
   // Control parameters
   oscMessages?: OSCMessage[]
-  midiMessages?: MIDIMessage[]
   dmxChannels?: DMXChannel[]
   
   // Custom parameters
@@ -156,8 +155,6 @@ export interface CueTrigger {
   // Trigger-specific data
   hotkey?: string           // Keyboard shortcut
   oscAddress?: string       // OSC trigger address
-  midiNote?: number         // MIDI note number
-  midiChannel?: number      // MIDI channel
   timecode?: string         // SMPTE timecode
   timelinePosition?: number // Timeline position in seconds
   
@@ -174,7 +171,6 @@ export type CueTriggerType =
   | 'manual'
   | 'hotkey'
   | 'osc'
-  | 'midi'
   | 'timecode'
   | 'timeline'
   | 'follow'
@@ -302,12 +298,6 @@ export interface OSCMessage {
   type?: string
 }
 
-export interface MIDIMessage {
-  type: 'note' | 'cc' | 'program' | 'sysex'
-  channel: number
-  data1: number
-  data2?: number
-}
 
 export interface DMXChannel {
   universe: number
@@ -337,7 +327,6 @@ export interface CueSystemSettings {
   
   // Control
   enableOSC: boolean
-  enableMIDI: boolean
   enableDMX: boolean
   enableTimecode: boolean
   

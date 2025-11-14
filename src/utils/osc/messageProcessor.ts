@@ -30,7 +30,9 @@ export interface MessageProcessorActions {
 }
 
 export interface MessageProcessorDependencies {
-  getCueStore: () => Promise<{ handleOscTrigger: (address: string, args: any[]) => void }>
+  getCueStore: () => Promise<{ 
+    handleOscTrigger: (address: string, args: any[]) => void
+  }>
   getAnimationStore: () => Promise<{
     currentAnimationId: string | null
     playingAnimations: Map<string, any>
@@ -66,11 +68,11 @@ export async function processMessage(
     lastIncomingAt: Date.now()
   })
 
-  // Handle cue triggers
-  if (message.address.startsWith('/cue/')) {
-    const cueStore = await deps.getCueStore()
-    cueStore.handleOscTrigger(message.address, message.args as any[])
-  }
+  // Handle cue triggers - check ALL messages, not just /cue/*
+  // This allows cues to have any OSC trigger address
+  console.log('🎯 [MESSAGE_PROCESSOR] Checking for cue triggers:', message.address, message.args)
+  const cueStore = await deps.getCueStore()
+  cueStore.handleOscTrigger(message.address, message.args as any[])
 
   // Handle availability probe responses
   actions.handleProbeResponse(message.address)

@@ -75,6 +75,9 @@ interface CueStoreV2State {
   toggleCue: (cueId: string) => void
   panic: () => void  // Emergency stop all
   
+  // === EXTERNAL TRIGGERS ===
+  handleOscTrigger: (address: string, args: any[]) => void
+  
   // === CUE BANK MANAGEMENT ===
   createCueBank: (name: string, rows: number, columns: number) => string
   deleteCueBank: (bankId: string) => void
@@ -860,6 +863,80 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
           return cueIds
             .map(id => get().getCueById(id))
             .filter(Boolean) as Cue[]
+        },
+        
+        // ========================================
+        // EXTERNAL TRIGGERS
+        // ========================================
+        
+        handleOscTrigger: (address: string, args: any[]) => {
+          const show = get().currentShow
+          if (!show) {
+            console.warn('⚠️ No show loaded, cannot handle OSC trigger')
+            return
+          }
+          
+          console.log('📡 [STOREВ2] OSC trigger received:', address, args)
+          console.log('📋 [STOREВ2] Searching in', show.cueBanks.length, 'banks...')
+          
+          // Search all cues in all banks for matching OSC triggers
+          let triggered = false
+          let cuesToCheck = 0
+          
+          for (const bank of show.cueBanks) {
+            console.log(`🏦 [STOREВ2] Checking bank "${bank.name}" with ${bank.slots.length} slots`)
+            
+            for (const slot of bank.slots) {
+              if (!slot || !slot.cueId) continue
+              
+              const cue = get().getCueById(slot.cueId)
+              if (!cue) {
+                console.warn(`⚠️ [STOREВ2] Slot has cueId ${slot.cueId} but cue not found!`)
+                continue
+              }
+              
+              cuesToCheck++
+              console.log(`🔍 [STOREВ2] Checking cue "${cue.name}" (${cue.id}):`, {
+                hasTriggers: !!cue.triggers,
+                triggersCount: cue.triggers?.length || 0,
+                triggers: cue.triggers
+              })
+              
+              // Check if cue has matching OSC trigger
+              if (cue.triggers && cue.triggers.length > 0) {
+                for (const t of cue.triggers) {
+                  console.log(`  🎯 [STOREВ2] Trigger:`, {
+                    type: t.type,
+                    enabled: t.enabled,
+                    oscAddress: t.oscAddress,
+                    matches: t.type === 'osc' && t.enabled && t.oscAddress === address
+                  })
+                }
+              }
+              
+              const oscTrigger = cue.triggers?.find(t => 
+                t.type === 'osc' && 
+                t.enabled && 
+                t.oscAddress === address
+              )
+              
+              if (oscTrigger) {
+                // Check if cue is already active
+                const isActive = get().executionContext.activeCues.has(cue.id)
+                console.log(`✅ [STOREВ2] MATCH! Toggling cue "${cue.name}" (${cue.id}) via OSC, currently: ${isActive ? 'active' : 'idle'}`)
+                
+                // Toggle behavior: second trigger stops the cue
+                get().toggleCue(cue.id)
+                triggered = true
+              }
+            }
+          }
+          
+          console.log(`📊 [STOREВ2] Checked ${cuesToCheck} cues, triggered: ${triggered}`)
+          
+          if (!triggered) {
+            console.log(`ℹ️ [STOREВ2] No cue found with OSC trigger: ${address}`)
+          }
         },
         
         // ========================================

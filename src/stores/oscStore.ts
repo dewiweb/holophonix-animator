@@ -588,7 +588,7 @@ export const useOSCStore = create<OSCState>((set, get) => {
       },
       {
         getCueStore: async () => {
-          const cueStore = await import('../cues/store').then(m => m.useCueStore.getState())
+          const cueStore = await import('../cues/storeV2').then(m => m.useCueStoreV2.getState())
           return cueStore
         },
         getAnimationStore: async () => {
