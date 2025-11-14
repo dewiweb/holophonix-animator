@@ -2,17 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { useCueStoreV2 } from '@/cues/storeV2'
 import { Cue, CueBank, CueSlot } from '@/cues/types'
 import { CueEditorV2 as CueEditor } from './CueEditorV2'
+import { CueButton } from './CueButton'
 import { 
-  Play, 
-  Square, 
   AlertTriangle, 
-  Zap, 
   Grid3x3,
-  Plus,
-  Settings,
   ChevronLeft,
-  ChevronRight,
-  Edit
+  ChevronRight
 } from 'lucide-react'
 
 export const CueGrid: React.FC = () => {
@@ -209,74 +204,21 @@ export const CueGrid: React.FC = () => {
             const cue = slot.cueId ? getCueById(slot.cueId) : undefined
             const status = getSlotStatus(slot)
             const isHovered = hoveredSlot?.row === slot.row && hoveredSlot?.col === slot.column
+            const execution = slot.cueId ? executionContext.activeCues.get(slot.cueId) : undefined
             
             return (
-              <button
+              <CueButton
                 key={`${slot.row}-${slot.column}`}
+                cue={cue}
+                slot={slot}
+                status={status}
+                isHovered={isHovered}
+                executionState={execution}
                 onClick={(e) => handleSlotClick(slot, e)}
-                onContextMenu={(e) => handleSlotRightClick(e, slot)}
+                onEdit={slot.cueId ? () => setEditingCue(slot.cueId!) : undefined}
                 onMouseEnter={() => setHoveredSlot({ row: slot.row, col: slot.column })}
                 onMouseLeave={() => setHoveredSlot(null)}
-                className={`
-                  relative rounded-lg p-2 flex flex-col items-center justify-center
-                  transition-all transform hover:scale-105
-                  ${getSlotColor(status)}
-                  ${isHovered ? 'ring-2 ring-blue-400' : ''}
-                `}
-                style={{ 
-                  gridRow: slot.row + 1,
-                  gridColumn: slot.column + 1
-                }}
-              >
-                {cue ? (
-                  <>
-                    {/* Cue Status Indicator */}
-                    {status === 'active' && (
-                      <div className="absolute top-1 right-1">
-                        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                      </div>
-                    )}
-                    
-                    {/* Edit Button */}
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setEditingCue(slot.cueId!)
-                      }}
-                      className="absolute top-1 left-1 p-1 bg-black/20 rounded hover:bg-black/40 transition-colors cursor-pointer"
-                      title="Edit Cue"
-                    >
-                      <Edit className="w-3 h-3 text-white" />
-                    </div>
-                    
-                    {/* Cue Icon */}
-                    <div className="text-white mb-1">
-                      {status === 'active' ? (
-                        <Play className="w-6 h-6" />
-                      ) : (
-                        <Zap className="w-6 h-6" />
-                      )}
-                    </div>
-                    
-                    {/* Cue Name */}
-                    <span className="text-xs text-white font-medium text-center line-clamp-2">
-                      {cue.name}
-                    </span>
-                    
-                    {/* Cue Number */}
-                    {cue.number && (
-                      <span className="text-xs text-white/70 mt-1">
-                        #{cue.number}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-6 h-6 text-gray-400" />
-                    <span className="text-xs text-gray-400 mt-1">Empty</span>
-                  </>
-                )}
-              </button>
+              />
             )
           })}
         </div>

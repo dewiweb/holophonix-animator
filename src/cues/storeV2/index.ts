@@ -348,13 +348,24 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             trackIds = animation.trackIds
             console.log('🔒 Using locked tracks:', trackIds)
           } else {
-            // Unlocked - use cue's track selection or selected tracks
-            trackIds = cueData.trackIds || useProjectStore.getState().selectedTracks
-            console.log('🔓 Using cue/selected tracks:', trackIds)
+            // Unlocked - use cue's track selection, or fallback to animation tracks, or all selected tracks
+            if (cueData.trackIds && cueData.trackIds.length > 0) {
+              // Cue has specific tracks assigned
+              trackIds = cueData.trackIds
+              console.log('🎯 Using cue-assigned tracks:', trackIds)
+            } else if (animation.trackIds && animation.trackIds.length > 0) {
+              // Use all tracks from animation as default
+              trackIds = animation.trackIds
+              console.log('🔓 Using all animation tracks (default):', trackIds)
+            } else {
+              // Fallback to currently selected tracks
+              trackIds = useProjectStore.getState().selectedTracks
+              console.log('📌 Using currently selected tracks:', trackIds)
+            }
           }
           
           if (trackIds.length === 0) {
-            console.warn('No tracks selected for animation cue:', cueId)
+            console.warn('⚠️ No tracks available for animation cue:', cueId)
             return
           }
           
