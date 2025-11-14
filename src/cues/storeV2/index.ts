@@ -456,40 +456,158 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
          * Execute OSC cue
          */
         _executeOSCCue: async (cueId: string, cue: Cue, context: ExecutionContext) => {
-          console.log('📡 OSC cue execution not yet implemented:', cueId)
-          // TODO: Implement OSC message sending
+          const cueData = (cue as any).data || {}
+          const messages = cueData.messages || []
+          
+          if (messages.length === 0) {
+            console.warn('⚠️ OSC cue has no messages:', cueId)
+            return
+          }
+          
+          console.log('📡 Sending OSC messages:', messages.length)
+          
+          // Get OSC store
+          const { useOSCStore } = await import('@/stores/oscStore')
+          const oscStore = useOSCStore.getState()
+          
+          // Send each message
+          for (const msg of messages) {
+            if (msg.address && msg.address.trim() !== '') {
+              console.log('  → OSC:', msg.address, msg.args || [])
+              
+              // Send via OSC store
+              oscStore.sendMessage(msg.address, msg.args || [])
+            }
+          }
           
           // Mark as executed (instant)
+          const executionId = generateId()
           context.activeCues.set(cueId, {
-            id: generateId(),
+            id: executionId,
             cueId,
             startTime: new Date(),
             state: 'completed',
-            progress: 1,
             activeTargets: []
           })
           
+          // Update cue status briefly
+          get().updateCue(cueId, { status: 'active' })
           set({ executionContext: { ...context } })
+          
+          // Remove after short delay (OSC cues are instant)
+          setTimeout(() => {
+            const currentContext = get().executionContext
+            currentContext.activeCues.delete(cueId)
+            get().updateCue(cueId, { status: 'idle' })
+            set({ executionContext: { ...currentContext } })
+            console.log('✅ OSC cue completed:', cueId)
+          }, 200)
         },
         
         /**
          * Execute reset cue
          */
         _executeResetCue: async (cueId: string, cue: Cue, context: ExecutionContext) => {
-          console.log('🔄 Reset cue execution not yet implemented:', cueId)
-          // TODO: Implement track reset
+          const cueData = (cue as any).data || {}
+          const trackIds = cueData.trackIds || []
+          const resetType = cueData.resetType || 'initial'
+          const duration = cueData.duration || 1.0
           
-          // Mark as executed
+          if (trackIds.length === 0) {
+            console.warn('⚠️ Reset cue has no tracks:', cueId)
+            return
+          }
+          
+          console.log('🔄 Resetting tracks:', trackIds, 'to:', resetType, 'duration:', duration + 's')
+          
+          // Get project store
+          const { useProjectStore } = await import('@/stores/projectStore')
+          const projectStore = useProjectStore.getState()
+          
+          // Get OSC store for sending position updates
+          const { useOSCStore } = await import('@/stores/oscStore')
+          const oscStore = useOSCStore.getState()
+          
+          // Determine target positions and create reset data
+          const resetData = trackIds.map((trackId: string) => {
+            const track = projectStore.tracks.find(t => t.id === trackId)
+            if (!track) return null
+            
+            let targetPos
+            if (resetType === 'initial') {
+              targetPos = track.initialPosition || { x: 0, y: 0, z: 0 }
+            } else {
+              targetPos = { x: 0, y: 0, z: 0 }
+            }
+            
+            return {
+              trackId,
+              from: { ...track.position },
+              to: targetPos
+            }
+          }).filter(Boolean)
+          
+          if (resetData.length === 0) {
+            console.warn('⚠️ No valid tracks to reset')
+            return
+          }
+          
+          // Mark as executing
+          const executionId = generateId()
           context.activeCues.set(cueId, {
-            id: generateId(),
+            id: executionId,
             cueId,
             startTime: new Date(),
-            state: 'completed',
-            progress: 1,
-            activeTargets: []
+            state: 'running',
+            activeTargets: trackIds
           })
           
+          get().updateCue(cueId, { status: 'active' })
           set({ executionContext: { ...context } })
+          
+          // Perform smooth transition
+          const startTime = Date.now()
+          const durationMs = duration * 1000
+          
+          const animate = () => {
+            const elapsed = Date.now() - startTime
+            const progress = Math.min(elapsed / durationMs, 1.0)
+            
+            // Linear easing
+            resetData.forEach((data: any) => {
+              const newPos = {
+                x: data.from.x + (data.to.x - data.from.x) * progress,
+                y: data.from.y + (data.to.y - data.from.y) * progress,
+                z: data.from.z + (data.to.z - data.from.z) * progress
+              }
+              
+              // Update track position in project store
+              projectStore.updateTrack(data.trackId, { position: newPos })
+              
+              // Send OSC update
+              const track = projectStore.tracks.find((t: any) => t.id === data.trackId)
+              if (track) {
+                // Get coordinate system from settings store
+                const { useSettingsStore } = require('@/stores/settingsStore')
+                const coordSystem = useSettingsStore.getState().oscSettings?.defaultCoordinateSystem || 'xyz'
+                const trackIndex = track.holophonixIndex || (projectStore.tracks.indexOf(track) + 1)
+                oscStore.sendMessage(`/track/${trackIndex}/${coordSystem}`, [newPos.x, newPos.y, newPos.z])
+              }
+            })
+            
+            if (progress < 1.0) {
+              requestAnimationFrame(animate)
+            } else {
+              // Complete
+              const currentContext = get().executionContext
+              currentContext.activeCues.delete(cueId)
+              get().updateCue(cueId, { status: 'idle' })
+              set({ executionContext: { ...currentContext } })
+              console.log('✅ Reset cue completed:', cueId)
+            }
+          }
+          
+          requestAnimationFrame(animate)
         },
         
         stopCue: async (cueId) => {

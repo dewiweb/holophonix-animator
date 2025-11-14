@@ -103,12 +103,11 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
       ...(triggerType === 'osc' && { oscAddress: oscTriggerAddress })
     }
     
-    // Build updated cue (animation cue only for now)
-    if (isAnimationCue(cue)) {
-      // Check if animation is locked
+    // Build updated cue based on type
+    if (cueType === 'animation') {
+      // Animation cue
       const selectedAnimation = animations.find(a => a.id === selectedAnimationId)
       const isLocked = selectedAnimation?.trackSelectionLocked
-      
       const cueData = (cue as any).data || (cue as any).parameters || {}
       
       updateCue(cueId, {
@@ -116,14 +115,45 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
         description: cueDescription,
         number: cueNumber,
         color: cueColor,
+        type: 'animation',
+        category: 'animation',
         data: {
           animationId: selectedAnimationId,
-          // Only include trackIds if animation is not locked
           trackIds: isLocked ? undefined : (selectedTrackIds.length > 0 ? selectedTrackIds : undefined),
           playbackSpeed: cueData.playbackSpeed || 1.0,
           loop: cueData.loop,
           reverse: cueData.reverse,
           cueSpecificParams: cueData.cueSpecificParams
+        },
+        triggers: [trigger]
+      } as any)
+    } else if (cueType === 'osc') {
+      // OSC cue
+      updateCue(cueId, {
+        name: cueName,
+        description: cueDescription,
+        number: cueNumber,
+        color: cueColor,
+        type: 'osc',
+        category: 'osc',
+        data: {
+          messages: oscMessages.filter(m => m.address.trim() !== '')
+        },
+        triggers: [trigger]
+      } as any)
+    } else if (cueType === 'reset') {
+      // Reset cue
+      updateCue(cueId, {
+        name: cueName,
+        description: cueDescription,
+        number: cueNumber,
+        color: cueColor,
+        type: 'reset',
+        category: 'reset',
+        data: {
+          trackIds: resetTrackIds,
+          resetType: resetType,
+          duration: resetDuration
         },
         triggers: [trigger]
       } as any)
@@ -246,8 +276,53 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
             </div>
           </div>
           
+          {/* Cue Type Selector */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+              Cue Type
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setCueType('animation')}
+                className={`px-4 py-3 rounded-lg border-2 transition-all ${
+                  cueType === 'animation'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <Play className="w-5 h-5 mx-auto mb-1" />
+                <div className="text-xs font-medium">Animation</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCueType('osc')}
+                className={`px-4 py-3 rounded-lg border-2 transition-all ${
+                  cueType === 'osc'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <Radio className="w-5 h-5 mx-auto mb-1" />
+                <div className="text-xs font-medium">OSC</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCueType('reset')}
+                className={`px-4 py-3 rounded-lg border-2 transition-all ${
+                  cueType === 'reset'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <X className="w-5 h-5 mx-auto mb-1" />
+                <div className="text-xs font-medium">Reset</div>
+              </button>
+            </div>
+          </div>
+          
           {/* Animation Selection (for animation cues) */}
-          {isAnimationCue(cue) && (
+          {cueType === 'animation' && (
             <div>
               <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
                 Animation
@@ -346,6 +421,147 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                     </div>
                   )
                 )}
+              </div>
+            </div>
+          )}
+          
+          {/* OSC Messages (for OSC cues) */}
+          {cueType === 'osc' && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+                OSC Messages
+              </h3>
+              <div className="space-y-3">
+                {oscMessages.map((msg, idx) => (
+                  <div key={idx} className="border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          OSC Address
+                        </label>
+                        <input
+                          type="text"
+                          value={msg.address}
+                          onChange={(e) => {
+                            const newMsgs = [...oscMessages]
+                            newMsgs[idx].address = e.target.value
+                            setOscMessages(newMsgs)
+                          }}
+                          placeholder="/osc/address"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Example: /track/1/xyz or /custom/message
+                        </p>
+                      </div>
+                      {oscMessages.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newMsgs = oscMessages.filter((_, i) => i !== idx)
+                            setOscMessages(newMsgs)
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                          title="Remove message"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOscMessages([...oscMessages, {address: '', args: []}])
+                  }}
+                  className="w-full px-3 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-colors text-sm font-medium"
+                >
+                  + Add OSC Message
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Reset Configuration (for Reset cues) */}
+          {cueType === 'reset' && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+                Reset Configuration
+              </h3>
+              <div className="space-y-4">
+                {/* Reset Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Reset Type
+                  </label>
+                  <select
+                    value={resetType}
+                    onChange={(e) => setResetType(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="initial">To Initial Position</option>
+                    <option value="home">To Home (0,0,0)</option>
+                  </select>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {resetType === 'initial' ? 'Returns tracks to their saved initial positions' : 'Moves tracks to origin (0,0,0)'}
+                  </p>
+                </div>
+                
+                {/* Transition Duration */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Transition Duration: {resetDuration}s
+                  </label>
+                  <input
+                    type="range"
+                    value={resetDuration}
+                    onChange={(e) => setResetDuration(parseFloat(e.target.value))}
+                    min="0.1"
+                    max="10"
+                    step="0.1"
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>0.1s (Instant)</span>
+                    <span>10s (Slow)</span>
+                  </div>
+                </div>
+                
+                {/* Track Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Select Tracks to Reset
+                  </label>
+                  {tracks.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
+                      {tracks.map(track => (
+                        <label key={track.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded">
+                          <input
+                            type="checkbox"
+                            checked={resetTrackIds.includes(track.id)}
+                            onChange={() => {
+                              if (resetTrackIds.includes(track.id)) {
+                                setResetTrackIds(resetTrackIds.filter(id => id !== track.id))
+                              } else {
+                                setResetTrackIds([...resetTrackIds, track.id])
+                              }
+                            }}
+                            className="rounded"
+                          />
+                          <span className="text-sm">{track.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-600 dark:text-gray-400">
+                      No tracks available
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Selected: {resetTrackIds.length} track{resetTrackIds.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
               </div>
             </div>
           )}

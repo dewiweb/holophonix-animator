@@ -6,7 +6,9 @@ import {
   Zap, 
   Edit, 
   Plus,
-  Circle
+  Circle,
+  Radio,
+  RotateCcw
 } from 'lucide-react'
 
 interface CueButtonProps {
@@ -49,7 +51,8 @@ export const CueButton: React.FC<CueButtonProps> = ({
   const { animations, tracks } = useProjectStore()
   const [localProgress, setLocalProgress] = useState(0)
   
-  // Get animation info if this is an animation cue
+  // Get cue type and data
+  const cueType = cue ? ((cue as any).type || (cue as any).category || 'animation') : 'animation'
   const cueData = cue ? ((cue as any).data || (cue as any).parameters) : null
   const animation = cueData?.animationId 
     ? animations.find(a => a.id === cueData.animationId)
@@ -206,7 +209,11 @@ export const CueButton: React.FC<CueButtonProps> = ({
               {status === 'active' ? (
                 <Play className="w-3 h-3 text-white" fill="currentColor" />
               ) : (
-                <Zap className="w-3 h-3 text-white" />
+                <>
+                  {cueType === 'animation' && <Zap className="w-3 h-3 text-white" />}
+                  {cueType === 'osc' && <Radio className="w-3 h-3 text-white" />}
+                  {cueType === 'reset' && <RotateCcw className="w-3 h-3 text-white" />}
+                </>
               )}
             </div>
             
