@@ -84,6 +84,7 @@ export const useProjectStore = create<ProjectState>()(
         presets: [],
         coordinateSystem,
         oscConnections: [],
+        show: undefined, // Will be created by user in cue system
         metadata: {
           created: new Date(),
           modified: new Date(),
@@ -102,7 +103,7 @@ export const useProjectStore = create<ProjectState>()(
       })
     },
 
-    loadProject: (project: Project) => {
+    loadProject: async (project: Project) => {
       set({
         currentProject: project,
         tracks: project.tracks,
@@ -112,6 +113,13 @@ export const useProjectStore = create<ProjectState>()(
         presets: project.presets,
         oscConnections: project.oscConnections,
       })
+      
+      // Load show into cueStoreV2 if present
+      if (project.show) {
+        const cueStore = await import('../cues/storeV2').then(m => m.useCueStoreV2.getState())
+        cueStore.loadShow(project.show)
+        console.log('✅ Loaded show:', project.show.name)
+      }
     },
 
     saveProject: async () => {
@@ -136,8 +144,9 @@ export const useProjectStore = create<ProjectState>()(
           }
 
           // CRITICAL FIX: Merge current state data into project before saving
-          // Also sync OSC connections from oscStore
+          // Also sync OSC connections from oscStore and show from cueStoreV2
           const oscStore = await import('./oscStore').then(m => m.useOSCStore.getState())
+          const cueStore = await import('../cues/storeV2').then(m => m.useCueStoreV2.getState())
           
           const updatedProject: Project = {
             ...state.currentProject,
@@ -147,6 +156,7 @@ export const useProjectStore = create<ProjectState>()(
             timelines: state.timelines,
             presets: state.presets,
             oscConnections: oscStore.connections, // Use actual connections from oscStore
+            show: cueStore.currentShow, // Include cue show data
             metadata: {
               ...state.currentProject.metadata,
               modified: new Date(),
@@ -157,6 +167,7 @@ export const useProjectStore = create<ProjectState>()(
             tracks: updatedProject.tracks.length,
             animations: updatedProject.animations.length,
             oscConnections: updatedProject.oscConnections.length,
+            show: updatedProject.show ? `"${updatedProject.show.name}"` : 'none',
           })
 
           // Serialize project with all current data
@@ -186,8 +197,9 @@ export const useProjectStore = create<ProjectState>()(
       const state = get()
       if (!state.currentProject) return
 
-      // Sync OSC connections from oscStore
+      // Sync OSC connections from oscStore and show from cueStoreV2
       const oscStore = await import('./oscStore').then(m => m.useOSCStore.getState())
+      const cueStore = await import('../cues/storeV2').then(m => m.useCueStoreV2.getState())
 
       const updatedProject: Project = {
         ...state.currentProject,
@@ -197,6 +209,7 @@ export const useProjectStore = create<ProjectState>()(
         timelines: state.timelines,
         presets: state.presets,
         oscConnections: oscStore.connections, // Use actual connections from oscStore
+        show: cueStore.currentShow, // Include cue show data
         metadata: {
           ...state.currentProject.metadata,
           modified: new Date(),
@@ -251,6 +264,7 @@ export const useProjectStore = create<ProjectState>()(
                   tracks: project.tracks.length,
                   animations: project.animations.length,
                   oscConnections: project.oscConnections.length,
+                  show: project.show ? `"${project.show.name}"` : 'none',
                 })
 
                 // Load project into state
@@ -264,6 +278,13 @@ export const useProjectStore = create<ProjectState>()(
                   presets: project.presets,
                   oscConnections: project.oscConnections,
                 })
+                
+                // Load show into cueStoreV2 if present
+                if (project.show) {
+                  const cueStore = await import('../cues/storeV2').then(m => m.useCueStoreV2.getState())
+                  cueStore.loadShow(project.show)
+                  console.log('✅ Loaded show:', project.show.name)
+                }
                 
                 // Restore OSC connections to oscStore
                 const oscStore = await import('./oscStore').then(m => m.useOSCStore.getState())

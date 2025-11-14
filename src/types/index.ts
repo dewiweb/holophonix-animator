@@ -518,6 +518,7 @@ export interface Project {
   presets: AnimationPreset[];
   coordinateSystem: CoordinateSystem;
   oscConnections: OSCConnection[];
+  show?: any; // Cue show data from cueStoreV2
   metadata: {
     created: Date;
     modified: Date;
