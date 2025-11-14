@@ -335,7 +335,7 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                   <select
                     value={selectedAnimationId}
                     onChange={(e) => setSelectedAnimationId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 [&>option]:bg-white [&>option]:dark:bg-gray-700 [&>option]:text-gray-900 [&>option]:dark:text-gray-100"
                   >
                     <option value="">-- Choose Animation --</option>
                     {animations.map(anim => (
@@ -450,8 +450,108 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                           placeholder="/osc/address"
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                         />
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Example: /track/1/xyz or /custom/message
+                        
+                        {/* OSC Arguments */}
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                              Arguments ({msg.args?.length || 0})
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newMsgs = [...oscMessages]
+                                if (!newMsgs[idx].args) newMsgs[idx].args = []
+                                newMsgs[idx].args.push(0)
+                                setOscMessages(newMsgs)
+                              }}
+                              className="text-xs text-blue-500 hover:text-blue-600"
+                            >
+                              + Add Arg
+                            </button>
+                          </div>
+                          
+                          {msg.args && msg.args.length > 0 && (
+                            <div className="space-y-2 max-h-32 overflow-y-auto">
+                              {msg.args.map((arg: any, argIdx: number) => (
+                                <div key={argIdx} className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500 w-8">[{argIdx}]</span>
+                                  <select
+                                    value={typeof arg}
+                                    onChange={(e) => {
+                                      const newMsgs = [...oscMessages]
+                                      const type = e.target.value
+                                      if (type === 'number') newMsgs[idx].args[argIdx] = 0
+                                      else if (type === 'string') newMsgs[idx].args[argIdx] = ''
+                                      else if (type === 'boolean') newMsgs[idx].args[argIdx] = false
+                                      setOscMessages(newMsgs)
+                                    }}
+                                    className="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 [&>option]:bg-white [&>option]:dark:bg-gray-700 [&>option]:text-gray-900 [&>option]:dark:text-gray-100"
+                                  >
+                                    <option value="number">Number</option>
+                                    <option value="string">String</option>
+                                    <option value="boolean">Bool</option>
+                                  </select>
+                                  
+                                  {typeof arg === 'boolean' ? (
+                                    <select
+                                      value={arg ? 'true' : 'false'}
+                                      onChange={(e) => {
+                                        const newMsgs = [...oscMessages]
+                                        newMsgs[idx].args[argIdx] = e.target.value === 'true'
+                                        setOscMessages(newMsgs)
+                                      }}
+                                      className="flex-1 text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 [&>option]:bg-white [&>option]:dark:bg-gray-700 [&>option]:text-gray-900 [&>option]:dark:text-gray-100"
+                                    >
+                                      <option value="true">true</option>
+                                      <option value="false">false</option>
+                                    </select>
+                                  ) : typeof arg === 'string' ? (
+                                    <input
+                                      type="text"
+                                      value={arg}
+                                      onChange={(e) => {
+                                        const newMsgs = [...oscMessages]
+                                        newMsgs[idx].args[argIdx] = e.target.value
+                                        setOscMessages(newMsgs)
+                                      }}
+                                      placeholder="text"
+                                      className="flex-1 text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                    />
+                                  ) : (
+                                    <input
+                                      type="number"
+                                      value={arg}
+                                      onChange={(e) => {
+                                        const newMsgs = [...oscMessages]
+                                        newMsgs[idx].args[argIdx] = parseFloat(e.target.value) || 0
+                                        setOscMessages(newMsgs)
+                                      }}
+                                      step="any"
+                                      className="flex-1 text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                    />
+                                  )}
+                                  
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newMsgs = [...oscMessages]
+                                      newMsgs[idx].args.splice(argIdx, 1)
+                                      setOscMessages(newMsgs)
+                                    }}
+                                    className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                    title="Remove argument"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          Example: /track/1/xyz [1.0, 2.5, 0.0]
                         </p>
                       </div>
                       {oscMessages.length > 1 && (
@@ -498,7 +598,7 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                   <select
                     value={resetType}
                     onChange={(e) => setResetType(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 [&>option]:bg-white [&>option]:dark:bg-gray-700 [&>option]:text-gray-900 [&>option]:dark:text-gray-100"
                   >
                     <option value="initial">To Initial Position</option>
                     <option value="home">To Home (0,0,0)</option>
