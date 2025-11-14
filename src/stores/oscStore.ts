@@ -161,13 +161,6 @@ export const useOSCStore = create<OSCState>((set, get) => {
       const hasElectronAPI = typeof window !== 'undefined' && (window as any).electronAPI
       const isDevMode = typeof window !== 'undefined' && !hasElectronAPI
 
-      console.log('🔍 OSC Mode detection:', {
-        hasElectronAPI: !!hasElectronAPI,
-        isDevMode,
-        windowType: typeof window,
-        electronAPIType: typeof (window as any).electronAPI
-      })
-
       if (isDevMode) {
         // Use development OSC server for testing
         if (!devOSCServer) {
@@ -182,10 +175,8 @@ export const useOSCStore = create<OSCState>((set, get) => {
         })
       } else {
         // Use electronAPI for real OSC communication - DEVICE CONNECTION (outgoing)
-        console.log('🔗 Using electronAPI for OSC device connection')
         if (typeof window !== 'undefined' && (window as any).electronAPI && (window as any).electronAPI.oscConnectDevice) {
           const deviceResult = await (window as any).electronAPI.oscConnectDevice(connectionId, host, port)
-          console.log('🔗 OSC Device connection result:', deviceResult)
           if (!deviceResult.success) {
             throw new Error(deviceResult.error)
           }
@@ -450,12 +441,10 @@ export const useOSCStore = create<OSCState>((set, get) => {
 
       if (isDevMode) {
         // Development mode: send each message individually through dev server
-        console.log(`🌐 Dev mode: Sending ${batch.messages.length} OSC messages to ${activeConnection.host}:${activeConnection.port}`)
         if (devOSCServer) {
           batch.messages.forEach(msg => {
             const address = `/track/${msg.trackIndex}/${msg.coordSystem}`
             const args = [msg.position.x, msg.position.y, msg.position.z]
-            console.log(`   → ${address} [${args.join(', ')}]`)
             devOSCServer!.sendMessage(activeConnection.host, activeConnection.port, address, args)
           })
         } else {
@@ -463,13 +452,10 @@ export const useOSCStore = create<OSCState>((set, get) => {
         }
       } else {
         // Production: use batched IPC call
-        console.log(`⚡ Production: Sending ${batch.messages.length} OSC messages via Electron to ${activeConnection.host}:${activeConnection.port}`)
         if (typeof window !== 'undefined' && (window as any).electronAPI && (window as any).electronAPI.oscSendBatch) {
           const result = await (window as any).electronAPI.oscSendBatch(activeConnection.id, batch)
           if (!result.success) {
             console.error('❌ OSC batch send failed:', result.error)
-          } else {
-            console.log(`   ✅ Electron confirmed ${batch.messages.length} messages sent`)
           }
         } else {
           console.warn('❌ electronAPI.oscSendBatch not available, falling back to individual sends')
@@ -477,7 +463,6 @@ export const useOSCStore = create<OSCState>((set, get) => {
           for (const msg of batch.messages) {
             const address = `/track/${msg.trackIndex}/${msg.coordSystem}`
             const args = [msg.position.x, msg.position.y, msg.position.z]
-            console.log(`   → ${address} [${args.join(', ')}]`)
             await get().sendMessage(address, args)
           }
         }

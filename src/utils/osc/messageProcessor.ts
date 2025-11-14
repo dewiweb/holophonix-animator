@@ -70,7 +70,6 @@ export async function processMessage(
 
   // Handle cue triggers - check ALL messages, not just /cue/*
   // This allows cues to have any OSC trigger address
-  console.log('🎯 [MESSAGE_PROCESSOR] Checking for cue triggers:', message.address, message.args)
   const cueStore = await deps.getCueStore()
   cueStore.handleOscTrigger(message.address, message.args as any[])
 

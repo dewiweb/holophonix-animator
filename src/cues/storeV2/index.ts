@@ -121,7 +121,6 @@ const defaultSettings: CueSystemSettings = {
   showStatus: true,
   compactMode: false,
   enableOSC: true,
-  enableMIDI: true,
   enableDMX: false,
   enableTimecode: false,
   preloadCues: true,
@@ -194,7 +193,6 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             executionContext: { ...defaultExecutionContext }
           })
           
-          console.log('✅ Show created:', name)
           return updatedShow
         },
         
@@ -205,7 +203,6 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             selectedListId: show.activeCueListId || null,
             executionContext: { ...defaultExecutionContext }
           })
-          console.log('✅ Show loaded:', show.name)
         },
         
         saveShow: () => {
@@ -213,7 +210,6 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
           if (!show) return
           
           localStorage.setItem('holophonix-show-v2', JSON.stringify(show))
-          console.log('💾 Show saved:', show.name)
         },
         
         deleteShow: () => {
@@ -225,7 +221,6 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             selectedListId: null,
             executionContext: { ...defaultExecutionContext }
           })
-          console.log('🗑️ Show deleted')
         },
         
         // ========================================
@@ -242,7 +237,6 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
           const { cueId, show: updatedShow } = CueActions.createCue(show, cueData, options)
           set({ currentShow: updatedShow })
           
-          console.log('✅ Cue created:', cueId, cueData.name)
           return cueId
         },
         
@@ -252,8 +246,6 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
           
           const updatedShow = CueActions.updateCue(show, cueId, updates)
           set({ currentShow: updatedShow })
-          
-          console.log('✏️ Cue updated:', cueId)
         },
         
         deleteCue: (cueId) => {
@@ -271,8 +263,7 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             currentShow: updatedShow,
             selectedCueIds: get().selectedCueIds.filter(id => id !== cueId)
           })
-          
-          console.log('🗑️ Cue deleted:', cueId)
+
         },
         
         duplicateCue: (cueId, options = {}) => {
@@ -283,7 +274,6 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
           if (!result) return null
           
           set({ currentShow: result.show })
-          console.log('📋 Cue duplicated:', cueId, '→', result.cueId)
           return result.cueId
         },
         
@@ -297,8 +287,6 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             console.warn('Cue not found or disabled:', cueId)
             return
           }
-          
-          console.log('▶️ Cue triggered:', cueId, cue.name, (cue as any).type || (cue as any).category)
           
           const context = get().executionContext
           
@@ -349,21 +337,17 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
           if (animation.trackSelectionLocked && animation.trackIds) {
             // Locked animation - use embedded tracks
             trackIds = animation.trackIds
-            console.log('🔒 Using locked tracks:', trackIds)
           } else {
             // Unlocked - use cue's track selection, or fallback to animation tracks, or all selected tracks
             if (cueData.trackIds && cueData.trackIds.length > 0) {
               // Cue has specific tracks assigned
               trackIds = cueData.trackIds
-              console.log('🎯 Using cue-assigned tracks:', trackIds)
             } else if (animation.trackIds && animation.trackIds.length > 0) {
               // Use all tracks from animation as default
               trackIds = animation.trackIds
-              console.log('🔓 Using all animation tracks (default):', trackIds)
             } else {
               // Fallback to currently selected tracks
               trackIds = useProjectStore.getState().selectedTracks
-              console.log('📌 Using currently selected tracks:', trackIds)
             }
           }
           
@@ -397,7 +381,6 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
               
               // Warn but allow playback on valid subset
               // Note: Formation anchor will be recalculated at runtime
-              console.log(`📐 Formation will be recalculated for ${validTracks.length}/${savedTracks.length} tracks`)
               trackIds = validTracks
             }
           }
@@ -415,8 +398,6 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             })
             
             if (conflictingTracks.length > 0) {
-              console.log('⚡ LTP: Releasing conflicting tracks:', conflictingTracks)
-              
               // Group conflicting tracks by owning cue
               const cueToTracks = new Map<string, string[]>()
               conflictingTracks.forEach(trackId => {
@@ -439,11 +420,8 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
                     (t: string) => !conflictingTrackIds.includes(t)
                   )
                   
-                  console.log(`  → Cue ${conflictingCueId}: Releasing tracks [${conflictingTrackIds.join(', ')}], keeping [${remainingTracks.join(', ')}]`)
-                  
                   if (remainingTracks.length === 0) {
                     // No tracks left, stop the entire cue
-                    console.log(`  → Cue ${conflictingCueId}: No tracks remaining, stopping completely`)
                     await get().stopCue(conflictingCueId)
                   } else {
                     // Update execution to only include remaining tracks
@@ -474,7 +452,6 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
           const { useAnimationStore } = await import('@/stores/animationStore')
           const animationStore = useAnimationStore.getState()
           
-          console.log('🎬 Starting animation:', animationId, 'on tracks:', trackIds)
           animationStore.playAnimation(animationId, trackIds)
           
           // Track execution
@@ -871,49 +848,17 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
         
         handleOscTrigger: (address: string, args: any[]) => {
           const show = get().currentShow
-          if (!show) {
-            console.warn('⚠️ No show loaded, cannot handle OSC trigger')
-            return
-          }
-          
-          console.log('📡 [STOREВ2] OSC trigger received:', address, args)
-          console.log('📋 [STOREВ2] Searching in', show.cueBanks.length, 'banks...')
+          if (!show) return
           
           // Search all cues in all banks for matching OSC triggers
-          let triggered = false
-          let cuesToCheck = 0
-          
           for (const bank of show.cueBanks) {
-            console.log(`🏦 [STOREВ2] Checking bank "${bank.name}" with ${bank.slots.length} slots`)
-            
             for (const slot of bank.slots) {
-              if (!slot || !slot.cueId) continue
+              if (!slot?.cueId) continue
               
               const cue = get().getCueById(slot.cueId)
-              if (!cue) {
-                console.warn(`⚠️ [STOREВ2] Slot has cueId ${slot.cueId} but cue not found!`)
-                continue
-              }
-              
-              cuesToCheck++
-              console.log(`🔍 [STOREВ2] Checking cue "${cue.name}" (${cue.id}):`, {
-                hasTriggers: !!cue.triggers,
-                triggersCount: cue.triggers?.length || 0,
-                triggers: cue.triggers
-              })
+              if (!cue) continue
               
               // Check if cue has matching OSC trigger
-              if (cue.triggers && cue.triggers.length > 0) {
-                for (const t of cue.triggers) {
-                  console.log(`  🎯 [STOREВ2] Trigger:`, {
-                    type: t.type,
-                    enabled: t.enabled,
-                    oscAddress: t.oscAddress,
-                    matches: t.type === 'osc' && t.enabled && t.oscAddress === address
-                  })
-                }
-              }
-              
               const oscTrigger = cue.triggers?.find(t => 
                 t.type === 'osc' && 
                 t.enabled && 
@@ -921,21 +866,10 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
               )
               
               if (oscTrigger) {
-                // Check if cue is already active
-                const isActive = get().executionContext.activeCues.has(cue.id)
-                console.log(`✅ [STOREВ2] MATCH! Toggling cue "${cue.name}" (${cue.id}) via OSC, currently: ${isActive ? 'active' : 'idle'}`)
-                
-                // Toggle behavior: second trigger stops the cue
                 get().toggleCue(cue.id)
-                triggered = true
+                return
               }
             }
-          }
-          
-          console.log(`📊 [STOREВ2] Checked ${cuesToCheck} cues, triggered: ${triggered}`)
-          
-          if (!triggered) {
-            console.log(`ℹ️ [STOREВ2] No cue found with OSC trigger: ${address}`)
           }
         },
         

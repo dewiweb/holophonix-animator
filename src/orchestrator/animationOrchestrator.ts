@@ -118,14 +118,6 @@ export const useOrchestrator = create<OrchestratorStore>((set, get) => ({
     const state = get()
     const playbackId = generatePlaybackId()
     
-    console.log(`[Orchestrator] Play request:`, {
-      playbackId,
-      animationId: request.animationId,
-      trackIds: request.trackIds,
-      priority: request.priority || PlaybackPriority.NORMAL,
-      source: request.source
-    })
-    
     try {
       // Get animation
       const projectStore = useProjectStore.getState()
@@ -205,8 +197,6 @@ export const useOrchestrator = create<OrchestratorStore>((set, get) => ({
       return
     }
     
-    console.log(`[Orchestrator] Stop playback:`, playbackId)
-    
     // Update state to stopping
     playback.state = PlaybackState.STOPPING
     state.playbacks.set(playbackId, playback)
@@ -235,8 +225,6 @@ export const useOrchestrator = create<OrchestratorStore>((set, get) => ({
       return
     }
     
-    console.log(`[Orchestrator] Pause playback:`, playbackId)
-    
     playback.state = PlaybackState.PAUSED
     state.playbacks.set(playbackId, playback)
     set({ playbacks: new Map(state.playbacks) })
@@ -259,8 +247,6 @@ export const useOrchestrator = create<OrchestratorStore>((set, get) => ({
       return
     }
     
-    console.log(`[Orchestrator] Resume playback:`, playbackId)
-    
     playback.state = PlaybackState.PLAYING
     state.playbacks.set(playbackId, playback)
     set({ playbacks: new Map(state.playbacks) })
@@ -277,7 +263,6 @@ export const useOrchestrator = create<OrchestratorStore>((set, get) => ({
    */
   stopAll: () => {
     const state = get()
-    console.log(`[Orchestrator] Stop all playbacks`)
     
     // Stop each playback
     Array.from(state.playbacks.keys()).forEach(playbackId => {
@@ -299,12 +284,6 @@ export const useOrchestrator = create<OrchestratorStore>((set, get) => ({
   schedule: (request: PlaybackRequest, executeAt: number): ScheduleId => {
     const state = get()
     const scheduleId = generateScheduleId()
-    
-    console.log(`[Orchestrator] Schedule action:`, {
-      scheduleId,
-      executeAt: new Date(executeAt).toISOString(),
-      animationId: request.animationId
-    })
     
     const action: ScheduledAction = {
       id: scheduleId,
@@ -340,7 +319,6 @@ export const useOrchestrator = create<OrchestratorStore>((set, get) => ({
       action.cancelled = true
       state.scheduled.set(scheduleId, action)
       set({ scheduled: new Map(state.scheduled) })
-      console.log(`[Orchestrator] Cancelled schedule:`, scheduleId)
     }
   },
   
@@ -431,8 +409,6 @@ export const useOrchestrator = create<OrchestratorStore>((set, get) => ({
     
     if (!playback) return
     
-    console.log(`[Orchestrator] Starting playback:`, playbackId)
-    
     // Update state
     playback.state = PlaybackState.PLAYING
     state.playbacks.set(playbackId, playback)
@@ -454,8 +430,6 @@ export const useOrchestrator = create<OrchestratorStore>((set, get) => ({
     const action = state.scheduled.get(scheduleId)
     
     if (!action || action.executed || action.cancelled) return
-    
-    console.log(`[Orchestrator] Executing scheduled action:`, scheduleId)
     
     action.executed = true
     state.scheduled.set(scheduleId, action)
@@ -494,8 +468,6 @@ export const useOrchestrator = create<OrchestratorStore>((set, get) => ({
     const strategy = state.config.defaultConflictStrategy || ConflictStrategy.PRIORITY_BASED
     const newPriority = newRequest.priority || PlaybackPriority.NORMAL
     
-    console.log(`[Orchestrator] Resolving ${conflicts.length} conflicts with strategy:`, strategy)
-    
     switch (strategy) {
       case ConflictStrategy.STOP_EXISTING:
         conflicts.forEach(conflict => state.stop(conflict.id))
@@ -505,7 +477,6 @@ export const useOrchestrator = create<OrchestratorStore>((set, get) => ({
         conflicts.forEach(conflict => {
           const existingPriority = conflict.request.priority || PlaybackPriority.NORMAL
           if (newPriority > existingPriority) {
-            console.log(`[Orchestrator] Stopping lower priority playback:`, conflict.id)
             state.stop(conflict.id)
           }
         })

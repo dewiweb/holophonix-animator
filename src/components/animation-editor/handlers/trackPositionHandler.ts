@@ -31,19 +31,15 @@ export const handleUseTrackPosition = (
     // Single track OR Barycentric mode: use FIRST track's position as center
     const trackPosition = selectedTracksToUse[0].initialPosition || selectedTracksToUse[0].position
     
-    console.log(`📍 Using ${selectedTracksToUse[0].name} position as center:`, trackPosition)
-    
     // Update parameters based on animation type
     updateParametersForPosition(animationType, updatedParams, trackPosition)
     
     // Update via store action
     updateParameters(updatedParams)
-    console.log(`✅ Updated center/start to ${selectedTracksToUse[0].name}'s position`)
     
   } else if (multiTrackMode === 'relative') {
     // Relative mode: Animation will be centered on EACH track's own position
-    // This is handled automatically in handleSaveAnimation, so just inform user
-    console.log(`📍 Relative mode: Each track will use its own position as center (applied on save)`)
+    // This is handled automatically in handleSaveAnimation
     return
   }
 }
