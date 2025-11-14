@@ -13,7 +13,6 @@ import {
   Play,
   Keyboard,
   Radio,
-  Music,
   Lock,
   Unlock
 } from 'lucide-react'
@@ -48,11 +47,9 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
   const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([])
   
   // Triggers
-  const [triggerType, setTriggerType] = useState<'manual' | 'hotkey' | 'osc' | 'midi'>('manual')
+  const [triggerType, setTriggerType] = useState<'manual' | 'hotkey' | 'osc'>('manual')
   const [hotkey, setHotkey] = useState('')
   const [oscAddress, setOscAddress] = useState('')
-  const [midiNote, setMidiNote] = useState(60)
-  const [midiChannel, setMidiChannel] = useState(1)
 
   useEffect(() => {
     if (cueId) {
@@ -77,8 +74,6 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
           setTriggerType(trigger.type as any)
           setHotkey(trigger.hotkey || '')
           setOscAddress(trigger.oscAddress || '')
-          setMidiNote(trigger.midiNote || 60)
-          setMidiChannel(trigger.midiChannel || 1)
         }
       }
     }
@@ -93,8 +88,7 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
       type: triggerType,
       enabled: true,
       ...(triggerType === 'hotkey' && { hotkey }),
-      ...(triggerType === 'osc' && { oscAddress }),
-      ...(triggerType === 'midi' && { midiNote, midiChannel })
+      ...(triggerType === 'osc' && { oscAddress })
     }
     
     // Build updated cue (animation cue only for now)
@@ -217,9 +211,12 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                     value={cueNumber || ''}
                     onChange={(e) => setCueNumber(parseFloat(e.target.value) || undefined)}
                     step="0.1"
-                    placeholder="Optional"
+                    placeholder="Optional (for CueLists)"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    For future CueList/GO button workflow
+                  </p>
                 </div>
                 
                 <div>
@@ -351,7 +348,7 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Trigger Type
                 </label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => setTriggerType('manual')}
                     className={`px-3 py-2 rounded-md flex items-center justify-center gap-2 transition-colors ${
@@ -385,17 +382,6 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                     <Radio className="w-4 h-4" />
                     OSC
                   </button>
-                  <button
-                    onClick={() => setTriggerType('midi')}
-                    className={`px-3 py-2 rounded-md flex items-center justify-center gap-2 transition-colors ${
-                      triggerType === 'midi'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    <Music className="w-4 h-4" />
-                    MIDI
-                  </button>
                 </div>
               </div>
               
@@ -427,37 +413,6 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
                     placeholder="/cue/trigger/1"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
-                </div>
-              )}
-              
-              {triggerType === 'midi' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      MIDI Note
-                    </label>
-                    <input
-                      type="number"
-                      value={midiNote}
-                      onChange={(e) => setMidiNote(parseInt(e.target.value))}
-                      min="0"
-                      max="127"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      MIDI Channel
-                    </label>
-                    <input
-                      type="number"
-                      value={midiChannel}
-                      onChange={(e) => setMidiChannel(parseInt(e.target.value))}
-                      min="1"
-                      max="16"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
                 </div>
               )}
             </div>
