@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Cue } from '@/cues/types'
 import { useProjectStore } from '@/stores/projectStore'
+import { usePositionPresetStore } from '@/stores/positionPresetStore'
 import { 
   Play, 
   Zap, 
@@ -8,7 +9,8 @@ import {
   Plus,
   Circle,
   Radio,
-  RotateCcw
+  RotateCcw,
+  Target
 } from 'lucide-react'
 
 interface CueButtonProps {
@@ -49,6 +51,7 @@ export const CueButton: React.FC<CueButtonProps> = ({
   onMouseLeave
 }) => {
   const { animations, tracks } = useProjectStore()
+  const { presets } = usePositionPresetStore()
   const [localProgress, setLocalProgress] = useState(0)
   
   // Get cue type and data
@@ -58,12 +61,24 @@ export const CueButton: React.FC<CueButtonProps> = ({
     ? animations.find(a => a.id === cueData.animationId)
     : null
   
+  // Get position preset info (for position cues)
+  const preset = (cueType === 'position' && cueData?.presetId)
+    ? presets.find(p => p.id === cueData.presetId)
+    : null
+  
+  // Get OSC message info (for OSC cues)
+  const oscMessages = cueType === 'osc' && cueData?.messages ? cueData.messages : []
+  const firstOscMessage = oscMessages.length > 0 ? oscMessages[0] : null
+  
   // Get track info - show which tracks will actually be used
   let affectedTracks: string[] = []
   
   if (executionState?.activeTargets) {
     // If actively running, show actual active tracks
     affectedTracks = executionState.activeTargets
+  } else if (cueType === 'position' && preset?.trackIds) {
+    // For position cues, show preset's tracks
+    affectedTracks = preset.trackIds
   } else if (cueData?.trackIds && cueData.trackIds.length > 0) {
     // If tracks explicitly selected in cue, show those
     affectedTracks = cueData.trackIds
@@ -213,6 +228,7 @@ export const CueButton: React.FC<CueButtonProps> = ({
                   {cueType === 'animation' && <Zap className="w-3 h-3 text-white" />}
                   {cueType === 'osc' && <Radio className="w-3 h-3 text-white" />}
                   {cueType === 'reset' && <RotateCcw className="w-3 h-3 text-white" />}
+                  {cueType === 'position' && <Target className="w-3 h-3 text-white" />}
                 </>
               )}
             </div>
@@ -231,14 +247,40 @@ export const CueButton: React.FC<CueButtonProps> = ({
           
           {/* Content Area */}
           <div className="flex-1 flex flex-col items-center justify-center p-2 bg-gray-900 min-h-0 w-full" style={{ boxSizing: 'border-box' }}>
-            {/* Animation Info */}
-            {animation && (
+            {/* Cue Content Info */}
+            {cueType === 'animation' && animation && (
               <span className="text-xs text-gray-400 text-center line-clamp-2 mb-2">
                 {animation.name}
               </span>
             )}
             
-            {/* Track Badges (smaller) */}
+            {cueType === 'position' && preset && (
+              <span className="text-xs text-blue-400 text-center line-clamp-2 mb-2" title={preset.name}>
+                {preset.name}
+              </span>
+            )}
+            
+            {cueType === 'osc' && firstOscMessage && (
+              <div className="text-xs text-purple-400 text-center mb-2">
+                <div className="line-clamp-1 font-mono" title={firstOscMessage.address}>{firstOscMessage.address}</div>
+                {firstOscMessage.args && firstOscMessage.args.length > 0 && (
+                  <div className="text-[9px] text-gray-400 mt-0.5">
+                    {firstOscMessage.args.map((arg: any) => String(arg)).join(', ')}
+                  </div>
+                )}
+                {oscMessages.length > 1 && (
+                  <div className="text-[9px] text-gray-500 mt-0.5">+{oscMessages.length - 1} more</div>
+                )}
+              </div>
+            )}
+            
+            {cueType === 'reset' && (
+              <span className="text-xs text-orange-400 text-center mb-2">
+                Reset to Initial
+              </span>
+            )}
+            
+            {/* Track Badges */}
             {affectedTracks.length > 0 && (
               <div className="flex items-center justify-center gap-0.5 flex-wrap">
                 {trackNames.slice(0, 4).map((name: string, idx: number) => (

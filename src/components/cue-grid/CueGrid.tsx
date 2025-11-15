@@ -47,12 +47,8 @@ export const CueGrid: React.FC = () => {
     if (slot.cueId) {
       const cue = getCueById(slot.cueId)
       if (cue) {
-        // Double click to edit, single click to trigger
-        if (e.detail === 2) {
-          setEditingCue(slot.cueId)
-        } else {
-          toggleCue(slot.cueId)
-        }
+        // Single click to trigger (edit via button in header)
+        toggleCue(slot.cueId)
       }
     } else {
       // Create new cue in this slot
@@ -93,6 +89,8 @@ export const CueGrid: React.FC = () => {
     // Manually assign to specific slot
     if (cueId && currentBank) {
       assignCueToSlot(cueId, currentBank.id, row, col)
+      // Open editor for newly created cue
+      setEditingCue(cueId)
     }
   }
 

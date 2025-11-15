@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Cue, CueTrigger } from '@/cues/types'
-import { useCueStoreV2 } from '@/cues/storeV2'
+import type { Cue, CueTrigger } from '@/cues/types'
+import type { InterpolationMode, EasingFunction } from '@/types/positionPreset'
 import { useProjectStore } from '@/stores/projectStore'
-// import { isAnimationCue } from '@/cues/types' // Not in old types yet
-
-// Type guard for animation cues (temporary until type migration)
-const isAnimationCue = (cue: any) => cue.type === 'animation' || cue.category === 'animation'
+import { useCueStoreV2 } from '@/cues/storeV2'
+import { usePositionPresetStore } from '@/stores/positionPresetStore'
+import { PositionCueFields } from './PositionCueFields'
 import { 
   X, 
   Save, 
@@ -14,8 +13,20 @@ import {
   Keyboard,
   Radio,
   Lock,
-  Unlock
+  Unlock,
+  Home
 } from 'lucide-react'
+
+// Type guard for animation cues (temporary until type migration)
+const isAnimationCue = (cue: any) => cue.type === 'animation' || cue.category === 'animation'
+
+// Default colors for each cue type
+const DEFAULT_CUE_COLORS = {
+  animation: '#4F46E5', // Indigo
+  osc: '#9333EA',       // Purple
+  position: '#3B82F6',  // Blue
+  reset: '#F97316'      // Orange
+}
 
 interface CueEditorProps {
   cueId: string | null
@@ -41,7 +52,7 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
   const [cueDescription, setCueDescription] = useState('')
   const [cueNumber, setCueNumber] = useState<number | undefined>(undefined)
   const [cueColor, setCueColor] = useState('#4F46E5')
-  const [cueType, setCueType] = useState<'animation' | 'osc' | 'reset'>('animation')
+  const [cueType, setCueType] = useState<'animation' | 'osc' | 'position'>('animation')
   
   // Animation cue specific
   const [selectedAnimationId, setSelectedAnimationId] = useState('')
@@ -50,18 +61,31 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
   // OSC cue specific
   const [oscMessages, setOscMessages] = useState<Array<{address: string, args: any[]}>>([{address: '/cue/trigger', args: []}])
   
-  // Reset cue specific
-  const [resetTrackIds, setResetTrackIds] = useState<string[]>([])
-  const [resetType, setResetType] = useState<'initial' | 'home' | 'custom'>('initial')
-  const [resetDuration, setResetDuration] = useState(1.0)
+  // Position cue specific
+  const [positionPresetId, setPositionPresetId] = useState('')
+  const [positionDuration, setPositionDuration] = useState(2.0)
+  const [positionEasing, setPositionEasing] = useState<any>('ease-in-out')
+  const [positionMode, setPositionMode] = useState<any>('cartesian')
+  const [positionInterruptAnimations, setPositionInterruptAnimations] = useState(true)
   
   // Triggers
   const [triggerType, setTriggerType] = useState<'manual' | 'hotkey' | 'osc'>('manual')
   const [hotkey, setHotkey] = useState('')
   const [oscTriggerAddress, setOscTriggerAddress] = useState('')
+  
+  // Track if we're loading an existing cue (to not override its color)
+  const [isLoadingCue, setIsLoadingCue] = useState(false)
+
+  // Apply default color when cue type changes (unless loading existing cue)
+  useEffect(() => {
+    if (!isLoadingCue && DEFAULT_CUE_COLORS[cueType as keyof typeof DEFAULT_CUE_COLORS]) {
+      setCueColor(DEFAULT_CUE_COLORS[cueType as keyof typeof DEFAULT_CUE_COLORS])
+    }
+  }, [cueType, isLoadingCue])
 
   useEffect(() => {
     if (cueId) {
+      setIsLoadingCue(true)
       const foundCue = getCueById(cueId)
       if (foundCue) {
         setCue(foundCue)
@@ -77,6 +101,24 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
           setSelectedTrackIds(cueData.trackIds || [])
         }
         
+        // Load position cue data
+        if ((foundCue as any).type === 'position') {
+          const cueData = (foundCue as any).data || {}
+          setPositionPresetId(cueData.presetId || '')
+          setPositionDuration(cueData.transition?.duration || 2.0)
+          setPositionEasing(cueData.transition?.easing || 'ease-in-out')
+          setPositionMode(cueData.transition?.mode || 'cartesian')
+          setPositionInterruptAnimations(cueData.interruptAnimations !== false)
+        }
+        
+        // Load OSC cue data
+        if ((foundCue as any).type === 'osc') {
+          const cueData = (foundCue as any).data || {}
+          if (cueData.messages && Array.isArray(cueData.messages)) {
+            setOscMessages(cueData.messages.length > 0 ? cueData.messages : [{address: '/cue/trigger', args: []}])
+          }
+        }
+        
         // Load trigger settings
         const trigger = foundCue.triggers[0]
         if (trigger) {
@@ -87,6 +129,9 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
         
         // Load cue type
         setCueType((foundCue as any).type || (foundCue as any).category || 'animation')
+        
+        // Mark loading as complete (use timeout to ensure state updates are processed)
+        setTimeout(() => setIsLoadingCue(false), 0)
       }
     }
   }, [cueId, getCueById])
@@ -141,19 +186,22 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
         },
         triggers: [trigger]
       } as any)
-    } else if (cueType === 'reset') {
-      // Reset cue
+    } else if (cueType === 'position') {
+      // Position cue
       updateCue(cueId, {
         name: cueName,
         description: cueDescription,
         number: cueNumber,
         color: cueColor,
-        type: 'reset',
-        category: 'reset',
+        type: 'position',
         data: {
-          trackIds: resetTrackIds,
-          resetType: resetType,
-          duration: resetDuration
+          presetId: positionPresetId,
+          transition: {
+            duration: positionDuration,
+            easing: positionEasing,
+            mode: positionMode
+          },
+          interruptAnimations: positionInterruptAnimations
         },
         triggers: [trigger]
       } as any)
@@ -308,15 +356,15 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
               </button>
               <button
                 type="button"
-                onClick={() => setCueType('reset')}
+                onClick={() => setCueType('position')}
                 className={`px-4 py-3 rounded-lg border-2 transition-all ${
-                  cueType === 'reset'
+                  cueType === 'position'
                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
                     : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400'
                 }`}
               >
-                <X className="w-5 h-5 mx-auto mb-1" />
-                <div className="text-xs font-medium">Reset</div>
+                <Home className="w-5 h-5 mx-auto mb-1" />
+                <div className="text-xs font-medium">Position</div>
               </button>
             </div>
           </div>
@@ -606,86 +654,24 @@ export const CueEditorV2: React.FC<CueEditorProps> = ({ cueId, onClose }) => {
             </div>
           )}
           
-          {/* Reset Configuration (for Reset cues) */}
-          {cueType === 'reset' && (
+          {/* Position Configuration (for Position cues) */}
+          {cueType === 'position' && (
             <div>
               <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-                Reset Configuration
+                Position Preset
               </h3>
-              <div className="space-y-4">
-                {/* Reset Type */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Reset Type
-                  </label>
-                  <select
-                    value={resetType}
-                    onChange={(e) => setResetType(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  >
-                    <option value="initial">To Initial Position</option>
-                    <option value="home">To Home (0,0,0)</option>
-                  </select>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {resetType === 'initial' ? 'Returns tracks to their saved initial positions' : 'Moves tracks to origin (0,0,0)'}
-                  </p>
-                </div>
-                
-                {/* Transition Duration */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Transition Duration: {resetDuration}s
-                  </label>
-                  <input
-                    type="range"
-                    value={resetDuration}
-                    onChange={(e) => setResetDuration(parseFloat(e.target.value))}
-                    min="0.1"
-                    max="10"
-                    step="0.1"
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>0.1s (Instant)</span>
-                    <span>10s (Slow)</span>
-                  </div>
-                </div>
-                
-                {/* Track Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Select Tracks to Reset
-                  </label>
-                  {tracks.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
-                      {tracks.map(track => (
-                        <label key={track.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded">
-                          <input
-                            type="checkbox"
-                            checked={resetTrackIds.includes(track.id)}
-                            onChange={() => {
-                              if (resetTrackIds.includes(track.id)) {
-                                setResetTrackIds(resetTrackIds.filter(id => id !== track.id))
-                              } else {
-                                setResetTrackIds([...resetTrackIds, track.id])
-                              }
-                            }}
-                            className="rounded"
-                          />
-                          <span className="text-sm">{track.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded text-sm text-gray-600 dark:text-gray-400">
-                      No tracks available
-                    </div>
-                  )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Selected: {resetTrackIds.length} track{resetTrackIds.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-              </div>
+              <PositionCueFields
+                presetId={positionPresetId}
+                duration={positionDuration}
+                easing={positionEasing}
+                mode={positionMode}
+                interruptAnimations={positionInterruptAnimations}
+                onPresetChange={setPositionPresetId}
+                onDurationChange={setPositionDuration}
+                onEasingChange={setPositionEasing}
+                onModeChange={setPositionMode}
+                onInterruptAnimationsChange={setPositionInterruptAnimations}
+              />
             </div>
           )}
           
