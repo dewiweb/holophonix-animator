@@ -342,6 +342,23 @@ export const useProjectStore = create<ProjectState>()(
       set(state => ({
         tracks: [...state.tracks, newTrack],
       }))
+      
+      // Update "Initial Positions" preset if it exists
+      // (debounced to avoid excessive updates during batch adds)
+      const updatePreset = async () => {
+        try {
+          const { updateInitialPositionsPreset } = await import('@/utils/osc/createInitialPreset')
+          updateInitialPositionsPreset()
+        } catch (error) {
+          // Silently fail - preset system is optional
+        }
+      }
+      
+      // Debounce: only update after 1 second of no new tracks
+      if ((globalThis as any)._initialPresetUpdateTimer) {
+        clearTimeout((globalThis as any)._initialPresetUpdateTimer)
+      }
+      (globalThis as any)._initialPresetUpdateTimer = setTimeout(updatePreset, 1000)
     },
 
     updateTrack: (id: string, updates: Partial<Track>) => {

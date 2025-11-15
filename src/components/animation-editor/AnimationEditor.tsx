@@ -136,7 +136,9 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
   const baseAnimationId = trackAnimationId?.includes('-track-') 
     ? trackAnimationId.split('-track-')[0] 
     : trackAnimationId
-  const currentAnimation = baseAnimationId ? animations.find(a => a.id === baseAnimationId) ?? null : null
+  // Use loadedAnimationId instead of track animation state to determine current animation
+  // This prevents "New Animation" from incorrectly updating the previous animation
+  const currentAnimation = loadedAnimationId ? animations.find(a => a.id === loadedAnimationId) ?? null : null
   // Use global animation store state for accurate playing/paused status
   // Simply use globalIsPlaying - works correctly with pendingAnimations during easing phase
   const isAnimationPlaying = globalIsPlaying
@@ -685,11 +687,14 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       duration: animationForm.duration,
       loop: animationForm.loop,
       pingPong: animationForm.pingPong,
-      type: animationForm.type
     })
-
+    
     // Get the project store state directly
     const projectStore = useProjectStore.getState()
+    
+    // Determine if this will be a new animation (name changed)
+    const nameChanged = currentAnimation && currentAnimation.name && animationForm.name !== currentAnimation.name
+    const willCreateNew = nameChanged || !currentAnimation
     
     // Use the proper handleSaveAnimation with full multi-track support + subanimations
     handleSaveAnimation({
@@ -702,7 +707,7 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       customCenter,
       preserveOffsets,
       phaseOffsetSeconds,
-      currentAnimation: loadedAnimationId ? { id: loadedAnimationId } as Animation : currentAnimation,
+      currentAnimation,
       originalAnimationParams: originalAnimationParams,
       addAnimation: projectStore.addAnimation,
       updateAnimation: projectStore.updateAnimation,
@@ -717,6 +722,18 @@ export const AnimationEditor: React.FC<AnimationEditorProps> = ({ onAnimationSel
       fadeOutDuration,
       fadeOutEasing
     })
+    
+    // If we created a new animation, update loadedAnimationId so it becomes the "current" one
+    if (willCreateNew) {
+      // Find the newly created animation by name
+      setTimeout(() => {
+        const newlyCreated = projectStore.animations.find(a => a.name === animationForm.name)
+        if (newlyCreated) {
+          useAnimationEditorStoreV2.setState({ loadedAnimationId: newlyCreated.id })
+          console.log(`✅ New animation saved and loaded: ${newlyCreated.name} (${newlyCreated.id})`)
+        }
+      }, 100)
+    }
     
     // Update the current animation in the parent component if callback exists
     if (onAnimationSelect && loadedAnimationId) {

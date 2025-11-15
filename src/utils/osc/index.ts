@@ -2,6 +2,7 @@ export { DevOSCServer } from './DevOSCServer'
 export * from './trackDiscovery'
 export * from './deviceAvailability'
 export * from './messageProcessor'
+export * from './createInitialPreset'
 
 // OSC utility modules
 export { oscBatchManager } from './batchManager'

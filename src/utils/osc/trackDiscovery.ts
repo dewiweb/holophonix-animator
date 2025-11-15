@@ -164,6 +164,17 @@ export async function discoverTracks(
 
   debugLog('✅ Track discovery completed')
   actions.setState({ isDiscoveringTracks: false })
+  
+  // Auto-create "Initial Positions" preset from discovered tracks
+  try {
+    const { createInitialPositionsPreset } = await import('./createInitialPreset')
+    // Delay slightly to ensure all tracks are added to project store
+    setTimeout(() => {
+      createInitialPositionsPreset()
+    }, 500)
+  } catch (error) {
+    debugLog('⚠️ Failed to create initial positions preset:', error)
+  }
 }
 
 /**

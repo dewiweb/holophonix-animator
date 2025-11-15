@@ -17,6 +17,10 @@ import {
   resetTimingState,
   type AnimationTimingState
 } from '@/utils/animationTiming'
+import { getAnimationEngine, isUsingMainProcessEngine } from '@/utils/animationEngineAdapter'
+
+// Get animation engine adapter (main process or renderer)
+const engineAdapter = getAnimationEngine()
 
 // CRITICAL: Persistent state storage for stateful models (pendulum, spring, etc.)
 // Each animation gets its own state Map that persists across frames
@@ -40,7 +44,7 @@ function clearAnimationState(animationId: string): void {
 }
 
 // Track playing animation instances
-interface PlayingAnimation {
+export interface PlayingAnimation {
   animationId: string
   trackIds: string[]
   timingState: AnimationTimingState  // v3: Use dedicated timing engine
@@ -210,15 +214,23 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       if (tracksToEase.length > 0) {
         const fadeInDurationMs = baseAnimation.fadeIn!.duration * 1000
         
+        // Set up OSC callback for fade-in animation
+        oscBatchManager.setSendCallback(async (batch) => {
+          const oscStore = await import('./oscStore').then(m => m.useOSCStore.getState())
+          await oscStore.sendBatch(batch)
+        })
+        
         get()._easeToPositions(tracksToEase, fadeInDurationMs, () => {
           // After fade-in completes: Start main animation
           
-          const currentPlayingAnimations = new Map(get().playingAnimations)
-          currentPlayingAnimations.set(animationId, {
+          const newPlayingAnimation = {
             animationId,
             trackIds,
             timingState: createTimingState(Date.now())
-          })
+          }
+          
+          const currentPlayingAnimations = new Map(get().playingAnimations)
+          currentPlayingAnimations.set(animationId, newPlayingAnimation)
           
           set({ 
             playingAnimations: currentPlayingAnimations,
@@ -227,9 +239,19 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             currentTrackIds: trackIds
           })
           
-          // Start the engine if not running
+          // Start renderer engine for position calculations
           if (!get().isEngineRunning) {
             get().startEngine()
+          }
+          
+          // ALSO delegate to main process engine if enabled
+          if (isUsingMainProcessEngine()) {
+            const projectData = {
+              animations: projectStore.animations,
+              tracks: projectStore.tracks,
+              currentProject: projectStore.currentProject
+            }
+            engineAdapter.playAnimation(newPlayingAnimation, projectData)
           }
         })
         return // Wait for fade-in to complete
@@ -248,11 +270,13 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     }
     
     // Start immediately (no fade-in or already at position)
-    playingAnimations.set(animationId, {
+    const newPlayingAnimation = {
       animationId,
       trackIds,
       timingState: createTimingState(Date.now())
-    })
+    }
+    
+    playingAnimations.set(animationId, newPlayingAnimation)
     
     set({ 
       playingAnimations,
@@ -261,8 +285,20 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
       currentTrackIds: trackIds
     })
     
+    // Start renderer engine for position calculations
+    // (Required even when using main process engine, since we need the model runtime)
     if (!get().isEngineRunning) {
       get().startEngine()
+    }
+    
+    // ALSO delegate to main process engine if enabled (for non-throttled timing)
+    if (isUsingMainProcessEngine()) {
+      const projectData = {
+        animations: projectStore.animations,
+        tracks: projectStore.tracks,
+        currentProject: projectStore.currentProject
+      }
+      engineAdapter.playAnimation(newPlayingAnimation, projectData)
     }
   },
 
@@ -294,6 +330,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             currentTrackIds: []
           } : {})
         })
+        
+        // Delegate to main process engine if enabled
+        if (isUsingMainProcessEngine()) {
+          engineAdapter.pauseAnimation(animationId)
+        }
       }
     } else {
       // Pause all animations using timing engine
@@ -306,12 +347,18 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           timingState: pausedState
         }
         playingAnimations.set(id, updatedAnimation)
+        
+        // Delegate to main process engine if enabled
+        if (isUsingMainProcessEngine()) {
+          engineAdapter.pauseAnimation(id)
+        }
       })
       set({ playingAnimations, isPlaying: false })
     }
   },
 
   stopAnimation: (animationId?: string) => {
+    console.log('🛑 stopAnimation called:', { animationId, isUsingMainProcessEngine: isUsingMainProcessEngine() })
     const state = get()
     const projectStore = useProjectStore.getState()
     
@@ -370,6 +417,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
             // Clear persistent state after removing from map
             clearAnimationState(animationId)
             
+            // Delegate to main process engine if enabled
+            if (isUsingMainProcessEngine()) {
+              engineAdapter.stopAnimation(animationId)
+            }
+            
             // Execute fade-out with callback to stop engine AFTER fade-out completes
             get()._easeToPositions(tracksToReturn, fadeOutDurationMs, () => {
               // Stop engine only if no other animations are playing
@@ -394,6 +446,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
               } : {})
             })
             
+            // Delegate to main process engine if enabled
+            if (isUsingMainProcessEngine()) {
+              engineAdapter.stopAnimation(animationId)
+            }
+            
             // Stop engine if no more animations
             if (!stillPlaying) {
               get().stopEngine()
@@ -415,6 +472,11 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
               globalTime: 0
             } : {})
           })
+          
+          // Delegate to main process engine if enabled
+          if (isUsingMainProcessEngine()) {
+            engineAdapter.stopAnimation(animationId)
+          }
           
           // Stop engine if no more animations
           if (!stillPlaying) {
@@ -459,6 +521,12 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
           }
         })
       })
+      
+      // Delegate to main process engine if enabled - STOP ALL
+      if (isUsingMainProcessEngine()) {
+        console.log('🔌 Stopping all animations in main process engine')
+        engineAdapter.stopAll()
+      }
       
       // Clear all playing animations first
       // Clear persistent state for all stopped animations
@@ -707,11 +775,13 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     let animationFrameId: number | null = null
     let oscIntervalId: number | null = null
 
-    // CRITICAL FIX: Separate OSC update loop from rendering
-    // This prevents 3D rendering from blocking OSC message sending
-    // Use setInterval for guaranteed consistent rate independent of rendering
+    // NOTE: When using main process engine, OSC is handled there (never throttled)
+    // When using renderer engine only, we use setInterval for OSC
     const TARGET_OSC_FPS = 30 // 30 updates per second for smooth OSC
     const OSC_INTERVAL = 1000 / TARGET_OSC_FPS
+    
+    // Skip OSC loop if main process engine is handling it
+    const skipOSCLoop = isUsingMainProcessEngine()
     
     const updateOSC = () => {
       const state = get()
@@ -781,7 +851,13 @@ export const useAnimationStore = create<AnimationEngineState>((set, get) => ({
     }
 
     // Start OSC update loop with setInterval (not affected by rendering)
-    oscIntervalId = window.setInterval(updateOSC, OSC_INTERVAL)
+    // SKIP if main process engine is handling OSC (to avoid duplicate messages)
+    if (!skipOSCLoop) {
+      oscIntervalId = window.setInterval(updateOSC, OSC_INTERVAL)
+      console.log(`🔄 Renderer OSC loop started at ${TARGET_OSC_FPS} FPS`)
+    } else {
+      console.log(`⏭️  Renderer OSC loop skipped - main process handles OSC`)
+    }
 
     const animate = () => {
       const state = get()

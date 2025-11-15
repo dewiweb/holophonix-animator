@@ -62,7 +62,12 @@ export const handleSaveAnimation = ({
     return
   }
 
-  const animationId = currentAnimation?.id || `anim-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+  // CRITICAL: If name changed, this is a NEW animation - generate new ID immediately
+  // Don't reuse currentAnimation.id when name is different
+  const nameChanged = currentAnimation && currentAnimation.name && animationForm.name !== currentAnimation.name
+  const animationId = (nameChanged || !currentAnimation) 
+    ? `anim-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    : currentAnimation.id
   
   // V3: Build transform from UI state
   const transform = buildTransform(
@@ -114,21 +119,15 @@ export const handleSaveAnimation = ({
     trackSelectionLocked: lockTracks || false,
   }
 
-  // Check if we should update existing or create new
-  // If name changed, always create new animation (user's intent to save as new)
-  const shouldCreateNew = !currentAnimation || 
-    (currentAnimation.id && currentAnimation.name && animation.name !== currentAnimation.name)
-  
-  if (shouldCreateNew && currentAnimation?.id && currentAnimation.name && animation.name !== currentAnimation.name) {
-    // Name changed - create new animation with new ID
-    const newAnimation = { ...animation, id: `anim-${Date.now()}-${Math.random().toString(36).substring(2, 9)}` }
-    addAnimation(newAnimation)
-  } else if (currentAnimation && currentAnimation.id) {
-    // Same name or updating existing - update it
-    updateAnimation(animation.id, animation)
-  } else {
-    // No current animation - create new
+  // Determine whether to create new or update existing
+  if (nameChanged || !currentAnimation) {
+    // Name changed OR no current animation - create new
+    console.log(`📝 Creating new animation: "${animation.name}" (ID: ${animation.id})`)
     addAnimation(animation)
+  } else {
+    // Same name and updating existing - update it
+    console.log(`✏️ Updating existing animation: "${animation.name}" (ID: ${animation.id})`)
+    updateAnimation(animation.id, animation)
   }
   
   selectedTracksToApply.forEach((track) => {
