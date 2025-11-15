@@ -89,6 +89,7 @@
       "main.cjs.map",
       "preload.cjs",
       "preload.cjs.map",
+      "main-process/**/*.cjs",
       "dist/**/*",
       "!dist/builder-*",
       "!dist/win-unpacked",
