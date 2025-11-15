@@ -8,12 +8,15 @@ import { Timeline } from '@/components/Timeline'
 import { OSCManager } from '@/components/OSCManager'
 import { Settings } from '@/components/Settings'
 import { CueGrid } from '@/components/cue-grid/CueGrid'
+import { PositionEditor } from '@/components/position-editor'
 import { useProjectStore } from '@/stores/projectStore'
 import { useOSCStore } from '@/stores/oscStore'
 import { logger } from '@/utils/logger'
 import { testAllAnimations } from '@/test/helpers/testAnimations'
 import { runStartupVerification, verifyModels } from '@/models/verifyModels'
 import { setupTestingUtilities } from '@/test/helpers/testModelSystem'
+import { initAnimationEngineSync } from '@/stores/initAnimationEngineSync'
+import { initPositionCalculationService } from '@/services/positionCalculationService'
 
 function App() {
   const { currentProject, createProject, saveProject, openProject } = useProjectStore()
@@ -21,6 +24,17 @@ function App() {
   // Verify model system on startup (development only)
   useEffect(() => {
     runStartupVerification()
+  }, [])
+
+  // Initialize main process animation engine synchronization
+  useEffect(() => {
+    const cleanup = initAnimationEngineSync()
+    return cleanup
+  }, [])
+
+  // Initialize position calculation service (for request/response from main process)
+  useEffect(() => {
+    initPositionCalculationService()
   }, [])
 
   // Expose test function to window for browser console testing
@@ -136,6 +150,7 @@ function App() {
           <Route path="/animations" element={<AnimationEditor />} />
           <Route path="/timeline" element={<Timeline />} />
           <Route path="/cues" element={<CueGrid />} />
+          <Route path="/position-editor" element={<PositionEditor />} />
           <Route path="/osc" element={<OSCManager />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

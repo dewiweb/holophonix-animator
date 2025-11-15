@@ -39,7 +39,7 @@ export interface BaseCue {
 /**
  * Cue Types
  */
-export type CueType = 'animation' | 'osc' | 'reset'
+export type CueType = 'animation' | 'osc' | 'position'
 
 /**
  * Cue Status

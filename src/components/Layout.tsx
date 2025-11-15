@@ -4,6 +4,7 @@ import { cn } from '@/utils'
 import { useOSCStore } from '@/stores/oscStore'
 import { useAnimationStore } from '@/stores/animationStore'
 import { useProjectStore } from '@/stores/projectStore'
+import { PresetQuickActions } from '@/components/presets'
 import {
   Home,
   Play,
@@ -66,6 +67,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Animations', href: '/animations', icon: Play },
     { name: 'Timeline', href: '/timeline', icon: Clock },
     { name: 'Cue Grid', href: '/cues', icon: Grid3x3 },
+    { name: 'Position Editor', href: '/position-editor', icon: Box },
     { name: 'OSC Manager', href: '/osc', icon: Radio },
     { name: 'Settings', href: '/settings', icon: Settings },
   ]
@@ -173,6 +175,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </h2>
             </div>
             <div className="flex items-center gap-2 lg:gap-4 flex-shrink-0">
+              {/* Position Presets Actions */}
+              <PresetQuickActions layout="horizontal" showLabels={true} />
+              
+              {/* Separator */}
+              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+              
               {/* Status indicators */}
               <div className="flex items-center gap-1 lg:gap-2">
                 <div className={cn(

@@ -106,7 +106,7 @@ interface CueStoreV2State {
   // === PRIVATE EXECUTION METHODS ===
   _executeAnimationCue: (cueId: string, cue: Cue, context: ExecutionContext, options?: any) => Promise<void>
   _executeOSCCue: (cueId: string, cue: Cue, context: ExecutionContext) => Promise<void>
-  _executeResetCue: (cueId: string, cue: Cue, context: ExecutionContext) => Promise<void>
+  _executePositionCue: (cueId: string, cue: Cue, context: ExecutionContext) => Promise<void>
 }
 
 // Default settings
@@ -295,8 +295,8 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
             await get()._executeAnimationCue(cueId, cue, context, options)
           } else if ((cue as any).type === 'osc') {
             await get()._executeOSCCue(cueId, cue, context)
-          } else if ((cue as any).type === 'reset') {
-            await get()._executeResetCue(cueId, cue, context)
+          } else if ((cue as any).type === 'position') {
+            await get()._executePositionCue(cueId, cue, context)
           } else {
             console.warn('Unknown cue type:', (cue as any).type)
           }
@@ -557,109 +557,24 @@ export const useCueStoreV2 = create<CueStoreV2State>()(
         },
         
         /**
-         * Execute reset cue
+         * Execute position cue
          */
-        _executeResetCue: async (cueId: string, cue: Cue, context: ExecutionContext) => {
-          const cueData = (cue as any).data || {}
-          const trackIds = cueData.trackIds || []
-          const resetType = cueData.resetType || 'initial'
-          const duration = cueData.duration || 1.0
+        _executePositionCue: async (cueId: string, cue: Cue, context: ExecutionContext) => {
+          console.log('🎯 Executing position cue:', cueId)
           
-          if (trackIds.length === 0) {
-            console.warn('⚠️ Reset cue has no tracks:', cueId)
-            return
+          try {
+            const { positionCueExecutor } = await import('@/cues/executors/positionCueExecutor')
+            await positionCueExecutor.execute(cueId, cue as any, context)
+            
+            // Update cue status
+            get().updateCue(cueId, { status: 'complete' })
+            
+            console.log('✅ Position cue complete:', cueId)
+          } catch (error) {
+            console.error('❌ Position cue failed:', error)
+            get().updateCue(cueId, { status: 'error' })
+            throw error
           }
-          
-          console.log('🔄 Resetting tracks:', trackIds, 'to:', resetType, 'duration:', duration + 's')
-          
-          // Get project store
-          const { useProjectStore } = await import('@/stores/projectStore')
-          const projectStore = useProjectStore.getState()
-          
-          // Get OSC store for sending position updates
-          const { useOSCStore } = await import('@/stores/oscStore')
-          const oscStore = useOSCStore.getState()
-          
-          // Determine target positions and create reset data
-          const resetData = trackIds.map((trackId: string) => {
-            const track = projectStore.tracks.find(t => t.id === trackId)
-            if (!track) return null
-            
-            let targetPos
-            if (resetType === 'initial') {
-              targetPos = track.initialPosition || { x: 0, y: 0, z: 0 }
-            } else {
-              targetPos = { x: 0, y: 0, z: 0 }
-            }
-            
-            return {
-              trackId,
-              from: { ...track.position },
-              to: targetPos
-            }
-          }).filter(Boolean)
-          
-          if (resetData.length === 0) {
-            console.warn('⚠️ No valid tracks to reset')
-            return
-          }
-          
-          // Mark as executing
-          const executionId = generateId()
-          context.activeCues.set(cueId, {
-            id: executionId,
-            cueId,
-            startTime: new Date(),
-            state: 'running',
-            activeTargets: trackIds
-          })
-          
-          get().updateCue(cueId, { status: 'active' })
-          set({ executionContext: { ...context } })
-          
-          // Perform smooth transition
-          const startTime = Date.now()
-          const durationMs = duration * 1000
-          
-          const animate = () => {
-            const elapsed = Date.now() - startTime
-            const progress = Math.min(elapsed / durationMs, 1.0)
-            
-            // Linear easing
-            resetData.forEach((data: any) => {
-              const newPos = {
-                x: data.from.x + (data.to.x - data.from.x) * progress,
-                y: data.from.y + (data.to.y - data.from.y) * progress,
-                z: data.from.z + (data.to.z - data.from.z) * progress
-              }
-              
-              // Update track position in project store
-              projectStore.updateTrack(data.trackId, { position: newPos })
-              
-              // Send OSC update
-              const track = projectStore.tracks.find((t: any) => t.id === data.trackId)
-              if (track) {
-                // Get coordinate system from settings store
-                const { useSettingsStore } = require('@/stores/settingsStore')
-                const coordSystem = useSettingsStore.getState().oscSettings?.defaultCoordinateSystem || 'xyz'
-                const trackIndex = track.holophonixIndex || (projectStore.tracks.indexOf(track) + 1)
-                oscStore.sendMessage(`/track/${trackIndex}/${coordSystem}`, [newPos.x, newPos.y, newPos.z])
-              }
-            })
-            
-            if (progress < 1.0) {
-              requestAnimationFrame(animate)
-            } else {
-              // Complete
-              const currentContext = get().executionContext
-              currentContext.activeCues.delete(cueId)
-              get().updateCue(cueId, { status: 'idle' })
-              set({ executionContext: { ...currentContext } })
-              console.log('✅ Reset cue completed:', cueId)
-            }
-          }
-          
-          requestAnimationFrame(animate)
         },
         
         stopCue: async (cueId) => {

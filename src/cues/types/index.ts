@@ -4,11 +4,12 @@
  * Modular cue system with three main cue types:
  * - Animation: Execute stored animations
  * - OSC: Send direct OSC messages
- * - Reset: Return tracks to initial positions
+ * - Position: Recall position presets with transitions
  * 
  * Major changes from v1:
  * - Removed arming system
  * - Removed preset-based cues (merged into animation cues)
+ * - Removed reset cues (replaced by position presets)
  * - Modular architecture with type-specific data structures
  * - Enhanced edit workflow for animation cues
  */
@@ -19,19 +20,19 @@ export * from './baseCue'
 // Cue types
 export * from './animationCue'
 export * from './oscCue'
-export * from './resetCue'
+export * from './positionCue'
 
 // Import for union type
 import { AnimationCue } from './animationCue'
 import { OSCCue } from './oscCue'
-import { ResetCue } from './resetCue'
+import { PositionCue } from './positionCue'
 import { BaseCue } from './baseCue'
 
 /**
  * Unified Cue Type
  * Union of all cue types
  */
-export type Cue = AnimationCue | OSCCue | ResetCue
+export type Cue = AnimationCue | OSCCue | PositionCue
 
 /**
  * Cue Category (for organization)
@@ -192,8 +193,8 @@ export function isOSCCue(cue: Cue): cue is OSCCue {
   return cue.type === 'osc'
 }
 
-export function isResetCue(cue: Cue): cue is ResetCue {
-  return cue.type === 'reset'
+export function isPositionCue(cue: Cue): cue is PositionCue {
+  return cue.type === 'position'
 }
 
 /**
@@ -222,7 +223,7 @@ export function getCueDisplayColor(cue: Cue): string {
   switch (cue.type) {
     case 'animation': return '#3B82F6'  // Blue
     case 'osc': return '#8B5CF6'        // Purple
-    case 'reset': return '#F59E0B'      // Orange
+    case 'position': return '#10B981'   // Green
     default: return '#6B7280'           // Gray
   }
 }
@@ -238,7 +239,7 @@ export function getCueIcon(cue: Cue): string {
   switch (cue.type) {
     case 'animation': return 'Play'
     case 'osc': return 'Radio'
-    case 'reset': return 'RotateCcw'
+    case 'position': return 'Home'
     default: return 'Circle'
   }
 }
@@ -268,9 +269,9 @@ export function validateCue(cue: Cue): { valid: boolean; errors: string[] } {
       }
       break
     
-    case 'reset':
-      if (!cue.data.trackIds || cue.data.trackIds.length === 0) {
-        errors.push('At least one track is required for reset cue')
+    case 'position':
+      if (!cue.data.presetId) {
+        errors.push('Preset ID is required for position cue')
       }
       break
   }
@@ -284,7 +285,7 @@ export function validateCue(cue: Cue): { valid: boolean; errors: string[] } {
 /**
  * Create default cue of specified type
  */
-export function createDefaultCue(type: 'animation' | 'osc' | 'reset'): Partial<Cue> {
+export function createDefaultCue(type: 'animation' | 'osc' | 'position'): Partial<Cue> {
   const base: Partial<BaseCue> = {
     name: `New ${type} cue`,
     type,
@@ -318,17 +319,19 @@ export function createDefaultCue(type: 'animation' | 'osc' | 'reset'): Partial<C
         }
       } as Partial<OSCCue>
     
-    case 'reset':
+    case 'position':
       return {
         ...base,
-        type: 'reset',
+        type: 'position',
         data: {
-          trackIds: [],
-          resetType: 'initial',
-          duration: 1.0,
-          easing: 'ease-out',
+          presetId: '',
+          transition: {
+            duration: 2.0,
+            easing: 'ease-in-out',
+            mode: 'cartesian'
+          },
           interruptAnimations: true
         }
-      } as Partial<ResetCue>
+      } as Partial<PositionCue>
   }
 }

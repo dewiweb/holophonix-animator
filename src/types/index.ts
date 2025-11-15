@@ -607,6 +607,16 @@ export interface ElectronAPI {
   loadProject: (filePath: string) => void
 }
 
+// ========================================
+// POSITION PRESETS
+// ========================================
+
+export * from './positionPreset'
+
+// ========================================
+// ELECTRON API
+// ========================================
+
 // Extend window interface
 declare global {
   interface Window {
