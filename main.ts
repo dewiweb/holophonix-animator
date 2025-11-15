@@ -5,6 +5,9 @@ import * as fs from 'fs'
 import * as osc from 'osc'
 import * as dgram from 'dgram'
 
+// Load animation engine (plain JS, runs in main process)
+const { mainAnimationEngine } = require('./main-process/animationEngine.cjs')
+
 // For Electron main process, use app.getAppPath() for absolute paths
 const appPath = app.getAppPath()
 const preloadPath = join(appPath, 'preload.cjs')
@@ -336,6 +339,83 @@ app.whenReady().then(() => {
 
   const menu = Menu.buildFromTemplate(template)
   Menu.setApplicationMenu(menu)
+
+  // Initialize animation engine callbacks (after window is created)
+  mainAnimationEngine.setCallbacks({
+    onPositionUpdate: (updates: any) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('animation-position-update', updates)
+      }
+    },
+    onOSCBatch: (batch: any) => {
+      // Use existing OSC batch sending mechanism
+      const activeConnectionId = oscClients.keys().next().value
+      if (activeConnectionId) {
+        const client = oscClients.get(activeConnectionId)
+        if (client) {
+          const packets = batch.messages.map((msg: any) => ({
+            address: `/track/${msg.trackIndex}/${msg.coordSystem}`,
+            args: [
+              { type: 'f', value: msg.position.x },
+              { type: 'f', value: msg.position.y },
+              { type: 'f', value: msg.position.z }
+            ]
+          }))
+          
+          const oscBundle = {
+            timeTag: { raw: [0, 1] },
+            packets: packets
+          }
+          
+          client.send(oscBundle)
+        }
+      }
+    },
+    onAnimationStopped: (animationId: any) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('animation-stopped', { animationId })
+      }
+    },
+    onPositionCalculationRequest: (requests: any) => {
+      // Send requests to renderer for position calculation
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        // Process each request
+        requests.forEach((request: any) => {
+          mainWindow!.webContents.send('position-calculation-request', request)
+        })
+      }
+    }
+  })
+  
+  // Handle position calculation responses from renderer
+  ipcMain.on('position-calculation-response', (event, response: any) => {
+    // Send positions via OSC immediately (non-throttled!)
+    const { animationId, positions } = response
+    
+    if (positions && positions.length > 0) {
+      const activeConnectionId = oscClients.keys().next().value
+      if (activeConnectionId) {
+        const client = oscClients.get(activeConnectionId)
+        if (client) {
+          const packets = positions.map((pos: any) => ({
+            address: `/track/${pos.holophonixIndex}/xyz`,
+            args: [
+              { type: 'f', value: pos.position.x },
+              { type: 'f', value: pos.position.y },
+              { type: 'f', value: pos.position.z }
+            ]
+          }))
+          
+          const oscBundle = {
+            timeTag: { raw: [0, 1] },
+            packets: packets
+          }
+          
+          client.send(oscBundle)
+        }
+      }
+    }
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -744,6 +824,99 @@ ipcMain.on('stop-animation-timer', () => {
   if (animationTimer) {
     clearInterval(animationTimer)
     animationTimer = null
+  }
+})
+
+// ========================================
+// MAIN PROCESS ANIMATION ENGINE
+// ========================================
+// Note: Callbacks are initialized in app.whenReady() block above
+
+// Set engine configuration
+ipcMain.handle('animation-engine-set-config', async (event, config: any) => {
+  try {
+    mainAnimationEngine.setConfig(config)
+    return { success: true }
+  } catch (error) {
+    console.error('❌ Error setting engine config:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// Play animation in main process
+ipcMain.handle('animation-engine-play', async (event, snapshot: any) => {
+  try {
+    console.log('🎬 Main engine: Received play command for animation', snapshot.animationId)
+    
+    // Convert tracks array to Map if needed
+    if (Array.isArray(snapshot.tracks)) {
+      const tracksMap = new Map()
+      snapshot.tracks.forEach((track: any) => {
+        tracksMap.set(track.trackId, track)
+      })
+      snapshot.tracks = tracksMap
+    }
+    
+    mainAnimationEngine.playAnimation(snapshot)
+    return { success: true }
+  } catch (error) {
+    console.error('❌ Error playing animation in main engine:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// Pause animation
+ipcMain.handle('animation-engine-pause', async (event, animationId: string, currentTime: number) => {
+  try {
+    mainAnimationEngine.pauseAnimation(animationId, currentTime)
+    return { success: true }
+  } catch (error) {
+    console.error('❌ Error pausing animation:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// Resume animation
+ipcMain.handle('animation-engine-resume', async (event, animationId: string, currentTime: number) => {
+  try {
+    mainAnimationEngine.resumeAnimation(animationId, currentTime)
+    return { success: true }
+  } catch (error) {
+    console.error('❌ Error resuming animation:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// Stop animation
+ipcMain.handle('animation-engine-stop', async (event, animationId: string) => {
+  try {
+    mainAnimationEngine.stopAnimation(animationId)
+    return { success: true }
+  } catch (error) {
+    console.error('❌ Error stopping animation:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// Stop all animations
+ipcMain.handle('animation-engine-stop-all', async () => {
+  try {
+    mainAnimationEngine.stopAll()
+    return { success: true }
+  } catch (error) {
+    console.error('❌ Error stopping all animations:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// Get engine status
+ipcMain.handle('animation-engine-status', async () => {
+  try {
+    const status = mainAnimationEngine.getStatus()
+    return { success: true, status }
+  } catch (error) {
+    console.error('❌ Error getting engine status:', error)
+    return { success: false, error: (error as Error).message }
   }
 })
 

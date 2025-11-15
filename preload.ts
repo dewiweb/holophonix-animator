@@ -50,6 +50,55 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('animation-tick', listener)
   },
 
+  // Main Process Animation Engine (never throttled, runs in background)
+  animationEngineSetConfig: (config: any) =>
+    ipcRenderer.invoke('animation-engine-set-config', config),
+  animationEnginePlay: (snapshot: any) =>
+    ipcRenderer.invoke('animation-engine-play', snapshot),
+  animationEnginePause: (animationId: string, currentTime: number) =>
+    ipcRenderer.invoke('animation-engine-pause', animationId, currentTime),
+  animationEngineResume: (animationId: string, currentTime: number) =>
+    ipcRenderer.invoke('animation-engine-resume', animationId, currentTime),
+  animationEngineStop: (animationId: string) =>
+    ipcRenderer.invoke('animation-engine-stop', animationId),
+  animationEngineStopAll: () =>
+    ipcRenderer.invoke('animation-engine-stop-all'),
+  animationEngineStatus: () =>
+    ipcRenderer.invoke('animation-engine-status'),
+  
+  // Listen for position updates from main engine
+  onAnimationPositionUpdate: (callback: (updates: any[]) => void) => {
+    const handler = (_event: IpcRendererEvent, updates: any[]) => {
+      callback(updates)
+    }
+    ipcRenderer.on('animation-position-update', handler)
+    return () => {
+      ipcRenderer.removeListener('animation-position-update', handler)
+    }
+  },
+  
+  // Listen for animation stopped events
+  onAnimationEngineStopped: (callback: (data: { animationId: string }) => void) => {
+    const handler = (_event: IpcRendererEvent, data: { animationId: string }) => {
+      callback(data)
+    }
+    ipcRenderer.on('animation-stopped', handler)
+    return () => {
+      ipcRenderer.removeListener('animation-stopped', handler)
+    }
+  },
+
+  // Position calculation request/response (for main process to request calculations from renderer)
+  onPositionCalculationRequest: (callback: (request: any) => any) => {
+    ipcRenderer.on('position-calculation-request', async (_event, request) => {
+      const response = await callback(request)
+      ipcRenderer.send('position-calculation-response', response)
+    })
+    return () => {
+      ipcRenderer.removeAllListeners('position-calculation-request')
+    }
+  },
+
   // OSC settings synchronization
   oscUpdateSettings: (settings: any) =>
     ipcRenderer.invoke('osc-update-settings', settings),

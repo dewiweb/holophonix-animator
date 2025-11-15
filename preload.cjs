@@ -36,6 +36,44 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
         electron_1.ipcRenderer.on('animation-tick', listener);
         return () => electron_1.ipcRenderer.removeListener('animation-tick', listener);
     },
+    // Main Process Animation Engine (never throttled, runs in background)
+    animationEngineSetConfig: (config) => electron_1.ipcRenderer.invoke('animation-engine-set-config', config),
+    animationEnginePlay: (snapshot) => electron_1.ipcRenderer.invoke('animation-engine-play', snapshot),
+    animationEnginePause: (animationId, currentTime) => electron_1.ipcRenderer.invoke('animation-engine-pause', animationId, currentTime),
+    animationEngineResume: (animationId, currentTime) => electron_1.ipcRenderer.invoke('animation-engine-resume', animationId, currentTime),
+    animationEngineStop: (animationId) => electron_1.ipcRenderer.invoke('animation-engine-stop', animationId),
+    animationEngineStopAll: () => electron_1.ipcRenderer.invoke('animation-engine-stop-all'),
+    animationEngineStatus: () => electron_1.ipcRenderer.invoke('animation-engine-status'),
+    // Listen for position updates from main engine
+    onAnimationPositionUpdate: (callback) => {
+        const handler = (_event, updates) => {
+            callback(updates);
+        };
+        electron_1.ipcRenderer.on('animation-position-update', handler);
+        return () => {
+            electron_1.ipcRenderer.removeListener('animation-position-update', handler);
+        };
+    },
+    // Listen for animation stopped events
+    onAnimationEngineStopped: (callback) => {
+        const handler = (_event, data) => {
+            callback(data);
+        };
+        electron_1.ipcRenderer.on('animation-stopped', handler);
+        return () => {
+            electron_1.ipcRenderer.removeListener('animation-stopped', handler);
+        };
+    },
+    // Position calculation request/response (for main process to request calculations from renderer)
+    onPositionCalculationRequest: (callback) => {
+        electron_1.ipcRenderer.on('position-calculation-request', async (_event, request) => {
+            const response = await callback(request);
+            electron_1.ipcRenderer.send('position-calculation-response', response);
+        });
+        return () => {
+            electron_1.ipcRenderer.removeAllListeners('position-calculation-request');
+        };
+    },
     // OSC settings synchronization
     oscUpdateSettings: (settings) => electron_1.ipcRenderer.invoke('osc-update-settings', settings),
     // OSC settings response
